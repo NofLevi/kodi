@@ -547,3 +547,443 @@ msgstr ""
 msgctxt "#32232"
 msgid "MDBList"
 msgstr ""
+
+msgctxt "#30000"
+msgid "Accounts"
+msgstr ""
+
+msgctxt "#30001"
+msgid "Keys and logins. Nothing here leaves your device."
+msgstr ""
+
+msgctxt "#30002"
+msgid "Metadata"
+msgstr ""
+
+msgctxt "#30003"
+msgid "TMDB API key"
+msgstr ""
+
+msgctxt "#30004"
+msgid "Region code"
+msgstr ""
+
+msgctxt "#30005"
+msgid "MDBList API key"
+msgstr ""
+
+msgctxt "#30006"
+msgid "Trakt"
+msgstr ""
+
+msgctxt "#30007"
+msgid "Trakt client id"
+msgstr ""
+
+msgctxt "#30008"
+msgid "Trakt client secret"
+msgstr ""
+
+msgctxt "#30009"
+msgid "Signed in as"
+msgstr ""
+
+msgctxt "#30010"
+msgid "Debrid"
+msgstr ""
+
+msgctxt "#30011"
+msgid "Real-Debrid token"
+msgstr ""
+
+msgctxt "#30012"
+msgid "Premiumize API key"
+msgstr ""
+
+msgctxt "#30013"
+msgid "TorBox API key"
+msgstr ""
+
+msgctxt "#30014"
+msgid "AllDebrid API key"
+msgstr ""
+
+msgctxt "#30015"
+msgid "Sources"
+msgstr ""
+
+msgctxt "#30016"
+msgid "Where stream links come from, and how many are searched."
+msgstr ""
+
+msgctxt "#30017"
+msgid "Providers"
+msgstr ""
+
+msgctxt "#30018"
+msgid "Torrentio"
+msgstr ""
+
+msgctxt "#30019"
+msgid "Comet"
+msgstr ""
+
+msgctxt "#30020"
+msgid "MediaFusion"
+msgstr ""
+
+msgctxt "#30021"
+msgid "Zilean (DMM hashlists)"
+msgstr ""
+
+msgctxt "#30022"
+msgid "Nyaa (anime)"
+msgstr ""
+
+msgctxt "#30023"
+msgid "AnimeTosho (anime)"
+msgstr ""
+
+msgctxt "#30024"
+msgid "Use CocoScrapers if installed"
+msgstr ""
+
+msgctxt "#30025"
+msgid "Filtering"
+msgstr ""
+
+msgctxt "#30026"
+msgid "Only show cached sources"
+msgstr ""
+
+msgctxt "#30027"
+msgid "Highest resolution"
+msgstr ""
+
+msgctxt "#30028"
+msgid "Lowest resolution"
+msgstr ""
+
+msgctxt "#30029"
+msgid "Largest file (GB)"
+msgstr ""
+
+msgctxt "#30030"
+msgid "Allow HEVC (H.265)"
+msgstr ""
+
+msgctxt "#30031"
+msgid "Allow AV1"
+msgstr ""
+
+msgctxt "#30032"
+msgid "Allow HDR and Dolby Vision"
+msgstr ""
+
+msgctxt "#30033"
+msgid "Prefer releases with Hebrew subtitles"
+msgstr ""
+
+msgctxt "#30034"
+msgid "Allow cam and screener releases"
+msgstr ""
+
+msgctxt "#30035"
+msgid "File size preference"
+msgstr ""
+
+msgctxt "#30036"
+msgid "Performance"
+msgstr ""
+
+msgctxt "#30037"
+msgid "The limits that keep the add-on light on weak hardware."
+msgstr ""
+
+msgctxt "#30038"
+msgid "Searching"
+msgstr ""
+
+msgctxt "#30039"
+msgid "Sources shown"
+msgstr ""
+
+msgctxt "#30040"
+msgid "Search deadline (seconds)"
+msgstr ""
+
+msgctxt "#30041"
+msgid "Parallel workers"
+msgstr ""
+
+msgctxt "#30042"
+msgid "Play the best source automatically"
+msgstr ""
+
+msgctxt "#30043"
+msgid "Prefetch the next episode"
+msgstr ""
+
+msgctxt "#30044"
+msgid "Remember which release group worked"
+msgstr ""
+
+msgctxt "#30045"
+msgid "Use SeaDex rankings for anime"
+msgstr ""
+
+msgctxt "#30046"
+msgid "SeaDex is a community list of which anime release is actually the best one. It needs no account and is only consulted for anime."
+msgstr ""
+
+msgctxt "#30047"
+msgid "Storage"
+msgstr ""
+
+msgctxt "#30048"
+msgid "Cache size limit (MB)"
+msgstr ""
+
+msgctxt "#30049"
+msgid "Subtitle files kept"
+msgstr ""
+
+msgctxt "#30050"
+msgid "Refresh home rows in the background"
+msgstr ""
+
+msgctxt "#30051"
+msgid "Verbose logging"
+msgstr ""
+
+msgctxt "#30052"
+msgid "Subtitles"
+msgstr ""
+
+msgctxt "#30053"
+msgid "Automatic Hebrew and English subtitles, with AI translation as a fallback."
+msgstr ""
+
+msgctxt "#30054"
+msgid "Matching"
+msgstr ""
+
+msgctxt "#30055"
+msgid "Choose subtitles automatically"
+msgstr ""
+
+msgctxt "#30056"
+msgid "Language order"
+msgstr ""
+
+msgctxt "#30057"
+msgid "Prefer subtitles already in the file"
+msgstr ""
+
+msgctxt "#30058"
+msgid "Match by file hash (most accurate)"
+msgstr ""
+
+msgctxt "#30059"
+msgid "Minimum match score"
+msgstr ""
+
+msgctxt "#30060"
+msgid "Wizdom (Hebrew)"
+msgstr ""
+
+msgctxt "#30061"
+msgid "OpenSubtitles"
+msgstr ""
+
+msgctxt "#30062"
+msgid "SubSource"
+msgstr ""
+
+msgctxt "#30063"
+msgid "Ktuvit"
+msgstr ""
+
+msgctxt "#30064"
+msgid "The largest Hebrew subtitle source. It is a members' site, so it needs the account below and returns nothing without one."
+msgstr ""
+
+msgctxt "#30065"
+msgid "Ktuvit email"
+msgstr ""
+
+msgctxt "#30066"
+msgid "Ktuvit password"
+msgstr ""
+
+msgctxt "#30067"
+msgid "OpenSubtitles API key"
+msgstr ""
+
+msgctxt "#30068"
+msgid "AI translation"
+msgstr ""
+
+msgctxt "#30069"
+msgid "Used only when no good Hebrew subtitle exists."
+msgstr ""
+
+msgctxt "#30070"
+msgid "Engine"
+msgstr ""
+
+msgctxt "#30071"
+msgid "Translate with AI when nothing is found"
+msgstr ""
+
+msgctxt "#30072"
+msgid "Gemini API key"
+msgstr ""
+
+msgctxt "#30073"
+msgid "Gemini model"
+msgstr ""
+
+msgctxt "#30074"
+msgid "OpenAI compatible URL"
+msgstr ""
+
+msgctxt "#30075"
+msgid "OpenAI compatible key"
+msgstr ""
+
+msgctxt "#30076"
+msgid "OpenAI compatible model"
+msgstr ""
+
+msgctxt "#30077"
+msgid "Lines per request"
+msgstr ""
+
+msgctxt "#30078"
+msgid "Israeli TV"
+msgstr ""
+
+msgctxt "#30079"
+msgid "Live channels and the on-demand catalogue, kept as separate sections."
+msgstr ""
+
+msgctxt "#30080"
+msgid "Live TV"
+msgstr ""
+
+msgctxt "#30081"
+msgid "Show radio stations"
+msgstr ""
+
+msgctxt "#30082"
+msgid "Channel list URL"
+msgstr ""
+
+msgctxt "#30083"
+msgid "On demand"
+msgstr ""
+
+msgctxt "#30084"
+msgid "Catalogue URL"
+msgstr ""
+
+msgctxt "#30085"
+msgid "Kids mode"
+msgstr ""
+
+msgctxt "#30086"
+msgid "Replaces the home screen with rows that are safe by construction."
+msgstr ""
+
+msgctxt "#30087"
+msgid "Replaces every home row with children's rows and blocks anything above the age limit. Turning it off again asks for the PIN."
+msgstr ""
+
+msgctxt "#30088"
+msgid "Age limit"
+msgstr ""
+
+msgctxt "#30089"
+msgid "PIN"
+msgstr ""
+
+msgctxt "#30090"
+msgid "Stored as a hash, not as the digits. Leave it empty for no PIN."
+msgstr ""
+
+msgctxt "#30091"
+msgid "Interface"
+msgstr ""
+
+msgctxt "#30092"
+msgid "How the add-on looks and which rows appear."
+msgstr ""
+
+msgctxt "#30093"
+msgid "Appearance"
+msgstr ""
+
+msgctxt "#30094"
+msgid "Use the Katan home screen"
+msgstr ""
+
+msgctxt "#30095"
+msgid "Use the Katan search screen"
+msgstr ""
+
+msgctxt "#30096"
+msgid "Language"
+msgstr ""
+
+msgctxt "#30097"
+msgid "Hide watched titles in discovery rows"
+msgstr ""
+
+msgctxt "#30098"
+msgid "Show episodes that have not aired"
+msgstr ""
+
+msgctxt "#30099"
+msgid "Up Next prompt between episodes"
+msgstr ""
+
+msgctxt "#30100"
+msgid "Home rows (leave empty for defaults)"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Two letter region, for example IL"
+msgstr ""
+
+msgctxt "#30102"
+msgid "Comma separated, for example he,en"
+msgstr ""
+
+msgctxt "#30103"
+msgid "Free key from Google AI Studio"
+msgstr ""
+
+msgctxt "#30104"
+msgid "Base URL, for example http://192.168.1.10:1234/v1"
+msgstr ""
+
+msgctxt "#30105"
+msgid "API key"
+msgstr ""
+
+msgctxt "#30106"
+msgid "Model name"
+msgstr ""
+
+msgctxt "#30107"
+msgid "Leave empty to use the bundled list"
+msgstr ""
+
+msgctxt "#30108"
+msgid "Leave empty to use the bundled catalogue"
+msgstr ""
+
+msgctxt "#30109"
+msgid "Comma separated row ids"
+msgstr ""

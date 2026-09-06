@@ -35,6 +35,119 @@ def test_declared_assets_exist():
             assert os.path.isfile(os.path.join(ADDON_DIR, asset.text)), asset.text
 
 
+def test_settings_labels_are_string_ids():
+    """Kodi takes a numeric string id for label, help and heading.
+
+    Plain text is not a fallback: it renders as nothing, so every label in the
+    settings dialog was blank and none of them could ever be translated, which
+    matters rather a lot in a Hebrew-first add-on. Found by opening the dialog
+    in a real Kodi, because nothing here could see it.
+
+    <option> is exempt: its label really is the displayed value.
+    """
+    path = os.path.join(ADDON_DIR, "resources", "settings.xml")
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+
+    offenders = []
+    for line in text.splitlines():
+        if "<option" in line:
+            continue
+        for name, value in re.findall(r'\b(label|help)="([^"]*)"', line):
+            if value and not value.isdigit():
+                offenders.append("%s=%r" % (name, value))
+    for value in re.findall(r"<heading>([^<]*)</heading>", text):
+        if value.strip() and not value.strip().isdigit():
+            offenders.append("<heading>%s</heading>" % value.strip())
+
+    assert not offenders, \
+        "settings.xml has plain text where Kodi wants a string id: %s" \
+        % offenders[:5]
+
+    # <help> is an attribute in this format, never an element.
+    assert "<help>" not in text, \
+        "<help> is not an element in Kodi's settings format; it is ignored"
+
+
+def test_every_settings_string_id_exists():
+    """A label pointing at a missing string renders blank, same as plain text."""
+    path = os.path.join(ADDON_DIR, "resources", "settings.xml")
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+
+    used = set(re.findall(r'\b(?:label|help)="(\d+)"', text))
+    used |= set(re.findall(r"<heading>(\d+)</heading>", text))
+
+    po = os.path.join(LANG_DIR, "resource.language.en_gb", "strings.po")
+    with open(po, encoding="utf-8") as handle:
+        available = set(re.findall(r'msgctxt "#(\d+)"', handle.read()))
+
+    missing = sorted(used - available, key=int)
+    assert not missing, "settings.xml uses string ids with no string: %s" % missing
+
+
+def test_no_string_id_is_defined_twice():
+    """A duplicate msgctxt silently shadows one of the two labels."""
+    for folder in os.listdir(LANG_DIR):
+        po = os.path.join(LANG_DIR, folder, "strings.po")
+        if not os.path.isfile(po):
+            continue
+        with open(po, encoding="utf-8") as handle:
+            ids = re.findall(r'msgctxt "#(\d+)"', handle.read())
+        duplicates = sorted({i for i in ids if ids.count(i) > 1}, key=int)
+        assert not duplicates, "%s defines %s more than once" % (folder, duplicates)
+
+
+def test_the_home_rows_fit_on_screen():
+    """The row area has to hold a whole number of rows.
+
+    This has now gone wrong twice. A grouplist does not simply crop what does
+    not fit: it scrolls to keep the focused control visible, so a few pixels
+    short slides the whole column up, takes the focused row's heading off the
+    top and clips the next row against the bottom of the screen. The first row
+    then looks like it has no title, which is not an obvious symptom of a
+    height being wrong. The arithmetic is cheap to check, so it is checked.
+    """
+    tree = ET.parse(os.path.join(SKIN_DIR, "katan-home.xml"))
+
+    grouplist = None
+    for control in tree.getroot().iter("control"):
+        if control.get("id") == "8000":
+            grouplist = control
+            break
+    assert grouplist is not None, "the row grouplist should have id 8000"
+
+    def value(node, tag, default=0):
+        found = node.find(tag)
+        return int(found.text) if found is not None and found.text else default
+
+    top = value(grouplist, "top")
+    height = value(grouplist, "height")
+    gap = value(grouplist, "itemgap")
+
+    rows = [c for c in grouplist.findall("control") if c.get("type") == "group"]
+    assert rows, "expected the row groups"
+    row_height = value(rows[0], "height")
+
+    assert top + height <= 1080, \
+        "the row area runs past the bottom of a 1080 screen"
+
+    fit = (height + gap) // (row_height + gap)
+    assert fit >= 2, (
+        "only %d whole rows fit in %d px: %d rows of %d plus a %d gap need %d"
+        % (fit, height, 2, row_height, gap, 2 * row_height + gap))
+
+    # And every row group must be tall enough for its own heading and list.
+    for row in rows:
+        label = row.find("control")
+        listing = [c for c in row.findall("control") if c.get("type") == "list"]
+        assert listing, "a row group with no list"
+        needed = value(listing[0], "top") + value(listing[0], "height")
+        assert needed <= value(row, "height"), \
+            "row %s is %d px shorter than its own contents" % (
+                row.get("id"), needed - value(row, "height"))
+
+
 def test_the_tmdb_helper_player_points_at_real_routes():
     """A player file that names a dead route fails inside somebody else's skin.
 
@@ -125,7 +238,12 @@ def test_string_files_are_well_formed(language):
     ids = re.findall(r'msgctxt "#(\d+)"', text)
     assert ids, "no strings in %s" % language
     assert len(ids) == len(set(ids)), "duplicate ids in %s" % language
-    assert all(32000 <= int(i) <= 32999 for i in ids), "ids outside the add-on range"
+    # Kodi reserves 30000-30999 for an add-on's settings labels and
+    # 32000-32999 for the strings its own code asks for by number. Both are
+    # used here, and nothing should fall outside them.
+    outside = [i for i in ids
+               if not (30000 <= int(i) <= 30999 or 32000 <= int(i) <= 32999)]
+    assert not outside, "ids outside the add-on ranges: %s" % sorted(outside)[:5]
 
 
 def test_every_localize_call_has_a_string():

@@ -60,6 +60,15 @@ class HomeWindow(xbmcgui.WindowXML):
     def onInit(self):
         if self.rows:
             return                # onInit fires again when returning from a dialog
+
+        # Without a TMDB key almost every row is unavailable, and the ones that
+        # remain are the Israeli ones further down the list. Filling the first
+        # few slots then leaves a completely black screen with no explanation,
+        # which is what this window used to do. The plain directory listing has
+        # always offered the setup wizard here, so this does too.
+        if not self._require_setup():
+            return
+
         self.rows = catalog.enabled_rows()[:ROW_SLOTS]
         if not self.rows:
             kodi.notify(kodi.localize(32256))
@@ -67,13 +76,39 @@ class HomeWindow(xbmcgui.WindowXML):
             return
         for index in range(len(self.rows)):
             self._set_title(index, catalog.row_title(self.rows[index]))
-        for index in range(min(PRELOAD_ROWS, len(self.rows))):
+
+        # Preload until three rows actually have something in them rather than
+        # the first three in the list. A row that is enabled but empty - a
+        # Trakt chart with no account, an anime row the service has not warmed -
+        # would otherwise use up every visible slot.
+        filled = 0
+        for index in range(len(self.rows)):
+            if filled >= PRELOAD_ROWS:
+                break
             self._fill(index)
+            if self.data.get(index):
+                filled += 1
+
         self.setFocusId(LIST_BASE)
         # Seed the hero from the first item rather than waiting for a focus
         # event, or the top of the screen stays blank until the user moves.
         self._seed_hero()
         self._fill_rest_async()
+
+    def _require_setup(self):
+        """Offer the wizard when there is no TMDB key, and close.
+
+        Returns True when the window should carry on building itself.
+        """
+        from ..meta import tmdb
+        if tmdb.has_key():
+            return True
+
+        self.close()
+        if kodi.yes_no(kodi.localize(32256)):
+            from .wizard import run
+            run()
+        return False
 
     def onAction(self, action):
         code = action.getId()

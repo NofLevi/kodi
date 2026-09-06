@@ -30,7 +30,11 @@
             <left>90</left>
             <top>96</top>
             <width>980</width>
-            <height>350</height>
+            <!-- The tallest thing inside ends at 278 (plot at 118 + 160), so
+                 this is the content height rather than a reserved block. It
+                 used to be 350, which pushed the rows down far enough that
+                 two of them no longer fitted on screen. -->
+            <height>290</height>
             <visible>!String.IsEmpty(Window.Property(katan.hero.title))</visible>
 
             <control type="label">
@@ -105,12 +109,26 @@
 
         <!-- rows: a fixed pool of ten horizontal lists that Python fills
              and hides. Only the rows near the viewport are populated, so
-             a long home page costs no more than a short one. -->
+             a long home page costs no more than a short one.
+
+             The height has to hold a whole number of rows. Each row group is
+             330 tall and the gap is 10, so two rows need 670. It used to be
+             610, which is 60 short, and the consequence was not a neat crop:
+             a grouplist scrolls to keep the focused control visible, so it
+             slid up by the missing amount and took the focused row's heading
+             off the top of the screen while clipping the next row against the
+             bottom. The first row appeared to have no title at all.
+
+             470 + 610 and 410 + 670 both reach 1080. Only the second fits.
+             400 is used rather than 410 so the bottom row's focused label,
+             which sits in the last 24 px of the row, has a margin instead of
+             touching the edge of the panel.
+             test_addon_integrity checks this arithmetic now. -->
         <control type="grouplist" id="8000">
             <left>0</left>
-            <top>470</top>
+            <top>400</top>
             <width>1920</width>
-            <height>610</height>
+            <height>670</height>
             <orientation>vertical</orientation>
             <itemgap>10</itemgap>
 

@@ -38,7 +38,14 @@ def make_items(count, prefix="Title"):
 
 
 @pytest.fixture
-def home(monkeypatch):
+def configured(monkeypatch):
+    """A TMDB key, which the home window now requires before it builds itself."""
+    from katan.meta import tmdb
+    monkeypatch.setattr(tmdb, "has_key", lambda: True)
+
+
+@pytest.fixture
+def home(monkeypatch, configured):
     from katan import catalog
     from katan.meta import trakt_state
 
@@ -64,6 +71,56 @@ def test_home_fills_its_rows_and_sets_headings(home):
 def test_home_only_preloads_the_rows_near_the_top(home):
     """A long home page must not cost more than a short one."""
     assert len(home.filled) <= home_window.PRELOAD_ROWS + 1
+
+
+def test_home_offers_setup_instead_of_a_black_screen(monkeypatch):
+    """Without a key almost every row is unavailable and the screen was blank.
+
+    The plain directory listing has always offered the wizard here. The window
+    showed nothing at all, which reads as a broken add-on rather than an
+    unconfigured one.
+    """
+    from katan import kodi
+    from katan.meta import tmdb
+
+    monkeypatch.setattr(tmdb, "has_key", lambda: False)
+    asked = []
+    monkeypatch.setattr(kodi, "yes_no", lambda *a, **kw: asked.append(a) or False)
+
+    window = home_window.HomeWindow()
+    window.onInit()
+
+    assert asked, "the viewer should be offered the setup wizard"
+    assert window.rows == [], "no rows should be built without a key"
+
+
+def test_home_preloads_past_rows_that_come_back_empty(monkeypatch, configured):
+    """An enabled but empty row must not use up a visible slot.
+
+    A Trakt chart with no account and an unwarmed row both return nothing, and
+    they sit above the Israeli rows in the default order. Filling the first
+    three slots regardless left a blank screen with content further down.
+    """
+    from katan import catalog
+    from katan.meta import trakt_state
+
+    rows = [{"id": "row%d" % n, "title_id": 32201, "loader": lambda: [],
+             "ttl": 60, "needs": [], "default": True} for n in range(6)]
+    empty = {"row0", "row1", "row2"}
+    monkeypatch.setattr(catalog, "enabled_rows", lambda: rows)
+    monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
+    monkeypatch.setattr(catalog, "peek",
+                        lambda row_id: [] if row_id in empty
+                        else make_items(5, row_id))
+    monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
+
+    window = home_window.HomeWindow()
+    window.onInit()
+
+    assert window.data.get(3), "the first row with content must be filled"
+    assert len([i for i in window.data.values() if i]) >= 1
+    assert window.getProperty("katan.hero.title"), \
+        "the hero should come from the first row that actually has something"
 
 
 def test_home_updates_the_hero_from_the_focused_item(home):
