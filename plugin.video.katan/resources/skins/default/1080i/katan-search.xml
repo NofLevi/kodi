@@ -137,7 +137,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key0)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key0))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -149,7 +148,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key1)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key1))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -161,7 +159,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key2)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key2))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -173,7 +170,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key3)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key3))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -185,7 +181,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key4)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key4))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -197,7 +192,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key5)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key5))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -209,7 +203,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key6)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key6))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -221,7 +214,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key7)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key7))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -233,7 +225,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key8)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key8))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -245,7 +236,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key9)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key9))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -257,7 +247,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key10)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key10))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -269,7 +258,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key11)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key11))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -281,7 +269,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key12)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key12))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -293,7 +280,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key13)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key13))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -305,7 +291,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key14)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key14))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -317,7 +302,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key15)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key15))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -329,7 +313,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key16)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key16))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -341,7 +324,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key17)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key17))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -353,7 +335,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key18)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key18))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -365,7 +346,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key19)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key19))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -377,7 +357,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key20)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key20))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -389,7 +368,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key21)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key21))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -401,7 +379,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key22)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key22))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -413,7 +390,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key23)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key23))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -425,7 +401,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key24)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key24))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -437,7 +412,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key25)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key25))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -449,7 +423,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key26)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key26))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -461,7 +434,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key27)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key27))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -473,7 +445,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key28)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key28))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -485,7 +456,6 @@
             <font>font14</font>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key29)]</label>
-            <visible>!String.IsEmpty(Window.Property(katan.key29))</visible>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>
@@ -496,7 +466,7 @@
             <height>62</height>
             <font>font13</font>
             <align>center</align>
-            <label>$ADDON[plugin.video.katan 32291]</label>
+            <label>$INFO[Window.Property(katan.search.charset)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>

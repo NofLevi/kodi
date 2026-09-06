@@ -38,13 +38,46 @@ LIST_RESULTS = 5100
 DEBOUNCE_SECONDS = 0.25
 MIN_QUERY = 2
 
+# Every charset is padded to exactly KEY_COUNT. That is not cosmetic: the key
+# buttons used to be hidden while their character property was empty, and a
+# hidden control cannot take focus, so opening the window logged "Control 4000
+# has been asked to focus, but it can't" and the grid was left with nothing
+# focused. Filling every slot means every key is always there to focus.
 CHARSETS = [
     list("abcdefghijklmnopqrstuvwxyz") + ["-", "'", ":", "."],
     list("\u05d0\u05d1\u05d2\u05d3\u05d4\u05d5\u05d6\u05d7\u05d8\u05d9"
          "\u05db\u05dc\u05de\u05e0\u05e1\u05e2\u05e4\u05e6\u05e7\u05e8"
-         "\u05e9\u05ea") + ["\u05da", "\u05dd", "\u05df", "\u05e3", "\u05e5"],
-    list("0123456789") + ["&", "+", "!", "?", ",", "(", ")"],
+         "\u05e9\u05ea") + ["\u05da", "\u05dd", "\u05df", "\u05e3", "\u05e5",
+                            "-", "'", "."],
+    list("0123456789") + ["&", "+", "!", "?", ",", "(", ")", "-", "'", ":",
+                          ".", "/", "#", "@", "*", "%", "=", "_", "\"", ";"],
 ]
+
+assert all(len(charset) == KEY_COUNT for charset in CHARSETS), \
+    "every charset has to fill the key grid exactly"
+
+# Written in the script each one is, so the button reads as itself in any
+# interface language.
+CHARSET_NAMES = ["ABC", "אבג", "123"]
+
+
+def _typed_character(action):
+    """The printable character an action carries, if this Kodi exposes one.
+
+    Written defensively on purpose. Kodi 21's Action has no getUnicode at all,
+    older and newer builds do, and an add-on that assumes either one crashes on
+    the other. Anything unexpected here means "no character", never an error.
+    """
+    getter = getattr(action, "getUnicode", None)
+    if not callable(getter):
+        return ""
+    try:
+        char = getter()
+    except Exception:
+        return ""
+    if not char or not isinstance(char, str):
+        return ""
+    return char if char.isprintable() else ""
 
 
 class SearchWindow(xbmcgui.WindowXML):
@@ -59,6 +92,11 @@ class SearchWindow(xbmcgui.WindowXML):
         self.ready = False
 
     # -- lifecycle ---------------------------------------------------------
+
+    def prepare(self):
+        """Label the key grid before the window is shown, so it can take focus."""
+        self._paint_keys()
+        self.setProperty("katan.search.text", "")
 
     def onInit(self):
         if self.ready:
@@ -80,10 +118,14 @@ class SearchWindow(xbmcgui.WindowXML):
         if code == ACTION_ENTER and self.getFocusId() != LIST_RESULTS:
             self._submit()
             return
-        # A physical or on-screen system keyboard sends printable characters
-        # here, so hardware keyboards and Android voice input work unchanged.
-        char = action.getUnicode()
-        if char and char.isprintable():
+        # A physical keyboard can send the character here, on the Kodi builds
+        # that expose it. Kodi 21 does not: xbmcgui.Action has no getUnicode,
+        # and calling it raised an AttributeError on every single keypress,
+        # which the suite never saw because its fake Action had the method.
+        # The on-screen grid is the input that always works; this is a bonus
+        # where the build offers it.
+        char = _typed_character(action)
+        if char:
             self._append(char)
 
     def onClick(self, control_id):
@@ -115,6 +157,11 @@ class SearchWindow(xbmcgui.WindowXML):
         for index in range(KEY_COUNT):
             self.setProperty("katan.key%d" % index,
                              keys[index] if index < len(keys) else "")
+        # The switch button names the set it will move to, not all three at
+        # once. "ABC / Hebrew / 123" did not fit the button and was truncated
+        # to "ABC / Hebr...", which named nothing useful.
+        self.setProperty("katan.search.charset",
+                         CHARSET_NAMES[(self.charset + 1) % len(CHARSETS)])
 
     def _append(self, char):
         self._set_text(self.text + char)
@@ -260,6 +307,10 @@ def open_search(modal_result=False):
     """Open the window. Returns the submitted query when asked to."""
     window = SearchWindow("katan-search.xml", kodi.addon_path(), "default", "1080i")
     try:
+        # Paint the keys before the window is shown, for the same reason the
+        # home window sets its headings early: a control Kodi has not yet
+        # decided is visible cannot take focus.
+        window.prepare()
         window.doModal()
         query = window.submitted
     finally:
