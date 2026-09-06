@@ -84,6 +84,8 @@
                 <width>180</width>
                 <height>44</height>
                 <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <label>$ADDON[plugin.video.katan 32254]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
@@ -92,6 +94,8 @@
                 <width>180</width>
                 <height>44</height>
                 <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <label>$ADDON[plugin.video.katan 32255]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
@@ -100,6 +104,8 @@
                 <width>180</width>
                 <height>44</height>
                 <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <label>$ADDON[plugin.video.katan 32261]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
@@ -207,6 +213,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -288,6 +295,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -369,6 +377,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -450,6 +459,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -531,6 +541,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -612,6 +623,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -693,6 +705,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -774,6 +787,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -855,6 +869,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>
@@ -936,6 +951,7 @@
                             <font>font12</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
                         </control>
                     </focusedlayout>

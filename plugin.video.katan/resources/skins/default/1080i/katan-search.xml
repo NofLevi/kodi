@@ -135,6 +135,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key0)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -146,6 +148,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key1)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -157,6 +161,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key2)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -168,6 +174,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key3)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -179,6 +187,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key4)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -190,6 +200,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key5)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -201,6 +213,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key6)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -212,6 +226,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key7)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -223,6 +239,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key8)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -234,6 +252,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key9)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -245,6 +265,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key10)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -256,6 +278,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key11)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -267,6 +291,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key12)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -278,6 +304,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key13)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -289,6 +317,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key14)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -300,6 +330,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key15)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -311,6 +343,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key16)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -322,6 +356,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key17)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -333,6 +369,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key18)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -344,6 +382,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key19)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -355,6 +395,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key20)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -366,6 +408,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key21)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -377,6 +421,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key22)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -388,6 +434,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key23)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -399,6 +447,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key24)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -410,6 +460,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key25)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -421,6 +473,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key26)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -432,6 +486,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key27)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -443,6 +499,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key28)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -454,6 +512,8 @@
             <width>95</width>
             <height>62</height>
             <font>font14</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.key29)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -465,6 +525,8 @@
             <width>196</width>
             <height>62</height>
             <font>font13</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$INFO[Window.Property(katan.search.charset)]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -476,6 +538,8 @@
             <width>196</width>
             <height>62</height>
             <font>font13</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$ADDON[plugin.video.katan 32292]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -487,6 +551,8 @@
             <width>196</width>
             <height>62</height>
             <font>font13</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$ADDON[plugin.video.katan 32293]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -498,6 +564,8 @@
             <width>196</width>
             <height>62</height>
             <font>font13</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$ADDON[plugin.video.katan 32294]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -509,6 +577,8 @@
             <width>196</width>
             <height>62</height>
             <font>font13</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$ADDON[plugin.video.katan 32295]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>

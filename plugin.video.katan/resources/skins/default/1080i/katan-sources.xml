@@ -126,6 +126,8 @@
                 <width>260</width>
                 <height>56</height>
                 <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
                 <label>$INFO[Window.Property(katan.sources.toggle)]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -135,6 +137,8 @@
                 <width>260</width>
                 <height>56</height>
                 <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
                 <label>$ADDON[plugin.video.katan 32340]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
