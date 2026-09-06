@@ -35,6 +35,56 @@ def test_declared_assets_exist():
             assert os.path.isfile(os.path.join(ADDON_DIR, asset.text)), asset.text
 
 
+def test_an_empty_string_default_says_it_allows_empty():
+    """Kodi drops a string setting whose empty default is not declared.
+
+    It logs "error reading the default value" and then "requested setting was
+    not found", and the setting simply does not exist: it cannot be shown and
+    it cannot be written. Every API key, every debrid token and the kids PIN
+    were in that state, so the settings dialog showed almost nothing and
+    nothing the user typed could have been saved.
+
+    The form Kodi accepts is <default/> plus an allowempty constraint.
+    """
+    tree = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml"))
+
+    offenders = []
+    for setting in tree.iter("setting"):
+        if setting.get("type") != "string":
+            continue
+        default = setting.find("default")
+        if default is None or (default.text or "").strip():
+            continue
+        constraints = setting.find("constraints")
+        allowed = (constraints is not None
+                   and constraints.find("allowempty") is not None
+                   and (constraints.find("allowempty").text or "").strip()
+                   == "true")
+        if not allowed:
+            offenders.append(setting.get("id"))
+
+    assert not offenders, (
+        "these string settings default to empty without allowempty, so Kodi "
+        "will drop them: %s" % offenders)
+
+
+def test_every_setting_the_code_uses_is_declared():
+    """A setting settings.xml never names cannot be written, only read.
+
+    settings.get falls back to DEFAULTS so reading looks fine, which is why
+    this hid: the wizard's OAuth tokens and the chosen device profile were
+    being written to a setting Kodi did not have and silently discarded.
+    """
+    from katan import settings
+
+    tree = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml"))
+    declared = {node.get("id") for node in tree.iter("setting")}
+
+    missing = sorted(key for key in settings.DEFAULTS if key not in declared)
+    assert not missing, \
+        "settings used in code but not declared in settings.xml: %s" % missing
+
+
 def test_settings_labels_are_string_ids():
     """Kodi takes a numeric string id for label, help and heading.
 

@@ -987,3 +987,99 @@ msgstr ""
 msgctxt "#30109"
 msgid "Comma separated row ids"
 msgstr ""
+
+msgctxt "#30110"
+msgid "Poster width"
+msgstr ""
+
+msgctxt "#30111"
+msgid "Items per row"
+msgstr ""
+
+msgctxt "#30112"
+msgid "Metadata cache (hours)"
+msgstr ""
+
+msgctxt "#30113"
+msgid "Show channels known to be broken"
+msgstr ""
+
+msgctxt "#30114"
+msgid "OpenSubtitles username"
+msgstr ""
+
+msgctxt "#30115"
+msgid "OpenSubtitles password"
+msgstr ""
+
+msgctxt "#30116"
+msgid "Torrentio address"
+msgstr ""
+
+msgctxt "#30117"
+msgid "Torrentio options"
+msgstr ""
+
+msgctxt "#30118"
+msgid "Comet address"
+msgstr ""
+
+msgctxt "#30119"
+msgid "Comet config"
+msgstr ""
+
+msgctxt "#30120"
+msgid "MediaFusion address"
+msgstr ""
+
+msgctxt "#30121"
+msgid "MediaFusion config"
+msgstr ""
+
+msgctxt "#30122"
+msgid "Zilean address"
+msgstr ""
+
+msgctxt "#30123"
+msgid "trakt.access_token"
+msgstr ""
+
+msgctxt "#30124"
+msgid "trakt.refresh_token"
+msgstr ""
+
+msgctxt "#30125"
+msgid "trakt.expires"
+msgstr ""
+
+msgctxt "#30126"
+msgid "realdebrid.client_id"
+msgstr ""
+
+msgctxt "#30127"
+msgid "realdebrid.client_secret"
+msgstr ""
+
+msgctxt "#30128"
+msgid "realdebrid.refresh"
+msgstr ""
+
+msgctxt "#30129"
+msgid "realdebrid.expires"
+msgstr ""
+
+msgctxt "#30130"
+msgid "premiumize.client_id"
+msgstr ""
+
+msgctxt "#30131"
+msgid "premiumize.token"
+msgstr ""
+
+msgctxt "#30132"
+msgid "device.profile"
+msgstr ""
+
+msgctxt "#30133"
+msgid "Stored automatically"
+msgstr ""

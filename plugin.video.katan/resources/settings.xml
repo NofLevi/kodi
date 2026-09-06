@@ -5,8 +5,11 @@
         <category id="accounts" label="30000" help="30001">
             <group id="1" label="30002">
                 <setting id="tmdb.apikey" type="string" label="30003">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>0</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30003</heading>
                     </control>
@@ -19,8 +22,11 @@
                     </control>
                 </setting>
                 <setting id="mdblist.apikey" type="string" label="30005">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>1</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30005</heading>
                     </control>
@@ -29,22 +35,31 @@
 
             <group id="2" label="30006">
                 <setting id="trakt.client_id" type="string" label="30007">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>1</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30007</heading>
                     </control>
                 </setting>
                 <setting id="trakt.client_secret" type="string" label="30008">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>1</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30008</heading>
                     </control>
                 </setting>
                 <setting id="trakt.user" type="string" label="30009">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>0</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30009</heading>
                     </control>
@@ -54,34 +69,154 @@
 
             <group id="3" label="30010">
                 <setting id="realdebrid.token" type="string" label="30011">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>2</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30011</heading>
                     </control>
                 </setting>
                 <setting id="premiumize.apikey" type="string" label="30012">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>0</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30012</heading>
                     </control>
                 </setting>
                 <setting id="torbox.apikey" type="string" label="30013">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>0</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30013</heading>
                     </control>
                 </setting>
                 <setting id="alldebrid.apikey" type="string" label="30014">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
                     <level>0</level>
-                    <default></default>
                     <control type="edit" format="string">
                         <heading>30014</heading>
                     </control>
                 </setting>
             </group>
+            <!-- Written by the sign-in flows and the profile
+                 tool. Declared because Kodi silently ignores a
+                 setSetting for an id settings.xml never named,
+                 so an OAuth token had nowhere to live. -->
+            <group id="99" label="30133">
+                <setting id="trakt.access_token" type="string" label="30123">
+                    <level>3</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30123</heading>
+                    </control>
+                </setting>
+                <setting id="trakt.refresh_token" type="string" label="30124">
+                    <level>3</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30124</heading>
+                    </control>
+                </setting>
+                <setting id="trakt.expires" type="string" label="30125">
+                    <level>3</level>
+                    <default>0</default>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30125</heading>
+                    </control>
+                </setting>
+                <setting id="realdebrid.client_id" type="string" label="30126">
+                    <level>3</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30126</heading>
+                    </control>
+                </setting>
+                <setting id="realdebrid.client_secret" type="string" label="30127">
+                    <level>3</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30127</heading>
+                    </control>
+                </setting>
+                <setting id="realdebrid.refresh" type="string" label="30128">
+                    <level>3</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30128</heading>
+                    </control>
+                </setting>
+                <setting id="realdebrid.expires" type="string" label="30129">
+                    <level>3</level>
+                    <default>0</default>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30129</heading>
+                    </control>
+                </setting>
+                <setting id="premiumize.client_id" type="string" label="30130">
+                    <level>3</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30130</heading>
+                    </control>
+                </setting>
+                <setting id="premiumize.token" type="string" label="30131">
+                    <level>3</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30131</heading>
+                    </control>
+                </setting>
+                <setting id="device.profile" type="string" label="30132">
+                    <level>3</level>
+                    <default>balanced</default>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <heading>30132</heading>
+                    </control>
+                </setting>
+            </group>
+
         </category>
 
         <category id="sources" label="30015" help="30016">
@@ -187,6 +322,64 @@
                         <heading>30035</heading>
                     </control>
                 </setting>
+                <setting id="sources.torrentio.url" type="string" label="30116">
+                    <level>2</level>
+                    <default>https://torrentio.strem.fun</default>
+                    <control type="edit" format="string">
+                        <heading>30116</heading>
+                    </control>
+                </setting>
+                <setting id="sources.torrentio.options" type="string" label="30117">
+                    <level>2</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30117</heading>
+                    </control>
+                </setting>
+                <setting id="sources.comet.url" type="string" label="30118">
+                    <level>2</level>
+                    <default>https://comet.elfhosted.com</default>
+                    <control type="edit" format="string">
+                        <heading>30118</heading>
+                    </control>
+                </setting>
+                <setting id="sources.comet.config" type="string" label="30119">
+                    <level>2</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30119</heading>
+                    </control>
+                </setting>
+                <setting id="sources.mediafusion.url" type="string" label="30120">
+                    <level>2</level>
+                    <default>https://mediafusion.elfhosted.com</default>
+                    <control type="edit" format="string">
+                        <heading>30120</heading>
+                    </control>
+                </setting>
+                <setting id="sources.mediafusion.config" type="string" label="30121">
+                    <level>2</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30121</heading>
+                    </control>
+                </setting>
+                <setting id="sources.zilean.url" type="string" label="30122">
+                    <level>2</level>
+                    <default>https://zilean.elfhosted.com</default>
+                    <control type="edit" format="string">
+                        <heading>30122</heading>
+                    </control>
+                </setting>
             </group>
         </category>
 
@@ -244,6 +437,34 @@
                     <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="ui.poster_size" type="string" label="30110">
+                    <level>2</level>
+                    <default>w342</default>
+                    <constraints>
+                        <options>
+                            <option>w185</option>
+                            <option>w342</option>
+                            <option>w500</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>30110</heading>
+                    </control>
+                </setting>
+                <setting id="ui.row_items" type="integer" label="30111">
+                    <level>2</level>
+                    <default>20</default>
+                    <control type="edit" format="integer">
+                        <heading>30111</heading>
+                    </control>
+                </setting>
+                <setting id="cache.meta_hours" type="integer" label="30112">
+                    <level>2</level>
+                    <default>6</default>
+                    <control type="edit" format="integer">
+                        <heading>30112</heading>
+                    </control>
+                </setting>
             </group>
         </category>
 
@@ -292,8 +513,11 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.ktuvit.user" type="string" label="30065">
-                    <level>0</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>0</level>                    <control type="edit" format="string">
                         <heading>30065</heading>
                     </control>
                     <dependencies>
@@ -301,8 +525,11 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ktuvit.password" type="string" label="30066">
-                    <level>0</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>0</level>                    <control type="edit" format="string">
                         <heading>30066</heading>
                     </control>
                     <dependencies>
@@ -310,9 +537,32 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.opensubtitles.apikey" type="string" label="30067">
-                    <level>1</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>1</level>                    <control type="edit" format="string">
                         <heading>30067</heading>
+                    </control>
+                </setting>
+                <setting id="subs.opensubtitles.user" type="string" label="30114">
+                    <level>2</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30114</heading>
+                    </control>
+                </setting>
+                <setting id="subs.opensubtitles.password" type="string" label="30115">
+                    <level>2</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30115</heading>
                     </control>
                 </setting>
             </group>
@@ -337,8 +587,11 @@
                     </control>
                 </setting>
                 <setting id="subs.ai.gemini_key" type="string" label="30072">
-                    <level>0</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>0</level>                    <control type="edit" format="string">
                         <heading>30103</heading>
                     </control>
                     <dependencies>
@@ -355,8 +608,11 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ai.openai_url" type="string" label="30074">
-                    <level>0</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>0</level>                    <control type="edit" format="string">
                         <heading>30104</heading>
                     </control>
                     <dependencies>
@@ -364,8 +620,11 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ai.openai_key" type="string" label="30075">
-                    <level>0</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>0</level>                    <control type="edit" format="string">
                         <heading>30105</heading>
                     </control>
                     <dependencies>
@@ -373,8 +632,11 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ai.openai_model" type="string" label="30076">
-                    <level>0</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>0</level>                    <control type="edit" format="string">
                         <heading>30106</heading>
                     </control>
                     <dependencies>
@@ -396,18 +658,29 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="vod.channels_url" type="string" label="30082">
-                    <level>2</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>2</level>                    <control type="edit" format="string">
                         <heading>30107</heading>
                     </control>
                 </setting>
             </group>
             <group id="2" label="30083">
                 <setting id="vod.series_url" type="string" label="30084">
-                    <level>2</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>2</level>                    <control type="edit" format="string">
                         <heading>30108</heading>
                     </control>
+                </setting>
+                <setting id="vod.show_broken_channels" type="boolean" label="30113">
+                    <level>2</level>
+                    <default>false</default>
+                    <control type="toggle"/>
                 </setting>
             </group>
         </category>
@@ -432,8 +705,11 @@
                     </control>
                 </setting>
                 <setting id="kids.pin_hash" type="string" label="30089" help="30090">
-                    <level>0</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>0</level>                    <control type="edit" format="string">
                         <heading>30089</heading>
                     </control>
                 </setting>
@@ -476,8 +752,11 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="ui.rows" type="string" label="30100">
-                    <level>2</level><default></default>
-                    <control type="edit" format="string">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>2</level>                    <control type="edit" format="string">
                         <heading>30109</heading>
                     </control>
                 </setting>

@@ -24,12 +24,24 @@ def _handle():
 def home(params):
     """The root listing.
 
-    When the custom window is enabled we open it and hand Kodi an empty
-    directory, so the plugin call finishes immediately instead of holding the
-    handle open while the window lives.
+    Opening the add-on should land in the Katan window, not in a Kodi file
+    list, so that is the default and the plain listing is the fallback. The
+    window is handed an empty directory so the plugin call finishes at once
+    rather than holding the handle open for as long as the window lives.
+
+    The one case where the window is not opened is having no TMDB key. Almost
+    every row needs one, so the window would have nothing to draw; the plain
+    listing at least explains itself and offers the wizard. The wizard then
+    opens the window itself, so setting a key leads straight into the GUI
+    rather than back to a file list.
     """
+    from ..meta import tmdb
+
     handle = _handle()
-    if settings.get_bool("ui.window_home", True) and params.get("nowindow") != "1":
+    wants_window = (settings.get_bool("ui.window_home", True)
+                    and params.get("nowindow") != "1")
+
+    if wants_window and tmdb.has_key():
         listing.end(handle, succeeded=False)
         from .home_window import open_home
         open_home()
