@@ -30,11 +30,26 @@ class SourcesWindow(xbmcgui.WindowXML):
         self.refresh_requested = False
         self.ready = False
 
+    def prepare(self):
+        """Set what the window needs before it is shown.
+
+        The title, status and toggle label are all window properties the skin
+        reads, and the toggle button's whole label is one of them. Setting them
+        inside onInit meant the first paint had a blank button, and the list
+        could not take focus because Kodi had not yet decided it was visible.
+        Home and search already do this; this window did not.
+        """
+        self.setProperty("katan.sources.title", _heading(self.meta))
+        self.setProperty("katan.sources.status",
+                         _status(self._visible(), self.showing_all))
+        self.setProperty("katan.sources.toggle",
+                         kodi.localize(32342 if self.showing_all else 32341))
+
     def onInit(self):
         if self.ready:
             return
         self.ready = True
-        self.setProperty("katan.sources.title", _heading(self.meta))
+        self.prepare()
         self._render()
         self.setFocusId(LIST_SOURCES)
 
@@ -58,11 +73,28 @@ class SourcesWindow(xbmcgui.WindowXML):
         return self.full if self.showing_all else self.short
 
     def _render(self):
+        """Fill the list.
+
+        Wrapped because this runs inside onInit, where an exception is not a
+        stack trace the viewer ever sees - it silently abandons the rest of
+        onInit. That is exactly what used to happen: a crash building the badge
+        for the first cached source left the picker with a title, no status, a
+        blank toggle and an empty list, and nothing on screen said why.
+        """
         entries = self._visible()
-        control = self.getControl(LIST_SOURCES)
-        control.reset()
-        for source in entries:
-            control.addItem(_list_item(source))
+        try:
+            control = self.getControl(LIST_SOURCES)
+            control.reset()
+            # One addItems, not addItem in a loop. Adding one at a time during
+            # onInit only ever landed the first row on screen even though the
+            # status line correctly counted eight; the home and search windows
+            # both batch and both render fully.
+            control.addItems([_list_item(source) for source in entries])
+            kodi.log("sources picker: rendered %d of %d rows"
+                     % (control.size(), len(entries)))
+        except Exception:
+            kodi.log_exception("could not render the source list")
+
         self.setProperty("katan.sources.status", _status(entries, self.showing_all))
         self.setProperty("katan.sources.toggle",
                          kodi.localize(32342 if self.showing_all else 32341))
@@ -85,11 +117,42 @@ def _list_item(source):
     return li
 
 
+# Providers and debrid services are named by their module id internally. The
+# viewer should read the name the service calls itself.
+PROVIDER_NAMES = {
+    "torrentio": "Torrentio",
+    "comet": "Comet",
+    "mediafusion": "MediaFusion",
+    "zilean": "Zilean",
+    "nyaa": "Nyaa",
+    "animetosho": "AnimeTosho",
+    "external": "CocoScrapers",
+}
+
+
+def _provider_label(name):
+    return PROVIDER_NAMES.get(name, name.title() if name else "")
+
+
+def _service_label(name):
+    """The debrid service's own name: "TorBox", not "TORBOX"."""
+    if not name:
+        return ""
+    try:
+        from ..debrid import registry
+        service = registry.get(name)
+        if service is not None and getattr(service, "label", ""):
+            return service.label
+    except Exception:
+        pass
+    return name.title()
+
+
 def _detail(source):
     """The grey line: where it came from and how big it is."""
     bits = []
     providers = source.get("providers") or [source.get("provider", "")]
-    bits.append("/".join(p for p in providers if p))
+    bits.append(" / ".join(_provider_label(p) for p in providers if p))
     if source.get("size"):
         bits.append(release.size_label(source["size"]))
     if source.get("seeders"):
@@ -103,11 +166,20 @@ def _badge(source):
     """The right-hand column: cached status and quality, the two that decide."""
     bits = []
     if source.get("cached"):
-        service = source.get("cached_by") or ""
-        bits.append("%s %s" % (kodi.localize(32330), service.upper()).strip())
+        # The brackets used to be missing here, so .strip() bound to the tuple
+        # rather than to the formatted string. Every cached source raised, and
+        # because cached sources rank first, the very first row killed the
+        # whole list. The picker was empty for anyone who opened it.
+        bits.append(("%s %s" % (kodi.localize(32330),
+                                _service_label(source.get("cached_by")))).strip())
     if "he" in (source.get("languages") or []):
         bits.append(kodi.localize(32344))
-    bits.append((source.get("quality") or "sd").upper())
+
+    # An unknown quality is unknown. Labelling it SD is a claim, not a default.
+    quality = source.get("quality") or ""
+    if quality and quality != "unknown":
+        bits.append(quality.upper())
+
     if source.get("hdr"):
         bits.append("/".join(flag.upper() for flag in source["hdr"]))
     return "   ".join(bits)
@@ -148,6 +220,9 @@ def pick_source(sources, meta, all_sources=None):
         window.full = full
         window.meta = meta
         try:
+            # Before showing, so the first paint has a title, a status line and
+            # a toggle button with a label on it.
+            window.prepare()
             window.doModal()
             chosen = window.chosen
             refresh = window.refresh_requested

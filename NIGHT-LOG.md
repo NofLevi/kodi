@@ -128,3 +128,40 @@ Also in this batch, both from the code audit:
 
 `torbox.py`, `play.py` and the settings defaults now have tests where they had
 none. 602 tests, all green.
+
+## 02:40 — The source picker was broken for everyone who opened it
+
+With TMDB connected the home screen finally has real rows, and the details
+window and source picker could be seen with something in them for the first
+time. The home screen looks the part: hero with a backdrop, Hebrew row
+headings, real artwork.
+
+The picker did not. It showed a title, no status, a blank button and an empty
+list. The traceback names the line:
+
+    bits.append("%s %s" % (kodi.localize(32330), service.upper()).strip())
+
+`.strip()` binds to the **tuple**, not to the formatted string, so `_badge`
+raised on every cached source. Cached sources rank first, so the first row
+took out the entire list, inside `onInit`, where an exception is not a stack
+trace anyone sees — it just silently abandons the rest of the method. That is
+why the title was set (it happens on the line before) and nothing after it was.
+
+It survived because `sources.autoplay` ships on, so the picker only opens if
+you deliberately ask to choose a source.
+
+Fixed, along with four things from the audit: the window now sets its
+properties before it is shown (the toggle button's entire label is a property,
+so it painted blank), `_render` is wrapped so one bad row cannot abandon the
+rest, the debrid service is named the way it names itself — `TorBox`, not
+`TORBOX` — and an unknown quality is no longer labelled `SD`, which was a claim
+rather than a fallback. The window has tests now; it was the only one without
+any.
+
+**A second correction.** Between fixes I reported the picker rendering only
+one row, then none. Neither was true. Kodi renders lazily when idle — those
+screenshots show FPS 2 and 4 — so the capture returned a stale frame and a
+keypress forced the redraw. All eight rows were always there. I have stopped
+trusting a screenshot taken while nothing is moving.
+
+615 tests.
