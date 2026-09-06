@@ -5,6 +5,50 @@ import pytest
 
 
 # --------------------------------------------------------------------------
+# settings defaults
+#
+# DEFAULTS is the single registry of what a setting means when nobody has
+# touched it, and get_bool was quietly ignoring it: it handed get() an empty
+# string as the fallback, and get() returns any fallback that is not None
+# instead of consulting DEFAULTS. So every boolean that had never been written
+# read as false whatever DEFAULTS said - autoplay, cached_only, prefer_hebrew,
+# source_memory and thirteen others, all of which ship as true.
+# --------------------------------------------------------------------------
+
+
+def test_an_unset_boolean_uses_its_registered_default():
+    from katan import settings
+    assert settings.DEFAULTS["sources.autoplay"] == "true"
+    assert settings.get_bool("sources.autoplay") is True
+    assert settings.DEFAULTS["kids.enabled"] == "false"
+    assert settings.get_bool("kids.enabled") is False
+
+
+def test_every_declared_boolean_reads_back_as_declared():
+    """One assertion for the whole table, so a new setting cannot slip."""
+    from katan import settings
+    wrong = []
+    for key, value in settings.DEFAULTS.items():
+        if value not in ("true", "false"):
+            continue
+        if settings.get_bool(key) is not (value == "true"):
+            wrong.append(key)
+    assert not wrong, "these booleans do not read back as declared: %s" % wrong
+
+
+def test_an_explicit_default_still_wins_when_unset(settings_module):
+    from katan import settings
+    assert settings.get_bool("nothing.declared.here", True) is True
+    assert settings.get_bool("nothing.declared.here", False) is False
+
+
+def test_a_written_value_beats_the_default(settings_module):
+    from katan import settings
+    settings_module.set("sources.autoplay", "false")
+    assert settings.get_bool("sources.autoplay") is False
+
+
+# --------------------------------------------------------------------------
 # cache
 # --------------------------------------------------------------------------
 

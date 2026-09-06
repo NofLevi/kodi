@@ -292,10 +292,22 @@ def open_settings(params):
 @router.route("clear_cache")
 def clear_cache(params):
     from .. import cache
-    if kodi.yes_no(kodi.localize(32265)):
-        cache.clear()
-        catalog.invalidate()
-        kodi.notify(kodi.localize(32266))
+    if not kodi.yes_no(kodi.localize(32265)):
+        return
+    cache.clear()
+    catalog.invalidate()
+
+    # A debrid cache answer is remembered for an hour, including a negative
+    # one, so a torrent that has since become cached still reads as uncached
+    # until it expires. Clearing the cache is the one moment the user has
+    # asked for exactly that to stop, and this was never wired up.
+    try:
+        from ..debrid import registry
+        registry.forget_cache_status()
+    except Exception:
+        kodi.log_exception("clearing the debrid cache memory failed")
+
+    kodi.notify(kodi.localize(32266))
 
 
 @router.route("cache_info")

@@ -127,18 +127,22 @@ def _size(source):
 
 
 def _resolve(source):
-    """Ask the debrid service that has this source cached for a stream URL."""
+    """Ask the debrid service that has this source cached for a stream URL.
+
+    The choice of service is registry.resolver_for's job, not this function's.
+    It used to be duplicated here and the copy had drifted: it never checked
+    that the named service was still configured, so a source cached by an
+    account the user had since removed was handed to a client with no key.
+    """
     from .debrid import registry
-    service = source.get("cached_by") or (settings.configured_debrid() or [None])[0]
-    if not service:
-        return ""
-    client = registry.get(service)
+
+    client = registry.resolver_for(source)
     if client is None:
         return ""
     try:
         return client.resolve(source) or ""
     except Exception:
-        kodi.log_exception("resolving through %s failed" % service)
+        kodi.log_exception("resolving through %s failed" % client.name)
         return ""
 
 

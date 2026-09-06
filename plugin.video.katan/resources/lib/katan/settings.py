@@ -138,9 +138,30 @@ def get(key, default=None):
     return value
 
 
+TRUTHY = ("true", "1", "yes", "on")
+
+
 def get_bool(key, default=None):
-    value = get(key, "" if default is None else ("true" if default else "false"))
-    return str(value).lower() in ("true", "1", "yes", "on")
+    """A boolean setting, falling back to DEFAULTS when it has never been set.
+
+    This used to pass an empty string down as get()'s default, and get()
+    returns any default that is not None *instead of* consulting DEFAULTS. So
+    an unset boolean came back as "" and therefore False, whatever DEFAULTS
+    said. Every caller that relied on the registered default got the opposite:
+    sources.autoplay, cached_only, prefer_hebrew and source_memory all default
+    to true and all read as false.
+
+    Kodi itself hides this in normal use, because it writes every declared
+    setting into its own settings.xml from the <default> in the XML, so the
+    value is rarely genuinely absent. It bites for a setting that is not
+    declared, and it made the whole DEFAULTS table meaningless under test.
+    """
+    value = _raw(key)
+    if value == "":
+        if default is not None:
+            return bool(default)
+        value = DEFAULTS.get(key, "")
+    return str(value).lower() in TRUTHY
 
 
 def get_int(key, default=None):
