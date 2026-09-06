@@ -413,19 +413,65 @@ def _kids_anime():
     return kids.filter_items(found)
 
 
+# A channel's name names its audience: "כאן ילדים" is a children's channel.
+# Both scripts, because the channel list is titled in Hebrew and an
+# English-only list was matching on the key alone - one entry in eighty-four,
+# and nothing at all if that key were ever renamed.
+KIDS_CHANNEL_WORDS = ("kids", "luli", "junior", "baby",
+                      "ילדים",       # children
+                      "פעוטות", # toddlers
+                      "לולי",             # Luli
+                      "ג'וניור")  # Junior
+
+# A broadcaster's own children's section. This is the only signal used for
+# on-demand programmes, and the reason is worth stating: a programme's *name*
+# describes its subject, not its audience. Matching names put "לא לפני
+# הילדים", "מחפשת תשובה - חינוך ילדים" and "הילדים האבודים" into a children's
+# row - three adult programmes about children.
+KIDS_CATEGORY_WORDS = ("kids", "ילדים", "פעוטות")
+
+
 def _kids_israel():
-    """The Israeli children's channels, which are a fixed short list."""
+    """Israeli children's television, live and on demand.
+
+    Live first, then the broadcasters' own children's sections, because the
+    live list is short: of eighty-four channels exactly one is a children's
+    channel, and it is a DASH stream, so on a device without
+    inputstream.adaptive the row was empty altogether. Kan alone publishes a
+    children's category with twenty programmes in it.
+
+    Note what is *not* matched on. An earlier version included "הופ" for the
+    Hop! channel, and Hebrew substring matching turned that into "הופעה"
+    (performance) and "הופקר" (abandoned) - which is how a documentary about
+    7 October found its way into a row for small children. A three-letter
+    substring is not a word, and a kids row is the wrong place to learn that.
+    """
+    found = []
     try:
         from .vod import channels
     except ImportError:
-        return []
-    wanted = ("kids", "hop", "luli", "junior", "baby")
-    found = []
-    for channel in channels.live_channels(kind="tv") + channels.radio_stations():
-        key = (channel.get("ids") or {}).get("channel", "").lower()
-        title = (channel.get("title") or "").lower()
-        if any(word in key or word in title for word in wanted):
-            found.append(channel)
+        channels = None
+    if channels is not None:
+        for channel in (channels.live_channels(kind="tv")
+                        + channels.radio_stations()):
+            key = (channel.get("ids") or {}).get("channel", "").lower()
+            title = (channel.get("title") or "").lower()
+            if any(word in key or word in title
+                   for word in KIDS_CHANNEL_WORDS):
+                found.append(channel)
+
+    try:
+        from .vod import library
+    except ImportError:
+        return found[:ROW_LIMIT]
+    for entry in library.load():
+        category = (entry.get("c") or "").lower()
+        if not category:
+            continue
+        if any(word in category for word in KIDS_CATEGORY_WORDS):
+            found.append(library._to_item(entry))
+        if len(found) >= ROW_LIMIT:
+            break
     return found[:ROW_LIMIT]
 
 
