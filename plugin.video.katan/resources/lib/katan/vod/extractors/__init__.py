@@ -20,9 +20,10 @@ _MODULES = {}
 def _load():
     if _MODULES:
         return _MODULES
-    from . import kan, mako, reshet, sport5
+    from . import kan, mako, now14, radio891, reshet, sport1, sport5
     _MODULES.update({"kan": kan, "keshet": mako, "reshet": reshet,
-                     "sport5": sport5})
+                     "sport5": sport5, "sport1": sport1, "14tv": now14,
+                     "891fm": radio891})
     return _MODULES
 
 
