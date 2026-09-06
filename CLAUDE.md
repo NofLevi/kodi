@@ -63,8 +63,16 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
 
 ## Testing on Windows
 
+The portable Kodi is **not** in the repository: it is 232 MB of downloadable
+binaries. Fetch it on any machine with one command.
+
     python tools/setup_kodi.py        portable Kodi 21.3 into .kodi-test/
     .kodi-test/kodi.exe -p            run it
+
+That step also links the add-on folders in, enables them in Kodi's add-on
+database (Kodi leaves manually placed add-ons disabled), and turns on debug
+logging. Everything lives under `.kodi-test/`, which is gitignored; deleting
+the folder undoes all of it.
 
 The add-on folders are junctions into the source tree, so an edit here is live
 in Kodi with no copy step. The setup also enables both add-ons in the add-on
@@ -90,6 +98,46 @@ Two consequences shape the code. Concurrency is bounded rather than trusted to
 behave, and artwork is treated as a memory budget: Kodi caches decoded bitmaps,
 so poster width matters far more than download size. Three visible rows of
 posters cost roughly 6 MB at w185 and 22 MB at w342.
+
+## The test suite
+
+353 tests, all running against Kodi stubs, so no Kodi install is needed:
+
+    python -m pytest tests
+
+`tests/stubs/` is a small fake Kodi: `xbmc`, `xbmcgui`, `xbmcaddon`, `xbmcvfs`
+and `xbmcplugin` in about 480 lines. It records what the add-on did rather than
+drawing anything, so a handler can be run and then inspected. `conftest.py`
+gives every test a fresh profile directory, empty settings and a clean cache,
+plus a `no_network` fixture that fails loudly if a test reaches the internet.
+
+| File | Tests | What it protects |
+|---|---|---|
+| `test_imports.py` | 4 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences and stray control characters. |
+| `test_addon_integrity.py` | 12 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML. |
+| `test_core.py` | 10 | The SQLite cache and the router: TTLs, compression, LRU eviction under the size cap, and url_for round-tripping through parse_params. |
+| `test_routes.py` | 10 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen. |
+| `test_release_parser.py` | 14 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
+| `test_sources.py` | 21 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
+| `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
+| `test_subtitle_matching.py` | 14 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
+| `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
+| `test_subtitle_chooser.py` | 17 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
+| `test_subtitle_pipeline.py` | 13 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. |
+| `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
+| `test_translation_context.py` | 9 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
+| `test_vod.py` | 20 | Israeli live TV and the catalogue: broadcaster ordering, referers carried through, relative paths given their CDN host, broken channels hidden, Hebrew substring search, and updating the bundled data invalidating the cache. |
+| `test_windows.py` | 16 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard, and suggestions never overwriting what was typed. |
+| `test_details_window.py` | 10 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode. |
+| `test_profiles.py` | 14 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, and the artwork budget shrinking as intended. |
+| `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
+| `test_upnext.py` | 5 | The next episode, including across a season boundary, and the signal being well formed. |
+| `test_packaging.py` | 5 | The built zip staying under 600 KB, containing no build junk, rooted at the add-on id, and carrying every file the add-on needs. |
+
+Three of these catch whole classes of mistake rather than one bug:
+`test_imports.py` finds anything that will not load, `test_addon_integrity.py`
+finds settings and routes that promise something with no code behind them, and
+`test_packaging.py` stops the add-on quietly growing.
 
 ## Integration testing
 
