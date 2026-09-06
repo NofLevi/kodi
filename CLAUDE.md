@@ -120,7 +120,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-559 tests, all running against Kodi stubs, so no Kodi install is needed:
+700 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -132,10 +132,13 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 
 | File | Tests | What it protects |
 |---|---|---|
-| `test_imports.py` | 90 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences and stray control characters. |
+| `test_imports.py` | 91 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences, stray control characters, and `"%s" % (a, b).strip()` - where the method binds to the tuple, not the string, which has shipped twice and once took the whole source picker down. |
 | `test_addon_integrity.py` | 20 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, the TMDb Helper player file naming only registered actions, and the four things a real Kodi taught us - settings labels being string ids, empty string defaults declaring allowempty, every setting the code uses being declared, and the row area holding a whole number of rows. |
-| `test_core.py` | 10 | The SQLite cache and the router: TTLs, compression, LRU eviction under the size cap, and url_for round-tripping through parse_params. |
-| `test_routes.py` | 20 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen. |
+| `test_core.py` | 14 | The SQLite cache and the router: TTLs, compression, LRU eviction under the size cap, and url_for round-tripping through parse_params. |
+| `test_routes.py` | 22 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen, and stops a row that is known to be empty being offered as a menu entry that leads nowhere. |
+| `test_aggregator.py` | 22 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |
+| `test_providers.py` | 17 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
+| `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
 | `test_release_parser.py` | 29 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
 | `test_sources.py` | 21 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
@@ -155,9 +158,12 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_extractors_israeli.py` | 23 | Now 14, Sport 1 and 891FM, plus the check that every broadcaster in the catalogue has an extractor behind it. |
 | `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
 | `test_kids.py` | 25 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. |
-| `test_windows.py` | 24 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard, suggestions never overwriting what was typed, entering the add-on landing in the Katan window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. |
-| `test_details_window.py` | 10 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode. |
-| `test_profiles.py` | 16 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, and the artwork budget shrinking as intended. |
+| `test_windows.py` | 30 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Katan window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. |
+| `test_details_window.py` | 13 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. |
+| `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
+| `test_play.py` | 20 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, and whether a download may be started. |
+| `test_profiles.py` | 25 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, **the shipped defaults being the lean profile key for key**, and the visual-polish switch raising artwork without ever lowering a richer profile. |
+| `test_wizard.py` | 7 | The one setup step that is not an account: light against richer artwork, with what each costs, and a device that is told it has room rather than quietly switched. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
 | `test_upnext.py` | 5 | The next episode, including across a season boundary, and the signal being well formed. |
 | `test_packaging.py` | 5 | The built zip staying under 600 KB, containing no build junk, rooted at the add-on id, and carrying every file the add-on needs. |
@@ -181,8 +187,13 @@ plugin path runs the plugin exactly as a user would, so a broken route shows up
 as an empty or failed directory rather than as a silent blank screen.
 
 Measured on Kodi 21.3, Windows, September 2026: nine paths opened, none failed,
-no Python errors. Kodi 21 ships **Python 3.8**, not 3.11, so `int.bit_count`
-is unavailable and the popcount fallback in `subs/sync.py` is load-bearing.
+no Python errors. Home 108 ms, live TV 118 ms, search 406 ms. Kodi 21 ships
+**Python 3.8**, not 3.11, so `int.bit_count` is unavailable and the popcount
+fallback in `subs/sync.py` is load-bearing.
+
+The device report on the shipped defaults: **about 6 MB of visible artwork**,
+home from cache 1 ms, cache write 0 ms, subtitle alignment 367 ms, cache on
+disk 0.5 MB. The zip is 358 KB against a 600 KB budget.
 
 ## Verifying the windows render
 
@@ -232,10 +243,29 @@ by changes the unit suite passed cleanly.
 * Kan and Mako listed their own site navigation as episodes, so the first
   "episode" of every programme was a menu item that plays nothing.
 
+A later pass found three more, none of which any test could have shown:
+
+* **Every button was white text on a near-white focus texture.** The focused
+  control - the only one whose label matters at that moment - was the one you
+  could not read. Forty-four buttons across four windows now declare a
+  `focusedcolor`. The search window's on-screen keyboard was the worst case:
+  thirty-five keys, and the one under the cursor invisible.
+* "Add to Trakt watchlist" is four Hebrew words and one Latin one, and did not
+  fit in 270 px. It was clipped at both ends, so the label read as a fragment
+  with no beginning.
+* The search window opened on the **Latin** keyboard in a Hebrew interface,
+  for a catalogue titled entirely in Hebrew.
+
 The lesson worth keeping: the stubs can only be as right as our belief about
 Kodi, and three of these were the stubs being more generous than the real
 thing. Anything about how Kodi *renders* or *validates* has to be checked in
 Kodi.
+
+And one about the checking itself. **Kodi renders lazily when idle** - FPS
+drops to 2-5 - so a screenshot taken while nothing is moving returns the
+previous frame. That misread cost three false bug reports in one night: a
+picker "showing one row", then "none", then a details window "drawing no
+poster". All three were fine. Send an input and wait before every capture.
 
 ## Channel data goes stale
 
@@ -273,14 +303,37 @@ read only TMDB's full genre objects, which appear on a details call, and
 ignored the bare `genre_ids` a list result sends, so every row item arrived
 with no genres at all.
 
-## Device profiles
+## Device profiles, and lightweight by default
 
 `profiles.py` holds three sets of settings applied together: low memory,
 balanced, powerful. Tools -> Performance profile recommends one from the free
-memory, core count and panel resolution the device reports. Low memory caps
-resolution at 720p, halves the workers, shrinks the caches and falls back to
-the plain Kodi lists rather than the custom windows, which hold every visible
-row of artwork at once.
+memory, core count and panel resolution the device reports.
+
+**`settings.DEFAULTS` is `LOW_MEMORY`, key for key, and a test asserts it.**
+That is the whole of "lightweight by default": the state you get before
+touching anything is the lean profile, not a fourth opinion nobody maintains.
+It had drifted into being `balanced`, so an add-on written for a projector with
+a gigabyte of RAM shipped w342 posters and four workers to it.
+
+Artwork is why this matters more than the rest put together. Kodi holds decoded
+bitmaps, so a w342 poster occupies about 700 KB against 205 KB at w185, and
+three visible rows is roughly 22 MB against 6 MB. `profiles.artwork_megabytes`
+is the single implementation of that arithmetic; the device report and the
+setup wizard both call it.
+
+The polish is one switch rather than a profile name: `ui.rich_visuals`, off, in
+the interface settings and as a step in the setup wizard. It is a **floor, not
+an assignment** - it lifts artwork to at least w342 and twenty a row and cannot
+lower a profile that already asks for more. `profiles.set_rich_visuals` is what
+turns it on, because the poster width lives in the profile tables and flipping
+the setting alone would change nothing until a profile was next applied.
+
+Nothing is raised for you on better hardware. `recommend()` reads the device
+and the wizard shows its opinion, but spending the memory stays a choice
+somebody makes.
+
+Note that Kodi writes every declared setting into its own file the first time
+it loads an add-on, so changing a default only affects a **fresh** install.
 
 ## Working on this
 
@@ -352,22 +405,31 @@ settings that promised a provider with no code behind them were removed, and
 
 **Needs a real device or account to finish**
 
-* Debrid playback has never run against a live account. Every client is
-  written to its documented API and unit tested against fixtures, but no
-  stream has actually been resolved end to end.
 * Trakt needs the user's own client id and secret, because the project has no
   registered application.
 * Ktuvit is implemented against its documented flow and tested against
   fixtures, but has never signed in to a real account.
 * MDBList is implemented and fixture tested; the live API needs a key.
-* Playback itself is no longer on this list. All seven broadcasters and the
-  ticket-signed live channels have been played in a real Kodi 21, with the
-  player reporting speed=1 and the picture on screen. What has not been tried
-  is a debrid stream, because that still needs an account.
+* AI subtitle translation is fixture tested; the live path needs a Gemini key.
+* Subtitles have run on a real playback - the file hash is computed in about a
+  second and the Hebrew search starts - but no subtitle has been watched
+  through to the end of a film on a real file.
+* Playback itself is no longer on this list. All seven broadcasters, the
+  ticket-signed live channels **and debrid streams** have been played in a real
+  Kodi 21 with the player reporting speed=1: three films, two episodes, and a
+  73-file season pack from which the right episode was picked.
 * Mako's on-demand catalogue carries pre-roll ads: a stream takes about
   fifteen seconds to reach the programme. Two of twenty episodes sampled
   resolved to Mako's own "unavailable" clip, which is expired content rather
   than a fault.
+
+**Broken upstream, nothing to fix here**
+
+* **The AniList API is refusing every request** as of 7 September 2026 - 403
+  with "The AniList API has been temporarily disabled due to severe stability
+  issues", to any User-Agent including a browser one. The anime row therefore
+  comes back empty and is hidden, and anime search returns nothing. It will fix
+  itself; nothing here needs changing when it does.
 
 **Missing features**
 
@@ -385,7 +447,18 @@ settings that promised a provider with no code behind them were removed, and
 **Done since this list was written**
 
 The Akamai entitlement flow, all five missing VOD extractors, Ktuvit, MDBList,
-SeaDex, kids mode, the TMDb Helper player file and the repository URLs.
+SeaDex, kids mode, the TMDb Helper player file and the repository URLs. Then,
+overnight on 6-7 September 2026: debrid playback proven end to end, the whole
+settings dialog made to render, lightweight made the shipped default, and the
+run of defects recorded in `NIGHT-LOG.md` - which carries a per-feature
+confirmation matrix saying how each one was actually checked.
+
+Two settings that promised something with no code behind them were also
+finished rather than deleted. `allow_uncached` was read by three debrid clients
+and written by nothing, which made "cached only: off" a trap: the picker listed
+sources the client then refused to open, so pressing play did nothing at all.
+And `registry.forget_cache_status()` existed and was never called, so a torrent
+that became cached still read as uncached for an hour.
 
 ## Attribution
 
