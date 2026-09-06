@@ -76,11 +76,23 @@ def cache_key(meta):
 
 def find(meta, prefetch=False, force=False):
     """Return a ranked, short list of sources for a movie or episode."""
+    return _top(_ranked(meta, prefetch=prefetch, force=force))
+
+
+def _ranked(meta, prefetch=False, force=False):
+    """Everything that survived the filters, best first.
+
+    What is cached is the whole ranked list, not the handful the picker
+    shows. Caching only the short list made "show all" a lie: it read back
+    the same cache entry, so the toggle re-ranked eight sources and returned
+    the same eight. Ranking a cached list again is a sort of a few hundred
+    dictionaries, which costs nothing next to the search it replaces.
+    """
     key = cache_key(meta)
     if not force:
         hit = cache.get(key)
         if hit is not None:
-            return _recheck_cached(hit, meta) if not prefetch else hit
+            return hit if prefetch else _recheck_cached(hit, meta)
 
     providers = _enabled_providers(meta)
     if not providers:
@@ -96,12 +108,18 @@ def find(meta, prefetch=False, force=False):
     _apply_meta(merged, meta)
     _check_debrid_cache(merged)
 
-    ranked, rejected = scoring.rank(merged, meta, _runtime_hours(meta))
+    kept, rejected = scoring.rank_all(merged, meta, _runtime_hours(meta))
     kodi.log("sources: %d found, %d after ranking%s"
-             % (len(merged), len(ranked), _rejection_summary(rejected)))
+             % (len(merged), len(kept), _rejection_summary(rejected)))
 
-    cache.set(key, ranked, TTL_RESULTS if ranked else TTL_EMPTY)
-    return ranked
+    cache.set(key, kept, TTL_RESULTS if kept else TTL_EMPTY)
+    return kept
+
+
+def _top(sources):
+    """The handful the picker shows, which is the point of ranking at all."""
+    limit = settings.get_int("sources.results")
+    return sources[:limit] if limit else sources
 
 
 def _run_providers(providers, meta, quiet=False):
@@ -154,37 +172,61 @@ def _apply_meta(sources, meta):
         source["extra"]["meta"] = context
 
 
-def _check_debrid_cache(sources):
-    """One batched question per service, never one request per source."""
+def _check_debrid_cache(sources, recheck=False):
+    """One batched question per service, never one request per source.
+
+    Returns False when no service could answer, so the caller can tell "no
+    service holds this" apart from "nobody was asked". Normally only the
+    sources not already flagged are asked about; `recheck` asks about all of
+    them and clears a flag that is no longer true.
+    """
     from ..debrid import registry
 
-    unknown = [s["hash"] for s in sources if s.get("hash") and not s.get("cached")]
-    if not unknown:
-        return
+    ask = [s["hash"] for s in sources
+           if s.get("hash") and (recheck or not s.get("cached"))]
+    if not ask:
+        return True
     try:
-        answers = registry.cached_map(unknown)
+        answers = registry.cached_map(ask)
     except Exception:
         kodi.log_exception("debrid cache lookup failed")
-        return
+        return False
     for source in sources:
         service = answers.get(source.get("hash"))
         if service:
             source["cached"] = True
             source["cached_by"] = service
+        elif recheck and source.get("hash"):
+            source.pop("cached", None)
+            source.pop("cached_by", None)
+    return True
 
 
 def _recheck_cached(sources, meta):
-    """Re-confirm cache flags on a cached result list.
+    """Re-confirm cache flags on a cached result list, and re-rank if they moved.
 
     The list itself stays valid for a while, but whether a service still holds
     a torrent can change, and playing a source that is no longer cached is the
     most annoying possible failure.
+
+    This used to ask only about the sources already marked *un*cached, so a
+    flag could go up and never come down - which is precisely the failure the
+    paragraph above says it prevents. It now asks about all of them.
+
+    Re-ranking afterwards is not decoration. Being cached is worth more than
+    every other signal put together, and with `cached_only` on - the default -
+    it decides whether a source is shown at all, so a flag that changed and an
+    order that did not would put a source that can no longer play at the top.
     """
-    stale = [s for s in sources if s.get("cached")]
-    if not stale:
+    if not sources:
         return sources
-    _check_debrid_cache([s for s in sources if not s.get("cached")])
-    return sources
+    before = [bool(s.get("cached")) for s in sources]
+    if not _check_debrid_cache(sources, recheck=True):
+        return sources
+    if [bool(s.get("cached")) for s in sources] == before:
+        return sources
+    kept, _ = scoring.rank_all(sources, meta, _runtime_hours(meta))
+    return kept
 
 
 def _runtime_hours(meta):
@@ -207,11 +249,7 @@ def _rejection_summary(rejected):
 
 def all_sources(meta):
     """Everything that passed the filters, for the "show all" action."""
-    hit = cache.get(cache_key(meta))
-    if hit is None:
-        return find(meta)
-    ranked, _ = scoring.rank_all(hit, meta, _runtime_hours(meta))
-    return ranked
+    return _ranked(meta)
 
 
 def invalidate(meta=None):
