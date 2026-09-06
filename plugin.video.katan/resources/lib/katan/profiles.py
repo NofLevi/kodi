@@ -26,6 +26,19 @@ What the profiles actually change:
       occupies about 700 KB while a w185 one occupies about 205 KB
     how large a file may be, and how much is cached on disk
     whether work is done ahead of time
+
+LOW_MEMORY is what the add-on ships as. `settings.DEFAULTS` is this table, key
+for key, and a test says so - so the state you get before touching anything and
+the state the lean profile produces cannot drift apart. They had drifted before
+anyone noticed, which is how "balanced" came to be the shipped default of an
+add-on written for a projector with a gigabyte of RAM.
+
+Nothing is silently raised for you on better hardware. `recommend()` still
+reads the device and says what it thinks, and the setup wizard shows that
+opinion, but choosing to spend the memory stays a choice somebody makes. The
+one switch that does it, `ui.rich_visuals`, is a floor rather than an
+assignment: it lifts artwork to at least w342 and twenty items a row, and never
+lowers a profile that already asks for more.
 """
 from . import kodi, settings
 
@@ -139,6 +152,20 @@ NAMES = {
     "powerful": 32382,
 }
 
+# The shipped profile, and the one settings.DEFAULTS mirrors.
+DEFAULT = "low_memory"
+
+# The one switch that buys visual polish, expressed as a floor rather than an
+# assignment so that turning it on can only ever raise what a profile chose.
+RICH_VISUALS = {
+    "ui.poster_size": "w342",
+    "ui.row_items": "20",
+}
+
+# Widest last. Kodi holds decoded bitmaps, so this ladder is a memory ladder:
+# roughly 205 KB a poster at w185, 700 KB at w342 and 1.5 MB at w500.
+POSTER_WIDTHS = ["w92", "w154", "w185", "w342", "w500", "w780", "original"]
+
 
 def apply(name):
     """Apply a profile. Returns how many settings changed."""
@@ -146,7 +173,7 @@ def apply(name):
     if not values:
         return 0
     changed = 0
-    for key, value in values.items():
+    for key, value in _with_visuals(values).items():
         if settings.get(key) != value:
             settings.set(key, value)
             changed += 1
@@ -154,6 +181,59 @@ def apply(name):
     kodi.log("applied the %s profile (%d settings changed)" % (name, changed),
              kodi.LOG_INFO)
     return changed
+
+
+def _with_visuals(values):
+    """A profile's settings, raised by the visual-polish switch if it is on."""
+    if not settings.get_bool("ui.rich_visuals", False):
+        return values
+    raised = dict(values)
+    raised["ui.poster_size"] = _wider(values.get("ui.poster_size"),
+                                      RICH_VISUALS["ui.poster_size"])
+    raised["ui.row_items"] = str(max(int(values.get("ui.row_items") or 0),
+                                     int(RICH_VISUALS["ui.row_items"])))
+    return raised
+
+
+def _wider(current, wanted):
+    """The larger of two poster widths, so the switch never lowers one."""
+    try:
+        return wanted if POSTER_WIDTHS.index(wanted) > POSTER_WIDTHS.index(current) \
+            else current
+    except ValueError:
+        return wanted
+
+
+def set_rich_visuals(enabled):
+    """Turn visual polish on or off, and make it take effect now.
+
+    The poster width lives in the profile tables, so flipping the setting on
+    its own would change nothing until the next time a profile was applied -
+    which for most people is never.
+    """
+    settings.set("ui.rich_visuals", "true" if enabled else "false")
+    apply(current())
+    return artwork_megabytes()
+
+
+def artwork_megabytes(poster_size=None, row_items=None):
+    """Roughly what the visible posters cost in memory, in MB.
+
+    This is the number worth showing next to the switch, because it is the
+    largest single allocation the add-on causes and the reason the lean
+    profile exists at all.
+    """
+    width = poster_size or settings.get("ui.poster_size") or "w185"
+    try:
+        pixels = int(str(width).lstrip("w"))
+    except ValueError:
+        pixels = 185
+    per_row = int(row_items or settings.get_int("ui.row_items") or 12)
+    visible_rows = 3
+    on_screen = 11                      # a row's worth plus what is just off it
+    bitmap = pixels * (pixels * 1.5) * 4
+    held = bitmap * visible_rows * min(per_row, on_screen)
+    return held / (1024.0 * 1024.0)
 
 
 def current():

@@ -1080,3 +1080,27 @@ msgstr "מכשיר סטרימינג רגיל"
 msgctxt "#32409"
 msgid "%s, %d workers, %d providers, %s posters, %s MB cache"
 msgstr "%s, %d עובדים, %d ספקים, פוסטרים %s, מטמון %s MB"
+
+msgctxt "#30134"
+msgid "Richer artwork"
+msgstr "תמונות איכותיות יותר"
+
+msgctxt "#30135"
+msgid "Larger posters and fuller rows. Costs about four times the memory, which matters most on a device with 1 GB."
+msgstr "פוסטרים גדולים יותר ושורות מלאות יותר. עולה בערך פי ארבעה בזיכרון, מה שמשמעותי במיוחד במכשיר עם ג'יגה-בייט אחד."
+
+msgctxt "#32410"
+msgid "Picture quality"
+msgstr "איכות תצוגה"
+
+msgctxt "#32411"
+msgid "Light  -  %s posters, %d per row, about %d MB"
+msgstr "קל  -  פוסטרים %s, %d בשורה, בערך %d MB"
+
+msgctxt "#32412"
+msgid "Richer  -  %s posters, %d per row, about %d MB"
+msgstr "עשיר יותר  -  פוסטרים %s, %d בשורה, בערך %d MB"
+
+msgctxt "#32413"
+msgid "This device looks like: %s"
+msgstr "המכשיר הזה נראה כמו: %s"
