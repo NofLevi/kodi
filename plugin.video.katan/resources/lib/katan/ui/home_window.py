@@ -28,8 +28,13 @@ ACTION_MOVE_RIGHT = 2
 ACTION_MOVE_UP = 3
 ACTION_MOVE_DOWN = 4
 ACTION_CONTEXT_MENU = 117
+ACTION_MOUSE_MOVE = 107
 
-MOVE_ACTIONS = (ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT, ACTION_MOVE_UP, ACTION_MOVE_DOWN)
+# Any of these can change which item is under the cursor or the highlight, and
+# the hero has to follow. Mouse movement matters because Kodi moves the
+# selection on hover without firing a focus event.
+MOVE_ACTIONS = (ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT, ACTION_MOVE_UP,
+                ACTION_MOVE_DOWN, ACTION_MOUSE_MOVE)
 
 ROW_SLOTS = 10
 LIST_BASE = 5000
@@ -65,7 +70,9 @@ class HomeWindow(xbmcgui.WindowXML):
         for index in range(min(PRELOAD_ROWS, len(self.rows))):
             self._fill(index)
         self.setFocusId(LIST_BASE)
-        self._update_hero()
+        # Seed the hero from the first item rather than waiting for a focus
+        # event, or the top of the screen stays blank until the user moves.
+        self._seed_hero()
         self._fill_rest_async()
 
     def onAction(self, action):
@@ -178,15 +185,28 @@ class HomeWindow(xbmcgui.WindowXML):
             return entries[position]
         return None
 
-    def _update_hero(self):
-        item = self._focused_item()
-        if not item:
-            return
+    def _seed_hero(self):
+        """Fill the hero from the first row, before any focus event arrives."""
+        for index in sorted(self.data):
+            entries = self.data.get(index)
+            if entries:
+                self._show_hero(entries[0])
+                return
+
+    def _show_hero(self, item):
         art = item.get("art") or {}
         self.setProperty("katan.hero.title", item.get("title") or "")
         self.setProperty("katan.hero.plot", item.get("plot") or "")
-        self.setProperty("katan.hero.fanart", art.get("fanart") or art.get("poster") or "")
+        # Only a real backdrop goes behind the hero. Falling back to the poster
+        # stretches a portrait image, or a channel logo, across the whole
+        # screen, which looks worse than the plain background.
+        self.setProperty("katan.hero.fanart", art.get("fanart") or "")
         self.setProperty("katan.hero.meta", _hero_meta(item))
+
+    def _update_hero(self):
+        item = self._focused_item()
+        if item:
+            self._show_hero(item)
 
     def _open_selected(self, index):
         entries = self.data.get(index)
