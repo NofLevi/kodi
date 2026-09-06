@@ -69,13 +69,15 @@ def dispatch(argv=None):
         _load_handlers()
     except Exception:
         kodi.log_exception("failed to load route handlers")
-        kodi.notify("Add-on failed to start, see the log")
+        kodi.notify(kodi.localize(32403))
         return
 
     handler = _ROUTES.get(action)
     if handler is None:
+        # The action id goes to the log, where it is useful, and not to the
+        # viewer, to whom "Unknown action: vod_category" means nothing.
         kodi.log_error("no handler for action %r" % action)
-        kodi.notify("Unknown action: %s" % action)
+        kodi.notify(kodi.localize(32404))
         return
 
     with kodi.Timer("action %s" % action, threshold_ms=250):
@@ -83,4 +85,4 @@ def dispatch(argv=None):
             handler(params)
         except Exception:
             kodi.log_exception("action %s failed" % action)
-            kodi.notify("Something went wrong, see the log")
+            kodi.notify(kodi.localize(32404))

@@ -8,6 +8,12 @@ renders, and how slow the storage is.
 
 This module measures exactly those, on whatever device it runs on, so the
 answer is data rather than hope. Run it from Tools on each device.
+
+Its labels stay in English on purpose, and it is the one screen in the add-on
+that does. This report exists to be written to the Kodi log and pasted into a
+message to whoever can help, and half of it is untranslatable anyway - HEVC,
+SQLite, System.HasHWDecoder. A Hebrew log line is a log line nobody can search
+for.
 """
 import os
 import platform
@@ -392,15 +398,3 @@ def run_and_log():
     for line in report.split("\n"):
         kodi.log(line, kodi.LOG_INFO)
     return report
-
-
-def summary():
-    """One line saying whether this device is in good shape."""
-    rows = collect()
-    failures = sum(1 for r in rows if r[3] == "fail")
-    warnings = sum(1 for r in rows if r[3] == "warn")
-    if failures:
-        return "fail", "%d checks failed" % failures
-    if warnings:
-        return "warn", "%d warnings" % warnings
-    return "ok", "all checks passed"

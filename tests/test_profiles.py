@@ -133,3 +133,26 @@ def test_the_row_length_setting_is_actually_used(settings_module):
     assert catalog.row_limit() == 12
     settings_module.set("ui.row_items", "3")
     assert catalog.row_limit() >= 6, "a floor stops a row becoming useless"
+
+
+def test_every_profile_can_describe_itself():
+    """The description sits beside a Hebrew label in the chooser."""
+    from katan import profiles
+
+    for name in profiles.PROFILES:
+        text = profiles.describe(name)
+        assert text and "%" not in text, name
+        assert profiles.PROFILES[name]["sources.max_resolution"] in text
+
+    assert profiles.describe("no such profile") == ""
+
+
+def test_the_recommendation_comes_with_a_readable_reason(monkeypatch):
+    """It is shown to the viewer, so it goes through the string table."""
+    from katan import profiles
+
+    monkeypatch.setattr(profiles, "_free_megabytes", lambda: 200)
+    name, why = profiles.recommend()
+    assert name == "low_memory"
+    assert why and why != "32405", "the string id itself is not a reason"
+    assert "200" in why

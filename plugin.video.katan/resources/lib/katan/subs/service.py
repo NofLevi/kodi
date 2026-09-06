@@ -25,15 +25,27 @@ STARS = 5
 
 
 def dispatch(argv):
+    """Run one subtitle action, and close the directory whatever happens.
+
+    Closing it is the only thing that ends Kodi's "searching for subtitles"
+    dialog. Leaving it to each branch meant a provider that raised - a network
+    error, a payload that changed shape - left the viewer looking at a spinner
+    with no way out but to close the dialog by hand. So the close lives here,
+    in a finally, and nowhere else.
+    """
     handle = int(argv[1]) if len(argv) > 1 else -1
     params = dict(parse_qsl((argv[2] if len(argv) > 2 else "").lstrip("?")))
     action = params.get("action", "")
 
-    if action in ("search", "manualsearch"):
-        _search(handle, params)
-    elif action == "download":
-        _download(handle, params)
-    else:
+    try:
+        if action in ("search", "manualsearch"):
+            _search(handle, params)
+        elif action == "download":
+            _download(handle, params)
+    except Exception:
+        kodi.log_exception("subtitle action %r failed" % action)
+        kodi.notify(kodi.localize(32336))
+    finally:
         xbmcplugin.endOfDirectory(handle)
 
 
@@ -90,13 +102,10 @@ def _search(handle, params):
     entries = inside + ranked
     if not entries:
         kodi.notify(kodi.localize(32336))
-        xbmcplugin.endOfDirectory(handle)
         return
 
     for position, candidate in enumerate(entries[:40]):
         _add(handle, position, candidate)
-
-    xbmcplugin.endOfDirectory(handle)
 
 
 def _requested_languages(params):
@@ -179,13 +188,11 @@ def _download(handle, params):
     if candidate["provider"] == embedded.PROVIDER:
         if embedded.select(candidate["download"]):
             kodi.notify(kodi.localize(32350))
-        xbmcplugin.endOfDirectory(handle)
         return
 
     cues = auto.download_candidate(candidate)
     if not cues:
         kodi.notify(kodi.localize(32336))
-        xbmcplugin.endOfDirectory(handle)
         return
 
     meta = _current_meta()
@@ -194,7 +201,6 @@ def _download(handle, params):
     if path:
         item = xbmcgui.ListItem(label=path)
         xbmcplugin.addDirectoryItem(handle, path, item, isFolder=False)
-    xbmcplugin.endOfDirectory(handle)
 
 
 def _sync_against_embedded(cues):

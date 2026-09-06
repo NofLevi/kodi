@@ -174,15 +174,17 @@ def recommend():
     cores = _core_count()
     screen = (xbmc.getInfoLabel("System.ScreenMode") or "").lower()
 
+    # The reason is shown beside the suggested profile in the chooser, which
+    # is otherwise entirely Hebrew, so it is localised rather than literal.
     if free and free < 250:
-        return "low_memory", "only %d MB free" % free
+        return "low_memory", kodi.localize(32405, free)
     if free and free < 450 and cores <= 4:
-        return "low_memory", "%d MB free on %d cores" % (free, cores)
+        return "low_memory", kodi.localize(32406, free, cores)
     if free and free > 1800 and cores >= 6:
-        return "powerful", "%d MB free on %d cores" % (free, cores)
+        return "powerful", kodi.localize(32406, free, cores)
     if "2160" in screen or "3840" in screen:
-        return "powerful", "a 4K display"
-    return "balanced", "an ordinary streaming device"
+        return "powerful", kodi.localize(32407)
+    return "balanced", kodi.localize(32408)
 
 
 def _free_megabytes():
@@ -203,11 +205,14 @@ def _core_count():
 def describe(name):
     """A short summary of what a profile does, for the chooser."""
     values = PROFILES.get(name, {})
+    if not values:
+        return ""
     providers = sum(1 for key, value in values.items()
                     if key.startswith("sources.provider.") and value == "true")
-    return "%s, %s workers, %d providers, %s posters, %s MB cache" % (
+    return kodi.localize(
+        32409,
         values.get("sources.max_resolution", "?"),
-        values.get("sources.workers", "?"),
+        int(values.get("sources.workers") or 0),
         providers,
         values.get("ui.poster_size", "?"),
         values.get("cache.max_mb", "?"))

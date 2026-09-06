@@ -1091,3 +1091,31 @@ msgstr ""
 msgctxt "#32234"
 msgid "%d min"
 msgstr ""
+
+msgctxt "#32403"
+msgid "Katan could not start. See the log."
+msgstr ""
+
+msgctxt "#32404"
+msgid "Something went wrong. See the log."
+msgstr ""
+
+msgctxt "#32405"
+msgid "only %d MB free"
+msgstr ""
+
+msgctxt "#32406"
+msgid "%d MB free on %d cores"
+msgstr ""
+
+msgctxt "#32407"
+msgid "a 4K display"
+msgstr ""
+
+msgctxt "#32408"
+msgid "an ordinary streaming device"
+msgstr ""
+
+msgctxt "#32409"
+msgid "%s, %d workers, %d providers, %s posters, %s MB cache"
+msgstr ""

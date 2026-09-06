@@ -106,26 +106,30 @@ def refresh():
 def _to_item(entry):
     from .. import router
 
-    module = entry.get("m", "")
-    icon = entry.get("i", "")
+    # `or ""` rather than a get default: a JSON null is a present key, so the
+    # default never fires and `icon.startswith` was one null away from taking
+    # down the whole catalogue.
+    module = entry.get("m") or ""
+    icon = entry.get("i") or ""
     if icon.startswith("/"):
         # Kan stores relative poster paths against its own host.
         icon = "https://kan.org.il" + icon
+    ref = entry.get("u") or ""
+    mode = entry.get("o") or ""
 
     return items.new_item(
         "vod",
-        ids={"vod": "%s:%s" % (module, entry.get("u", ""))},
-        title=entry.get("n", ""),
-        plot=entry.get("d", ""),
+        ids={"vod": "%s:%s" % (module, ref)},
+        title=entry.get("n") or "",
+        plot=entry.get("d") or "",
         art={"poster": icon, "thumb": icon},
         studio=[MODULE_NAMES.get(module, module)],
         extra={
-            "url": router.url_for("vod_show", module=module,
-                                  ref=entry.get("u", ""), mode=entry.get("o", "")),
+            "url": router.url_for("vod_show", module=module, ref=ref, mode=mode),
             "module": module,
-            "mode": entry.get("o", ""),
-            "category": entry.get("c", ""),
-            "ref": entry.get("u", ""),
+            "mode": mode,
+            "category": entry.get("c") or "",
+            "ref": ref,
         },
     )
 
