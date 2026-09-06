@@ -1,24 +1,102 @@
+# --------------------------------------------------------------------------
+# Python
+# --------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
+*$py.class
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# --------------------------------------------------------------------------
+# Editors and operating systems
+# --------------------------------------------------------------------------
 *.orig
 *.rej
+*.bak
+*.swp
+*~
 .DS_Store
 Thumbs.db
-.kodi-test/
+desktop.ini
+.idea/
+.vscode/
 
-# Nothing with a credential in it is ever committed. The add-on keeps keys in
-# Kodi's own profile directory, never in the source tree, so anything matching
-# these in here is an accident.
+# --------------------------------------------------------------------------
+# The portable Kodi and everything it writes
+#
+# tools/setup_kodi.py downloads 232 MB of Kodi binaries into .kodi-test/ and
+# links the add-on folders in. That directory also holds a real Kodi profile,
+# which is where the add-on stores API keys once anyone actually uses it, so
+# it must never be committed for two separate reasons.
+# --------------------------------------------------------------------------
+.kodi-test/
+*.kodi-test/
+kodi-portable/
+portable_data/
+*.zip.tmp
+
+# --------------------------------------------------------------------------
+# Credentials
+#
+# The add-on keeps every key in Kodi's own profile directory and ships empty
+# defaults in resources/settings.xml, so nothing here should ever match. These
+# rules exist so that an accident stays local instead of becoming a push.
+#
+# Real-Debrid, TorBox, Premiumize, AllDebrid, Trakt, TMDB, MDBList,
+# OpenSubtitles, Gemini and OpenAI keys all live in the runtime settings.xml
+# that Kodi writes under userdata/addon_data/, which the userdata rules cover.
+# Note the deliberate absence of a bare "settings.xml" rule: the add-on's own
+# resources/settings.xml only declares the settings and their empty defaults,
+# and it has to stay in the repository.
+# --------------------------------------------------------------------------
+**/userdata/
+**/addon_data/
+settings.local.xml
+*.local.xml
+secrets.*
+credentials.*
+*_secrets.*
+*.secret
+.env
+.env.*
 *.env
-.env*
+
+# keys and certificates
 *.pem
 *.key
-*.pfx
+*.pkcs12
 *.p12
+*.pfx
+*.jks
+*.keystore
 id_rsa*
+id_dsa*
+id_ecdsa*
 id_ed25519*
-secrets.*
-settings.local.*
-**/userdata/
+*.ppk
+.ssh/
 
+# token caches an add-on or a tool might drop next to the source
+*token*.json
+*token*.txt
+.trakt_auth
+.debrid_auth
+
+# --------------------------------------------------------------------------
+# Probe and diagnostic output
+#
+# check_channels.py, drive_kodi.py and check_windows.py all write here. The
+# screenshots in docs/ are committed on purpose; these are not.
+# --------------------------------------------------------------------------
+probe-profile/
+shots/
+*.log
+kodi.log
+crashlog*.txt
