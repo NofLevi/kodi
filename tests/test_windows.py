@@ -22,6 +22,31 @@ class FakeAction(object):
         return self._char
 
 
+class Kodi21Action(object):
+    """An action shaped like the real thing on Kodi 21.
+
+    xbmcgui.Action there has getId, getButtonCode and the two amounts, and no
+    getUnicode at all. The suite's own fake grew a getUnicode that Kodi does
+    not have, so the search window called it on every keypress and raised an
+    AttributeError that only showed up in a real Kodi.
+    """
+
+    def __init__(self, action_id=0):
+        self._id = action_id
+
+    def getId(self):
+        return self._id
+
+    def getButtonCode(self):
+        return 0
+
+    def getAmount1(self):
+        return 0.0
+
+    def getAmount2(self):
+        return 0.0
+
+
 def make_items(count, prefix="Title"):
     from katan.meta import items
     return [items.new_item("movie", ids={"tmdb": index + 1},
@@ -275,6 +300,31 @@ def test_pressing_a_key_appends_to_the_query(search):
     search.onClick(search_window.KEY_BASE + 1)
     assert search.text == "ab"
     assert search.getProperty("katan.search.text") == "ab"
+
+
+def test_typing_survives_a_kodi_with_no_getUnicode(search):
+    """Kodi 21's Action has no getUnicode, and calling it threw on every key.
+
+    The on-screen grid is the input that always works, so an action the build
+    cannot decode has to be ignored rather than fatal.
+    """
+    search.onAction(Kodi21Action())
+    search.onAction(Kodi21Action())
+    assert search.text == "", "an undecodable action types nothing"
+
+    search.onClick(search_window.KEY_BASE)
+    assert search.text == "a", "the grid must still work"
+
+
+def test_every_charset_fills_the_key_grid(search):
+    """A key with no character used to be hidden, and hidden cannot be focused."""
+    for index, charset in enumerate(search_window.CHARSETS):
+        assert len(charset) == search_window.KEY_COUNT, \
+            "charset %d has %d keys, not %d" % (index, len(charset),
+                                                search_window.KEY_COUNT)
+    for index in range(search_window.KEY_COUNT):
+        assert search.getProperty("katan.key%d" % index), \
+            "key %d has no character, so it cannot take focus" % index
 
 
 def test_a_physical_keyboard_also_types(search):

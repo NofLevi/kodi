@@ -69,7 +69,8 @@ class HomeWindow(xbmcgui.WindowXML):
         if not self._require_setup():
             return
 
-        self.rows = catalog.enabled_rows()[:ROW_SLOTS]
+        if not self.rows:
+            self.rows = catalog.enabled_rows()[:ROW_SLOTS]
         if not self.rows:
             kodi.notify(kodi.localize(32256))
             self.close()
@@ -89,11 +90,42 @@ class HomeWindow(xbmcgui.WindowXML):
             if self.data.get(index):
                 filled += 1
 
-        self.setFocusId(LIST_BASE)
+        self._focus_first_row()
         # Seed the hero from the first item rather than waiting for a focus
         # event, or the top of the screen stays blank until the user moves.
         self._seed_hero()
         self._fill_rest_async()
+
+    def prepare(self):
+        """Work out the rows and set their headings before the window is shown.
+
+        A row group is only visible once its heading property is set, and a
+        control that is not visible cannot take focus. Doing this inside onInit
+        meant the property and the setFocusId landed in the same pass, before
+        Kodi had re-evaluated visibility, so the first row refused focus:
+        "Control 5000 in window 13000 has been asked to focus, but it can't".
+        The arrow keys then moved around the top bar instead of the rows.
+
+        Setting the properties on the window object before doModal means the
+        groups are already visible the first time it renders.
+        """
+        self.rows = catalog.enabled_rows()[:ROW_SLOTS]
+        for index in range(len(self.rows)):
+            self._set_title(index, catalog.row_title(self.rows[index]))
+        return bool(self.rows)
+
+    def _focus_first_row(self):
+        """Focus the first row that actually has something in it.
+
+        Rows that came back empty have had their heading cleared and are
+        therefore hidden, so focusing row zero regardless would land on a
+        control that is not there.
+        """
+        for index in sorted(self.data):
+            if self.data.get(index):
+                self.setFocusId(LIST_BASE + index)
+                return
+        self.setFocusId(LIST_BASE)
 
     def _require_setup(self):
         """Offer the wizard when there is no TMDB key, and close.
@@ -322,6 +354,9 @@ def _hero_meta(item):
 def open_home():
     window = HomeWindow("katan-home.xml", kodi.addon_path(), "default", "1080i")
     try:
+        # The headings are set before the window is shown so its row groups are
+        # already visible on the first render and can take focus.
+        window.prepare()
         window.doModal()
     finally:
         del window
