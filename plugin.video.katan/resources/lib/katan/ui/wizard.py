@@ -11,7 +11,7 @@ GEMINI_SIGNUP = "https://aistudio.google.com/apikey"
 TRAKT_APPS = "https://trakt.tv/oauth/applications"
 
 
-def run():
+def run(open_home_after=True):
     steps = [
         (kodi.localize(32310), step_tmdb, lambda: bool(settings.get("tmdb.apikey"))),
         (kodi.localize(32311), step_debrid, lambda: bool(settings.configured_debrid())),
@@ -31,15 +31,27 @@ def run():
         except Exception:
             kodi.log_exception("setup step failed")
             kodi.notify(kodi.localize(32315))
-    _finish()
+    _finish(open_home_after=open_home_after)
 
 
-def _finish():
+def _finish(open_home_after=True):
+    """Warm the rows, then go where the viewer was trying to get to.
+
+    Setup is not the destination. Finishing it and being returned to a Kodi
+    file list reads as though nothing happened, so once there is a key the
+    Katan window is opened directly.
+    """
     from .. import catalog
     catalog.invalidate()
-    if settings.get("tmdb.apikey"):
+
+    has_key = bool(settings.get("tmdb.apikey"))
+    if has_key:
         catalog.warm(force=True)
     kodi.notify(kodi.localize(32316))
+
+    if open_home_after and has_key and settings.get_bool("ui.window_home", True):
+        from .home_window import open_home
+        open_home()
 
 
 # --------------------------------------------------------------------------

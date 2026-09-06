@@ -73,6 +73,76 @@ def test_home_only_preloads_the_rows_near_the_top(home):
     assert len(home.filled) <= home_window.PRELOAD_ROWS + 1
 
 
+def test_opening_the_addon_goes_straight_to_the_katan_window(monkeypatch,
+                                                             settings_module):
+    """Entering the add-on should land in the Katan GUI, not a Kodi file list."""
+    from katan.meta import tmdb
+    from katan.ui import handlers
+
+    settings_module.set("ui.window_home", "true")
+    monkeypatch.setattr(tmdb, "has_key", lambda: True)
+
+    opened = []
+    import katan.ui.home_window as hw
+    monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
+
+    handlers.home({})
+    assert opened, "the custom window should have been opened"
+
+
+def test_without_a_key_it_lists_instead_of_flashing_a_window(monkeypatch,
+                                                            settings_module):
+    """The window would have nothing to draw, so the listing explains itself."""
+    from katan.meta import tmdb
+    from katan.ui import handlers
+
+    settings_module.set("ui.window_home", "true")
+    monkeypatch.setattr(tmdb, "has_key", lambda: False)
+
+    opened = []
+    import katan.ui.home_window as hw
+    monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
+
+    handlers.home({})
+    assert not opened, "an empty window is worse than a listing that explains"
+
+
+def test_finishing_setup_opens_the_window(monkeypatch, settings_module):
+    """Setup is not the destination; finishing it should show the GUI."""
+    from katan import catalog
+    from katan.ui import wizard
+
+    settings_module.set("tmdb.apikey", "a-key")
+    settings_module.set("ui.window_home", "true")
+    monkeypatch.setattr(catalog, "invalidate", lambda *a, **kw: None)
+    monkeypatch.setattr(catalog, "warm", lambda *a, **kw: 0)
+
+    opened = []
+    import katan.ui.home_window as hw
+    monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
+
+    wizard._finish()
+    assert opened, "the viewer should end up in the GUI, not back in a list"
+
+
+def test_abandoning_setup_does_not_loop_back_into_the_window(monkeypatch,
+                                                            settings_module):
+    """No key means no window, or declining setup would reopen it forever."""
+    from katan import catalog
+    from katan.ui import wizard
+
+    settings_module.set("tmdb.apikey", "")
+    monkeypatch.setattr(catalog, "invalidate", lambda *a, **kw: None)
+    monkeypatch.setattr(catalog, "warm", lambda *a, **kw: 0)
+
+    opened = []
+    import katan.ui.home_window as hw
+    monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
+
+    wizard._finish()
+    assert not opened
+
+
 def test_home_offers_setup_instead_of_a_black_screen(monkeypatch):
     """Without a key almost every row is unavailable and the screen was blank.
 
