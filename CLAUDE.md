@@ -108,6 +108,22 @@ Measured on Kodi 21.3, Windows, September 2026: nine paths opened, none failed,
 no Python errors. Kodi 21 ships **Python 3.8**, not 3.11, so `int.bit_count`
 is unavailable and the popcount fallback in `subs/sync.py` is load-bearing.
 
+## Verifying the windows render
+
+    python tools/check_windows.py     open the custom home window in Kodi and
+                                      screenshot it into .kodi-test/shots/
+
+Directory-mode tests never load a single line of window XML, so a malformed
+control or a bad id shows only as a window that refuses to open. This opens
+the real thing and photographs it.
+
+That check found four defects nothing else could: `$LOCALIZE` does not resolve
+add-on strings inside a Python add-on's own window (it needs
+`$ADDON[plugin.video.katan 32254]`), the row list was 90px too short so the
+second row was clipped, the hero stayed blank until the user moved because it
+waited for a focus event, and a channel logo was being stretched across the
+whole backdrop.
+
 ## Channel data goes stale
 
 Sixteen of the forty-nine television channels no longer play. Keshet 12 and its

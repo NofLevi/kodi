@@ -74,6 +74,13 @@ def test_home_updates_the_hero_from_the_focused_item(home):
     assert "2020" in home.getProperty("katan.hero.meta")
 
 
+def test_the_hero_backdrop_is_left_empty_without_a_real_fanart(home):
+    """A poster or a channel logo stretched to 16:9 looks broken."""
+    home._show_hero({"title": "A channel", "art": {"poster": "logo.png"}})
+    assert home.getProperty("katan.hero.fanart") == ""
+    assert home.getProperty("katan.hero.title") == "A channel"
+
+
 def test_home_fills_further_rows_as_focus_moves(home):
     before = len(home.filled)
     home.setFocusId(home_window.LIST_BASE + 3)

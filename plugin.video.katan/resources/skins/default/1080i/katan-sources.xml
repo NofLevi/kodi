@@ -136,7 +136,7 @@
                 <height>56</height>
                 <font>font13</font>
                 <align>center</align>
-                <label>$LOCALIZE[32340]</label>
+                <label>$ADDON[plugin.video.katan 32340]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>

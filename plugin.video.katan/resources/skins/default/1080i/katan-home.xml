@@ -28,9 +28,9 @@
         <!-- hero -->
         <control type="group">
             <left>90</left>
-            <top>90</top>
-            <width>900</width>
-            <height>420</height>
+            <top>96</top>
+            <width>980</width>
+            <height>350</height>
             <visible>!String.IsEmpty(Window.Property(katan.hero.title))</visible>
 
             <control type="label">
@@ -57,12 +57,11 @@
             <control type="textbox">
                 <left>0</left>
                 <top>118</top>
-                <width>820</width>
-                <height>190</height>
+                <width>900</width>
+                <height>160</height>
                 <font>font13</font>
                 <textcolor>white</textcolor>
                 <label>$INFO[Window.Property(katan.hero.plot)]</label>
-                <autoscroll time="3000" delay="6000" repeat="8000">Control.HasFocus(5000)</autoscroll>
             </control>
         </control>
 
@@ -81,7 +80,7 @@
                 <width>180</width>
                 <height>44</height>
                 <font>font13</font>
-                <label>$LOCALIZE[32254]</label>
+                <label>$ADDON[plugin.video.katan 32254]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
@@ -89,7 +88,7 @@
                 <width>180</width>
                 <height>44</height>
                 <font>font13</font>
-                <label>$LOCALIZE[32255]</label>
+                <label>$ADDON[plugin.video.katan 32255]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
@@ -97,7 +96,7 @@
                 <width>180</width>
                 <height>44</height>
                 <font>font13</font>
-                <label>$LOCALIZE[32261]</label>
+                <label>$ADDON[plugin.video.katan 32261]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
@@ -109,9 +108,9 @@
              a long home page costs no more than a short one. -->
         <control type="grouplist" id="8000">
             <left>0</left>
-            <top>540</top>
+            <top>470</top>
             <width>1920</width>
-            <height>520</height>
+            <height>610</height>
             <orientation>vertical</orientation>
             <itemgap>10</itemgap>
 

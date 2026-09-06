@@ -80,7 +80,7 @@
                 <height>60</height>
                 <font>font14</font>
                 <align>center</align>
-                <label>$LOCALIZE[32390]</label>
+                <label>$ADDON[plugin.video.katan 32390]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
@@ -89,7 +89,7 @@
                 <height>60</height>
                 <font>font14</font>
                 <align>center</align>
-                <label>$LOCALIZE[32250]</label>
+                <label>$ADDON[plugin.video.katan 32250]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
@@ -98,7 +98,7 @@
                 <height>60</height>
                 <font>font14</font>
                 <align>center</align>
-                <label>$LOCALIZE[32253]</label>
+                <label>$ADDON[plugin.video.katan 32253]</label>
                 <visible>!String.IsEmpty(Window.Property(katan.detail.trailer))</visible>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
@@ -108,7 +108,7 @@
                 <height>60</height>
                 <font>font14</font>
                 <align>center</align>
-                <label>$LOCALIZE[32251]</label>
+                <label>$ADDON[plugin.video.katan 32251]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
