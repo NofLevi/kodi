@@ -548,3 +548,499 @@ msgstr "קוד שגוי"
 msgctxt "#32232"
 msgid "MDBList"
 msgstr "MDBList"
+
+msgctxt "#30000"
+msgid "Accounts"
+msgstr "חשבונות"
+
+msgctxt "#30001"
+msgid "Keys and logins. Nothing here leaves your device."
+msgstr "מפתחות והתחברויות. שום דבר כאן לא יוצא מהמכשיר שלך."
+
+msgctxt "#30002"
+msgid "Metadata"
+msgstr "מטא-דאטה"
+
+msgctxt "#30003"
+msgid "TMDB API key"
+msgstr "מפתח API של TMDB"
+
+msgctxt "#30004"
+msgid "Region code"
+msgstr "קוד אזור"
+
+msgctxt "#30005"
+msgid "MDBList API key"
+msgstr "מפתח API של MDBList"
+
+msgctxt "#30006"
+msgid "Trakt"
+msgstr "Trakt"
+
+msgctxt "#30007"
+msgid "Trakt client id"
+msgstr "מזהה לקוח של Trakt"
+
+msgctxt "#30008"
+msgid "Trakt client secret"
+msgstr "סוד לקוח של Trakt"
+
+msgctxt "#30009"
+msgid "Signed in as"
+msgstr "מחובר בתור"
+
+msgctxt "#30010"
+msgid "Debrid"
+msgstr "Debrid"
+
+msgctxt "#30011"
+msgid "Real-Debrid token"
+msgstr "אסימון Real-Debrid"
+
+msgctxt "#30012"
+msgid "Premiumize API key"
+msgstr "מפתח API של Premiumize"
+
+msgctxt "#30013"
+msgid "TorBox API key"
+msgstr "מפתח API של TorBox"
+
+msgctxt "#30014"
+msgid "AllDebrid API key"
+msgstr "מפתח API של AllDebrid"
+
+msgctxt "#30015"
+msgid "Sources"
+msgstr "מקורות"
+
+msgctxt "#30016"
+msgid "Where stream links come from, and how many are searched."
+msgstr "מאיפה מגיעים קישורי הצפייה, וכמה מהם מחפשים."
+
+msgctxt "#30017"
+msgid "Providers"
+msgstr "ספקים"
+
+msgctxt "#30018"
+msgid "Torrentio"
+msgstr "Torrentio"
+
+msgctxt "#30019"
+msgid "Comet"
+msgstr "Comet"
+
+msgctxt "#30020"
+msgid "MediaFusion"
+msgstr "MediaFusion"
+
+msgctxt "#30021"
+msgid "Zilean (DMM hashlists)"
+msgstr "Zilean (רשימות DMM)"
+
+msgctxt "#30022"
+msgid "Nyaa (anime)"
+msgstr "Nyaa (אנימה)"
+
+msgctxt "#30023"
+msgid "AnimeTosho (anime)"
+msgstr "AnimeTosho (אנימה)"
+
+msgctxt "#30024"
+msgid "Use CocoScrapers if installed"
+msgstr "השתמש ב-CocoScrapers אם מותקן"
+
+msgctxt "#30025"
+msgid "Filtering"
+msgstr "סינון"
+
+msgctxt "#30026"
+msgid "Only show cached sources"
+msgstr "הצג רק מקורות בזיכרון המטמון"
+
+msgctxt "#30027"
+msgid "Highest resolution"
+msgstr "רזולוציה מרבית"
+
+msgctxt "#30028"
+msgid "Lowest resolution"
+msgstr "רזולוציה מזערית"
+
+msgctxt "#30029"
+msgid "Largest file (GB)"
+msgstr "גודל קובץ מרבי (GB)"
+
+msgctxt "#30030"
+msgid "Allow HEVC (H.265)"
+msgstr "אפשר HEVC ‏(H.265)"
+
+msgctxt "#30031"
+msgid "Allow AV1"
+msgstr "אפשר AV1"
+
+msgctxt "#30032"
+msgid "Allow HDR and Dolby Vision"
+msgstr "אפשר HDR ו-Dolby Vision"
+
+msgctxt "#30033"
+msgid "Prefer releases with Hebrew subtitles"
+msgstr "העדף גרסאות עם כתוביות בעברית"
+
+msgctxt "#30034"
+msgid "Allow cam and screener releases"
+msgstr "אפשר גרסאות צילום ממסך קולנוע"
+
+msgctxt "#30035"
+msgid "File size preference"
+msgstr "העדפת גודל קובץ"
+
+msgctxt "#30036"
+msgid "Performance"
+msgstr "ביצועים"
+
+msgctxt "#30037"
+msgid "The limits that keep the add-on light on weak hardware."
+msgstr "המגבלות ששומרות על התוסף קל בחומרה חלשה."
+
+msgctxt "#30038"
+msgid "Searching"
+msgstr "חיפוש"
+
+msgctxt "#30039"
+msgid "Sources shown"
+msgstr "מספר מקורות להצגה"
+
+msgctxt "#30040"
+msgid "Search deadline (seconds)"
+msgstr "מגבלת זמן לחיפוש (שניות)"
+
+msgctxt "#30041"
+msgid "Parallel workers"
+msgstr "עובדים במקביל"
+
+msgctxt "#30042"
+msgid "Play the best source automatically"
+msgstr "נגן אוטומטית את המקור הטוב ביותר"
+
+msgctxt "#30043"
+msgid "Prefetch the next episode"
+msgstr "טען מראש את הפרק הבא"
+
+msgctxt "#30044"
+msgid "Remember which release group worked"
+msgstr "זכור איזו קבוצת גרסאות עבדה"
+
+msgctxt "#30045"
+msgid "Use SeaDex rankings for anime"
+msgstr "השתמש בדירוגי SeaDex לאנימה"
+
+msgctxt "#30046"
+msgid "SeaDex is a community list of which anime release is actually the best one. It needs no account and is only consulted for anime."
+msgstr "SeaDex היא רשימה קהילתית של הגרסה הטובה ביותר לכל אנימה. אינה דורשת חשבון ומשמשת רק עבור אנימה."
+
+msgctxt "#30047"
+msgid "Storage"
+msgstr "אחסון"
+
+msgctxt "#30048"
+msgid "Cache size limit (MB)"
+msgstr "מגבלת גודל מטמון (MB)"
+
+msgctxt "#30049"
+msgid "Subtitle files kept"
+msgstr "מספר קבצי כתוביות לשמירה"
+
+msgctxt "#30050"
+msgid "Refresh home rows in the background"
+msgstr "רענן את שורות הבית ברקע"
+
+msgctxt "#30051"
+msgid "Verbose logging"
+msgstr "רישום מפורט ביומן"
+
+msgctxt "#30052"
+msgid "Subtitles"
+msgstr "כתוביות"
+
+msgctxt "#30053"
+msgid "Automatic Hebrew and English subtitles, with AI translation as a fallback."
+msgstr "כתוביות אוטומטיות בעברית ובאנגלית, עם תרגום AI כגיבוי."
+
+msgctxt "#30054"
+msgid "Matching"
+msgstr "התאמה"
+
+msgctxt "#30055"
+msgid "Choose subtitles automatically"
+msgstr "בחר כתוביות אוטומטית"
+
+msgctxt "#30056"
+msgid "Language order"
+msgstr "סדר שפות"
+
+msgctxt "#30057"
+msgid "Prefer subtitles already in the file"
+msgstr "העדף כתוביות שכבר בתוך הקובץ"
+
+msgctxt "#30058"
+msgid "Match by file hash (most accurate)"
+msgstr "התאם לפי חתימת קובץ (המדויק ביותר)"
+
+msgctxt "#30059"
+msgid "Minimum match score"
+msgstr "ציון התאמה מזערי"
+
+msgctxt "#30060"
+msgid "Wizdom (Hebrew)"
+msgstr "Wizdom (עברית)"
+
+msgctxt "#30061"
+msgid "OpenSubtitles"
+msgstr "OpenSubtitles"
+
+msgctxt "#30062"
+msgid "SubSource"
+msgstr "SubSource"
+
+msgctxt "#30063"
+msgid "Ktuvit"
+msgstr "כתובית"
+
+msgctxt "#30064"
+msgid "The largest Hebrew subtitle source. It is a members' site, so it needs the account below and returns nothing without one."
+msgstr "מקור הכתוביות הגדול ביותר בעברית. זהו אתר לחברים רשומים, ולכן נדרש החשבון שלהלן ובלעדיו לא יוחזר דבר."
+
+msgctxt "#30065"
+msgid "Ktuvit email"
+msgstr "דוא\"ל בכתובית"
+
+msgctxt "#30066"
+msgid "Ktuvit password"
+msgstr "סיסמה בכתובית"
+
+msgctxt "#30067"
+msgid "OpenSubtitles API key"
+msgstr "מפתח API של OpenSubtitles"
+
+msgctxt "#30068"
+msgid "AI translation"
+msgstr "תרגום AI"
+
+msgctxt "#30069"
+msgid "Used only when no good Hebrew subtitle exists."
+msgstr "בשימוש רק כשאין כתובית טובה בעברית."
+
+msgctxt "#30070"
+msgid "Engine"
+msgstr "מנוע"
+
+msgctxt "#30071"
+msgid "Translate with AI when nothing is found"
+msgstr "תרגם עם AI כשלא נמצא דבר"
+
+msgctxt "#30072"
+msgid "Gemini API key"
+msgstr "מפתח API של Gemini"
+
+msgctxt "#30073"
+msgid "Gemini model"
+msgstr "מודל Gemini"
+
+msgctxt "#30074"
+msgid "OpenAI compatible URL"
+msgstr "כתובת תואמת OpenAI"
+
+msgctxt "#30075"
+msgid "OpenAI compatible key"
+msgstr "מפתח תואם OpenAI"
+
+msgctxt "#30076"
+msgid "OpenAI compatible model"
+msgstr "מודל תואם OpenAI"
+
+msgctxt "#30077"
+msgid "Lines per request"
+msgstr "שורות לכל בקשה"
+
+msgctxt "#30078"
+msgid "Israeli TV"
+msgstr "טלוויזיה ישראלית"
+
+msgctxt "#30079"
+msgid "Live channels and the on-demand catalogue, kept as separate sections."
+msgstr "ערוצים בשידור חי והקטלוג לצפייה ישירה, כשני חלקים נפרדים."
+
+msgctxt "#30080"
+msgid "Live TV"
+msgstr "שידורים חיים"
+
+msgctxt "#30081"
+msgid "Show radio stations"
+msgstr "הצג תחנות רדיו"
+
+msgctxt "#30082"
+msgid "Channel list URL"
+msgstr "כתובת רשימת הערוצים"
+
+msgctxt "#30083"
+msgid "On demand"
+msgstr "צפייה ישירה"
+
+msgctxt "#30084"
+msgid "Catalogue URL"
+msgstr "כתובת הקטלוג"
+
+msgctxt "#30085"
+msgid "Kids mode"
+msgstr "מצב ילדים"
+
+msgctxt "#30086"
+msgid "Replaces the home screen with rows that are safe by construction."
+msgstr "מחליף את מסך הבית בשורות בטוחות מעצם בנייתן."
+
+msgctxt "#30087"
+msgid "Replaces every home row with children's rows and blocks anything above the age limit. Turning it off again asks for the PIN."
+msgstr "מחליף כל שורה במסך הבית בשורות לילדים וחוסם כל תוכן מעל מגבלת הגיל. כיבוי המצב מחייב הזנת קוד."
+
+msgctxt "#30088"
+msgid "Age limit"
+msgstr "מגבלת גיל"
+
+msgctxt "#30089"
+msgid "PIN"
+msgstr "קוד"
+
+msgctxt "#30090"
+msgid "Stored as a hash, not as the digits. Leave it empty for no PIN."
+msgstr "נשמר כגיבוב, לא כספרות. השאר ריק כדי לא להשתמש בקוד."
+
+msgctxt "#30091"
+msgid "Interface"
+msgstr "ממשק"
+
+msgctxt "#30092"
+msgid "How the add-on looks and which rows appear."
+msgstr "איך התוסף נראה ואילו שורות מוצגות."
+
+msgctxt "#30093"
+msgid "Appearance"
+msgstr "מראה"
+
+msgctxt "#30094"
+msgid "Use the Katan home screen"
+msgstr "השתמש במסך הבית של Katan"
+
+msgctxt "#30095"
+msgid "Use the Katan search screen"
+msgstr "השתמש במסך החיפוש של Katan"
+
+msgctxt "#30096"
+msgid "Language"
+msgstr "שפה"
+
+msgctxt "#30097"
+msgid "Hide watched titles in discovery rows"
+msgstr "הסתר כותרים שנצפו בשורות הגילוי"
+
+msgctxt "#30098"
+msgid "Show episodes that have not aired"
+msgstr "הצג פרקים שטרם שודרו"
+
+msgctxt "#30099"
+msgid "Up Next prompt between episodes"
+msgstr "הצעת הפרק הבא בין פרקים"
+
+msgctxt "#30100"
+msgid "Home rows (leave empty for defaults)"
+msgstr "שורות מסך הבית (ריק לברירת מחדל)"
+
+msgctxt "#30101"
+msgid "Two letter region, for example IL"
+msgstr "אזור בשתי אותיות, לדוגמה IL"
+
+msgctxt "#30102"
+msgid "Comma separated, for example he,en"
+msgstr "מופרד בפסיקים, לדוגמה he,en"
+
+msgctxt "#30103"
+msgid "Free key from Google AI Studio"
+msgstr "מפתח חינמי מ-Google AI Studio"
+
+msgctxt "#30104"
+msgid "Base URL, for example http://192.168.1.10:1234/v1"
+msgstr "כתובת בסיס, לדוגמה http://192.168.1.10:1234/v1"
+
+msgctxt "#30105"
+msgid "API key"
+msgstr "מפתח API"
+
+msgctxt "#30106"
+msgid "Model name"
+msgstr "שם המודל"
+
+msgctxt "#30107"
+msgid "Leave empty to use the bundled list"
+msgstr "השאר ריק כדי להשתמש ברשימה המצורפת"
+
+msgctxt "#30108"
+msgid "Leave empty to use the bundled catalogue"
+msgstr "השאר ריק כדי להשתמש בקטלוג המצורף"
+
+msgctxt "#30109"
+msgid "Comma separated row ids"
+msgstr "מזהי שורות מופרדים בפסיקים"
+
+msgctxt "#30110"
+msgid "Poster width"
+msgstr "רוחב פוסטר"
+
+msgctxt "#30111"
+msgid "Items per row"
+msgstr "פריטים בשורה"
+
+msgctxt "#30112"
+msgid "Metadata cache (hours)"
+msgstr "מטמון מטא-דאטה (שעות)"
+
+msgctxt "#30113"
+msgid "Show channels known to be broken"
+msgstr "הצג ערוצים הידועים כתקולים"
+
+msgctxt "#30114"
+msgid "OpenSubtitles username"
+msgstr "שם משתמש ב-OpenSubtitles"
+
+msgctxt "#30115"
+msgid "OpenSubtitles password"
+msgstr "סיסמה ב-OpenSubtitles"
+
+msgctxt "#30116"
+msgid "Torrentio address"
+msgstr "כתובת Torrentio"
+
+msgctxt "#30117"
+msgid "Torrentio options"
+msgstr "אפשרויות Torrentio"
+
+msgctxt "#30118"
+msgid "Comet address"
+msgstr "כתובת Comet"
+
+msgctxt "#30119"
+msgid "Comet config"
+msgstr "הגדרות Comet"
+
+msgctxt "#30120"
+msgid "MediaFusion address"
+msgstr "כתובת MediaFusion"
+
+msgctxt "#30121"
+msgid "MediaFusion config"
+msgstr "הגדרות MediaFusion"
+
+msgctxt "#30122"
+msgid "Zilean address"
+msgstr "כתובת Zilean"
+
+msgctxt "#30133"
+msgid "Stored automatically"
+msgstr "נשמר אוטומטית"
