@@ -31,6 +31,14 @@ WEIGHT_REMEMBERED_GROUP = 140.0
 WEIGHT_SIZE_FIT = 60.0
 WEIGHT_PROPER = 15.0
 
+# A SeaDex recommendation outranks every quality signal except being cached,
+# and deliberately so. For anime the release group is the quality: two 1080p
+# encodes of the same episode can differ by a botched encode or the wrong audio
+# track, and nothing in the release name distinguishes them. It sits below
+# WEIGHT_CACHED because a perfect release that has to be downloaded first is
+# still the wrong answer on a weak device.
+WEIGHT_SEADEX = 200.0
+
 SOURCE_TYPE_RANK = {
     "bluray": 1.0,
     "web": 0.95,
@@ -111,12 +119,18 @@ def _source_type(source):
     return release.parse(source.get("title", ""))["source"]
 
 
-def score(source, prefs, runtime_hours=2.0, remembered=None):
+def score(source, prefs, runtime_hours=2.0, remembered=None, preferred=None):
     """Rank a single source. Higher is better."""
     total = 0.0
 
     if source.get("cached"):
         total += WEIGHT_CACHED
+
+    # preferred is the SeaDex set, matched by infohash rather than by name, so
+    # there is no way to promote a release that merely looks similar.
+    if preferred and source.get("hash") and source["hash"] in preferred:
+        total += WEIGHT_SEADEX
+        source["seadex"] = True
 
     rank = max(0, settings.resolution_rank(source.get("quality")))
     ceiling = prefs.max_rank if prefs.max_rank >= 0 else len(settings.RESOLUTIONS) - 1
@@ -181,10 +195,33 @@ def remembered_group(meta):
     return cache.get(cache.make_key("srcmem", show_id))
 
 
+def preferred_hashes(meta):
+    """The SeaDex opinion for this title, or an empty set.
+
+    Only anime has one, so this costs a request for anime and nothing at all
+    for everything else. The import is deferred so a film never loads it.
+    """
+    anilist_id = (meta.get("ids") or {}).get("anilist")
+    if not anilist_id:
+        return set()
+    try:
+        from ..meta import seadex
+    except ImportError:
+        return set()
+    try:
+        return seadex.best_hashes(anilist_id)
+    except Exception:
+        from .. import kodi
+        kodi.log_exception("seadex lookup failed")
+        return set()
+
+
 def rank(sources, meta=None, runtime_hours=2.0, limit=None):
     """Filter, score and sort. Returns (kept, rejection counts)."""
     prefs = Preferences()
-    remembered = remembered_group(meta or {})
+    meta = meta or {}
+    remembered = remembered_group(meta)
+    preferred = preferred_hashes(meta)
 
     kept = []
     rejected = {}
@@ -193,7 +230,8 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
         if reason:
             rejected[reason] = rejected.get(reason, 0) + 1
             continue
-        source["score"] = score(source, prefs, runtime_hours, remembered)
+        source["score"] = score(source, prefs, runtime_hours, remembered,
+                                preferred)
         kept.append(source)
 
     kept.sort(key=lambda s: s["score"], reverse=True)

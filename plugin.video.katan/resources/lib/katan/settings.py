@@ -58,6 +58,11 @@ DEFAULTS = {
     "sources.max_size_gb": "12",
     "sources.autoplay": "true",
     "sources.source_memory": "true",
+    "sources.seadex": "true",
+    # kids mode
+    "kids.enabled": "false",
+    "kids.age": "older",
+    "kids.pin_hash": "",
     "sources.prefetch_next": "true",
     "sources.prefer_hebrew": "true",
     "sources.allow_cam": "false",

@@ -230,8 +230,32 @@ def _year(date_string):
         return 0
 
 
+# TMDB sends full genre objects on a details call and bare ids in a list, so a
+# row item used to arrive with no genres at all. The ids are a fixed, published
+# table, so resolving them locally costs nothing and means a list item knows
+# what it is - which is what lets kids mode filter a row without fetching the
+# details of every title in it.
+TMDB_GENRES = {
+    28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy",
+    80: "Crime", 99: "Documentary", 18: "Drama", 10751: "Family",
+    14: "Fantasy", 36: "History", 27: "Horror", 10402: "Music",
+    9648: "Mystery", 10749: "Romance", 878: "Science Fiction",
+    10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western",
+    # television has its own ids for some of the same ground
+    10759: "Action & Adventure", 10762: "Kids", 10763: "News",
+    10764: "Reality", 10765: "Sci-Fi & Fantasy", 10766: "Soap",
+    10767: "Talk", 10768: "War & Politics",
+}
+
+
 def _genres(data):
     genres = data.get("genres")
     if genres and isinstance(genres[0], dict):
         return [g.get("name", "") for g in genres]
-    return []
+
+    names = []
+    for genre_id in data.get("genre_ids") or []:
+        name = TMDB_GENRES.get(genre_id)
+        if name:
+            names.append(name)
+    return names
