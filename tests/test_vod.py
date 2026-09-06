@@ -155,6 +155,58 @@ def test_broken_channels_can_be_shown_on_request(settings_module):
     assert everything - hidden == channels.hidden_count("tv")
 
 
+# --------------------------------------------------------------------------
+# DASH channels, which need an add-on that is not always there
+#
+# check_channels.py asks the URL for a few bytes and calls that working. A DASH
+# stream needs inputstream.adaptive to play at all, so twelve channels were
+# recorded as working and did not play: Kodi opened nothing and said nothing.
+# --------------------------------------------------------------------------
+
+
+def test_dash_channels_are_hidden_without_inputstream_adaptive(monkeypatch):
+    from katan import kodi
+
+    monkeypatch.setattr(kodi, "has_adaptive", lambda: True)
+    with_adaptive = {c["ids"]["channel"] for c in channels.live_channels(kind="tv")}
+
+    monkeypatch.setattr(kodi, "has_adaptive", lambda: False)
+    without = {c["ids"]["channel"] for c in channels.live_channels(kind="tv")}
+
+    assert without < with_adaptive, "DASH channels should drop off"
+    for channel_id in with_adaptive - without:
+        entry = channels.get(channel_id)
+        assert channels._needs_adaptive(entry), \
+            "%s was hidden but does not need DASH" % channel_id
+
+
+def test_a_dash_channel_is_recognised_by_its_flag_or_its_url():
+    assert channels._needs_adaptive({"linkDetails": {"adaptive": True}})
+    assert channels._needs_adaptive({"linkDetails": {"link": "https://x/a.mpd"}})
+    assert not channels._needs_adaptive({"linkDetails": {"link": "https://x/a.m3u8"}})
+    assert not channels._needs_adaptive({})
+
+
+def test_hls_channels_are_unaffected(monkeypatch):
+    from katan import kodi
+
+    monkeypatch.setattr(kodi, "has_adaptive", lambda: False)
+    shown = channels.live_channels(kind="tv")
+    assert shown, "the HLS channels must still be listed"
+    for channel in shown:
+        assert not channels._needs_adaptive(
+            channels.get(channel["ids"]["channel"]))
+
+
+def test_the_hidden_count_includes_unplayable_dash(monkeypatch):
+    from katan import kodi
+
+    monkeypatch.setattr(kodi, "has_adaptive", lambda: False)
+    shown = len(channels.live_channels(kind="tv"))
+    everything = len(channels.live_channels(kind="tv", include_broken=True))
+    assert everything - shown == channels.hidden_count("tv")
+
+
 def test_the_channels_that_remain_all_resolve_to_a_url():
     """Whatever is listed must at least produce something playable."""
     unresolved = []

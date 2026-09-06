@@ -308,6 +308,17 @@ def resolve_stream(handle, url, adaptive=False, item=None, mime=""):
 
     if adaptive or ".mpd" in url.lower():
         manifest = "mpd" if ".mpd" in url.lower() else "hls"
+
+        # Without inputstream.adaptive Kodi opens nothing and says nothing, so
+        # the viewer sees a channel that simply does not start. Saying why is
+        # the least this can do; a DASH stream cannot be played any other way.
+        if manifest == "mpd" and not kodi.has_adaptive():
+            kodi.log_error("inputstream.adaptive is missing, cannot play %s"
+                           % url.split("?")[0])
+            kodi.notify(kodi.localize(32233))
+            xbmcplugin.setResolvedUrl(handle, False, li)
+            return
+
         li.setProperty("inputstream", "inputstream.adaptive")
         # Kodi 21 dropped the inputstream.adaptive.manifest_type property in
         # favour of the mimetype, but setting both is harmless and keeps

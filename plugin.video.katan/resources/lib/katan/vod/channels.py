@@ -137,19 +137,44 @@ def live_channels(limit=None, kind="tv", include_broken=None):
     if include_broken is None:
         include_broken = settings.get_bool("vod.show_broken_channels", False)
 
+    # A DASH channel needs inputstream.adaptive, and without it Kodi opens
+    # nothing and reports nothing. check_channels.py cannot see this because it
+    # asks the URL for bytes rather than asking Kodi to play it, so those
+    # channels are recorded as working and are not. Hiding them on a device
+    # that cannot play them is the same rule as hiding the broken ones.
+    playable_dash = include_broken or kodi.has_adaptive()
+
     table = load()
     entries = [(key, value) for key, value in table.items()
                if value.get("type", "tv") == kind
-               and (include_broken or value.get("working", True))]
+               and (include_broken or value.get("working", True))
+               and (playable_dash or not _needs_adaptive(value))]
     entries.sort(key=lambda kv: (int(kv[1].get("index") or 999), kv[0]))
     result = [_to_item(key, value) for key, value in entries]
     return result[:limit] if limit else result
 
 
+def _needs_adaptive(entry):
+    """Does this channel need inputstream.adaptive to play?"""
+    details = entry.get("linkDetails") or {}
+    if details.get("adaptive"):
+        return True
+    link = details.get("link") or details.get("live") or ""
+    return ".mpd" in link.lower()
+
+
 def hidden_count(kind="tv"):
-    """How many channels are hidden because they are known not to play."""
-    return sum(1 for value in load().values()
-               if value.get("type", "tv") == kind and value.get("working") is False)
+    """How many channels are hidden, whether broken or unplayable here."""
+    adaptive_ok = kodi.has_adaptive()
+    total = 0
+    for value in load().values():
+        if value.get("type", "tv") != kind:
+            continue
+        if value.get("working") is False:
+            total += 1
+        elif not adaptive_ok and _needs_adaptive(value):
+            total += 1
+    return total
 
 
 def radio_stations(limit=None):
