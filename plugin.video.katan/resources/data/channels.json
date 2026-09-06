@@ -65,56 +65,60 @@
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12tv.jpg",
   "index": 2,
   "linkDetails": {
-   "link": "/stream/hls/live/2033791/k12/index.m3u8"
+   "link": "/stream/hls/live/2033791/k12/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "קשת 12",
   "tvgID": "12",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_12b": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12tv.jpg",
   "index": 2,
   "linkDetails": {
-   "link": "/stream/hls/live/2033791/k12n12wad/index.m3u8"
+   "link": "/stream/hls/live/2033791/k12n12wad/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "קשת 12 - גיבוי",
   "tvgID": "12",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_12b2": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12tv.jpg",
   "index": 2,
   "linkDetails": {
-   "link": "/stream/hls/live/2033791/k12dvr/index.m3u8"
+   "link": "/stream/hls/live/2033791/k12dvr/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "קשת 12 - גיבוי 2",
   "tvgID": "12",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_12b3": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12tv.jpg",
   "index": 2,
   "linkDetails": {
-   "link": "/n12/hls/live/20000821/k12rh/index.m3u8"
+   "link": "/n12/hls/live/20000821/k12rh/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "קשת 12 - גיבוי 3",
   "tvgID": "12",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_12c": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12tv.jpg",
   "index": 2,
   "linkDetails": {
-   "host": "https://d2249b6f08tjt0.cloudfront.net",
-   "link": "/k12cc/index.m3u8?b-in-range=0-1800"
+   "link": "/k12cc/index.m3u8?b-in-range=0-1800",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "קשת 12 - לקויי שמיעה",
@@ -292,25 +296,27 @@
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/24tv.jpg",
   "index": 7,
   "linkDetails": {
-   "link": "/direct/hls/live/2035340/ch24live/index.m3u8?as=1"
+   "link": "/direct/hls/live/2035340/ch24live/index.m3u8?as=1",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "ערוץ 24",
   "tvgID": "24",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_24b": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/24tv.jpg",
   "index": 7,
   "linkDetails": {
-   "link": "/evrideo/hls/live/20001278/ch24live/index.m3u8"
+   "link": "/evrideo/hls/live/20001278/ch24live/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "ערוץ 24 - גיבוי",
   "tvgID": "24",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_33": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/makan.png",
@@ -379,13 +385,14 @@
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/hidabroot.jpg",
   "index": 11,
   "linkDetails": {
-   "link": "https://www.hidabroot.org/live"
+   "final": true,
+   "link": "https://htv-live.cybercdn.live/HidabrootIL/Live97/playlist.m3u8"
   },
   "module": "hidabroot",
   "name": "הידברות 97",
   "tvgID": "97",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_99": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/knesset.png",
@@ -440,61 +447,66 @@
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12eretz.jpg",
   "index": 28,
   "linkDetails": {
-   "link": "/evrideo/hls/live/20001278/erets/index.m3u8"
+   "link": "/evrideo/hls/live/20001278/erets/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "ערוץ ארץ נהדרת",
   "tvgID": "",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_free_comedy": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12comedy.jpg",
   "index": 30,
   "linkDetails": {
-   "link": "/evrideo/hls/live/20001278/free_comedy/index.m3u8"
+   "link": "/evrideo/hls/live/20001278/free_comedy/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "ערוץ הקומדיה",
   "tvgID": "",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_free_drama": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12drama.jpg",
   "index": 31,
   "linkDetails": {
-   "link": "/evrideo/hls/live/20001278/free_drama/index.m3u8"
+   "link": "/evrideo/hls/live/20001278/free_drama/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "ערוץ הדרמה",
   "tvgID": "",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_free_food": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12food.jpg",
   "index": 33,
   "linkDetails": {
-   "link": "/evrideo/hls/live/20001278/free_food/index.m3u8"
+   "link": "/evrideo/hls/live/20001278/free_food/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "ערוץ האוכל",
   "tvgID": "",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_free_music": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12music.jpg",
   "index": 32,
   "linkDetails": {
-   "link": "/evrideo/hls/live/20001278/free_music/index.m3u8"
+   "link": "/evrideo/hls/live/20001278/free_music/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "ערוץ המוזיקה",
   "tvgID": "",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_i24news": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/i24news.png",
@@ -573,13 +585,14 @@
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/12savri.jpg",
   "index": 29,
   "linkDetails": {
-   "link": "/evrideo/hls/live/20001278/savri/index.m3u8"
+   "link": "/evrideo/hls/live/20001278/savri/index.m3u8",
+   "token": "mako"
   },
   "module": "keshet",
   "name": "ערוץ סברי מרנן",
   "tvgID": "",
   "type": "tv",
-  "working": false
+  "working": true
  },
  "ch_sport5": {
   "image": "https://raw.githubusercontent.com/Fishenzon/repo/master/plugin.video.idanplus/images/Sport5.png",
