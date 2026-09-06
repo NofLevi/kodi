@@ -86,3 +86,38 @@ def test_no_stray_control_characters_in_source():
                     problems.append("%s contains chr(%d)"
                                     % (os.path.relpath(path, PACKAGE_ROOT), code))
     assert not problems, "\n".join(problems)
+
+
+def test_no_string_format_that_strips_the_tuple():
+    """`"%s %s" % (a, b).strip()` strips the tuple, not the string.
+
+    Python binds the method call to the tuple, so this raises AttributeError
+    rather than doing what it plainly looks like it does. It has now shipped
+    twice in this code base. The first time it took the entire source picker
+    down - the exception happened inside onInit, where nothing shows a stack
+    trace, so the window simply drew a title and then stopped.
+
+    The fix is one pair of parentheses, and this is the cheapest possible way
+    to make sure it does not come back a third time.
+    """
+    import io
+    import re
+
+    suspect = re.compile(r"%\s*\([^()]*\)\.\w+\(")
+    problems = []
+    for folder, dirs, files in os.walk(PACKAGE_ROOT):
+        if "__pycache__" in folder:
+            continue
+        for name in sorted(files):
+            if not name.endswith(".py"):
+                continue
+            path = os.path.join(folder, name)
+            with io.open(path, encoding="utf-8") as handle:
+                for number, line in enumerate(handle, 1):
+                    if suspect.search(line):
+                        problems.append(
+                            "%s:%d %s" % (os.path.relpath(path, PACKAGE_ROOT),
+                                          number, line.strip()))
+    assert not problems, (
+        "the method binds to the tuple, not the formatted string:\n"
+        + "\n".join(problems))

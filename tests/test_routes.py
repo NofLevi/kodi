@@ -64,6 +64,38 @@ def test_home_lists_live_tv_and_vod_as_separate_entries():
     assert any("action=vod" in u for u in urls), "VOD section is missing"
 
 
+def test_home_does_not_offer_a_row_it_knows_is_empty():
+    """A menu entry that opens an empty screen is a dead end.
+
+    The custom window already hides these. The plain listing was still
+    offering them, so a Trakt chart with nobody signed in, or the anime row
+    while AniList refuses requests, was an entry that led nowhere.
+    """
+    from katan import cache, catalog
+
+    row_id = catalog.enabled_rows()[0]["id"]
+    cache.set(catalog.cache_key(row_id), [], 600)
+    dispatch("home")
+
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    assert not any("id=%s" % row_id in u for u in urls)
+
+
+def test_a_row_that_has_never_been_warmed_is_still_offered():
+    """Cold is not empty. Collapsing the two would hide every row on a fresh
+    install, before anything has had a chance to load."""
+    from katan import cache, catalog
+
+    cache.delete_prefix("row|")
+    dispatch("home")
+
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    row_id = catalog.enabled_rows()[0]["id"]
+    assert any("id=%s" % row_id in u for u in urls)
+    assert cache.get(catalog.cache_key(row_id)) is None, \
+        "the listing must not warm the row itself"
+
+
 def test_home_offers_setup_when_tmdb_is_not_configured(settings_module):
     settings_module.set("tmdb.apikey", "")
     dispatch("home")

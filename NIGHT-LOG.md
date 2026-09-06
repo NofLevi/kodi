@@ -193,3 +193,142 @@ poster, title, year, rating, runtime, genres, plot, cast, and four Hebrew
 buttons.
 
 618 tests.
+
+## 04:10 — "Show all" showed the same eight, and a cache flag could not come down
+
+Two bugs in the aggregator, both in the ordering rather than in any of the
+well-tested pieces underneath it. `aggregator.py` is 176 lines of
+orchestration and had **no tests at all**; it has 22 now.
+
+`find()` cached the eight sources it returned, and `all_sources()` read back
+that same cache entry and re-ranked it — so the "show all" toggle in the
+picker handed you the same eight rows it was toggling away from. The full
+post-filter list existed only inside `find()`'s stack frame. The whole ranked
+list is cached now and the short list is a slice of it, so the two views
+cannot disagree about what was found.
+
+The second one had a docstring describing exactly what it did not do.
+`_recheck_cached` exists because "playing a source that is no longer cached is
+the most annoying possible failure" — and it asked only about the sources
+already marked *un*cached, so a flag could go up and never come down. It asks
+about all of them now, and re-ranks when an answer moves, because being cached
+outweighs every other signal and with `cached_only` on it decides whether a
+source is shown at all. A source the service has evicted disappears from the
+picker instead of sitting at the top of it. A lookup that *fails* is still not
+a "no": the flags are left alone, or a network hiccup would empty the picker.
+
+## 04:55 — Say it in Hebrew, survive a payload that changed shape, never hang
+
+Six things, all about what you see when something goes wrong.
+
+The three toasts in the router were the last English text on a path you can
+reach, and one read `Unknown action: vod_category` — an internal identifier
+shown to somebody who can do nothing with it. The performance-profile chooser
+was half translated: Hebrew profile names, English reasons, so it said
+"low memory <- only 180 MB free". Seven new strings.
+
+**The device report stays in English on purpose**, and now says why in its own
+docstring. It exists to be written to the log and pasted to whoever can help,
+and half of it is untranslatable anyway — HEVC, SQLite, System.HasHWDecoder. A
+Hebrew log line is a log line nobody can search for.
+
+**The subtitle dialog could hang.** Closing the directory is the only thing
+that ends Kodi's "searching for subtitles" spinner, and each branch closed for
+itself — so a provider that raised skipped the close and left you with no way
+out but to dismiss the dialog by hand. The close lives in one `finally` now.
+
+The Stremio adapter is how three of the four providers speak. One stream it
+could not read aborted the loop, so a cosmetic upstream change would read as
+"no sources found". A bad stream costs itself now. `videoSize` has arrived as
+a string and as a float and `int()` accepts neither; a `fileIdx` that is not a
+number is ignored rather than allowed to pick a file out of a season pack.
+
+Two more of the same shape: a channel whose `index` is not a number sorts last
+instead of raising out of the sort, and a catalogue entry whose poster is JSON
+null lists without one — `get("i", "")` does not help, because a null is a
+present key and the default never fires.
+
+Deleted `sources_window.quick_pick` and `diagnostics.summary`, neither called.
+
+## 05:30 — Two settings that promised something with no code behind them
+
+`allow_uncached` was read by three debrid clients and written by nothing, so
+it was always false. That made **"cached only: off" a trap** rather than a
+choice: the picker listed uncached sources, the client refused to open them,
+and pressing play did nothing at all — no download, no message, nothing.
+Turning that setting off is you saying you will wait for a download, and it
+now means that. Left on, which is the default, nothing changes and TorBox's
+sixty-an-hour uncached quota is untouched.
+
+The VOD category link dropped the broadcaster, so "Kan 11 (216)" could list
+every broadcaster's programmes under that name. **I should be exact: nobody
+has seen this.** In today's catalogue no category name is used by two
+broadcasters, so the two answers coincide. That is an accident of the data,
+which tooling regenerates, not something the code arranged, and the test says
+so in as many words.
+
+## 06:20 — Lightweight is now what it ships as
+
+Your steer was "make the default the lightweight, and a switch for visual
+polish". Here is what that meant in practice, because it was worse than it
+looked.
+
+The add-on **shipped `balanced`**: w342 posters, twenty a row, four workers, a
+50 MB cache, prefetching on. `DEFAULTS` had quietly become a fourth profile
+that nobody maintained and that disagreed with all three of the ones written
+down. On a projector with a gigabyte shared with Android, three visible rows
+of w342 posters is about 22 MB of decoded bitmaps against 6 MB at w185.
+
+`DEFAULTS` is now `LOW_MEMORY`, key for key, **and a test says so** — the
+shipped state and the lean profile can no longer drift apart. Twelve values
+moved.
+
+The polish is one switch rather than a profile name: `ui.rich_visuals`, off,
+in the interface settings and as a fifth step in the setup wizard. It is a
+floor, not an assignment — it lifts artwork to at least w342 and twenty a row
+and cannot lower a profile that already asks for more, so turning it on with
+`powerful` selected still leaves you at w500. Flipping it re-applies the
+current profile, because the poster width lives in the profile tables and the
+setting alone would have changed nothing until the next time a profile was
+applied, which for most people is never.
+
+Both choices are shown **with what they cost in megabytes**, computed rather
+than written down. The wizard also shows what the device says about itself —
+`recommend()` has always read free memory, cores and panel resolution and
+nothing ever called it — but a box with room to spare is *told* so, not
+quietly switched. That is deliberate: it is memory being spent on somebody
+else's hardware.
+
+**Worth knowing:** Kodi writes every declared setting into its own file the
+first time it loads an add-on, so an install that already exists keeps the
+values it has. This changes what a *fresh* install gets. Tools → Performance
+profile applies the lean set to an existing one.
+
+Photographed at w185 in a real Kodi. It does not look cheap: sharp posters,
+the hero backdrop, Hebrew headings, two full rows.
+
+## 06:50 — The button you were about to press was the one you could not read
+
+Every button in all four windows had white text, and the focus texture is
+near-white. So the focused control — the only one whose label matters at that
+moment — was white on white. Forty-four buttons now declare a dark focused
+colour. The search window's on-screen keyboard was the worst case: thirty-five
+keys, and the one under the cursor invisible.
+
+"הוסף לרשימת Trakt" was clipped at both ends in the details window; four
+Hebrew words and one Latin one do not fit in 270 px. And a focused poster's
+title now scrolls instead of truncating, because "Obsession (2..." tells you
+less than the poster above it already did.
+
+**A third correction.** Between those two fixes I read a screenshot as showing
+the details window drawing no poster at all. It draws it fine — the frame was
+captured before the image finished loading, and Kodi renders lazily when idle
+so the same stale frame came back twice. That is the third time tonight the
+same trap has caught me. Nothing was wrong and nothing was changed for it. I
+now press a key before every single capture.
+
+Confirmed in the same pass: the runtime line reads "110 דק'" rather than
+"110 min" — the localisation fix from 03:20, seen working in Kodi rather than
+in a test.
+
+683 tests.

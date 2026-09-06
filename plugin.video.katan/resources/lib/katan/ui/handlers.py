@@ -51,6 +51,15 @@ def home(params):
         return
 
     for row in catalog.enabled_rows():
+        # A row that has been warmed and came back empty is not offered. The
+        # custom window already hides those; the plain listing was still
+        # showing them, so a Trakt chart with no account signed in, or the
+        # anime row while AniList is refusing requests, was a menu entry that
+        # opens an empty screen. peek() returning None means "not warmed yet",
+        # which is not the same thing and must still be offered.
+        warmed = catalog.peek(row["id"])
+        if warmed is not None and not warmed:
+            continue
         listing.add_directory(
             handle,
             catalog.row_title(row),

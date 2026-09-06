@@ -240,14 +240,13 @@ def _artwork_rows():
     """
     from . import profiles
 
-    width = int((settings.get("ui.poster_size") or "w342").lstrip("w") or 342)
-    per_row = settings.get_int("ui.row_items", 20)
-    visible_rows = 3                      # roughly what fits on screen at once
-    on_screen = 9                         # posters visible across one row
-
-    bitmap = width * (width * 1.5) * 4
-    held = bitmap * visible_rows * min(per_row, on_screen + 2)
-    megabytes = held / (1024.0 * 1024.0)
+    width = settings.get("ui.poster_size") or "w185"
+    per_row = settings.get_int("ui.row_items")
+    # The arithmetic lives in profiles, because the setup wizard shows the
+    # same number next to the visual-polish switch and two implementations of
+    # "what does this artwork cost" would answer differently the moment either
+    # changed.
+    megabytes = profiles.artwork_megabytes(width, per_row)
 
     free = profiles._free_megabytes()
     verdict = "ok"
@@ -259,8 +258,10 @@ def _artwork_rows():
         verdict = "warn"
 
     return [
-        ("Memory", "Poster width", "%dpx" % width, ""),
+        ("Memory", "Poster width", str(width), ""),
         ("Memory", "Items per row", str(per_row), ""),
+        ("Memory", "Richer artwork",
+         "on" if settings.get_bool("ui.rich_visuals") else "off", ""),
         ("Memory", "Visible artwork", "about %.0f MB" % megabytes, verdict),
         ("Memory", "Profile", profiles.current(), ""),
     ]
