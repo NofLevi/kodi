@@ -35,7 +35,7 @@ SYSTEM_PROMPT = (
 )
 
 INSTRUCTIONS = """Translate the subtitle lines below into {language}.
-
+{context}
 Rules:
 - Reply with a JSON object only. No commentary, no code fences.
 - Keep exactly the same keys as the input, in the same order.
@@ -45,9 +45,18 @@ Rules:
 - Keep names, places and brands in their usual {language} form.
 - Translate the dialogue naturally rather than word by word, using the
   surrounding lines for context.
+- {language} marks the speaker's gender on verbs and adjectives. Use the cast
+  list above, the speaker labels and the surrounding lines to choose the right
+  form. When the speaker is genuinely unclear, prefer the form that reads
+  naturally rather than defaulting to masculine.
 
 Input:
 {payload}"""
+
+CAST_BLOCK = """
+The people in this scene, for choosing the right gendered forms:
+{cast}
+"""
 
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.M)
 
@@ -78,11 +87,13 @@ def chunk_size():
     return max(MIN_CHUNK, settings.get_int("subs.ai.chunk", DEFAULT_CHUNK))
 
 
-def translate(cues, target_language="he", on_progress=None):
+def translate(cues, target_language="he", on_progress=None, meta=None):
     """Translate cues, returning new cues with the original timings.
 
-    on_progress(done, total) is called after each chunk so the caller can show
-    partial results while the rest is still running.
+    on_progress(done, total, cues_so_far) is called after each chunk. The third
+    argument is the full cue list with everything translated so far already
+    merged in, so the caller can put it on screen immediately and let the
+    viewer start watching while the rest is still being translated.
     """
     backend = engine()
     if backend is None:
@@ -91,6 +102,7 @@ def translate(cues, target_language="he", on_progress=None):
         return []
 
     language = LANGUAGE_NAMES.get(target_language, target_language)
+    context = _context_block(meta)
     size = chunk_size()
     translated = {}
     total = len(cues)
@@ -98,15 +110,32 @@ def translate(cues, target_language="he", on_progress=None):
     for start in range(0, total, size):
         batch = cues[start:start + size]
         try:
-            translated.update(_translate_batch(backend, batch, language, start))
+            translated.update(
+                _translate_batch(backend, batch, language, start, context))
         except TranslationError:
             kodi.log_exception("chunk starting at %d failed" % start)
         if on_progress is not None:
-            on_progress(min(start + size, total), total)
+            try:
+                on_progress(min(start + size, total), total,
+                            _merge(cues, translated))
+            except TypeError:
+                # Callers that only want the counts.
+                on_progress(min(start + size, total), total)
+            except Exception:
+                kodi.log_exception("progress callback failed")
 
     if not translated:
         raise TranslationError("nothing was translated")
 
+    return _merge(cues, translated)
+
+
+def _merge(cues, translated):
+    """Overlay the translated text onto the original cues.
+
+    Untranslated positions keep their original text, so a partial result is a
+    playable subtitle rather than a file full of gaps.
+    """
     out = []
     for position, cue in enumerate(cues):
         text = translated.get(str(position), "")
@@ -114,7 +143,20 @@ def translate(cues, target_language="he", on_progress=None):
     return out
 
 
-def _translate_batch(backend, batch, language, offset, depth=0):
+def _context_block(meta):
+    """The cast note, when there is one worth sending."""
+    if not meta:
+        return ""
+    try:
+        from . import context as translation_context
+        note = translation_context.cast_note(meta)
+    except Exception:
+        kodi.log_exception("could not build the translation context")
+        return ""
+    return CAST_BLOCK.format(cast=note) if note else ""
+
+
+def _translate_batch(backend, batch, language, offset, context="", depth=0):
     """Translate one chunk, splitting it on failure rather than losing it.
 
     Keys are absolute positions in the file, so a split chunk still maps back
@@ -123,7 +165,7 @@ def _translate_batch(backend, batch, language, offset, depth=0):
     payload = {str(offset + position): cue.text
                for position, cue in enumerate(batch)}
     prompt = INSTRUCTIONS.format(
-        language=language,
+        language=language, context=context,
         payload=json.dumps(payload, ensure_ascii=False, indent=0))
 
     last_error = ""
@@ -150,9 +192,9 @@ def _translate_batch(backend, batch, language, offset, depth=0):
         middle = len(batch) // 2
         result = {}
         result.update(_translate_batch(backend, batch[:middle], language,
-                                       offset, depth + 1))
+                                       offset, context, depth + 1))
         result.update(_translate_batch(backend, batch[middle:], language,
-                                       offset + middle, depth + 1))
+                                       offset + middle, context, depth + 1))
         return result
 
     raise TranslationError(last_error or "translation failed")

@@ -258,10 +258,14 @@ def find_by_imdb(imdb_id):
 
 def _attach_credits(item, payload):
     credits = payload.get("credits") or {}
+    # TMDB gender: 1 female, 2 male, 0 or 3 unknown. It is kept because Hebrew
+    # marks speaker gender on verbs and adjectives, so a translator that knows
+    # who is speaking produces far better Hebrew than one that guesses.
     item["cast"] = [
         {
             "name": person.get("name", ""),
             "role": person.get("character", ""),
+            "gender": int(person.get("gender") or 0),
             "thumb": items.image_url(person.get("profile_path"), items.PROFILE_SIZE),
         }
         for person in (credits.get("cast") or [])[:15]

@@ -124,3 +124,54 @@ def test_translation_is_off_when_no_engine_is_configured(settings_module):
     assert translator.available() is False
     with pytest.raises(translator.TranslationError):
         translator.translate(cues(2), "he")
+
+
+def test_partial_results_are_offered_after_each_chunk(use_engine):
+    """A viewer should start watching before the whole film is translated."""
+    use_engine("good")
+    original = cues(20)
+    snapshots = []
+
+    def on_progress(done, total, partial=None):
+        snapshots.append((done, list(partial) if partial else None))
+
+    translator.translate(original, "he", on_progress=on_progress)
+
+    assert len(snapshots) == 3, "20 cues at a chunk size of 8 is three chunks"
+    first_done, first_partial = snapshots[0]
+    assert first_partial is not None
+    assert len(first_partial) == len(original), \
+        "a partial must be a complete, playable file"
+    assert first_partial[0].text.startswith("HE:"), "the first chunk is done"
+    assert first_partial[-1].text == original[-1].text, \
+        "untranslated lines keep their original text"
+
+
+def test_partial_results_keep_the_original_timings(use_engine):
+    use_engine("good")
+    original = cues(20)
+    seen = []
+    translator.translate(original, "he",
+                         on_progress=lambda d, t, p=None: seen.append(p))
+    for partial in seen:
+        for before, after in zip(original, partial):
+            assert after.start == before.start and after.end == before.end
+
+
+def test_a_progress_callback_that_wants_only_counts_still_works(use_engine):
+    """Older callers pass a two argument function; that must not break."""
+    use_engine("good")
+    counts = []
+    translator.translate(cues(10), "he",
+                         on_progress=lambda done, total: counts.append(done))
+    assert counts and counts[-1] == 10
+
+
+def test_a_failing_progress_callback_does_not_stop_the_translation(use_engine):
+    use_engine("good")
+
+    def broken(done, total, partial=None):
+        raise RuntimeError("the UI blew up")
+
+    result = translator.translate(cues(10), "he", on_progress=broken)
+    assert all(c.text.startswith("HE:") for c in result)

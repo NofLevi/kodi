@@ -46,7 +46,7 @@ def on_playback_started(player, meta):
         return
 
     kodi.log("looking for %s subtitles" % wanted)
-    path, report = find_and_prepare(meta, languages)
+    path, report = find_and_prepare(meta, languages, player)
     if not path:
         kodi.log("no usable subtitle was found: %s" % report.get("reason"))
         return
@@ -153,7 +153,7 @@ def search_candidates(meta, languages, video_hash=""):
     return candidates
 
 
-def find_and_prepare(meta, languages):
+def find_and_prepare(meta, languages, player=None):
     """Find, download, verify and store one subtitle. Returns (path, report)."""
     report = {"translated": False, "synchronised": False, "reason": ""}
     wanted = languages[0]
@@ -177,7 +177,7 @@ def find_and_prepare(meta, languages):
             report["reason"] = winner.get("reason", "")
             return store(meta, wanted, cues), report
 
-    path, report = translate_fallback(meta, winners, languages, report)
+    path, report = translate_fallback(meta, winners, languages, report, player)
     if path:
         return path, report
 
@@ -263,23 +263,26 @@ def reference_cues(winners, languages):
     return []
 
 
-def translate_fallback(meta, winners, languages, report):
+def translate_fallback(meta, winners, languages, report, player=None):
     """Translate the best other-language match into the wanted language.
 
     Timings come from the source subtitle and are never touched, so a
     translated file is exactly as well synchronised as the file it came from.
+
+    Which source to translate from is not simply the best match. Hebrew marks
+    the speaker's gender on verbs and adjectives, and a language that already
+    marks it carries that through for free, so a Spanish or Arabic subtitle can
+    beat a slightly better-matching English one.
     """
+    from .ai import context as translation_context
     from .ai import translator
 
     if not translator.available():
         return "", report
 
-    source = None
-    for language in languages[1:] + ["en"]:
-        candidate = winners.get(language)
-        if candidate and candidate.get("score", 0) >= 40:
-            source = (language, candidate)
-            break
+    ranked = translation_context.rank_translation_sources(winners, languages)
+    source = next(((lang, cand) for lang, cand in ranked
+                   if (cand.get("score") or 0) >= 40), None)
     if not source:
         return "", report
 
@@ -288,23 +291,76 @@ def translate_fallback(meta, winners, languages, report):
     if not cues:
         return "", report
 
-    import xbmcgui
-    progress = xbmcgui.DialogProgressBG()
-    progress.create("Katan", kodi.localize(32335))
-    try:
-        translated = translator.translate(
-            cues, languages[0],
-            on_progress=lambda done, total: progress.update(
-                int(done * 100 / max(1, total)), message=kodi.localize(32335)))
-    except translator.TranslationError:
-        kodi.log_exception("AI translation failed")
+    translated = _translate_progressively(cues, meta, languages[0], player)
+    if not translated:
         return "", report
-    finally:
-        progress.close()
 
     report["translated"] = True
     report["source_language"] = language
     return store(meta, languages[0], translated), report
+
+
+def _translate_progressively(cues, meta, language, player):
+    """Translate, showing each finished chunk as it arrives.
+
+    A feature-length film is several minutes of translation. Waiting for all of
+    it before showing anything means staring at a progress bar; showing the
+    first chunk immediately means the viewer starts watching while the rest is
+    still being written.
+
+    Kodi caches a subtitle file by path, so re-writing the same name changes
+    nothing on screen. Alternating between two names forces it to re-read.
+    """
+    import xbmcgui
+
+    from .ai import translator
+
+    progress = xbmcgui.DialogProgressBG()
+    progress.create("Katan", kodi.localize(32335))
+    slots = _partial_slots(meta, language)
+    state = {"slot": 0, "shown": 0}
+
+    def on_progress(done, total, partial=None):
+        progress.update(int(done * 100 / max(1, total)),
+                        message=kodi.localize(32335))
+        if player is None or partial is None or done <= state["shown"]:
+            return
+        path = slots[state["slot"] % len(slots)]
+        try:
+            srt.write(path, partial)
+            player.setSubtitles(path)
+            player.showSubtitles(True)
+            state["slot"] += 1
+            state["shown"] = done
+        except Exception:
+            kodi.log_exception("could not show a partial translation")
+
+    try:
+        return translator.translate(cues, language, on_progress=on_progress,
+                                    meta=meta)
+    except translator.TranslationError:
+        kodi.log_exception("AI translation failed")
+        return []
+    finally:
+        progress.close()
+        _clean_partials(slots)
+
+
+def _partial_slots(meta, language):
+    """Two file names to alternate between while translating."""
+    base = name_for(meta, language)[:-4]
+    directory = subtitle_dir()
+    return [os.path.join(directory, "%s.part%s.srt" % (base, suffix))
+            for suffix in ("a", "b")]
+
+
+def _clean_partials(slots):
+    for path in slots:
+        try:
+            if os.path.isfile(path):
+                os.remove(path)
+        except OSError:
+            pass
 
 
 # --------------------------------------------------------------------------

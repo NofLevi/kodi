@@ -44,7 +44,9 @@ def pipeline(monkeypatch, settings_module):
 
     def fake_download(candidate):
         state["downloaded"].append(candidate.get("release"))
-        data = state["downloads"].get(candidate.get("release"), b"")
+        key = candidate.get("download") or candidate.get("release")
+        data = state["downloads"].get(key) or state["downloads"].get(
+            candidate.get("release"), b"")
         cues = srt.parse(srt.decode(data)) if data else []
         return srt.clean(cues) if cues else []
 
@@ -111,7 +113,7 @@ def test_english_is_translated_when_no_hebrew_is_good_enough(pipeline, monkeypat
 
     from katan.subs.ai import translator
 
-    def fake_translate(cues, language, on_progress=None):
+    def fake_translate(cues, language, on_progress=None, meta=None):
         return [srt.Cue(c.index, c.start, c.end, "HE " + c.text) for c in cues]
 
     monkeypatch.setattr(translator, "available", lambda: True)
@@ -175,3 +177,75 @@ def test_episode_and_movie_names_do_not_collide():
                              "season": 2, "episode": 7}, "he")
     assert movie != episode
     assert "s02e07" in episode
+
+
+def test_a_partial_translation_reaches_the_player_while_it_runs(pipeline,
+                                                                monkeypatch,
+                                                                settings_module):
+    """The viewer should see subtitles from the first chunk, not at the end."""
+    settings_module.set("subs.ai.enabled", "true")
+    english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    pipeline["candidates"] = [candidate(english, language="en")]
+    pipeline["downloads"][english] = srt_bytes(count=24, text="english")
+
+    from katan.subs.ai import translator
+
+    def fake_translate(cues, language, on_progress=None, meta=None):
+        translated = [srt.Cue(c.index, c.start, c.end, "HE " + c.text)
+                      for c in cues]
+        if on_progress:
+            on_progress(12, 24, translated[:12] + cues[12:])
+            on_progress(24, 24, translated)
+        return translated
+
+    monkeypatch.setattr(translator, "available", lambda: True)
+    monkeypatch.setattr(translator, "translate", fake_translate)
+
+    shown = []
+
+    class FakePlayer(object):
+        def setSubtitles(self, path):
+            shown.append((path, os.path.getsize(path)))
+
+        def showSubtitles(self, visible):
+            pass
+
+    path, report = auto.find_and_prepare(MOVIE, ["he", "en"],
+                                         player=FakePlayer())
+
+    assert report["translated"] is True
+    assert shown, "nothing was put on screen before the end"
+    assert all(size > 0 for _p, size in shown)
+
+    # Kodi caches a subtitle by path, so consecutive writes must alternate.
+    if len(shown) > 1:
+        assert shown[0][0] != shown[1][0], \
+            "the same path twice would not refresh on screen"
+
+    assert os.path.isfile(path)
+    for partial, _size in shown:
+        assert not os.path.isfile(partial), "partial files should be cleaned up"
+
+
+def test_a_gender_marking_language_is_preferred_as_the_translation_source(
+        pipeline, monkeypatch, settings_module):
+    """Spanish carries the speaker's gender into Hebrew; English cannot."""
+    settings_module.set_many({"subs.ai.enabled": "true",
+                              "subs.languages": "he,en,es"})
+    # Identical release names, so the only thing separating them is the
+    # language. A better-matching English subtitle would rightly still win.
+    release = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    pipeline["candidates"] = [
+        dict(candidate(release, language="en"), download="english"),
+        dict(candidate(release, language="es"), download="spanish"),
+    ]
+    pipeline["downloads"]["english"] = srt_bytes(text="english")
+    pipeline["downloads"]["spanish"] = srt_bytes(text="spanish")
+
+    from katan.subs.ai import translator
+    monkeypatch.setattr(translator, "available", lambda: True)
+    monkeypatch.setattr(translator, "translate",
+                        lambda cues, language, on_progress=None, meta=None: cues)
+
+    _path, report = auto.find_and_prepare(MOVIE, ["he", "en", "es"])
+    assert report["source_language"] == "es"
