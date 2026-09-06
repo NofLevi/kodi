@@ -105,6 +105,64 @@ def test_a_refresh_mints_a_new_one(service):
     assert len(service) == 2
 
 
+# --------------------------------------------------------------------------
+# two CDNs, two tickets
+#
+# Mako serves live from Akamai and on demand from CloudFront, and the two
+# tickets are not interchangeable: CloudFront answers an Akamai token with
+# "Missing token query parameter". Asking the wrong one is a bare 403, so the
+# vendor is chosen from the host.
+# --------------------------------------------------------------------------
+
+
+def test_the_live_host_asks_for_an_akamai_ticket(service):
+    entitlement.sign("https://mako-streaming.akamaized.net/a/index.m3u8", "mako")
+    assert service[0]["params"]["rv"] == "AKAMAI"
+
+
+def test_the_vod_host_asks_for_an_aws_ticket(service):
+    entitlement.sign("https://d3par5938i20jq.cloudfront.net/hls/VOD/a/index.m3u8",
+                     "mako")
+    assert service[0]["params"]["rv"] == "AWS"
+
+
+def test_the_vendor_is_read_from_the_host():
+    assert entitlement.vendor_for(
+        "https://mako-streaming.akamaized.net/x") == entitlement.VENDOR_AKAMAI
+    assert entitlement.vendor_for(
+        "https://d3par5938i20jq.cloudfront.net/x") == entitlement.VENDOR_AWS
+
+
+def test_an_aws_ticket_is_cached_per_path(service):
+    """The AWS ticket is a JWT with the path inside it, so it cannot be shared."""
+    entitlement.sign("https://x.cloudfront.net/one/index.m3u8", "mako")
+    entitlement.sign("https://x.cloudfront.net/two/index.m3u8", "mako")
+    assert len(service) == 2, "one AWS ticket does not cover another path"
+
+
+def test_the_same_aws_path_is_still_cached(service):
+    entitlement.sign("https://x.cloudfront.net/one/index.m3u8", "mako")
+    entitlement.sign("https://x.cloudfront.net/one/index.m3u8", "mako")
+    assert len(service) == 1
+
+
+def test_the_two_vendors_do_not_share_a_cached_ticket(service):
+    entitlement.sign("https://mako-streaming.akamaized.net/a/index.m3u8", "mako")
+    entitlement.sign("https://x.cloudfront.net/a/index.m3u8", "mako")
+    assert len(service) == 2
+    assert [call["params"]["rv"] for call in service] == ["AKAMAI", "AWS"]
+
+
+def test_a_whole_query_string_ticket_replaces_the_query(monkeypatch):
+    """LEVEL3 answers with "?nvb=...&token=..." rather than one parameter."""
+    monkeypatch.setattr(http, "get_json", lambda url, default=None, **kw: {
+        "status": "Success",
+        "tickets": [{"vendor": "LEVEL3", "ticket": "?nvb=1&token=abc"}]})
+    signed = entitlement.sign("https://x.cloudfront.net/a/index.m3u8?old=1",
+                              "mako")
+    assert signed == "https://x.cloudfront.net/a/index.m3u8?nvb=1&token=abc"
+
+
 def test_listing_the_channels_never_asks_for_a_ticket(no_network):
     """Signing belongs to playback. Browsing must not touch the service."""
     listed = channels.live_channels(kind="tv")
