@@ -492,3 +492,15 @@ msgctxt "#32397"
 msgid "expires %s"
 msgstr "פג ב- %s"
 
+msgctxt "#32400"
+msgid "embedded"
+msgstr "מובנה"
+
+msgctxt "#32401"
+msgid "estimate"
+msgstr "הערכה"
+
+msgctxt "#32402"
+msgid "embedded, forced only"
+msgstr "מובנה, כפויות בלבד"
+

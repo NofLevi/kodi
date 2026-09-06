@@ -492,3 +492,15 @@ msgctxt "#32397"
 msgid "expires %s"
 msgstr ""
 
+msgctxt "#32400"
+msgid "embedded"
+msgstr ""
+
+msgctxt "#32401"
+msgid "estimate"
+msgstr ""
+
+msgctxt "#32402"
+msgid "embedded, forced only"
+msgstr ""
+
