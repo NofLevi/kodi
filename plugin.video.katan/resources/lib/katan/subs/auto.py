@@ -95,9 +95,9 @@ _MODULES = {}
 
 def _modules():
     if not _MODULES:
-        from .providers import opensubtitles, subsource, wizdom
+        from .providers import ktuvit, opensubtitles, subsource, wizdom
         _MODULES.update({"wizdom": wizdom, "opensubtitles": opensubtitles,
-                         "subsource": subsource})
+                         "subsource": subsource, "ktuvit": ktuvit})
     return _MODULES
 
 
@@ -105,11 +105,14 @@ def _providers():
     """Enabled provider modules, in the order they should be asked.
 
     Wizdom leads because it is Hebrew-only and fast; OpenSubtitles follows
-    because it is the one that can match on the file hash.
+    because it is the one that can match on the file hash. Ktuvit is last of
+    the Hebrew sources despite having the best catalogue, because it is the
+    only one that needs a signed-in session and so the only one that can be
+    slow for a reason the user cannot see.
     """
     modules = _modules()
     enabled = settings.enabled_subtitle_providers()
-    order = ["wizdom", "opensubtitles", "subsource"]
+    order = ["wizdom", "opensubtitles", "ktuvit", "subsource"]
     return [(name, modules[name]) for name in order
             if name in enabled and name in modules]
 
