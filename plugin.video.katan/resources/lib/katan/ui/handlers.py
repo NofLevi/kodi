@@ -429,7 +429,8 @@ def vod_module(params):
     if len(groups) > 1:
         for name, count in groups:
             listing.add_directory(handle, "%s (%d)" % (name, count),
-                                  router.url_for("vod_category", name=name),
+                                  router.url_for("vod_category", name=name,
+                                                 module=module),
                                   art={"icon": "DefaultVideoPlaylists.png"})
         listing.end(handle, content="videos")
         return
@@ -438,8 +439,13 @@ def vod_module(params):
 
 @router.route("vod_category")
 def vod_category(params):
+    # The broadcaster travels with the category. The counts beside these names
+    # were worked out within one broadcaster, so opening one without it showed
+    # a different, longer list than the number promised.
     from ..vod import library
-    listing.add_items(_handle(), library.by_category(params.get("name", "")),
+    listing.add_items(_handle(),
+                      library.by_category(params.get("name", ""),
+                                          module=params.get("module", "")),
                       content="videos")
 
 
