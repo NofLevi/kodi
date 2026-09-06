@@ -31,7 +31,12 @@ def episodes(ref, mode=""):
             r'<a[^>]+href="([^"]*vod[^"]*)"[^>]*>(.*?)</a>', html, re.S | re.I):
         href, inner = match.group(1), match.group(2)
         link = page.absolute(href, BASE)
-        if link in seen or link.rstrip("/") == url.rstrip("/"):
+        if link in seen:
+            continue
+        # Mako's own menu - home, LIVE, programmes, playlists, subscribe - all
+        # contain "vod" and so match the same pattern an episode does. An
+        # episode lives under its programme; the menu does not.
+        if not page.is_descendant(link, url):
             continue
         title = _text(inner)
         if not title:
@@ -73,9 +78,21 @@ def stream(ref, mode=""):
     html = page.fetch(url, referer=BASE)
     if not html:
         return "", False
+
     found, adaptive, strategy = page.extract_stream(html, url)
-    if found:
-        kodi.log("mako: resolved via %s" % strategy)
-    else:
+    if not found:
         kodi.log("mako: no strategy matched for %s" % url)
+        return "", False
+
+    kodi.log("mako: resolved via %s" % strategy)
+
+    # Mako's VOD CDN refuses an unsigned request exactly as its live one does,
+    # so the manifest that was just found is a 403 until it carries a ticket.
+    # entitlement.py picks the right vendor from the host: the on-demand
+    # streams are on CloudFront and want an AWS token, not the Akamai one the
+    # live channels use.
+    if not found.startswith("plugin://"):
+        from .. import entitlement
+        found = entitlement.sign(found, "mako")
+
     return found, adaptive

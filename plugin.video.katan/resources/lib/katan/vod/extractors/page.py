@@ -147,6 +147,53 @@ def extract_stream(html, page_url=""):
     return "", False, ""
 
 
+def is_descendant(link, programme):
+    """Is this link below the programme page it was found on?
+
+    Programme pages carry the site's own navigation - a home link, a live link,
+    a subscribe link, an unrelated article - and to a pattern that only checks
+    the shape of a path those look exactly like episode links. Mako's menu
+    contributed five of them to every programme and Kan's contributed one, and
+    they sorted to the top, so the first "episode" of every programme was a
+    menu item that plays nothing.
+
+    An episode of a programme lives under that programme, so that is the test.
+    It is done on the path with the host normalised, because the bundled
+    catalogue says kan.org.il and the markup says www.kan.org.il.
+
+    The boundary is looser than a path separator on purpose. Kan separates an
+    episode from its programme with a slash (``/p-12317/`` then ``/s3/8339``)
+    but Mako uses a dash (``/happy_friday`` then ``/happy_friday-s1/VOD-a``),
+    so requiring a slash would reject every real Mako episode. Requiring only
+    that the next character is not alphanumeric keeps both and still rejects
+    ``/showtwo`` under ``/show``.
+
+    The limit that leaves: a programme whose path is another programme's path
+    plus a dash would look like its child. Both broadcasters name programmes
+    distinctly enough that this has not been observed, and the alternative
+    rejects real episodes, so it is accepted rather than worked around.
+    """
+    here, there = _path_of(link), _path_of(programme)
+    if not here or not there or here == there:
+        return False
+    if not here.startswith(there):
+        return False
+    rest = here[len(there):]
+    return bool(rest) and not rest[0].isalnum()
+
+
+def _path_of(url):
+    """The comparable part of a URL: no scheme, no www, no trailing slash."""
+    text = (url or "").split("?")[0].split("#")[0]
+    for prefix in ("https://", "http://", "//"):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
+    if text.startswith("www."):
+        text = text[4:]
+    return text.rstrip("/").lower()
+
+
 def absolute(url, base):
     """Turn a relative href into a full URL."""
     if not url:

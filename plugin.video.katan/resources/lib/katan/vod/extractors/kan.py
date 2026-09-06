@@ -37,7 +37,12 @@ def episodes(ref, mode=""):
         if "/content/kan/" not in href:
             continue
         link = page.absolute(href, BASE)
-        if link in seen or link.rstrip("/") == url.rstrip("/"):
+        if link in seen:
+            continue
+        # An episode lives under its programme. Without this the station's
+        # "frequencies and channels" article is listed as the first episode of
+        # every programme on the site.
+        if not page.is_descendant(link, url):
             continue
         seen.add(link)
         found.append(_episode_item(link, inner))
