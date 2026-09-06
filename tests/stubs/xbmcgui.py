@@ -104,6 +104,19 @@ class _ControlList(object):
     def getSelectedPosition(self):
         return self.position
 
+    def selectItem(self, index):
+        """Kodi's ControlList has this; the stub did not, so nothing could
+        test what happens when a viewer picks a row other than the first."""
+        self.position = int(index)
+
+    def getSelectedItem(self):
+        if 0 <= self.position < len(self.items):
+            return self.items[self.position]
+        return None
+
+    def getListItem(self, index):
+        return self.items[index]
+
     def size(self):
         return len(self.items)
 
