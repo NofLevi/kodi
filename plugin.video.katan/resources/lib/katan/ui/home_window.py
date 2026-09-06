@@ -199,6 +199,14 @@ class HomeWindow(xbmcgui.WindowXML):
         if not (0 <= position < len(entries)):
             return
         item = entries[position]
+
+        # Movies and shows get the details screen. Channels and VOD entries
+        # have nothing to show there, so they act immediately.
+        if item.get("type") in ("movie", "show"):
+            from .details_window import open_details
+            open_details(item)
+            return
+
         url, is_folder = listing.target_url(item)
         if not url:
             return

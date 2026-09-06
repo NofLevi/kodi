@@ -110,10 +110,6 @@
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.israeli" type="boolean" label="Israeli sources">
-                    <level>0</level><default>true</default>
-                    <control type="toggle"/>
-                </setting>
                 <setting id="sources.provider.external" type="boolean" label="Use CocoScrapers if installed">
                     <level>1</level><default>false</default>
                     <control type="toggle"/>
@@ -287,26 +283,10 @@
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="subs.provider.ktuvit" type="boolean" label="Ktuvit (needs an account)">
-                    <level>1</level><default>false</default>
-                    <control type="toggle"/>
-                </setting>
                 <setting id="subs.opensubtitles.apikey" type="string" label="OpenSubtitles API key">
                     <level>1</level><default></default>
                     <control type="edit" format="string">
                         <heading>OpenSubtitles API key</heading>
-                    </control>
-                </setting>
-                <setting id="subs.ktuvit.user" type="string" label="Ktuvit email">
-                    <level>2</level><default></default>
-                    <control type="edit" format="string">
-                        <heading>Ktuvit email</heading>
-                    </control>
-                </setting>
-                <setting id="subs.ktuvit.password" type="string" label="Ktuvit password">
-                    <level>2</level><default></default>
-                    <control type="edit" format="string">
-                        <heading>Ktuvit password</heading>
                     </control>
                 </setting>
             </group>

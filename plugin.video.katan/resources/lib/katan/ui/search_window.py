@@ -222,6 +222,13 @@ class SearchWindow(xbmcgui.WindowXML):
             return
 
         unified.remember(self.text.strip() or item.get("title", ""))
+
+        if item.get("type") in ("movie", "show"):
+            from .details_window import open_details
+            if open_details(item):
+                self.close()
+            return
+
         url, is_folder = listing.target_url(item)
         if not url:
             return
