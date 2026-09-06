@@ -39,9 +39,21 @@ def getCondVisibility(condition):
 JSONRPC_CALLS = []
 
 
+# Tests set this to control what Player.GetProperties returns.
+JSONRPC_RESULTS = {}
+
+
 def executeJSONRPC(request):
-    """Record the call so tests can assert on what was sent."""
+    """Record the call, and answer from JSONRPC_RESULTS when a test set one."""
+    import json
     JSONRPC_CALLS.append(request)
+    try:
+        method = json.loads(request).get("method", "")
+    except ValueError:
+        method = ""
+    if method in JSONRPC_RESULTS:
+        return json.dumps({"id": 1, "jsonrpc": "2.0",
+                           "result": JSONRPC_RESULTS[method]})
     return '{"result":"OK"}'
 
 

@@ -18,7 +18,7 @@ import xbmcplugin
 import xbmcvfs
 
 from .. import kodi, settings
-from . import auto, matcher, srt, sync
+from . import auto, embedded, matcher, srt, sync
 
 # Kodi shows five stars; the score is a percentage.
 STARS = 5
@@ -66,20 +66,34 @@ def _int(value):
 
 
 def _search(handle, params):
+    """List what is available, best first.
+
+    The order is a hierarchy, not a score sort:
+
+        embedded tracks      already in the file, so exactly in time
+        exact matches        the same release, or the same file by hash
+        everything else      ranked by how well the release name correlates
+
+    Embedded tracks are listed first and without any network call, because
+    Kodi has already demuxed the file it is playing.
+    """
     meta = _current_meta()
     languages = _requested_languages(params) or settings.subtitle_languages()
 
+    inside = embedded.candidates(languages)
+
     video_hash = auto.video_hash_for(meta)
-    candidates = auto.search_candidates(meta, languages, video_hash)
-    if not candidates:
+    found = auto.search_candidates(meta, languages, video_hash)
+    target = matcher.target_from(meta)
+    ranked = matcher.rank(found, target, video_hash, languages) if found else []
+
+    entries = inside + ranked
+    if not entries:
         kodi.notify(kodi.localize(32336))
         xbmcplugin.endOfDirectory(handle)
         return
 
-    target = matcher.target_from(meta)
-    ranked = matcher.rank(candidates, target, video_hash, languages)
-
-    for position, candidate in enumerate(ranked[:40]):
+    for position, candidate in enumerate(entries[:40]):
         _add(handle, position, candidate)
 
     xbmcplugin.endOfDirectory(handle)
@@ -98,18 +112,44 @@ def _requested_languages(params):
     return codes
 
 
+def match_label(candidate):
+    """How well this subtitle fits, in the words the viewer needs.
+
+    An embedded track says so, because that is the reason to pick it. An exact
+    match says 100% with nothing else to explain. Everything else shows the
+    estimate, so a 62% is visibly a guess rather than a promise.
+    """
+    score = int(round(candidate.get("score") or 0))
+
+    if candidate.get("embedded"):
+        if candidate.get("partial"):
+            return "%d%% %s" % (score, kodi.localize(32402))
+        return "%d%% %s" % (score, kodi.localize(32400))
+
+    if score >= 100:
+        return "100%"
+
+    return "%d%% %s" % (score, kodi.localize(32401))
+
+
 def _add(handle, position, candidate):
     score = candidate.get("score", 0)
     stars = str(max(1, min(STARS, int(round(score / 100.0 * STARS)))))
 
-    label2 = candidate.get("release") or candidate.get("provider", "")
-    if candidate.get("reason"):
-        label2 = "%s  [%s]" % (label2, candidate["reason"])
+    parts = [match_label(candidate)]
+    release = candidate.get("release") or candidate.get("provider", "")
+    if release:
+        parts.append(release)
+    if candidate.get("reason") and not candidate.get("embedded"):
+        parts.append("[%s]" % candidate["reason"])
+    label2 = "  ".join(parts)
 
     item = xbmcgui.ListItem(label=candidate.get("language", ""),
                             label2=label2, offscreen=True)
     item.setArt({"icon": stars, "thumb": candidate.get("language", "")})
-    item.setProperty("sync", "true" if candidate.get("reason") == "hash" else "false")
+    # Kodi shows a "sync" badge for subtitles known to match the file exactly.
+    exact = candidate.get("embedded") or candidate.get("reason") == "hash"
+    item.setProperty("sync", "true" if exact else "false")
     item.setProperty("hearing_imp",
                      "true" if candidate.get("hearing_impaired") else "false")
 
@@ -133,6 +173,15 @@ def _download(handle, params):
         "release": params.get("release", ""),
         "extra_movie": params.get("extra_movie", ""),
     }
+
+    # An embedded track is switched on in the player. There is no file to hand
+    # back, so the directory is closed empty and Kodi keeps what it has.
+    if candidate["provider"] == embedded.PROVIDER:
+        if embedded.select(candidate["download"]):
+            kodi.notify(kodi.localize(32350))
+        xbmcplugin.endOfDirectory(handle)
+        return
+
     cues = auto.download_candidate(candidate)
     if not cues:
         kodi.notify(kodi.localize(32336))

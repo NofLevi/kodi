@@ -16,15 +16,10 @@ import os
 import time
 
 from .. import http, kodi, settings
-from . import hasher, matcher, srt, sync
+from . import embedded, hasher, matcher, srt, sync
 
 CACHE_DIR = "subtitles"
 
-_LANGUAGE_ALIASES = {
-    "he": ("he", "heb", "hebrew", "iw", u"\u05e2\u05d1\u05e8\u05d9\u05ea"),
-    "en": ("en", "eng", "english"),
-    "ar": ("ar", "ara", "arabic"),
-}
 
 
 def on_playback_started(player, meta):
@@ -60,45 +55,35 @@ def on_playback_started(player, meta):
 
 # --------------------------------------------------------------------------
 # embedded tracks
+#
+# The listing itself lives in embedded.py, which the subtitle chooser also
+# uses. Keeping one implementation matters: two copies of "find the Hebrew
+# track in this file" would answer differently the moment either changed.
 # --------------------------------------------------------------------------
 
 
 def use_embedded(player, language):
-    """Select an embedded track in the wanted language, when there is one."""
-    try:
-        streams = player.getAvailableSubtitleStreams() or []
-    except Exception:
-        return False
-    for index, name in enumerate(streams):
-        if stream_matches(name, language):
-            try:
-                player.setSubtitleStream(index)
-                player.showSubtitles(True)
-            except Exception:
-                kodi.log_exception("could not select an embedded subtitle")
-                return False
-            kodi.log("using embedded subtitle track %d (%s)" % (index, name))
+    """Select an embedded track in the wanted language, when there is one.
+
+    A forced or signs-only track is skipped: it captions on-screen text rather
+    than translating the dialogue, so choosing it looks like broken subtitles.
+    """
+    for candidate in embedded.candidates([language]):
+        if candidate.get("partial"):
+            continue
+        if embedded.select(candidate["stream_index"]):
             return True
     return False
 
 
-def stream_matches(name, language):
-    lowered = (name or "").strip().lower()
-    aliases = _LANGUAGE_ALIASES.get(language, (language,))
-    return any(alias in lowered for alias in aliases)
-
-
-def embedded_languages(player):
-    try:
-        streams = player.getAvailableSubtitleStreams() or []
-    except Exception:
-        return []
-    found = []
-    for name in streams:
-        for code in _LANGUAGE_ALIASES:
-            if stream_matches(name, code) and code not in found:
-                found.append(code)
-    return found
+def embedded_languages(player=None):
+    """Languages present inside the playing file."""
+    seen = []
+    for stream in embedded.streams():
+        code = stream.get("language")
+        if code and code not in seen:
+            seen.append(code)
+    return seen
 
 
 # --------------------------------------------------------------------------

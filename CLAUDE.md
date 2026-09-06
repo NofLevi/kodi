@@ -156,6 +156,26 @@ The test suite runs against stubs in `tests/stubs`, so no Kodi install is
 needed. `test_imports.py` imports every module, which is the cheapest way to
 catch the errors Kodi would only show as a blank screen.
 
+## The subtitle chooser hierarchy
+
+What the viewer sees when they open the subtitle list, in order:
+
+    100% embedded    a track inside the file, so exactly in time by
+                     construction. Listed first and costs nothing, because
+                     Kodi has already demuxed the file it is playing.
+    100%             an exact match: the same release name, or the same file
+                     confirmed by hash. No qualifier, because none is needed.
+    82% estimate     everything else, shown as an estimate so a guess reads
+                     as a guess rather than a promise.
+
+A forced or signs-only embedded track is scored lower and labelled as such. It
+captions on-screen text rather than translating dialogue, so the automatic path
+skips it entirely and the chooser warns before the viewer picks it.
+
+`subs/embedded.py` owns the listing and both the chooser and the automatic path
+use it, because two implementations of "find the Hebrew track in this file"
+would answer differently the moment either changed.
+
 ## What was taken from Kodi POV IL, and what was not
 
 Their MoranSubs add-on is 152 files and 2.5 MB of Python for subtitles alone.

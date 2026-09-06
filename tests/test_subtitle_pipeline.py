@@ -249,3 +249,59 @@ def test_a_gender_marking_language_is_preferred_as_the_translation_source(
 
     _path, report = auto.find_and_prepare(MOVIE, ["he", "en", "es"])
     assert report["source_language"] == "es"
+
+
+def test_the_automatic_path_prefers_an_embedded_track(monkeypatch,
+                                                      settings_module):
+    """The best case costs nothing: the file already carries the subtitle."""
+    import xbmc
+    from katan.subs import auto, embedded
+
+    settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en",
+                              "subs.embedded_first": "true"})
+    xbmc.JSONRPC_RESULTS["Player.GetProperties"] = {"subtitles": [
+        {"index": 0, "language": "eng", "name": "English"},
+        {"index": 1, "language": "heb", "name": "Hebrew"},
+    ]}
+
+    chosen = []
+    monkeypatch.setattr(embedded, "select",
+                        lambda index: chosen.append(index) or True)
+
+    searched = []
+    monkeypatch.setattr(auto, "search_candidates",
+                        lambda *a, **k: searched.append(1) or [])
+
+    class FakePlayer(object):
+        def setSubtitles(self, path):
+            raise AssertionError("no file should be needed")
+
+        def showSubtitles(self, visible):
+            pass
+
+    try:
+        auto.on_playback_started(FakePlayer(), MOVIE)
+    finally:
+        xbmc.JSONRPC_RESULTS.clear()
+
+    assert chosen == [1], "the Hebrew track should have been selected"
+    assert not searched, "no provider should be contacted when one is embedded"
+
+
+def test_a_forced_embedded_track_is_not_used_automatically(monkeypatch,
+                                                           settings_module):
+    """Forced tracks caption signs, not dialogue, so they are not a subtitle."""
+    import xbmc
+    from katan.subs import auto, embedded
+
+    settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en"})
+    xbmc.JSONRPC_RESULTS["Player.GetProperties"] = {"subtitles": [
+        {"index": 0, "language": "heb", "name": "Hebrew (Forced)"},
+    ]}
+    monkeypatch.setattr(embedded, "select",
+                        lambda index: (_ for _ in ()).throw(
+                            AssertionError("forced track was selected")))
+    try:
+        assert auto.use_embedded(None, "he") is False
+    finally:
+        xbmc.JSONRPC_RESULTS.clear()
