@@ -12,6 +12,22 @@ def make(title, **kwargs):
                                    info_hash=info_hash, **defaults)
 
 
+@pytest.fixture(autouse=True)
+def rank_uncached_too(settings_module):
+    """Let the ranking tests see uncached sources.
+
+    sources.cached_only really does default to true, and rejection_reason
+    drops an uncached source outright, so with the shipped default a test
+    about size or language or release group would rank an empty list. The
+    tests that are about caching set this themselves and override this.
+
+    These tests were passing for the wrong reason until get_bool was fixed:
+    an unset boolean used to read false regardless of DEFAULTS, so nothing
+    was ever filtered.
+    """
+    settings_module.set("sources.cached_only", "false")
+
+
 # --------------------------------------------------------------------------
 # hashes and merging
 # --------------------------------------------------------------------------

@@ -46,6 +46,13 @@ def source(title, digest, seeders=10):
                                    seeders=seeders, info_hash=digest)
 
 
+@pytest.fixture(autouse=True)
+def rank_uncached_too(settings_module):
+    """See the note in test_sources.py: cached_only really defaults to true,
+    and these tests are about the SeaDex weight, not about availability."""
+    settings_module.set("sources.cached_only", "false")
+
+
 # --------------------------------------------------------------------------
 # the lookup
 # --------------------------------------------------------------------------
