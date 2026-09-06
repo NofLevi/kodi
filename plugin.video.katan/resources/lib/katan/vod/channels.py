@@ -12,6 +12,9 @@ The resolution strategies, in the order they are tried:
     host       the link is a path that needs a CDN host in front
     referer    the CDN checks the Referer header before serving
     api        an endpoint returns the current URL, with link as a fallback
+    token      the CDN wants a ticket from the broadcaster's entitlement
+               service, which entitlement.py mints; applied last, to whatever
+               URL the strategies above produced
 
 Channel data and stream details were derived from the Idan Plus add-on by
 Fishenzon (github.com/Fishenzon/repo), which is what the Kodi POV IL build uses
@@ -26,8 +29,9 @@ from ..meta import items
 
 DATA_TTL = 24 * 3600
 
+# Keshet moved off CloudFront onto Akamai, which is also where the token lives.
 DEFAULT_HOSTS = {
-    "keshet": "https://d18b0e6mopany4.cloudfront.net",
+    "keshet": "https://mako-streaming.akamaized.net",
 }
 
 
@@ -172,14 +176,15 @@ def resolve(channel_id):
     headers = {}
     if details.get("referer"):
         headers["Referer"] = details["referer"]
+    adaptive = bool(details.get("adaptive"))
 
     if details.get("final"):
-        return link, headers, bool(details.get("adaptive"))
+        return _signed(link, details), headers, adaptive
 
     if details.get("regex"):
         found = _scrape(link, details["regex"], headers)
         if found:
-            return found, headers, bool(details.get("adaptive"))
+            return _signed(found, details), headers, adaptive
         return "", headers, False
 
     if details.get("host") or not link.startswith("http"):
@@ -191,7 +196,21 @@ def resolve(channel_id):
         kodi.log("channel %s has no resolvable link" % channel_id)
         return "", headers, False
 
-    return link, headers, bool(details.get("adaptive"))
+    return _signed(link, details), headers, adaptive
+
+
+def _signed(url, details):
+    """Add a broadcaster ticket when the CDN demands one.
+
+    Signing is the last step for every strategy, because the ticket signs the
+    URL that will actually be requested rather than the path it was built from.
+    The import is deferred so a channel that needs no ticket never loads it.
+    """
+    provider = details.get("token")
+    if not url or not provider:
+        return url
+    from . import entitlement
+    return entitlement.sign(url, provider)
 
 
 def _scrape(url, pattern, headers):

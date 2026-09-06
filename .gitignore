@@ -1,9 +1,24 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
-repo/
 *.orig
 *.rej
 .DS_Store
 Thumbs.db
 .kodi-test/
+
+# Nothing with a credential in it is ever committed. The add-on keeps keys in
+# Kodi's own profile directory, never in the source tree, so anything matching
+# these in here is an accident.
+*.env
+.env*
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+secrets.*
+settings.local.*
+**/userdata/
+
