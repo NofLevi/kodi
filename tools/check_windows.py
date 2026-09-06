@@ -30,7 +30,18 @@ SCREENSHOT_DIRS = [
 ]
 
 WINDOW_ERRORS = ("Unable to load window", "Failed to load", "error loading",
-                 "Window Translator", "unable to load XML", "Non-Existent Control")
+                 "Window Translator", "unable to load XML", "Non-Existent Control",
+                 # The one this tool was written for, and the one it was not
+                 # watching. "Control N has been asked to focus, but it can't"
+                 # is what a control that Kodi has not yet decided is visible
+                 # looks like, and it is why both windows used to open with the
+                 # arrow keys moving around the top bar instead of the content.
+                 # It cost four defects and was not in this list.
+                 "has been asked to focus",
+                 # An add-on setting written with a value its constraints do
+                 # not allow is silently dropped, which is how a setting can
+                 # read back as something nobody chose.
+                 "failed to load value")
 
 
 def set_addon_setting(key, value):

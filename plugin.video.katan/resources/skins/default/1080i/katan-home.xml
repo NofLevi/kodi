@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <window>
-    <defaultcontrol always="true">5000</defaultcontrol>
+    <!-- The top bar, not the first row. Kodi acts on this at Window Init,
+         before it has evaluated any <visible> condition and before Python's
+         onInit has run, so naming a control that is only visible once its row
+         has a heading logged "Control 5000 has been asked to focus, but it
+         can't" on every single open. Python moves focus to the first row that
+         actually has something in it a moment later; this is only what holds
+         focus until it does, and if that ever fails the viewer lands on a
+         working top bar rather than on a window the arrow keys cannot move. -->
+    <defaultcontrol always="true">9010</defaultcontrol>
     <controls>
 
         <!-- backdrop: bound to window properties the Python side updates on
