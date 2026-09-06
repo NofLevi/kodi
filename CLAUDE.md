@@ -120,7 +120,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-521 tests, all running against Kodi stubs, so no Kodi install is needed:
+559 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -133,7 +133,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | File | Tests | What it protects |
 |---|---|---|
 | `test_imports.py` | 90 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences and stray control characters. |
-| `test_addon_integrity.py` | 14 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, and the TMDb Helper player file naming only registered actions. |
+| `test_addon_integrity.py` | 20 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, the TMDb Helper player file naming only registered actions, and the four things a real Kodi taught us - settings labels being string ids, empty string defaults declaring allowempty, every setting the code uses being declared, and the row area holding a whole number of rows. |
 | `test_core.py` | 10 | The SQLite cache and the router: TTLs, compression, LRU eviction under the size cap, and url_for round-tripping through parse_params. |
 | `test_routes.py` | 20 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen. |
 | `test_release_parser.py` | 29 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
@@ -148,13 +148,14 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
 | `test_vod.py` | 20 | Israeli live TV and the catalogue: broadcaster ordering, referers carried through, relative paths given their CDN host, broken channels hidden, Hebrew substring search, and updating the bundled data invalidating the cache. |
-| `test_entitlement.py` | 17 | The Akamai ticket: one ticket covering every Keshet channel rather than one each, browsing never asking for one, a refusal leaving the URL unsigned rather than empty, and a failure never being cached. |
+| `test_entitlement.py` | 24 | The broadcaster ticket: one Akamai ticket covering every Keshet channel rather than one each, the on-demand CDN getting an AWS ticket instead because the two are not interchangeable, browsing never asking for one, a refusal leaving the URL unsigned rather than empty, and a failure never being cached. |
+| `test_kan_mako.py` | 15 | An episode being a descendant of its programme, which is what stops the site's own navigation menu being listed as episodes, and Mako's on-demand streams being signed. |
 | `test_reshet.py` | 19 | Reshet's numbering, which the broadcaster publishes wrongly. Season and episode come from the Hebrew title because the metadata fields disagree with it, and the API returns episodes unsorted. |
 | `test_sport5.py` | 22 | Six megabytes of broadcaster JSON reduced before it is cached, a season's clips gathered into its programme, the manifest lifted out of the player URL, and the byte order mark that made the whole document unparseable. |
 | `test_extractors_israeli.py` | 23 | Now 14, Sport 1 and 891FM, plus the check that every broadcaster in the catalogue has an extractor behind it. |
 | `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
-| `test_kids.py` | 23 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, and the PIN being stored hashed and actually required to leave. |
-| `test_windows.py` | 16 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard, and suggestions never overwriting what was typed. |
+| `test_kids.py` | 25 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. |
+| `test_windows.py` | 24 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard, suggestions never overwriting what was typed, entering the add-on landing in the Katan window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. |
 | `test_details_window.py` | 10 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode. |
 | `test_profiles.py` | 16 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, and the artwork budget shrinking as intended. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
@@ -198,6 +199,43 @@ add-on strings inside a Python add-on's own window (it needs
 second row was clipped, the hero stayed blank until the user moved because it
 waited for a focus event, and a channel logo was being stretched across the
 whole backdrop.
+
+Running it again later found seven more, and they are the reason this section
+exists. None of them were visible from Python, and three had been introduced
+by changes the unit suite passed cleanly.
+
+* **Kodi's settings format takes string ids, not text.** `label="Accounts"`
+  renders as nothing. Every label in the settings dialog was blank, and the
+  English was unreachable to a translator. 134 strings are now ids in the
+  30000-30999 range, with Hebrew for all of them.
+* **An empty string default has to declare itself.** `<default></default>`
+  makes Kodi log "error reading the default value" and drop the setting
+  entirely, so it can be neither shown nor written. Twenty settings - every
+  API key and debrid token - did not exist as far as Kodi was concerned. The
+  form it wants is `<default/>` plus an `allowempty` constraint.
+* **A setting that settings.xml never declares cannot be written.** Reading
+  looks fine because `settings.get` falls back to `DEFAULTS`, which is exactly
+  why nobody noticed that the wizard's OAuth tokens and the chosen device
+  profile were being written into nothing. Twenty-three of those.
+* **A control Kodi has not yet decided is visible cannot take focus.** Setting
+  a property and calling `setFocusId` in the same `onInit` pass leaves the
+  control hidden at the moment focus is asked for, so both windows logged
+  "has been asked to focus, but it can't" and the arrow keys moved around the
+  top bar instead of the content. Both now set their properties in a
+  `prepare()` before `doModal`.
+* **`xbmcgui.Action` has no `getUnicode` on Kodi 21.** Every keypress in the
+  search window raised an AttributeError. The suite missed it because its own
+  fake Action had grown the method, so the tests asserted against an API Kodi
+  does not have.
+* The row area was 60px short of two rows, and a grouplist scrolls rather than
+  crops, so it slid up and took the first row's heading off the top.
+* Kan and Mako listed their own site navigation as episodes, so the first
+  "episode" of every programme was a menu item that plays nothing.
+
+The lesson worth keeping: the stubs can only be as right as our belief about
+Kodi, and three of these were the stubs being more generous than the real
+thing. Anything about how Kodi *renders* or *validates* has to be checked in
+Kodi.
 
 ## Channel data goes stale
 
@@ -322,13 +360,14 @@ settings that promised a provider with no code behind them were removed, and
 * Ktuvit is implemented against its documented flow and tested against
   fixtures, but has never signed in to a real account.
 * MDBList is implemented and fixture tested; the live API needs a key.
-* The Kan and Mako episode extractors use a ladder of strategies and have not
-  been checked against the live sites. The five extractors added since have
-  each been driven against their live sites.
-* No episode from any extractor has been played end to end in a real Kodi.
-  Manifests were fetched and confirmed to be real HLS, which is not the same
-  thing. Reshet in particular advertises a FairPlay licence alongside the
-  clear manifest, so a protected title would fail at the player.
+* Playback itself is no longer on this list. All seven broadcasters and the
+  ticket-signed live channels have been played in a real Kodi 21, with the
+  player reporting speed=1 and the picture on screen. What has not been tried
+  is a debrid stream, because that still needs an account.
+* Mako's on-demand catalogue carries pre-roll ads: a stream takes about
+  fifteen seconds to reach the programme. Two of twenty episodes sampled
+  resolved to Mako's own "unavailable" clip, which is expired content rather
+  than a fault.
 
 **Missing features**
 
