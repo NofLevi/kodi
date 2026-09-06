@@ -214,6 +214,7 @@ def tools(params):
         (32263, router.url_for("cache_info")),
         (32264, router.url_for("rebuild_rows")),
         (32384, router.url_for("profile")),
+        (32226, router.url_for("kids_toggle")),
         (32370, router.url_for("diagnostics")),
     ]
     for string_id, url in entries:
@@ -259,6 +260,36 @@ def rebuild_rows(params):
     catalog.invalidate()
     count = catalog.warm(force=True)
     kodi.notify(kodi.localize(32270, count))
+
+
+@router.route("kids_toggle")
+def kids_toggle(params):
+    """Turn kids mode on, or ask for the PIN to turn it off.
+
+    The asymmetry is the point: switching it on is one confirmation, switching
+    it off costs the PIN, so a child cannot undo it from the same menu.
+    """
+    from .. import kids
+
+    if not kids.enabled():
+        if not kids.has_pin():
+            entered = kodi.keyboard("", kodi.localize(32228), hidden=True)
+            if entered:
+                kids.set_pin(entered)
+        kids.turn_on()
+        catalog.invalidate()
+        kodi.notify(kodi.localize(32229))
+        kodi.refresh_container()
+        return
+
+    entered = kodi.keyboard("", kodi.localize(32227), hidden=True) \
+        if kids.has_pin() else ""
+    if kids.turn_off(entered):
+        catalog.invalidate()
+        kodi.notify(kodi.localize(32230))
+        kodi.refresh_container()
+    else:
+        kodi.notify(kodi.localize(32231))
 
 
 @router.route("mark_watched")

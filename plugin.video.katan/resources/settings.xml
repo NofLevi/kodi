@@ -219,6 +219,13 @@
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="sources.seadex" type="boolean" label="Use SeaDex rankings for anime">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                    <help>SeaDex is a community list of which anime release is
+                        actually the best one. It needs no account and is only
+                        consulted for anime.</help>
+                </setting>
             </group>
 
             <group id="2" label="Storage">
@@ -382,6 +389,39 @@
                     <control type="edit" format="string">
                         <heading>Leave empty to use the bundled catalogue</heading>
                     </control>
+                </setting>
+            </group>
+        </category>
+
+        <category id="kids" label="Kids mode" help="Replaces the home screen with rows that are safe by construction.">
+            <group id="1" label="Kids mode">
+                <setting id="kids.enabled" type="boolean" label="Kids mode">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                    <help>Replaces every home row with children's rows and
+                        blocks anything above the age limit. Turning it off
+                        again asks for the PIN.</help>
+                </setting>
+                <setting id="kids.age" type="string" label="Age limit">
+                    <level>0</level><default>older</default>
+                    <constraints>
+                        <options>
+                            <option>young</option>
+                            <option>older</option>
+                            <option>teen</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>Age limit</heading>
+                    </control>
+                </setting>
+                <setting id="kids.pin_hash" type="string" label="PIN">
+                    <level>0</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>PIN</heading>
+                    </control>
+                    <help>Stored as a hash, not as the digits. Leave it empty
+                        for no PIN.</help>
                 </setting>
             </group>
         </category>

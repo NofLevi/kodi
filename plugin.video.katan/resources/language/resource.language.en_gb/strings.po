@@ -504,3 +504,42 @@ msgctxt "#32402"
 msgid "embedded, forced only"
 msgstr ""
 
+
+msgctxt "#32222"
+msgid "Films for children"
+msgstr ""
+
+msgctxt "#32223"
+msgid "Shows for children"
+msgstr ""
+
+msgctxt "#32224"
+msgid "Cartoons"
+msgstr ""
+
+msgctxt "#32225"
+msgid "Israeli children's channels"
+msgstr ""
+msgctxt "#32226"
+msgid "Kids mode"
+msgstr ""
+
+msgctxt "#32227"
+msgid "PIN to leave kids mode"
+msgstr ""
+
+msgctxt "#32228"
+msgid "Set a PIN for kids mode"
+msgstr ""
+
+msgctxt "#32229"
+msgid "Kids mode is on"
+msgstr ""
+
+msgctxt "#32230"
+msgid "Kids mode is off"
+msgstr ""
+
+msgctxt "#32231"
+msgid "Wrong PIN"
+msgstr ""

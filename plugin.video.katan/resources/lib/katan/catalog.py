@@ -41,6 +41,10 @@ S = {
     "because_you_watched": 32219,
     "top_rated_movies": 32220,
     "watchlist": 32221,
+    "kids_movies": 32222,
+    "kids_shows": 32223,
+    "kids_anime": 32224,
+    "kids_israel": 32225,
 }
 
 TTL_SHORT = 3 * 3600
@@ -125,6 +129,19 @@ def _build_rows():
              lambda: _because_you_watched(), TTL_MEDIUM, needs=("trakt",), default=False),
         _row("watchlist", S["watchlist"],
              lambda: _watchlist(), 900, needs=("trakt",)),
+
+        # Kids mode rows. These are never in the default set: kids.rows_allowed
+        # swaps the whole row list for them when the mode is on. They ask TMDB
+        # for a certification ceiling rather than filtering afterwards, which
+        # is what makes them safe on list data that carries no rating.
+        _row("kids_movies", S["kids_movies"],
+             lambda: _kids_discover("movie"), TTL_LONG, default=False),
+        _row("kids_shows", S["kids_shows"],
+             lambda: _kids_discover("tv"), TTL_LONG, default=False),
+        _row("kids_anime", S["kids_anime"],
+             lambda: _kids_anime(), TTL_LONG, default=False),
+        _row("kids_israel", S["kids_israel"],
+             lambda: _kids_israel(), TTL_LONG, needs=("vod",), default=False),
     ]
 
 
@@ -168,7 +185,16 @@ def available(row):
 
 
 def enabled_row_ids():
-    """Ordered row ids from settings, falling back to the defaults."""
+    """Ordered row ids from settings, falling back to the defaults.
+
+    Kids mode replaces the list rather than filtering it, so a row that cannot
+    express a certification ceiling is never offered while it is on.
+    """
+    from . import kids
+
+    if kids.enabled():
+        return list(kids.ROW_IDS)
+
     configured = settings.get_list("ui.rows")
     if configured:
         known = {row["id"] for row in rows()}
@@ -213,7 +239,8 @@ def cache_key(row_id):
 
 def peek(row_id):
     """Return a warmed row without ever hitting the network."""
-    return cache.get(cache_key(row_id))
+    from . import kids
+    return kids.filter_items(cache.get(cache_key(row_id)) or [])
 
 
 def load(row_id, refresh=False):
@@ -235,7 +262,10 @@ def load(row_id, refresh=False):
     result = items.dedupe(result)[:row_limit()]
     if result:
         cache.set(key, result, row["ttl"])
-    return result
+    # Applied after the cache, not before, so turning kids mode on takes effect
+    # on rows that were warmed while it was off.
+    from . import kids
+    return kids.filter_items(result)
 
 
 def warm(row_ids=None, force=False):
@@ -332,6 +362,62 @@ def _israel_vod_new():
     except ImportError:
         return []
     return library.newest_episodes(limit=ROW_LIMIT)
+
+
+# TMDB genre ids. Family and Animation for film, Kids and Family for
+# television, which is what "safe by construction" means here.
+_KIDS_GENRES = {"movie": "10751,16", "tv": "10762,10751"}
+
+
+def _kids_discover(media_type):
+    """Family titles under the configured certification ceiling.
+
+    The ceiling is applied by TMDB rather than by filtering afterwards. That
+    matters because a list result carries no certification of its own, so a
+    local filter would have nothing to work with.
+    """
+    from . import kids
+
+    filters = {
+        "with_genres": _KIDS_GENRES[media_type],
+        "sort_by": "popularity.desc",
+        "include_adult": "false",
+        "vote_count.gte": 50,
+    }
+    if media_type == "movie":
+        filters["certification_country"] = "US"
+        filters["certification.lte"] = kids.ceiling()
+
+    found = _tmdb().discover(media_type, **filters)
+    # Second line of defence: anything that did arrive with genres attached is
+    # still checked, so a mislabelled title does not ride in on the row.
+    return kids.filter_items(found)
+
+
+def _kids_anime():
+    """Animation that is actually for children, not animation in general."""
+    from . import kids
+
+    found = _tmdb().discover(
+        "tv", with_genres="16,10762", sort_by="popularity.desc",
+        include_adult="false", **{"vote_count.gte": 20})
+    return kids.filter_items(found)
+
+
+def _kids_israel():
+    """The Israeli children's channels, which are a fixed short list."""
+    try:
+        from .vod import channels
+    except ImportError:
+        return []
+    wanted = ("kids", "hop", "luli", "junior", "baby")
+    found = []
+    for channel in channels.live_channels(kind="tv") + channels.radio_stations():
+        key = (channel.get("ids") or {}).get("channel", "").lower()
+        title = (channel.get("title") or "").lower()
+        if any(word in key or word in title for word in wanted):
+            found.append(channel)
+    return found[:ROW_LIMIT]
 
 
 def row_title(row):

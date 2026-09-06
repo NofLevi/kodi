@@ -504,3 +504,43 @@ msgctxt "#32402"
 msgid "embedded, forced only"
 msgstr "מובנה, כפויות בלבד"
 
+
+msgctxt "#32222"
+msgid "Films for children"
+msgstr "סרטים לילדים"
+
+msgctxt "#32223"
+msgid "Shows for children"
+msgstr "סדרות לילדים"
+
+msgctxt "#32224"
+msgid "Cartoons"
+msgstr "סרטים מצוירים"
+
+msgctxt "#32225"
+msgid "Israeli children's channels"
+msgstr "ערוצי ילדים"
+
+msgctxt "#32226"
+msgid "Kids mode"
+msgstr "מצב ילדים"
+
+msgctxt "#32227"
+msgid "PIN to leave kids mode"
+msgstr "קוד ליציאה ממצב ילדים"
+
+msgctxt "#32228"
+msgid "Set a PIN for kids mode"
+msgstr "בחר קוד למצב ילדים"
+
+msgctxt "#32229"
+msgid "Kids mode is on"
+msgstr "מצב ילדים פעיל"
+
+msgctxt "#32230"
+msgid "Kids mode is off"
+msgstr "מצב ילדים כבוי"
+
+msgctxt "#32231"
+msgid "Wrong PIN"
+msgstr "קוד שגוי"
