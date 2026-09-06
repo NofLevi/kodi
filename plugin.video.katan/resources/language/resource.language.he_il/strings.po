@@ -1044,3 +1044,7 @@ msgstr "כתובת Zilean"
 msgctxt "#30133"
 msgid "Stored automatically"
 msgstr "נשמר אוטומטית"
+
+msgctxt "#32233"
+msgid "This channel needs the InputStream Adaptive add-on"
+msgstr "הערוץ הזה דורש את התוסף InputStream Adaptive"

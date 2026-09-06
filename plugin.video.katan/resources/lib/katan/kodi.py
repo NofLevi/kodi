@@ -55,6 +55,35 @@ def addon_version():
     return addon().getAddonInfo("version")
 
 
+_HAVE_ADDON = {}
+
+
+def has_addon(addon_id):
+    """Is another add-on installed and enabled?
+
+    Asked once per process and remembered, because it is checked while
+    building a channel list and constructing an Addon object is not free.
+    """
+    if addon_id not in _HAVE_ADDON:
+        try:
+            xbmcaddon.Addon(addon_id)
+            _HAVE_ADDON[addon_id] = True
+        except Exception:
+            _HAVE_ADDON[addon_id] = False
+    return _HAVE_ADDON[addon_id]
+
+
+def has_adaptive():
+    """Can this device play DASH?
+
+    inputstream.adaptive ships with Kodi on most platforms but not all, and
+    without it a DASH channel does not fail politely: Kodi opens nothing and
+    says nothing. Twelve of the Israeli channels are DASH, so this is worth
+    knowing before they are offered rather than after they are chosen.
+    """
+    return has_addon("inputstream.adaptive")
+
+
 def kodi_major():
     """Kodi major version as an int (21 for Omega)."""
     try:
