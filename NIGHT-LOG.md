@@ -12,8 +12,51 @@ personally is marked **NEEDS YOU**.
    `urn:ietf:wg:oauth:2.0:oob`.
 2. **The repository is private**, so Kodi's auto-update 404s. Your call, no
    code change needed.
+3. **AniList is down at the source** — 403 to everybody, "temporarily disabled
+   due to severe stability issues". The anime row is hidden until it comes
+   back. Nothing to do, nothing to fix.
 
 TorBox and TMDB are both connected and working. Films and episodes play.
+
+---
+
+## Confirmation matrix
+
+How each feature was checked, and what the check actually showed. Nothing is
+marked confirmed on the strength of a passing unit test alone.
+
+| Feature | How it was checked | Verdict |
+|---|---|---|
+| Live TV — 46 channels | Every channel resolved and asked for bytes; three played in Kodi at `speed=1` | **Confirmed.** 81 of 84 stream. The three that do not are gone at the broadcaster, not unimplemented. |
+| Live TV — 35 radio stations | Same probe | **Confirmed** |
+| Keshet 12 and its sister channels | Akamai ticket minted, played in Kodi | **Confirmed.** Thirteen channels that used to be hidden now work. |
+| DASH channels without inputstream.adaptive | `kodi.has_adaptive()` in a Kodi that lacks it | **Confirmed hidden** rather than listed and broken |
+| VOD — all 7 broadcasters | Each opened and an episode played in Kodi | **Confirmed.** Kan, Keshet, Reshet, Sport 5, Now 14, Sport 1, 891FM. |
+| VOD catalogue browsing | Route sweep + screenshots | **Confirmed.** Kan shows 11 Hebrew categories with counts; Keshet 671 programmes. |
+| Debrid playback — films | Shawshank, Dark Knight, Inception through the real route | **Confirmed.** 3 of 3, full runtime. |
+| Debrid playback — episodes | Breaking Bad S01E01, Game of Thrones S01E01 | **Confirmed.** 2 of 2, including a 73-file S01–S08 pack from which the right episode was picked. |
+| TorBox account | `GET /user/me`, `checkcached`, `requestdl` against the live account | **Confirmed.** Plan Essential, premium to 2026-10-23. Both undocumented response shapes now measured and tested. |
+| Source ranking and the picker | Opened with real data, all eight rows, screenshotted | **Confirmed.** It was crashing this morning; fixed and seen working. |
+| "Show all" in the picker | New test, plus the cache path it reads | **Confirmed fixed.** It was returning the same eight rows it was toggling away from. |
+| Home window | Opened in Kodi at the lean default and photographed | **Confirmed.** Hero backdrop, Hebrew headings, two full rows of sharp posters. |
+| Details window | Opened on a film and a show | **Confirmed.** Poster, title, meta in Hebrew, plot, cast, four legible buttons; Play works on first press on a show. |
+| Search window | Opened in a Hebrew interface | **Confirmed.** Hebrew keyboard by default, recent searches, results. |
+| Settings dialog | 134 labels as string ids, integrity test, opened in Kodi | **Confirmed.** Every label renders; every declared setting reads back as declared. |
+| Accounts screen | Opened in Kodi | **Confirmed.** TorBox `[OK]` with plan and expiry, TMDB `[OK]`, Trakt `[  ]`. |
+| Device report | Run on this machine | **Confirmed.** 34 checks; the two failures are properties of this PC (no hardware HEVC, no inputstream.adaptive), not the add-on. |
+| Lightweight default | Device report on a fresh profile | **Confirmed.** w185, 12 a row, **about 6 MB of artwork**, profile `low_memory`. |
+| Visual-polish switch | Tests plus the wizard step | **Confirmed.** Raises to w342/20 (~22 MB), never lowers a richer profile. |
+| Every route opens | `drive_kodi.py`, 9 paths | **Confirmed.** 0 failed, 0 Python errors. Home 108 ms, search 406 ms. |
+| Subtitles — the pipeline | Ran on a real playback | **Confirmed running**: file hash computed in about a second, Hebrew search started. |
+| Subtitles — chooser and sync | 54 tests against fixtures | **Confirmed by test only.** No subtitle has been watched end to end on a real file. |
+| Kids mode | 25 tests | **Confirmed by test only.** Not exercised in Kodi tonight. |
+| Trakt | — | **Blocked.** No client id or secret. Watchlist, continue-watching and scrobbling are unverified. |
+| Ktuvit | 19 tests against fixtures | **Blocked.** Needs a members' account. |
+| MDBList | 19 tests against fixtures | **Blocked.** Needs a key. |
+| AI subtitle translation | 30 tests against fixtures | **Blocked.** Needs a Gemini key. |
+| Anime rows | AniList probed directly | **Blocked upstream.** The API is refusing everybody; the row is hidden rather than empty. |
+| Auto-update | — | **Blocked.** The repository is private. |
+| Audio | — | **Not tested, by your instruction.** Every playback check was visual and by `speed=1`. |
 
 ---
 
@@ -332,3 +375,46 @@ Confirmed in the same pass: the runtime line reads "110 דק'" rather than
 in a test.
 
 683 tests.
+
+## 07:30 — One route led nowhere, and AniList is the reason
+
+The route sweep reported one path returning nothing: the anime row. It is not
+a bug at this end. **AniList answers every request with 403** —
+
+> "The AniList API has been temporarily disabled due to severe stability
+> issues."
+
+— to any User-Agent, a browser one included. An outage at the service. It will
+fix itself and nothing here needs changing when it does; the module says so at
+the top so the next person to look does not spend the twenty minutes I did.
+
+What did need changing is what you see. The custom home window already hides a
+row that came back empty. The plain listing was still offering one, so the
+anime row — and a Trakt chart with nobody signed in — was a menu entry that
+opens an empty screen. A row that has *never been warmed* is not the same
+thing and is still offered, or a fresh install would show nothing at all.
+
+Also from the same sweep: the device report and the setup wizard each had
+their own arithmetic for "what does this artwork cost". They agreed today, by
+luck. One implementation now.
+
+And I wrote, **for the second time in one night**, the `.strip()` that binds to
+the argument tuple instead of the formatted string. The first one took the
+entire source picker down. There is now a test that scans the source for the
+pattern; it found this one immediately, and then found my own comment
+describing it.
+
+## 08:05 — Two things a test would never have shown
+
+The search window opened on the **Latin** keyboard. The whole add-on is
+Hebrew, and the live channels and the entire on-demand catalogue are titled in
+Hebrew, so every one of those searches began with a trip to the charset
+button. It opens on the matching keyboard now — the Hebrew grid, focused on א,
+with 123 offered as the next set.
+
+The accounts screen marked Trakt and TMDB with `[OK]` or `[  ]` and marked the
+debrid services with **nothing at all** — on the screen whose entire purpose is
+to say which accounts are working. A service whose token had expired looked
+much like one that was fine.
+
+700 tests. Zip 358 KB against a 600 KB budget.
