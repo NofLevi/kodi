@@ -20,8 +20,8 @@ _MODULES = {}
 def _load():
     if _MODULES:
         return _MODULES
-    from . import kan, mako
-    _MODULES.update({"kan": kan, "keshet": mako})
+    from . import kan, mako, reshet
+    _MODULES.update({"kan": kan, "keshet": mako, "reshet": reshet})
     return _MODULES
 
 
