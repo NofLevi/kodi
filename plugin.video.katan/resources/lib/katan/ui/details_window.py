@@ -75,8 +75,11 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.setProperty("katan.detail.title", self.item.get("title") or "")
         self.setProperty("katan.detail.plot", self.item.get("plot") or "")
         self.setProperty("katan.detail.poster", art.get("poster", ""))
-        self.setProperty("katan.detail.fanart",
-                         art.get("fanart") or art.get("poster", ""))
+        # Only a real backdrop goes behind the window. The poster is a
+        # portrait image and stretching it across 1920x1080 looks worse than
+        # the plain background, which is the conclusion the home window
+        # reached and wrote down; this one was still doing the opposite.
+        self.setProperty("katan.detail.fanart", art.get("fanart") or "")
         self.setProperty("katan.detail.meta", _meta_line(self.item))
         self.setProperty("katan.detail.cast", _cast_line(self.item))
         self.setProperty("katan.detail.trailer",
@@ -150,10 +153,56 @@ class DetailsWindow(xbmcgui.WindowXML):
         self._play(self.item, force_picker)
 
     def _next_unwatched(self):
-        for entry in self.entries:
-            if entry.get("type") == "episode" and not entry.get("playcount"):
-                return entry
+        """The episode Play should start on a show.
+
+        The window opens showing seasons, and Play is the control that has
+        focus, so looking only at what is on screen meant Play always failed
+        the first time it was pressed: the list held seasons and this went
+        hunting for episodes. The viewer had to drill into a season first,
+        which is exactly what pressing Play is supposed to save them.
+
+        So if no episode is on screen, walk the seasons in order and take the
+        first unwatched episode. Specials sort last, because "play the next
+        episode" never means season zero.
+        """
+        found = _first_unwatched(self.entries)
+        if found is not None:
+            return found
+
+        for number in self._season_numbers():
+            found = _first_unwatched(self._episodes_in(number))
+            if found is not None:
+                return found
         return None
+
+    def _season_numbers(self):
+        """Season numbers in the order a viewer works through them."""
+        numbers = []
+        for entry in self.entries:
+            if entry.get("type") != "season":
+                continue
+            number = int(entry.get("season") or 0)
+            if number not in numbers:
+                numbers.append(number)
+        if not numbers:
+            return []
+        # Season 0 is extras and specials, so it goes to the back.
+        return sorted(numbers, key=lambda n: (n == 0, n))
+
+    def _episodes_in(self, season_number):
+        """Episodes of one season, without disturbing what is on screen."""
+        from .. import settings
+        from ..meta import tmdb
+        from .handlers import _has_aired
+
+        try:
+            episodes = tmdb.episodes(self._tmdb_id(), season_number) or []
+        except Exception:
+            kodi.log_exception("could not read season %s" % season_number)
+            return []
+        if not settings.get_bool("ui.show_unaired"):
+            episodes = [e for e in episodes if _has_aired(e)]
+        return trakt_state.annotate(episodes)
 
     def _play(self, entry, force_picker=False):
         url, _is_folder = listing.target_url(entry)
@@ -191,6 +240,14 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.entries = []
 
 
+def _first_unwatched(entries):
+    """The first episode in this list nobody has watched yet."""
+    for entry in entries or []:
+        if entry.get("type") == "episode" and not entry.get("playcount"):
+            return entry
+    return None
+
+
 def _meta_line(item):
     bits = []
     if item.get("year"):
@@ -200,7 +257,9 @@ def _meta_line(item):
     if item.get("mpaa"):
         bits.append(item["mpaa"])
     if item.get("duration"):
-        bits.append("%d min" % (item["duration"] // 60))
+        # Localised: this line is read in Hebrew, and "min" was the one word
+        # in it that never was.
+        bits.append(kodi.localize(32234, item["duration"] // 60))
     genres = item.get("genres") or []
     if genres:
         bits.append(" / ".join(genres[:3]))

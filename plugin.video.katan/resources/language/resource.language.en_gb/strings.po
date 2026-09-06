@@ -1087,3 +1087,7 @@ msgstr ""
 msgctxt "#32233"
 msgid "This channel needs the InputStream Adaptive add-on"
 msgstr ""
+
+msgctxt "#32234"
+msgid "%d min"
+msgstr ""

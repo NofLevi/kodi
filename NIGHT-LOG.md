@@ -165,3 +165,31 @@ keypress forced the redraw. All eight rows were always there. I have stopped
 trusting a screenshot taken while nothing is moving.
 
 615 tests.
+
+## 03:20 — Play did not work on a show until you had already done its job
+
+The details window opens on a show showing its **seasons**, with Play as the
+control that has focus. Pressing it called `_next_unwatched`, which looked
+through what was on screen for an episode, found only seasons, and gave up
+with "no episode found". You had to open a season first — which is the work
+the Play button exists to save you.
+
+It now walks the seasons in order and takes the first unwatched episode, with
+season zero sorted last because "play the next episode" never means the
+specials. Three tests, including one where season one is finished and it has
+to move on to season two.
+
+Two smaller things in the same window:
+
+- The backdrop fell back to the **poster** when a title had no fanart, so a
+  portrait image was stretched across 1920x1080. The home window reached the
+  opposite conclusion and wrote it down: a plain background looks better than
+  a stretched poster. Now they agree.
+- The information line read `110 min` — the one word in it that was never
+  translated, in a window that is otherwise entirely Hebrew.
+
+Seen with real data for the first time tonight, and the film view looks right:
+poster, title, year, rating, runtime, genres, plot, cast, and four Hebrew
+buttons.
+
+618 tests.
