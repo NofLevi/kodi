@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings version="1">
+    <section id="plugin.video.katan">
+
+        <category id="accounts" label="Accounts" help="Keys and logins. Nothing here leaves your device.">
+            <group id="1" label="Metadata">
+                <setting id="tmdb.apikey" type="string" label="TMDB API key">
+                    <level>0</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>TMDB API key</heading>
+                    </control>
+                </setting>
+                <setting id="ui.region" type="string" label="Region code">
+                    <level>0</level>
+                    <default>IL</default>
+                    <control type="edit" format="string">
+                        <heading>Two letter region, for example IL</heading>
+                    </control>
+                </setting>
+                <setting id="mdblist.apikey" type="string" label="MDBList API key">
+                    <level>1</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>MDBList API key</heading>
+                    </control>
+                </setting>
+            </group>
+
+            <group id="2" label="Trakt">
+                <setting id="trakt.client_id" type="string" label="Trakt client id">
+                    <level>1</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>Trakt client id</heading>
+                    </control>
+                </setting>
+                <setting id="trakt.client_secret" type="string" label="Trakt client secret">
+                    <level>1</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>Trakt client secret</heading>
+                    </control>
+                </setting>
+                <setting id="trakt.user" type="string" label="Signed in as">
+                    <level>0</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>Signed in as</heading>
+                    </control>
+                    <enable>false</enable>
+                </setting>
+            </group>
+
+            <group id="3" label="Debrid">
+                <setting id="realdebrid.token" type="string" label="Real-Debrid token">
+                    <level>2</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>Real-Debrid token</heading>
+                    </control>
+                </setting>
+                <setting id="premiumize.apikey" type="string" label="Premiumize API key">
+                    <level>0</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>Premiumize API key</heading>
+                    </control>
+                </setting>
+                <setting id="torbox.apikey" type="string" label="TorBox API key">
+                    <level>0</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>TorBox API key</heading>
+                    </control>
+                </setting>
+                <setting id="alldebrid.apikey" type="string" label="AllDebrid API key">
+                    <level>0</level>
+                    <default></default>
+                    <control type="edit" format="string">
+                        <heading>AllDebrid API key</heading>
+                    </control>
+                </setting>
+            </group>
+        </category>
+
+        <category id="sources" label="Sources" help="Where stream links come from, and how many are searched.">
+            <group id="1" label="Providers">
+                <setting id="sources.provider.torrentio" type="boolean" label="Torrentio">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.provider.comet" type="boolean" label="Comet">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.provider.mediafusion" type="boolean" label="MediaFusion">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.provider.zilean" type="boolean" label="Zilean (DMM hashlists)">
+                    <level>1</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.provider.nyaa" type="boolean" label="Nyaa (anime)">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.provider.animetosho" type="boolean" label="AnimeTosho (anime)">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.provider.israeli" type="boolean" label="Israeli sources">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.provider.external" type="boolean" label="Use CocoScrapers if installed">
+                    <level>1</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
+
+            <group id="2" label="Filtering">
+                <setting id="sources.cached_only" type="boolean" label="Only show cached sources">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.max_resolution" type="string" label="Highest resolution">
+                    <level>0</level><default>1080p</default>
+                    <constraints>
+                        <options>
+                            <option>480p</option>
+                            <option>720p</option>
+                            <option>1080p</option>
+                            <option>2160p</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>Highest resolution</heading>
+                    </control>
+                </setting>
+                <setting id="sources.min_resolution" type="string" label="Lowest resolution">
+                    <level>1</level><default>480p</default>
+                    <constraints>
+                        <options>
+                            <option>sd</option>
+                            <option>480p</option>
+                            <option>720p</option>
+                            <option>1080p</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>Lowest resolution</heading>
+                    </control>
+                </setting>
+                <setting id="sources.max_size_gb" type="integer" label="Largest file (GB)">
+                    <level>0</level><default>12</default>
+                    <constraints><minimum>1</minimum><step>1</step><maximum>80</maximum></constraints>
+                    <control type="slider" format="integer"/>
+                </setting>
+                <setting id="sources.allow_hevc" type="boolean" label="Allow HEVC (H.265)">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.allow_av1" type="boolean" label="Allow AV1">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.allow_hdr" type="boolean" label="Allow HDR and Dolby Vision">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.prefer_hebrew" type="boolean" label="Prefer releases with Hebrew subtitles">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.allow_cam" type="boolean" label="Allow cam and screener releases">
+                    <level>1</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.size_preference" type="string" label="File size preference">
+                    <level>0</level><default>balanced</default>
+                    <constraints>
+                        <options>
+                            <option>smallest</option>
+                            <option>balanced</option>
+                            <option>biggest</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>File size preference</heading>
+                    </control>
+                </setting>
+            </group>
+        </category>
+
+        <category id="performance" label="Performance" help="The limits that keep the add-on light on weak hardware.">
+            <group id="1" label="Searching">
+                <setting id="sources.results" type="integer" label="Sources shown">
+                    <level>0</level><default>8</default>
+                    <constraints><minimum>3</minimum><step>1</step><maximum>40</maximum></constraints>
+                    <control type="slider" format="integer"/>
+                </setting>
+                <setting id="sources.timeout" type="integer" label="Search deadline (seconds)">
+                    <level>0</level><default>12</default>
+                    <constraints><minimum>5</minimum><step>1</step><maximum>40</maximum></constraints>
+                    <control type="slider" format="integer"/>
+                </setting>
+                <setting id="sources.workers" type="integer" label="Parallel workers">
+                    <level>1</level><default>4</default>
+                    <constraints><minimum>1</minimum><step>1</step><maximum>8</maximum></constraints>
+                    <control type="slider" format="integer"/>
+                </setting>
+                <setting id="sources.autoplay" type="boolean" label="Play the best source automatically">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.prefetch_next" type="boolean" label="Prefetch the next episode">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="sources.source_memory" type="boolean" label="Remember which release group worked">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
+
+            <group id="2" label="Storage">
+                <setting id="cache.max_mb" type="integer" label="Cache size limit (MB)">
+                    <level>0</level><default>50</default>
+                    <constraints><minimum>10</minimum><step>10</step><maximum>500</maximum></constraints>
+                    <control type="slider" format="integer"/>
+                </setting>
+                <setting id="subs.cache_files" type="integer" label="Subtitle files kept">
+                    <level>1</level><default>60</default>
+                    <constraints><minimum>10</minimum><step>10</step><maximum>500</maximum></constraints>
+                    <control type="slider" format="integer"/>
+                </setting>
+                <setting id="service.warm" type="boolean" label="Refresh home rows in the background">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="log.debug" type="boolean" label="Verbose logging">
+                    <level>2</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
+        </category>
+
+        <category id="subtitles" label="Subtitles" help="Automatic Hebrew and English subtitles, with AI translation as a fallback.">
+            <group id="1" label="Matching">
+                <setting id="subs.auto" type="boolean" label="Choose subtitles automatically">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="subs.languages" type="string" label="Language order">
+                    <level>0</level><default>he,en</default>
+                    <control type="edit" format="string">
+                        <heading>Comma separated, for example he,en</heading>
+                    </control>
+                </setting>
+                <setting id="subs.embedded_first" type="boolean" label="Prefer subtitles already in the file">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="subs.hash_match" type="boolean" label="Match by file hash (most accurate)">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="subs.threshold" type="integer" label="Minimum match score">
+                    <level>1</level><default>70</default>
+                    <constraints><minimum>40</minimum><step>5</step><maximum>100</maximum></constraints>
+                    <control type="slider" format="integer"/>
+                </setting>
+            </group>
+
+            <group id="2" label="Providers">
+                <setting id="subs.provider.wizdom" type="boolean" label="Wizdom (Hebrew)">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="subs.provider.opensubtitles" type="boolean" label="OpenSubtitles">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="subs.provider.subsource" type="boolean" label="SubSource">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="subs.provider.ktuvit" type="boolean" label="Ktuvit (needs an account)">
+                    <level>1</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="subs.opensubtitles.apikey" type="string" label="OpenSubtitles API key">
+                    <level>1</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>OpenSubtitles API key</heading>
+                    </control>
+                </setting>
+                <setting id="subs.ktuvit.user" type="string" label="Ktuvit email">
+                    <level>2</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>Ktuvit email</heading>
+                    </control>
+                </setting>
+                <setting id="subs.ktuvit.password" type="string" label="Ktuvit password">
+                    <level>2</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>Ktuvit password</heading>
+                    </control>
+                </setting>
+            </group>
+        </category>
+
+        <category id="ai" label="AI translation" help="Used only when no good Hebrew subtitle exists.">
+            <group id="1" label="Engine">
+                <setting id="subs.ai.enabled" type="boolean" label="Translate with AI when nothing is found">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="subs.ai.engine" type="string" label="Engine">
+                    <level>0</level><default>gemini</default>
+                    <constraints>
+                        <options>
+                            <option>gemini</option>
+                            <option>openai</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>Engine</heading>
+                    </control>
+                </setting>
+                <setting id="subs.ai.gemini_key" type="string" label="Gemini API key">
+                    <level>0</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>Free key from Google AI Studio</heading>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible" setting="subs.ai.engine" operator="is">gemini</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subs.ai.gemini_model" type="string" label="Gemini model">
+                    <level>1</level><default>gemini-2.5-flash</default>
+                    <control type="edit" format="string">
+                        <heading>Gemini model</heading>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible" setting="subs.ai.engine" operator="is">gemini</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subs.ai.openai_url" type="string" label="OpenAI compatible URL">
+                    <level>0</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>Base URL, for example http://192.168.1.10:1234/v1</heading>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible" setting="subs.ai.engine" operator="is">openai</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subs.ai.openai_key" type="string" label="OpenAI compatible key">
+                    <level>0</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>API key</heading>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible" setting="subs.ai.engine" operator="is">openai</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subs.ai.openai_model" type="string" label="OpenAI compatible model">
+                    <level>0</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>Model name</heading>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible" setting="subs.ai.engine" operator="is">openai</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subs.ai.chunk" type="integer" label="Lines per request">
+                    <level>2</level><default>80</default>
+                    <constraints><minimum>20</minimum><step>10</step><maximum>200</maximum></constraints>
+                    <control type="slider" format="integer"/>
+                </setting>
+            </group>
+        </category>
+
+        <category id="israel" label="Israeli TV" help="Live channels and the on-demand catalogue, kept as separate sections.">
+            <group id="1" label="Live TV">
+                <setting id="vod.show_radio" type="boolean" label="Show radio stations">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="vod.channels_url" type="string" label="Channel list URL">
+                    <level>2</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>Leave empty to use the bundled list</heading>
+                    </control>
+                </setting>
+            </group>
+            <group id="2" label="On demand">
+                <setting id="vod.series_url" type="string" label="Catalogue URL">
+                    <level>2</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>Leave empty to use the bundled catalogue</heading>
+                    </control>
+                </setting>
+            </group>
+        </category>
+
+        <category id="interface" label="Interface" help="How the add-on looks and which rows appear.">
+            <group id="1" label="Appearance">
+                <setting id="ui.window_home" type="boolean" label="Use the Katan home screen">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ui.window_search" type="boolean" label="Use the Katan search screen">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ui.language" type="string" label="Language">
+                    <level>0</level><default>auto</default>
+                    <constraints>
+                        <options>
+                            <option>auto</option>
+                            <option>he</option>
+                            <option>en</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>Language</heading>
+                    </control>
+                </setting>
+                <setting id="ui.hide_watched" type="boolean" label="Hide watched titles in discovery rows">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ui.show_unaired" type="boolean" label="Show episodes that have not aired">
+                    <level>1</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ui.upnext" type="boolean" label="Up Next prompt between episodes">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ui.rows" type="string" label="Home rows (leave empty for defaults)">
+                    <level>2</level><default></default>
+                    <control type="edit" format="string">
+                        <heading>Comma separated row ids</heading>
+                    </control>
+                </setting>
+            </group>
+        </category>
+
+    </section>
+</settings>
