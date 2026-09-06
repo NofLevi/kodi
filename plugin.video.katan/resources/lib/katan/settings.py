@@ -4,6 +4,13 @@ Kodi's settings API returns strings for everything and raises on unknown ids in
 some versions, so every getter here is defensive and falls back to a default.
 Defaults live in this module (not only in settings.xml) so unit tests and the
 service can run without a populated settings file.
+
+Every key that `profiles.LOW_MEMORY` names has the same value here, and a test
+asserts it. That is the whole of "lightweight by default": the state you get
+before touching anything is the lean profile, not a fourth opinion nobody
+maintains. The table below had drifted into being `balanced`, which meant an
+add-on written for a projector with a gigabyte of RAM shipped w342 posters and
+four workers to it.
 """
 from . import kodi
 
@@ -46,16 +53,16 @@ DEFAULTS = {
     "sources.mediafusion.url": "https://mediafusion.elfhosted.com",
     "sources.mediafusion.config": "",
     "sources.zilean.url": "https://zilean.elfhosted.com",
-    "sources.timeout": "12",
-    "sources.workers": "4",
-    "sources.results": "8",
+    "sources.timeout": "10",
+    "sources.workers": "2",
+    "sources.results": "6",
     "sources.cached_only": "true",
     "sources.max_resolution": "1080p",
     "sources.min_resolution": "480p",
     "sources.allow_hevc": "true",
     "sources.allow_av1": "false",
     "sources.allow_hdr": "false",
-    "sources.max_size_gb": "12",
+    "sources.max_size_gb": "8",
     "sources.autoplay": "true",
     "sources.source_memory": "true",
     "sources.seadex": "true",
@@ -63,10 +70,10 @@ DEFAULTS = {
     "kids.enabled": "false",
     "kids.age": "older",
     "kids.pin_hash": "",
-    "sources.prefetch_next": "true",
+    "sources.prefetch_next": "false",
     "sources.prefer_hebrew": "true",
     "sources.allow_cam": "false",
-    "sources.size_preference": "balanced",
+    "sources.size_preference": "smallest",
     # subtitles
     "subs.languages": "he,en",
     "subs.auto": "true",
@@ -75,7 +82,7 @@ DEFAULTS = {
     "subs.threshold": "70",
     "subs.provider.wizdom": "true",
     "subs.provider.opensubtitles": "true",
-    "subs.provider.subsource": "true",
+    "subs.provider.subsource": "false",
     # Off by default because it needs an account, and a provider that is on but
     # cannot sign in is a provider that quietly returns nothing.
     "subs.provider.ktuvit": "false",
@@ -91,8 +98,8 @@ DEFAULTS = {
     "subs.ai.openai_url": "",
     "subs.ai.openai_key": "",
     "subs.ai.openai_model": "",
-    "subs.ai.chunk": "80",
-    "subs.cache_files": "60",
+    "subs.ai.chunk": "50",
+    "subs.cache_files": "30",
     # israeli vod
     "vod.channels_url": "",
     "vod.series_url": "",
@@ -105,14 +112,18 @@ DEFAULTS = {
     "ui.hide_watched": "false",
     "ui.show_unaired": "false",
     "ui.upnext": "true",
-    "ui.poster_size": "w342",
-    "ui.row_items": "20",
+    "ui.poster_size": "w185",
+    "ui.row_items": "12",
+    # The one switch that trades memory for looks. Off, so the shipped state
+    # stays the lean one; profiles.set_rich_visuals is what turns it on and
+    # makes it take effect.
+    "ui.rich_visuals": "false",
     "ui.window_home": "true",
     "ui.window_search": "true",
-    "device.profile": "balanced",
+    "device.profile": "low_memory",
     # advanced
     "service.warm": "true",
-    "cache.max_mb": "50",
+    "cache.max_mb": "25",
     "cache.meta_hours": "6",
     "log.debug": "false",
 }

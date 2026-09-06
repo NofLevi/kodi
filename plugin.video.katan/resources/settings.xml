@@ -209,7 +209,7 @@
                 </setting>
                 <setting id="device.profile" type="string" label="30132">
                     <level>3</level>
-                    <default>balanced</default>
+                    <default>low_memory</default>
                     <visible>false</visible>
                     <control type="edit" format="string">
                         <heading>30132</heading>
@@ -285,7 +285,7 @@
                     </control>
                 </setting>
                 <setting id="sources.max_size_gb" type="integer" label="30029">
-                    <level>0</level><default>12</default>
+                    <level>0</level><default>8</default>
                     <constraints><minimum>1</minimum><step>1</step><maximum>80</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
@@ -310,7 +310,7 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.size_preference" type="string" label="30035">
-                    <level>0</level><default>balanced</default>
+                    <level>0</level><default>smallest</default>
                     <constraints>
                         <options>
                             <option>smallest</option>
@@ -386,17 +386,17 @@
         <category id="performance" label="30036" help="30037">
             <group id="1" label="30038">
                 <setting id="sources.results" type="integer" label="30039">
-                    <level>0</level><default>8</default>
+                    <level>0</level><default>6</default>
                     <constraints><minimum>3</minimum><step>1</step><maximum>40</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
                 <setting id="sources.timeout" type="integer" label="30040">
-                    <level>0</level><default>12</default>
+                    <level>0</level><default>10</default>
                     <constraints><minimum>5</minimum><step>1</step><maximum>40</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
                 <setting id="sources.workers" type="integer" label="30041">
-                    <level>1</level><default>4</default>
+                    <level>1</level><default>2</default>
                     <constraints><minimum>1</minimum><step>1</step><maximum>8</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
@@ -405,7 +405,7 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.prefetch_next" type="boolean" label="30043">
-                    <level>0</level><default>true</default>
+                    <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.source_memory" type="boolean" label="30044">
@@ -420,12 +420,12 @@
 
             <group id="2" label="30047">
                 <setting id="cache.max_mb" type="integer" label="30048">
-                    <level>0</level><default>50</default>
+                    <level>0</level><default>25</default>
                     <constraints><minimum>10</minimum><step>10</step><maximum>500</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
                 <setting id="subs.cache_files" type="integer" label="30049">
-                    <level>1</level><default>60</default>
+                    <level>1</level><default>30</default>
                     <constraints><minimum>10</minimum><step>10</step><maximum>500</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
@@ -439,7 +439,7 @@
                 </setting>
                 <setting id="ui.poster_size" type="string" label="30110">
                     <level>2</level>
-                    <default>w342</default>
+                    <default>w185</default>
                     <constraints>
                         <options>
                             <option>w185</option>
@@ -453,7 +453,7 @@
                 </setting>
                 <setting id="ui.row_items" type="integer" label="30111">
                     <level>2</level>
-                    <default>20</default>
+                    <default>12</default>
                     <control type="edit" format="integer">
                         <heading>30111</heading>
                     </control>
@@ -505,7 +505,7 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.subsource" type="boolean" label="30062">
-                    <level>0</level><default>true</default>
+                    <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.ktuvit" type="boolean" label="30063" help="30064">
@@ -644,7 +644,7 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ai.chunk" type="integer" label="30077">
-                    <level>2</level><default>80</default>
+                    <level>2</level><default>50</default>
                     <constraints><minimum>20</minimum><step>10</step><maximum>200</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
@@ -720,6 +720,11 @@
             <group id="1" label="30093">
                 <setting id="ui.window_home" type="boolean" label="30094">
                     <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ui.rich_visuals" type="boolean" label="30134"
+                         help="30135">
+                    <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="ui.window_search" type="boolean" label="30095">

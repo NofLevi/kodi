@@ -17,6 +17,11 @@ def run(open_home_after=True):
         (kodi.localize(32311), step_debrid, lambda: bool(settings.configured_debrid())),
         (kodi.localize(32312), step_trakt, lambda: bool(settings.get("trakt.access_token"))),
         (kodi.localize(32313), step_ai, lambda: bool(settings.get("subs.ai.gemini_key"))),
+        # Not an account, and the only step that is already answered when the
+        # wizard opens. It is here rather than buried in the settings because
+        # it is the one decision that changes how the add-on looks, and the
+        # shipped answer is the cautious one.
+        (kodi.localize(32410), step_visuals, lambda: True),
     ]
     while True:
         labels = []
@@ -146,6 +151,43 @@ def step_trakt():
         kodi.notify(kodi.localize(32325, settings.get("trakt.user")))
     else:
         kodi.notify(kodi.localize(32322))
+
+
+def step_visuals():
+    """Light or richer artwork, with what each one costs written down.
+
+    The add-on ships light, because it was written for a projector with a
+    gigabyte of RAM shared with Android and artwork is the largest thing it
+    allocates: Kodi holds decoded bitmaps, so a w342 poster occupies about
+    700 KB against 205 KB at w185.
+
+    Nothing is decided for the viewer here. `profiles.recommend()` reads what
+    the device says about itself and its opinion is shown, but a box with room
+    to spare is told so rather than quietly switched.
+    """
+    from .. import profiles
+
+    lean = profiles.LOW_MEMORY
+    rich = profiles.RICH_VISUALS
+    labels = [
+        kodi.localize(32411, lean["ui.poster_size"],
+                      int(lean["ui.row_items"]),
+                      int(round(profiles.artwork_megabytes(
+                          lean["ui.poster_size"], int(lean["ui.row_items"]))))),
+        kodi.localize(32412, rich["ui.poster_size"],
+                      int(rich["ui.row_items"]),
+                      int(round(profiles.artwork_megabytes(
+                          rich["ui.poster_size"], int(rich["ui.row_items"]))))),
+    ]
+
+    _suggested, why = profiles.recommend()
+    heading = "%s   -   %s" % (kodi.localize(32410),
+                               kodi.localize(32413, why))
+    on = settings.get_bool("ui.rich_visuals", False)
+    choice = kodi.select(labels, heading, preselect=1 if on else 0)
+    if choice < 0:
+        return
+    profiles.set_rich_visuals(choice == 1)
 
 
 def step_ai():

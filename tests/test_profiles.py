@@ -156,3 +156,81 @@ def test_the_recommendation_comes_with_a_readable_reason(monkeypatch):
     assert name == "low_memory"
     assert why and why != "32405", "the string id itself is not a reason"
     assert "200" in why
+
+
+# --------------------------------------------------------------------------
+# lightweight by default
+# --------------------------------------------------------------------------
+
+
+def test_the_shipped_defaults_are_the_lean_profile():
+    """This is the whole of "lightweight by default".
+
+    The state you get before touching anything must be the low-memory
+    profile, not a fourth opinion nobody maintains. DEFAULTS had drifted into
+    being `balanced`, so an add-on written for a projector with a gigabyte of
+    RAM shipped w342 posters and four workers to it.
+    """
+    from katan import profiles, settings
+
+    differ = {key: (settings.DEFAULTS.get(key, "<missing>"), value)
+              for key, value in profiles.LOW_MEMORY.items()
+              if settings.DEFAULTS.get(key) != value}
+    assert not differ, differ
+
+
+def test_the_shipped_profile_name_matches_the_shipped_settings():
+    from katan import profiles, settings
+
+    assert profiles.DEFAULT == "low_memory"
+    assert settings.DEFAULTS["device.profile"] == profiles.DEFAULT
+    assert profiles.current() == profiles.DEFAULT
+
+
+def test_richer_artwork_is_off_out_of_the_box(settings_module):
+    assert settings_module.get_bool("ui.rich_visuals") is False
+
+
+def test_the_switch_raises_the_artwork_and_takes_effect_at_once(settings_module):
+    """Flipping the setting alone would change nothing until a profile was
+    next applied, which for most people is never."""
+    from katan import profiles
+
+    profiles.apply("low_memory")
+    assert settings_module.get("ui.poster_size") == "w185"
+
+    profiles.set_rich_visuals(True)
+    assert settings_module.get("ui.poster_size") == "w342"
+    assert settings_module.get_int("ui.row_items") == 20
+
+    profiles.set_rich_visuals(False)
+    assert settings_module.get("ui.poster_size") == "w185"
+    assert settings_module.get_int("ui.row_items") == 12
+
+
+def test_the_switch_never_lowers_a_profile_that_already_asks_for_more():
+    """It is a floor, not an assignment. Powerful uses w500."""
+    from katan import profiles, settings
+
+    settings.set("ui.rich_visuals", "true")
+    profiles.apply("powerful")
+    assert settings.get("ui.poster_size") == "w500", \
+        "turning polish on must not make a powerful device worse"
+
+
+def test_the_cost_of_the_two_choices_is_what_the_project_says_it_is():
+    """Roughly 6 MB lean against roughly 22 MB richer, per the calibration
+    note. The numbers are shown to the viewer, so they had better be real."""
+    from katan import profiles
+
+    lean = profiles.artwork_megabytes("w185", 12)
+    rich = profiles.artwork_megabytes("w342", 20)
+    assert 4 < lean < 9, lean
+    assert 18 < rich < 28, rich
+    assert rich > lean * 3
+
+
+def test_an_unreadable_poster_width_does_not_break_the_estimate():
+    from katan import profiles
+
+    assert profiles.artwork_megabytes("nonsense", 12) > 0
