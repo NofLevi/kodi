@@ -116,6 +116,28 @@ def test_filtering_a_row_drops_only_the_blocked_items(kids_on):
     assert kids.filter_items([good, bad, good]) == [good, good]
 
 
+def test_peek_still_says_none_when_a_row_was_never_warmed(settings_module):
+    """None means "not warmed" and is what makes the window fetch it.
+
+    Filtering the cache read turned a miss into an empty list, so the home
+    window stopped falling back to a live load and every unwarmed row stayed
+    permanently blank. Found by opening the real Kodi, not by the suite.
+    """
+    settings_module.set("kids.enabled", "false")
+    assert catalog.peek("trending_movies") is None
+
+    settings_module.set("kids.enabled", "true")
+    assert catalog.peek("trending_movies") is None
+
+
+def test_peek_returns_a_list_once_the_row_is_warmed(kids_on):
+    from katan import cache
+    cache.set(catalog.cache_key("trending_movies"),
+              [item("Nice", genres=["Family"])], 3600)
+    assert catalog.peek("trending_movies") != []
+    assert isinstance(catalog.peek("trending_movies"), list)
+
+
 def test_a_row_warmed_before_kids_mode_is_still_filtered(kids_on):
     """Turning the mode on must not be defeated by a warm cache."""
     from katan import cache

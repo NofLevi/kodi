@@ -238,9 +238,18 @@ def cache_key(row_id):
 
 
 def peek(row_id):
-    """Return a warmed row without ever hitting the network."""
+    """Return a warmed row without ever hitting the network.
+
+    None means "not warmed yet" and is the signal the home window uses to fall
+    back to a live fetch. It has to stay distinct from an empty list, because
+    collapsing the two turns a cold cache into a row that is permanently empty
+    and never retried.
+    """
     from . import kids
-    return kids.filter_items(cache.get(cache_key(row_id)) or [])
+    cached = cache.get(cache_key(row_id))
+    if cached is None:
+        return None
+    return kids.filter_items(cached)
 
 
 def load(row_id, refresh=False):

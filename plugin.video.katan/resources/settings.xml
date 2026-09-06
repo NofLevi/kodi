@@ -2,126 +2,126 @@
 <settings version="1">
     <section id="plugin.video.katan">
 
-        <category id="accounts" label="Accounts" help="Keys and logins. Nothing here leaves your device.">
-            <group id="1" label="Metadata">
-                <setting id="tmdb.apikey" type="string" label="TMDB API key">
+        <category id="accounts" label="30000" help="30001">
+            <group id="1" label="30002">
+                <setting id="tmdb.apikey" type="string" label="30003">
                     <level>0</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>TMDB API key</heading>
+                        <heading>30003</heading>
                     </control>
                 </setting>
-                <setting id="ui.region" type="string" label="Region code">
+                <setting id="ui.region" type="string" label="30004">
                     <level>0</level>
                     <default>IL</default>
                     <control type="edit" format="string">
-                        <heading>Two letter region, for example IL</heading>
+                        <heading>30101</heading>
                     </control>
                 </setting>
-                <setting id="mdblist.apikey" type="string" label="MDBList API key">
+                <setting id="mdblist.apikey" type="string" label="30005">
                     <level>1</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>MDBList API key</heading>
+                        <heading>30005</heading>
                     </control>
                 </setting>
             </group>
 
-            <group id="2" label="Trakt">
-                <setting id="trakt.client_id" type="string" label="Trakt client id">
+            <group id="2" label="30006">
+                <setting id="trakt.client_id" type="string" label="30007">
                     <level>1</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>Trakt client id</heading>
+                        <heading>30007</heading>
                     </control>
                 </setting>
-                <setting id="trakt.client_secret" type="string" label="Trakt client secret">
+                <setting id="trakt.client_secret" type="string" label="30008">
                     <level>1</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>Trakt client secret</heading>
+                        <heading>30008</heading>
                     </control>
                 </setting>
-                <setting id="trakt.user" type="string" label="Signed in as">
+                <setting id="trakt.user" type="string" label="30009">
                     <level>0</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>Signed in as</heading>
+                        <heading>30009</heading>
                     </control>
                     <enable>false</enable>
                 </setting>
             </group>
 
-            <group id="3" label="Debrid">
-                <setting id="realdebrid.token" type="string" label="Real-Debrid token">
+            <group id="3" label="30010">
+                <setting id="realdebrid.token" type="string" label="30011">
                     <level>2</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>Real-Debrid token</heading>
+                        <heading>30011</heading>
                     </control>
                 </setting>
-                <setting id="premiumize.apikey" type="string" label="Premiumize API key">
+                <setting id="premiumize.apikey" type="string" label="30012">
                     <level>0</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>Premiumize API key</heading>
+                        <heading>30012</heading>
                     </control>
                 </setting>
-                <setting id="torbox.apikey" type="string" label="TorBox API key">
+                <setting id="torbox.apikey" type="string" label="30013">
                     <level>0</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>TorBox API key</heading>
+                        <heading>30013</heading>
                     </control>
                 </setting>
-                <setting id="alldebrid.apikey" type="string" label="AllDebrid API key">
+                <setting id="alldebrid.apikey" type="string" label="30014">
                     <level>0</level>
                     <default></default>
                     <control type="edit" format="string">
-                        <heading>AllDebrid API key</heading>
+                        <heading>30014</heading>
                     </control>
                 </setting>
             </group>
         </category>
 
-        <category id="sources" label="Sources" help="Where stream links come from, and how many are searched.">
-            <group id="1" label="Providers">
-                <setting id="sources.provider.torrentio" type="boolean" label="Torrentio">
+        <category id="sources" label="30015" help="30016">
+            <group id="1" label="30017">
+                <setting id="sources.provider.torrentio" type="boolean" label="30018">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.comet" type="boolean" label="Comet">
+                <setting id="sources.provider.comet" type="boolean" label="30019">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.mediafusion" type="boolean" label="MediaFusion">
+                <setting id="sources.provider.mediafusion" type="boolean" label="30020">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.zilean" type="boolean" label="Zilean (DMM hashlists)">
+                <setting id="sources.provider.zilean" type="boolean" label="30021">
                     <level>1</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.nyaa" type="boolean" label="Nyaa (anime)">
+                <setting id="sources.provider.nyaa" type="boolean" label="30022">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.animetosho" type="boolean" label="AnimeTosho (anime)">
+                <setting id="sources.provider.animetosho" type="boolean" label="30023">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.external" type="boolean" label="Use CocoScrapers if installed">
+                <setting id="sources.provider.external" type="boolean" label="30024">
                     <level>1</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
             </group>
 
-            <group id="2" label="Filtering">
-                <setting id="sources.cached_only" type="boolean" label="Only show cached sources">
+            <group id="2" label="30025">
+                <setting id="sources.cached_only" type="boolean" label="30026">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.max_resolution" type="string" label="Highest resolution">
+                <setting id="sources.max_resolution" type="string" label="30027">
                     <level>0</level><default>1080p</default>
                     <constraints>
                         <options>
@@ -132,10 +132,10 @@
                         </options>
                     </constraints>
                     <control type="list" format="string">
-                        <heading>Highest resolution</heading>
+                        <heading>30027</heading>
                     </control>
                 </setting>
-                <setting id="sources.min_resolution" type="string" label="Lowest resolution">
+                <setting id="sources.min_resolution" type="string" label="30028">
                     <level>1</level><default>480p</default>
                     <constraints>
                         <options>
@@ -146,35 +146,35 @@
                         </options>
                     </constraints>
                     <control type="list" format="string">
-                        <heading>Lowest resolution</heading>
+                        <heading>30028</heading>
                     </control>
                 </setting>
-                <setting id="sources.max_size_gb" type="integer" label="Largest file (GB)">
+                <setting id="sources.max_size_gb" type="integer" label="30029">
                     <level>0</level><default>12</default>
                     <constraints><minimum>1</minimum><step>1</step><maximum>80</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
-                <setting id="sources.allow_hevc" type="boolean" label="Allow HEVC (H.265)">
+                <setting id="sources.allow_hevc" type="boolean" label="30030">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.allow_av1" type="boolean" label="Allow AV1">
+                <setting id="sources.allow_av1" type="boolean" label="30031">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.allow_hdr" type="boolean" label="Allow HDR and Dolby Vision">
+                <setting id="sources.allow_hdr" type="boolean" label="30032">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.prefer_hebrew" type="boolean" label="Prefer releases with Hebrew subtitles">
+                <setting id="sources.prefer_hebrew" type="boolean" label="30033">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.allow_cam" type="boolean" label="Allow cam and screener releases">
+                <setting id="sources.allow_cam" type="boolean" label="30034">
                     <level>1</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.size_preference" type="string" label="File size preference">
+                <setting id="sources.size_preference" type="string" label="30035">
                     <level>0</level><default>balanced</default>
                     <constraints>
                         <options>
@@ -184,153 +184,147 @@
                         </options>
                     </constraints>
                     <control type="list" format="string">
-                        <heading>File size preference</heading>
+                        <heading>30035</heading>
                     </control>
                 </setting>
             </group>
         </category>
 
-        <category id="performance" label="Performance" help="The limits that keep the add-on light on weak hardware.">
-            <group id="1" label="Searching">
-                <setting id="sources.results" type="integer" label="Sources shown">
+        <category id="performance" label="30036" help="30037">
+            <group id="1" label="30038">
+                <setting id="sources.results" type="integer" label="30039">
                     <level>0</level><default>8</default>
                     <constraints><minimum>3</minimum><step>1</step><maximum>40</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
-                <setting id="sources.timeout" type="integer" label="Search deadline (seconds)">
+                <setting id="sources.timeout" type="integer" label="30040">
                     <level>0</level><default>12</default>
                     <constraints><minimum>5</minimum><step>1</step><maximum>40</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
-                <setting id="sources.workers" type="integer" label="Parallel workers">
+                <setting id="sources.workers" type="integer" label="30041">
                     <level>1</level><default>4</default>
                     <constraints><minimum>1</minimum><step>1</step><maximum>8</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
-                <setting id="sources.autoplay" type="boolean" label="Play the best source automatically">
+                <setting id="sources.autoplay" type="boolean" label="30042">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.prefetch_next" type="boolean" label="Prefetch the next episode">
+                <setting id="sources.prefetch_next" type="boolean" label="30043">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.source_memory" type="boolean" label="Remember which release group worked">
+                <setting id="sources.source_memory" type="boolean" label="30044">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.seadex" type="boolean" label="Use SeaDex rankings for anime">
+                <setting id="sources.seadex" type="boolean" label="30045" help="30046">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
-                    <help>SeaDex is a community list of which anime release is
-                        actually the best one. It needs no account and is only
-                        consulted for anime.</help>
                 </setting>
             </group>
 
-            <group id="2" label="Storage">
-                <setting id="cache.max_mb" type="integer" label="Cache size limit (MB)">
+            <group id="2" label="30047">
+                <setting id="cache.max_mb" type="integer" label="30048">
                     <level>0</level><default>50</default>
                     <constraints><minimum>10</minimum><step>10</step><maximum>500</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
-                <setting id="subs.cache_files" type="integer" label="Subtitle files kept">
+                <setting id="subs.cache_files" type="integer" label="30049">
                     <level>1</level><default>60</default>
                     <constraints><minimum>10</minimum><step>10</step><maximum>500</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
-                <setting id="service.warm" type="boolean" label="Refresh home rows in the background">
+                <setting id="service.warm" type="boolean" label="30050">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="log.debug" type="boolean" label="Verbose logging">
+                <setting id="log.debug" type="boolean" label="30051">
                     <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
             </group>
         </category>
 
-        <category id="subtitles" label="Subtitles" help="Automatic Hebrew and English subtitles, with AI translation as a fallback.">
-            <group id="1" label="Matching">
-                <setting id="subs.auto" type="boolean" label="Choose subtitles automatically">
+        <category id="subtitles" label="30052" help="30053">
+            <group id="1" label="30054">
+                <setting id="subs.auto" type="boolean" label="30055">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="subs.languages" type="string" label="Language order">
+                <setting id="subs.languages" type="string" label="30056">
                     <level>0</level><default>he,en</default>
                     <control type="edit" format="string">
-                        <heading>Comma separated, for example he,en</heading>
+                        <heading>30102</heading>
                     </control>
                 </setting>
-                <setting id="subs.embedded_first" type="boolean" label="Prefer subtitles already in the file">
+                <setting id="subs.embedded_first" type="boolean" label="30057">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="subs.hash_match" type="boolean" label="Match by file hash (most accurate)">
+                <setting id="subs.hash_match" type="boolean" label="30058">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="subs.threshold" type="integer" label="Minimum match score">
+                <setting id="subs.threshold" type="integer" label="30059">
                     <level>1</level><default>70</default>
                     <constraints><minimum>40</minimum><step>5</step><maximum>100</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
             </group>
 
-            <group id="2" label="Providers">
-                <setting id="subs.provider.wizdom" type="boolean" label="Wizdom (Hebrew)">
+            <group id="2" label="30017">
+                <setting id="subs.provider.wizdom" type="boolean" label="30060">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="subs.provider.opensubtitles" type="boolean" label="OpenSubtitles">
+                <setting id="subs.provider.opensubtitles" type="boolean" label="30061">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="subs.provider.subsource" type="boolean" label="SubSource">
+                <setting id="subs.provider.subsource" type="boolean" label="30062">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="subs.provider.ktuvit" type="boolean" label="Ktuvit">
+                <setting id="subs.provider.ktuvit" type="boolean" label="30063" help="30064">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
-                    <help>The largest Hebrew subtitle source. It is a members'
-                        site, so it needs the account below and returns nothing
-                        without one.</help>
                 </setting>
-                <setting id="subs.ktuvit.user" type="string" label="Ktuvit email">
+                <setting id="subs.ktuvit.user" type="string" label="30065">
                     <level>0</level><default></default>
                     <control type="edit" format="string">
-                        <heading>Ktuvit email</heading>
+                        <heading>30065</heading>
                     </control>
                     <dependencies>
                         <dependency type="visible" setting="subs.provider.ktuvit" operator="is">true</dependency>
                     </dependencies>
                 </setting>
-                <setting id="subs.ktuvit.password" type="string" label="Ktuvit password">
+                <setting id="subs.ktuvit.password" type="string" label="30066">
                     <level>0</level><default></default>
                     <control type="edit" format="string">
-                        <heading>Ktuvit password</heading>
+                        <heading>30066</heading>
                     </control>
                     <dependencies>
                         <dependency type="visible" setting="subs.provider.ktuvit" operator="is">true</dependency>
                     </dependencies>
                 </setting>
-                <setting id="subs.opensubtitles.apikey" type="string" label="OpenSubtitles API key">
+                <setting id="subs.opensubtitles.apikey" type="string" label="30067">
                     <level>1</level><default></default>
                     <control type="edit" format="string">
-                        <heading>OpenSubtitles API key</heading>
+                        <heading>30067</heading>
                     </control>
                 </setting>
             </group>
         </category>
 
-        <category id="ai" label="AI translation" help="Used only when no good Hebrew subtitle exists.">
-            <group id="1" label="Engine">
-                <setting id="subs.ai.enabled" type="boolean" label="Translate with AI when nothing is found">
+        <category id="ai" label="30068" help="30069">
+            <group id="1" label="30070">
+                <setting id="subs.ai.enabled" type="boolean" label="30071">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="subs.ai.engine" type="string" label="Engine">
+                <setting id="subs.ai.engine" type="string" label="30070">
                     <level>0</level><default>gemini</default>
                     <constraints>
                         <options>
@@ -339,55 +333,55 @@
                         </options>
                     </constraints>
                     <control type="list" format="string">
-                        <heading>Engine</heading>
+                        <heading>30070</heading>
                     </control>
                 </setting>
-                <setting id="subs.ai.gemini_key" type="string" label="Gemini API key">
+                <setting id="subs.ai.gemini_key" type="string" label="30072">
                     <level>0</level><default></default>
                     <control type="edit" format="string">
-                        <heading>Free key from Google AI Studio</heading>
+                        <heading>30103</heading>
                     </control>
                     <dependencies>
                         <dependency type="visible" setting="subs.ai.engine" operator="is">gemini</dependency>
                     </dependencies>
                 </setting>
-                <setting id="subs.ai.gemini_model" type="string" label="Gemini model">
+                <setting id="subs.ai.gemini_model" type="string" label="30073">
                     <level>1</level><default>gemini-2.5-flash</default>
                     <control type="edit" format="string">
-                        <heading>Gemini model</heading>
+                        <heading>30073</heading>
                     </control>
                     <dependencies>
                         <dependency type="visible" setting="subs.ai.engine" operator="is">gemini</dependency>
                     </dependencies>
                 </setting>
-                <setting id="subs.ai.openai_url" type="string" label="OpenAI compatible URL">
+                <setting id="subs.ai.openai_url" type="string" label="30074">
                     <level>0</level><default></default>
                     <control type="edit" format="string">
-                        <heading>Base URL, for example http://192.168.1.10:1234/v1</heading>
+                        <heading>30104</heading>
                     </control>
                     <dependencies>
                         <dependency type="visible" setting="subs.ai.engine" operator="is">openai</dependency>
                     </dependencies>
                 </setting>
-                <setting id="subs.ai.openai_key" type="string" label="OpenAI compatible key">
+                <setting id="subs.ai.openai_key" type="string" label="30075">
                     <level>0</level><default></default>
                     <control type="edit" format="string">
-                        <heading>API key</heading>
+                        <heading>30105</heading>
                     </control>
                     <dependencies>
                         <dependency type="visible" setting="subs.ai.engine" operator="is">openai</dependency>
                     </dependencies>
                 </setting>
-                <setting id="subs.ai.openai_model" type="string" label="OpenAI compatible model">
+                <setting id="subs.ai.openai_model" type="string" label="30076">
                     <level>0</level><default></default>
                     <control type="edit" format="string">
-                        <heading>Model name</heading>
+                        <heading>30106</heading>
                     </control>
                     <dependencies>
                         <dependency type="visible" setting="subs.ai.engine" operator="is">openai</dependency>
                     </dependencies>
                 </setting>
-                <setting id="subs.ai.chunk" type="integer" label="Lines per request">
+                <setting id="subs.ai.chunk" type="integer" label="30077">
                     <level>2</level><default>80</default>
                     <constraints><minimum>20</minimum><step>10</step><maximum>200</maximum></constraints>
                     <control type="slider" format="integer"/>
@@ -395,39 +389,36 @@
             </group>
         </category>
 
-        <category id="israel" label="Israeli TV" help="Live channels and the on-demand catalogue, kept as separate sections.">
-            <group id="1" label="Live TV">
-                <setting id="vod.show_radio" type="boolean" label="Show radio stations">
+        <category id="israel" label="30078" help="30079">
+            <group id="1" label="30080">
+                <setting id="vod.show_radio" type="boolean" label="30081">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="vod.channels_url" type="string" label="Channel list URL">
+                <setting id="vod.channels_url" type="string" label="30082">
                     <level>2</level><default></default>
                     <control type="edit" format="string">
-                        <heading>Leave empty to use the bundled list</heading>
+                        <heading>30107</heading>
                     </control>
                 </setting>
             </group>
-            <group id="2" label="On demand">
-                <setting id="vod.series_url" type="string" label="Catalogue URL">
+            <group id="2" label="30083">
+                <setting id="vod.series_url" type="string" label="30084">
                     <level>2</level><default></default>
                     <control type="edit" format="string">
-                        <heading>Leave empty to use the bundled catalogue</heading>
+                        <heading>30108</heading>
                     </control>
                 </setting>
             </group>
         </category>
 
-        <category id="kids" label="Kids mode" help="Replaces the home screen with rows that are safe by construction.">
-            <group id="1" label="Kids mode">
-                <setting id="kids.enabled" type="boolean" label="Kids mode">
+        <category id="kids" label="30085" help="30086">
+            <group id="1" label="30085">
+                <setting id="kids.enabled" type="boolean" label="30085" help="30087">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
-                    <help>Replaces every home row with children's rows and
-                        blocks anything above the age limit. Turning it off
-                        again asks for the PIN.</help>
                 </setting>
-                <setting id="kids.age" type="string" label="Age limit">
+                <setting id="kids.age" type="string" label="30088">
                     <level>0</level><default>older</default>
                     <constraints>
                         <options>
@@ -437,31 +428,29 @@
                         </options>
                     </constraints>
                     <control type="list" format="string">
-                        <heading>Age limit</heading>
+                        <heading>30088</heading>
                     </control>
                 </setting>
-                <setting id="kids.pin_hash" type="string" label="PIN">
+                <setting id="kids.pin_hash" type="string" label="30089" help="30090">
                     <level>0</level><default></default>
                     <control type="edit" format="string">
-                        <heading>PIN</heading>
+                        <heading>30089</heading>
                     </control>
-                    <help>Stored as a hash, not as the digits. Leave it empty
-                        for no PIN.</help>
                 </setting>
             </group>
         </category>
 
-        <category id="interface" label="Interface" help="How the add-on looks and which rows appear.">
-            <group id="1" label="Appearance">
-                <setting id="ui.window_home" type="boolean" label="Use the Katan home screen">
+        <category id="interface" label="30091" help="30092">
+            <group id="1" label="30093">
+                <setting id="ui.window_home" type="boolean" label="30094">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="ui.window_search" type="boolean" label="Use the Katan search screen">
+                <setting id="ui.window_search" type="boolean" label="30095">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="ui.language" type="string" label="Language">
+                <setting id="ui.language" type="string" label="30096">
                     <level>0</level><default>auto</default>
                     <constraints>
                         <options>
@@ -471,25 +460,25 @@
                         </options>
                     </constraints>
                     <control type="list" format="string">
-                        <heading>Language</heading>
+                        <heading>30096</heading>
                     </control>
                 </setting>
-                <setting id="ui.hide_watched" type="boolean" label="Hide watched titles in discovery rows">
+                <setting id="ui.hide_watched" type="boolean" label="30097">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="ui.show_unaired" type="boolean" label="Show episodes that have not aired">
+                <setting id="ui.show_unaired" type="boolean" label="30098">
                     <level>1</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="ui.upnext" type="boolean" label="Up Next prompt between episodes">
+                <setting id="ui.upnext" type="boolean" label="30099">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="ui.rows" type="string" label="Home rows (leave empty for defaults)">
+                <setting id="ui.rows" type="string" label="30100">
                     <level>2</level><default></default>
                     <control type="edit" format="string">
-                        <heading>Comma separated row ids</heading>
+                        <heading>30109</heading>
                     </control>
                 </setting>
             </group>
