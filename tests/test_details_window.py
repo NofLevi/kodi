@@ -134,6 +134,51 @@ def test_playing_a_show_picks_the_next_unwatched_episode(window):
     assert nxt["episode"] == 2, "episode 1 is already watched"
 
 
+def test_play_works_on_a_show_without_opening_a_season_first(window):
+    """Play is the control that has focus when the window opens.
+
+    It used to fail every first press: the window shows seasons, and this
+    looked only for an episode among them, so the viewer had to drill into a
+    season before the Play button would do anything - which is the work the
+    button exists to save.
+    """
+    detail = window(SHOW)
+    assert all(e.get("type") == "season" for e in detail.entries), \
+        "the window should be showing seasons at this point"
+
+    nxt = detail._next_unwatched()
+    assert nxt is not None, "Play must work on the first press"
+    assert nxt["season"] == 1 and nxt["episode"] == 2
+
+
+def test_it_walks_on_to_the_next_season_when_one_is_finished(window,
+                                                             monkeypatch):
+    from katan.meta import tmdb
+    watched = [dict(e, playcount=1) for e in
+               tmdb.episodes(1399, 1)]
+    monkeypatch.setattr(tmdb, "episodes",
+                        lambda tmdb_id, season: watched if int(season) == 1
+                        else [{"type": "episode", "ids": {}, "title": "Two",
+                               "season": 2, "episode": 1, "art": {},
+                               "premiered": "2012-04-01", "duration": 3000,
+                               "playcount": 0, "extra": {"tmdb_show": 1399}}])
+    detail = window(SHOW)
+    nxt = detail._next_unwatched()
+    assert nxt["season"] == 2, "season one is finished, so move on"
+
+
+def test_specials_are_not_what_play_next_means(window, monkeypatch):
+    """Season zero is extras. "Play the next episode" never means those."""
+    detail = window(SHOW)
+    detail.entries = [
+        {"type": "season", "season": 0, "title": "Specials", "ids": {},
+         "art": {}},
+        {"type": "season", "season": 1, "title": "Season 1", "ids": {},
+         "art": {}},
+    ]
+    assert detail._season_numbers() == [1, 0]
+
+
 def test_playing_a_show_with_no_seasons_loaded_says_so(window):
     detail = window(SHOW)
     detail.entries = []
