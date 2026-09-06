@@ -1,0 +1,304 @@
+"""TMDB client.
+
+Every response goes through the SQLite cache, so a warmed home screen makes no
+network calls at all. Discovery lists get a short TTL because they change
+daily; details get a long one because they effectively never change.
+"""
+from .. import cache, http, settings
+from . import items
+
+API_BASE = "https://api.themoviedb.org/3"
+
+TTL_LIST = 6 * 3600          # trending, popular, discover
+TTL_DETAILS = 7 * 24 * 3600  # a specific movie or show
+TTL_SEARCH = 3600            # search results and suggestions
+
+# TMDB numeric ids for the streaming services people actually ask for.
+WATCH_PROVIDERS = {
+    "netflix": 8,
+    "disney": 337,
+    "prime": 119,
+    "apple": 350,
+    "hbo": 1899,
+}
+
+
+def api_key():
+    return settings.get("tmdb.apikey").strip()
+
+
+def has_key():
+    return bool(api_key())
+
+
+def language():
+    """TMDB language tag derived from the add-on UI language setting."""
+    choice = settings.get("ui.language")
+    if choice == "he":
+        return "he-IL"
+    if choice == "en":
+        return "en-GB"
+    kodi_lang = ""
+    try:
+        import xbmc
+        kodi_lang = xbmc.getLanguage(xbmc.ISO_639_1) or ""
+    except Exception:
+        pass
+    return "he-IL" if kodi_lang == "he" else "en-GB"
+
+
+def region():
+    return settings.get("ui.region") or "IL"
+
+
+def _call(path, ttl=TTL_LIST, **params):
+    """GET a TMDB endpoint through the cache. Always returns a dict."""
+    key = api_key()
+    if not key:
+        return {}
+    params.setdefault("language", language())
+    query = dict(params)
+    query["api_key"] = key
+
+    # The cache key excludes the API key on purpose, so changing keys does not
+    # invalidate everything the user already downloaded.
+    cache_key = cache.make_key("tmdb", path, sorted(params.items()))
+
+    def fetch():
+        return http.get_json("%s%s" % (API_BASE, path), params=query, default=None)
+
+    return cache.cached(cache_key, fetch, ttl) or {}
+
+
+def _results(payload, media_type=None):
+    """Convert a TMDB paged response into a list of items."""
+    out = []
+    for row in (payload or {}).get("results") or []:
+        if media_type == "movie":
+            item = items.from_tmdb_movie(row)
+        elif media_type == "tv":
+            item = items.from_tmdb_show(row)
+        else:
+            item = items.from_tmdb_multi(row)
+        if item:
+            out.append(item)
+    return out
+
+
+# --------------------------------------------------------------------------
+# discovery endpoints, one per home row
+# --------------------------------------------------------------------------
+
+
+def trending(media_type="movie", window="day", page=1):
+    """media_type: movie, tv or all. window: day or week."""
+    payload = _call("/trending/%s/%s" % (media_type, window), page=page)
+    return _results(payload, media_type if media_type != "all" else None)
+
+
+def popular(media_type="movie", page=1):
+    return _results(_call("/%s/popular" % media_type, page=page), media_type)
+
+
+def now_playing(page=1):
+    return _results(_call("/movie/now_playing", page=page, region=region()), "movie")
+
+
+def upcoming(page=1):
+    return _results(_call("/movie/upcoming", page=page, region=region()), "movie")
+
+
+def airing_today(page=1):
+    return _results(_call("/tv/airing_today", page=page), "tv")
+
+
+def on_the_air(page=1):
+    return _results(_call("/tv/on_the_air", page=page), "tv")
+
+
+def top_rated(media_type="movie", page=1):
+    return _results(_call("/%s/top_rated" % media_type, page=page), media_type)
+
+
+def discover(media_type="movie", page=1, **filters):
+    """Raw discover access. Filters pass straight through to TMDB."""
+    return _results(_call("/discover/%s" % media_type, page=page, **filters), media_type)
+
+
+def new_on_provider(provider, media_type="movie", page=1):
+    """Recently added titles on a streaming service in the user region."""
+    provider_id = WATCH_PROVIDERS.get(provider, provider)
+    sort = "primary_release_date.desc" if media_type == "movie" else "first_air_date.desc"
+    filters = {
+        "watch_region": region(),
+        "with_watch_providers": provider_id,
+        "sort_by": sort,
+        "vote_count.gte": 20,
+    }
+    return discover(media_type, page=page, **filters)
+
+
+def by_original_language(code="he", media_type="movie", page=1):
+    """Titles originally made in a given language, most popular first."""
+    return discover(media_type, page=page,
+                    with_original_language=code, sort_by="popularity.desc")
+
+
+def by_genre(genre_id, media_type="movie", page=1):
+    return discover(media_type, page=page,
+                    with_genres=genre_id, sort_by="popularity.desc")
+
+
+def recommendations(media_type, tmdb_id, page=1):
+    return _results(_call("/%s/%s/recommendations" % (media_type, tmdb_id),
+                          page=page), media_type)
+
+
+def similar(media_type, tmdb_id, page=1):
+    return _results(_call("/%s/%s/similar" % (media_type, tmdb_id),
+                          page=page), media_type)
+
+
+# --------------------------------------------------------------------------
+# details
+# --------------------------------------------------------------------------
+
+
+def movie(tmdb_id):
+    payload = _call("/movie/%s" % tmdb_id, ttl=TTL_DETAILS,
+                    append_to_response="credits,external_ids,videos,release_dates")
+    item = items.from_tmdb_movie(payload)
+    if item:
+        _attach_credits(item, payload)
+        item["mpaa"] = _movie_certification(payload)
+        item["extra"]["trailer"] = _trailer(payload)
+    return item
+
+
+def show(tmdb_id):
+    payload = _call("/tv/%s" % tmdb_id, ttl=TTL_DETAILS,
+                    append_to_response="credits,external_ids,videos,content_ratings")
+    item = items.from_tmdb_show(payload)
+    if item:
+        _attach_credits(item, payload)
+        item["mpaa"] = _show_certification(payload)
+        item["extra"]["trailer"] = _trailer(payload)
+        item["extra"]["season_numbers"] = [
+            s.get("season_number") for s in payload.get("seasons") or []
+            if s.get("season_number") is not None
+        ]
+    return item
+
+
+def seasons(tmdb_id):
+    """Season stubs for a show. Specials are hidden unless they are all we have."""
+    payload = _call("/tv/%s" % tmdb_id, ttl=TTL_DETAILS)
+    show_item = items.from_tmdb_show(payload) or {}
+    out = []
+    for row in payload.get("seasons") or []:
+        number = row.get("season_number")
+        if number is None:
+            continue
+        poster = (items.image_url(row.get("poster_path"))
+                  or show_item.get("art", {}).get("poster", ""))
+        out.append(items.new_item(
+            "season",
+            ids=dict(show_item.get("ids", {})),
+            title=row.get("name") or ("Season %s" % number),
+            show_title=show_item.get("title", ""),
+            season=int(number),
+            plot=row.get("overview") or show_item.get("plot", ""),
+            premiered=row.get("air_date") or "",
+            year=items._year(row.get("air_date") or ""),
+            art={"poster": poster,
+                 "fanart": show_item.get("art", {}).get("fanart", "")},
+            extra={"episode_count": int(row.get("episode_count") or 0),
+                   "tmdb_show": tmdb_id},
+        ))
+    real_seasons = [s for s in out if s["season"] > 0]
+    return real_seasons or out
+
+
+def episodes(tmdb_id, season_number):
+    payload = _call("/tv/%s/season/%s" % (tmdb_id, season_number), ttl=TTL_DETAILS)
+    show_item = show(tmdb_id) or {}
+    out = []
+    for row in payload.get("episodes") or []:
+        episode = items.from_tmdb_episode(row, show_item)
+        if episode:
+            episode["extra"]["tmdb_show"] = tmdb_id
+            out.append(episode)
+    return out
+
+
+def search(query, media_type="multi", page=1):
+    if not query:
+        return []
+    payload = _call("/search/%s" % media_type, ttl=TTL_SEARCH, page=page,
+                    query=query, include_adult="false")
+    return _results(payload, None if media_type == "multi" else media_type)
+
+
+def find_by_imdb(imdb_id):
+    """Resolve an IMDb id to a TMDB item."""
+    if not imdb_id:
+        return None
+    payload = _call("/find/%s" % imdb_id, ttl=TTL_DETAILS, external_source="imdb_id")
+    for row in payload.get("movie_results") or []:
+        return items.from_tmdb_movie(row)
+    for row in payload.get("tv_results") or []:
+        return items.from_tmdb_show(row)
+    return None
+
+
+# --------------------------------------------------------------------------
+# helpers
+# --------------------------------------------------------------------------
+
+
+def _attach_credits(item, payload):
+    credits = payload.get("credits") or {}
+    item["cast"] = [
+        {
+            "name": person.get("name", ""),
+            "role": person.get("character", ""),
+            "thumb": items.image_url(person.get("profile_path"), items.PROFILE_SIZE),
+        }
+        for person in (credits.get("cast") or [])[:15]
+    ]
+    crew = credits.get("crew") or []
+    item["extra"]["director"] = [c.get("name", "") for c in crew
+                                 if c.get("job") == "Director"]
+    item["extra"]["writer"] = [c.get("name", "") for c in crew
+                               if c.get("job") in ("Writer", "Screenplay")]
+
+
+def _trailer(payload):
+    """A YouTube plugin URL for the first trailer, when one exists."""
+    for video in (payload.get("videos") or {}).get("results") or []:
+        if video.get("site") == "YouTube" and video.get("type") == "Trailer":
+            return "plugin://plugin.video.youtube/play/?video_id=%s" % video.get("key")
+    return ""
+
+
+def _movie_certification(payload):
+    wanted = region()
+    for entry in (payload.get("release_dates") or {}).get("results") or []:
+        if entry.get("iso_3166_1") != wanted:
+            continue
+        for release in entry.get("release_dates") or []:
+            if release.get("certification"):
+                return release["certification"]
+    return ""
+
+
+def _show_certification(payload):
+    wanted = region()
+    ratings = (payload.get("content_ratings") or {}).get("results") or []
+    for entry in ratings:
+        if entry.get("iso_3166_1") == wanted and entry.get("rating"):
+            return entry["rating"]
+    for entry in ratings:
+        if entry.get("iso_3166_1") == "US" and entry.get("rating"):
+            return entry["rating"]
+    return ""

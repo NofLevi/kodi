@@ -1,0 +1,81 @@
+"""Mako, which carries Keshet 12 and its sister channels.
+
+Mako pages are heavier than Kan's but follow the same shape: a programme page
+listing episode links, and an episode page carrying either a manifest or a
+Kaltura entry id. The VOD ids in the catalogue are full mako.co.il URLs, so no
+id translation is needed.
+"""
+import re
+
+from ... import kodi, router
+from ...meta import items
+from . import page
+
+BASE = "https://www.mako.co.il"
+
+_EPISODE_LINK = re.compile(
+    r'<a[^>]+href="((?:https?://(?:www\.)?mako\.co\.il)?/[^"]*?[Vv][Oo][Dd][^"]*?)"',
+    re.I)
+_IMAGE = re.compile(r'(?:data-src|src)="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"')
+
+
+def episodes(ref, mode=""):
+    url = page.absolute(ref, BASE)
+    html = page.fetch(url)
+    if not html:
+        return []
+
+    found = []
+    seen = set()
+    for match in re.finditer(
+            r'<a[^>]+href="([^"]*vod[^"]*)"[^>]*>(.*?)</a>', html, re.S | re.I):
+        href, inner = match.group(1), match.group(2)
+        link = page.absolute(href, BASE)
+        if link in seen or link.rstrip("/") == url.rstrip("/"):
+            continue
+        title = _text(inner)
+        if not title:
+            continue
+        seen.add(link)
+        image = _IMAGE.search(inner)
+        found.append(items.new_item(
+            "vod",
+            ids={"vod": link},
+            title=title,
+            art={"poster": page.absolute(image.group(1), BASE) if image else ""},
+            extra={"url": router.url_for("play_vod", module="keshet", ref=link),
+                   "module": "keshet", "ref": link},
+        ))
+
+    if not found:
+        stream_url, _adaptive, strategy = page.extract_stream(html, url)
+        if stream_url:
+            kodi.log("mako: single video page, matched via %s" % strategy)
+            found.append(items.new_item(
+                "vod", ids={"vod": url}, title=_page_title(html) or "Mako",
+                extra={"url": router.url_for("play_vod", module="keshet", ref=url),
+                       "module": "keshet", "ref": url}))
+    return found
+
+
+def _text(html):
+    text = re.sub(r"<[^>]+>", " ", html or "")
+    return re.sub(r"\s+", " ", text).strip()[:120]
+
+
+def _page_title(html):
+    match = re.search(r"<title>(.*?)</title>", html or "", re.S | re.I)
+    return _text(match.group(1)) if match else ""
+
+
+def stream(ref, mode=""):
+    url = page.absolute(ref, BASE)
+    html = page.fetch(url, referer=BASE)
+    if not html:
+        return "", False
+    found, adaptive, strategy = page.extract_stream(html, url)
+    if found:
+        kodi.log("mako: resolved via %s" % strategy)
+    else:
+        kodi.log("mako: no strategy matched for %s" % url)
+    return found, adaptive

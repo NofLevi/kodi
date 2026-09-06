@@ -1,0 +1,108 @@
+"""The release parser drives both source ranking and subtitle matching."""
+import pytest
+
+from katan.utils import release
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("The.Matrix.1999.2160p.UHD.BluRay.REMUX.HDR.HEVC.TrueHD.7.1-FraMeSToR", "2160p"),
+    ("Dune.Part.Two.2024.1080p.WEB-DL.DDP5.1.Atmos.H.264-FLUX", "1080p"),
+    ("Some.Show.S01E02.720p.HDTV.x264-KILLERS", "720p"),
+    ("Old.Movie.1975.480p.DVDRip.XviD-GROUP", "480p"),
+    ("Random release without markers", "sd"),
+])
+def test_resolution_detection(name, expected):
+    assert release.parse(name)["resolution"] == expected
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("Dune.2021.1080p.WEB-DL.H264-FLUX", "web"),
+    ("Dune.2021.1080p.BluRay.x265-RARBG", "bluray"),
+    ("Show.S01E01.HDTV.x264-LOL", "hdtv"),
+    ("Movie.2024.HDCAM.x264-SUNSCREEN", "cam"),
+])
+def test_source_detection(name, expected):
+    assert release.parse(name)["source"] == expected
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("A.2024.1080p.WEB.H265-X", "h265"),
+    ("A.2024.1080p.WEB.x264-X", "h264"),
+    ("A.2024.1080p.WEB.AV1-X", "av1"),
+    ("A.2004.DVDRip.XviD-X", "xvid"),
+])
+def test_codec_detection(name, expected):
+    assert release.parse(name)["codec"] == expected
+
+
+def test_hdr_flags_do_not_double_count():
+    parsed = release.parse("Movie.2024.2160p.WEB-DL.DV.HDR10+.HEVC-GROUP")
+    assert "dv" in parsed["hdr"]
+    assert "hdr10plus" in parsed["hdr"]
+    assert "hdr" not in parsed["hdr"], "HDR10+ already implies HDR"
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("The.Movie.2024.1080p.WEB-DL.H264-FLUX", "flux"),
+    ("[SubsPlease] Frieren - 12 (1080p) [ABCD1234].mkv", "subsplease"),
+    ("Show.S01E01.1080p.WEB.h264-KOGi.mkv", "kogi"),
+    ("No group here 1080p", ""),
+])
+def test_release_group_extraction(name, expected):
+    assert release.release_group(name) == expected
+
+
+def test_group_extraction_ignores_quality_tags():
+    assert release.release_group("Movie.2024.WEB-1080p") == ""
+
+
+@pytest.mark.parametrize("name,season,episode", [
+    ("Show.S02E07.1080p.WEB.H264-X", 2, 7),
+    ("Show.2x07.720p.HDTV-X", 2, 7),
+    ("Show.s02e07.1080p", 2, 7),
+])
+def test_season_episode_parsing(name, season, episode):
+    parsed = release.parse(name)
+    assert (parsed["season"], parsed["episode"]) == (season, episode)
+
+
+def test_absolute_episode_numbering_for_anime():
+    parsed = release.parse("[SubsPlease] Frieren - 12 (1080p) [ABCD].mkv")
+    assert parsed["absolute"] == 12
+    assert release.matches_episode(parsed, 1, 12)
+
+
+def test_matches_episode_accepts_season_packs():
+    pack = release.parse("Show.S02.1080p.WEB-DL.H264-X")
+    assert release.matches_episode(pack, 2, 5), "a season pack should still match"
+    assert not release.matches_episode(pack, 3, 5)
+
+
+def test_matches_episode_rejects_the_wrong_episode():
+    parsed = release.parse("Show.S02E07.1080p.WEB.H264-X")
+    assert not release.matches_episode(parsed, 2, 8)
+    assert not release.matches_episode(parsed, 1, 7)
+
+
+def test_hebrew_language_detection():
+    assert "he" in release.parse("Movie.2024.1080p.WEB-DL.HebSub-X")["languages"]
+    assert "he" in release.parse(u"\u05e1\u05e8\u05d8 2024 1080p \u05e2\u05d1\u05e8\u05d9\u05ea")["languages"]
+    assert "he" not in release.parse("Movie.2024.1080p.WEB-DL-X")["languages"]
+
+
+def test_proper_and_repack_are_flagged():
+    assert release.parse("Movie.2024.PROPER.1080p.WEB-X")["proper"]
+    assert release.parse("Movie.2024.REPACK.1080p.WEB-X")["proper"]
+    assert not release.parse("Movie.2024.1080p.WEB-X")["proper"]
+
+
+def test_size_label_is_human_readable():
+    assert release.size_label(0) == ""
+    assert release.size_label(5 * 1024 ** 3) == "5.00 GB"
+    assert release.size_label(700 * 1024 ** 2) == "700 MB"
+
+
+def test_parse_never_raises_on_junk():
+    for junk in (None, "", "   ", 12345, u"\u05e2\u05d1\u05e8\u05d9\u05ea", "-" * 200):
+        parsed = release.parse(junk)
+        assert parsed["resolution"] in ("sd", "480p", "720p", "1080p", "2160p")

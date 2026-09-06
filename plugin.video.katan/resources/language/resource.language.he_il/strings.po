@@ -1,0 +1,462 @@
+# Kodi Media Center language file
+# Addon Name: Katan
+# Addon id: plugin.video.katan
+msgid ""
+msgstr ""
+"Project-Id-Version: Katan
+"
+"MIME-Version: 1.0
+"
+"Content-Type: text/plain; charset=UTF-8
+"
+"Content-Transfer-Encoding: 8bit
+"
+"Language: he_IL
+"
+"Plural-Forms: nplurals=2; plural=(n != 1);
+"
+
+msgctxt "#32200"
+msgid "Continue watching"
+msgstr "המשך צפייה"
+
+msgctxt "#32201"
+msgid "Trending movies"
+msgstr "סרטים חמים"
+
+msgctxt "#32202"
+msgid "Trending shows"
+msgstr "סדרות חמות"
+
+msgctxt "#32203"
+msgid "Popular this week"
+msgstr "פופולרי השבוע"
+
+msgctxt "#32204"
+msgid "Popular shows this week"
+msgstr "סדרות במגמה השבוע"
+
+msgctxt "#32205"
+msgid "In cinemas now"
+msgstr "עכשיו בקולנוע"
+
+msgctxt "#32206"
+msgid "Coming soon"
+msgstr "בקרוב"
+
+msgctxt "#32207"
+msgid "New episodes today"
+msgstr "פרקים חדשים היום"
+
+msgctxt "#32208"
+msgid "Returning series"
+msgstr "סדרות שחוזרות"
+
+msgctxt "#32209"
+msgid "Most watched movies"
+msgstr "הסרטים הנצפים ביותר"
+
+msgctxt "#32210"
+msgid "Most watched shows"
+msgstr "הסדרות הנצפות ביותר"
+
+msgctxt "#32211"
+msgid "Most anticipated"
+msgstr "המצופים ביותר"
+
+msgctxt "#32212"
+msgid "Box office"
+msgstr "קופות הקולנוע"
+
+msgctxt "#32213"
+msgid "New on Netflix"
+msgstr "חדש בנטפליקס"
+
+msgctxt "#32214"
+msgid "Israeli movies"
+msgstr "סרטים ישראליים"
+
+msgctxt "#32215"
+msgid "Israeli series"
+msgstr "סדרות ישראליות"
+
+msgctxt "#32216"
+msgid "Trending anime"
+msgstr "אנימה חמה"
+
+msgctxt "#32217"
+msgid "Israeli live TV"
+msgstr "שידורים חיים"
+
+msgctxt "#32218"
+msgid "Israeli VOD"
+msgstr "VOD ישראלי"
+
+msgctxt "#32219"
+msgid "Because you watched"
+msgstr "כי צפית"
+
+msgctxt "#32220"
+msgid "Top rated movies"
+msgstr "המדורגים ביותר"
+
+msgctxt "#32221"
+msgid "Your watchlist"
+msgstr "רשימת הצפייה"
+
+msgctxt "#32250"
+msgid "Choose a source"
+msgstr "בחר מקור"
+
+msgctxt "#32251"
+msgid "Add to Trakt watchlist"
+msgstr "הוסף לרשימת Trakt"
+
+msgctxt "#32252"
+msgid "Toggle watched"
+msgstr "סמן כנצפה"
+
+msgctxt "#32253"
+msgid "Play trailer"
+msgstr "נגן טריילר"
+
+msgctxt "#32254"
+msgid "Search"
+msgstr "חיפוש"
+
+msgctxt "#32255"
+msgid "Tools"
+msgstr "כלים"
+
+msgctxt "#32256"
+msgid "Set up Katan to get started"
+msgstr "הגדר את קטן כדי להתחיל"
+
+msgctxt "#32257"
+msgid "Nothing to show here yet"
+msgstr "אין מה להציג כאן עדיין"
+
+msgctxt "#32258"
+msgid "No results found"
+msgstr "לא נמצאו תוצאות"
+
+msgctxt "#32260"
+msgid "Setup wizard"
+msgstr "אשף הגדרה"
+
+msgctxt "#32261"
+msgid "Settings"
+msgstr "הגדרות"
+
+msgctxt "#32262"
+msgid "Clear cache"
+msgstr "נקה מטמון"
+
+msgctxt "#32263"
+msgid "Cache information"
+msgstr "מידע על המטמון"
+
+msgctxt "#32264"
+msgid "Rebuild home rows"
+msgstr "בנה מחדש את המסך"
+
+msgctxt "#32265"
+msgid "Clear the whole cache?"
+msgstr "לנקות את כל המטמון?"
+
+msgctxt "#32266"
+msgid "Cache cleared"
+msgstr "המטמון נוקה"
+
+msgctxt "#32267"
+msgid "Entries"
+msgstr "רשומות"
+
+msgctxt "#32268"
+msgid "Size on disk"
+msgstr "גודל בדיסק"
+
+msgctxt "#32269"
+msgid "Expired"
+msgstr "פג תוקף"
+
+msgctxt "#32270"
+msgid "Refreshed %d rows"
+msgstr "רועננו %d שורות"
+
+msgctxt "#32271"
+msgid "Added to your watchlist"
+msgstr "נוסף לרשימה"
+
+msgctxt "#32272"
+msgid "Connect Trakt first"
+msgstr "חבר קודם את Trakt"
+
+msgctxt "#32280"
+msgid "Could not load that title"
+msgstr "לא ניתן לטעון כותרת זו"
+
+msgctxt "#32281"
+msgid "Sources are not installed yet"
+msgstr "מנוע המקורות עדיין לא מותקן"
+
+msgctxt "#32282"
+msgid "Add a debrid account in settings"
+msgstr "הוסף חשבון דבריד בהגדרות"
+
+msgctxt "#32283"
+msgid "No playable sources found"
+msgstr "לא נמצאו מקורות לניגון"
+
+msgctxt "#32284"
+msgid "That source would not open"
+msgstr "המקור לא נפתח"
+
+msgctxt "#32285"
+msgid "Choose a source"
+msgstr "בחר מקור"
+
+msgctxt "#32290"
+msgid "Type to search"
+msgstr "הקלד כדי לחפש"
+
+msgctxt "#32291"
+msgid "ABC / Hebrew / 123"
+msgstr "ABC / אבג / 123"
+
+msgctxt "#32292"
+msgid "Space"
+msgstr "רווח"
+
+msgctxt "#32293"
+msgid "Delete"
+msgstr "מחק"
+
+msgctxt "#32294"
+msgid "Clear"
+msgstr "נקה"
+
+msgctxt "#32295"
+msgid "Search"
+msgstr "חפש"
+
+msgctxt "#32296"
+msgid "Searching..."
+msgstr "מחפש..."
+
+msgctxt "#32297"
+msgid "%d suggestions"
+msgstr "%d הצעות"
+
+msgctxt "#32298"
+msgid "Recent search"
+msgstr "חיפוש אחרון"
+
+msgctxt "#32299"
+msgid "Recent searches"
+msgstr "חיפושים אחרונים"
+
+msgctxt "#32300"
+msgid "Movie"
+msgstr "סרט"
+
+msgctxt "#32301"
+msgid "Series"
+msgstr "סדרה"
+
+msgctxt "#32302"
+msgid "Anime"
+msgstr "אנימה"
+
+msgctxt "#32310"
+msgid "TMDB"
+msgstr "TMDB"
+
+msgctxt "#32311"
+msgid "Debrid service"
+msgstr "שירות דבריד"
+
+msgctxt "#32312"
+msgid "Trakt"
+msgstr "Trakt"
+
+msgctxt "#32313"
+msgid "AI translation"
+msgstr "תרגום AI"
+
+msgctxt "#32314"
+msgid "Finish"
+msgstr "סיום"
+
+msgctxt "#32315"
+msgid "That step failed"
+msgstr "השלב נכשל"
+
+msgctxt "#32316"
+msgid "Setup complete"
+msgstr "ההגדרה הושלמה"
+
+msgctxt "#32317"
+msgid "Get a free API key at %s"
+msgstr "קבל מפתח חינם בכתובת %s"
+
+msgctxt "#32318"
+msgid "Connected"
+msgstr "החיבור הצליח"
+
+msgctxt "#32319"
+msgid "That key did not work"
+msgstr "המפתח לא עבד"
+
+msgctxt "#32320"
+msgid "That service is not available yet"
+msgstr "השירות עדיין לא זמין"
+
+msgctxt "#32321"
+msgid "%s connected"
+msgstr "%s חובר"
+
+msgctxt "#32322"
+msgid "Authorisation failed"
+msgstr "האישור נכשל"
+
+msgctxt "#32323"
+msgid "Create an application at %s and paste its keys"
+msgstr "צור יישום בכתובת %s והעתק את המפתחות"
+
+msgctxt "#32324"
+msgid "Open %s and enter the code %s"
+msgstr "פתח את %s והזן את הקוד %s"
+
+msgctxt "#32325"
+msgid "Signed in as %s"
+msgstr "מחובר כ- %s"
+
+msgctxt "#32326"
+msgid "Get a free Gemini key at %s"
+msgstr "קבל מפתח Gemini חינם בכתובת %s"
+
+msgctxt "#32330"
+msgid "Cached"
+msgstr "במטמון"
+
+msgctxt "#32331"
+msgid "Searching sources..."
+msgstr "מחפש מקורות..."
+
+msgctxt "#32332"
+msgid "%d sources"
+msgstr "%d מקורות"
+
+msgctxt "#32333"
+msgid "Resolving..."
+msgstr "פותח קובץ..."
+
+msgctxt "#32334"
+msgid "Subtitle found: %s"
+msgstr "נמצאו כתוביות: %s"
+
+msgctxt "#32335"
+msgid "Translating with AI..."
+msgstr "מתרגם עם AI..."
+
+msgctxt "#32336"
+msgid "No subtitles found"
+msgstr "לא נמצאו כתוביות"
+
+msgctxt "#32340"
+msgid "Search again"
+msgstr "חפש שוב"
+
+msgctxt "#32341"
+msgid "Show all sources"
+msgstr "הצג את כל המקורות"
+
+msgctxt "#32342"
+msgid "Show the best only"
+msgstr "הצג את הטובים בלבד"
+
+msgctxt "#32343"
+msgid "%d seeders"
+msgstr "%d משתפים"
+
+msgctxt "#32344"
+msgid "Hebrew"
+msgstr "עברית"
+
+msgctxt "#32345"
+msgid "%d cached"
+msgstr "%d במטמון"
+
+msgctxt "#32346"
+msgid "Accounts"
+msgstr "חשבונות"
+
+msgctxt "#32347"
+msgid "Not connected"
+msgstr "לא מחובר"
+
+msgctxt "#32348"
+msgid "Free plan"
+msgstr "מסלול חינם"
+
+msgctxt "#32350"
+msgid "Embedded subtitle used"
+msgstr "נבחרו כתוביות מובנות"
+
+msgctxt "#32351"
+msgid "Subtitle synchronised"
+msgstr "הכתוביות סונכרנו"
+
+msgctxt "#32352"
+msgid "Subtitle timing left as is"
+msgstr "תזמון הכתוביות נשמר"
+
+msgctxt "#32353"
+msgid "Looking for subtitles..."
+msgstr "מחפש כתוביות..."
+
+msgctxt "#32360"
+msgid "Radio"
+msgstr "רדיו"
+
+msgctxt "#32361"
+msgid "No episodes were found"
+msgstr "לא נמצאו פרקים"
+
+msgctxt "#32362"
+msgid "That channel would not open"
+msgstr "לא ניתן לפתוח ערוץ זה"
+
+msgctxt "#32363"
+msgid "Watch on YouTube"
+msgstr "צפה ב-YouTube"
+
+msgctxt "#32370"
+msgid "Device report"
+msgstr "דוח מכשיר"
+
+msgctxt "#32380"
+msgid "Low memory"
+msgstr "זיכרון נמוך"
+
+msgctxt "#32381"
+msgid "Balanced"
+msgstr "מאוזן"
+
+msgctxt "#32382"
+msgid "Powerful device"
+msgstr "מכשיר חזק"
+
+msgctxt "#32383"
+msgid "recommended: %s"
+msgstr "מומלץ: %s"
+
+msgctxt "#32384"
+msgid "Performance profile"
+msgstr "פרופיל ביצועים"
+
+msgctxt "#32385"
+msgid "%d settings changed"
+msgstr "שונו %d הגדרות"
+

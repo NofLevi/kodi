@@ -1,0 +1,462 @@
+# Kodi Media Center language file
+# Addon Name: Katan
+# Addon id: plugin.video.katan
+msgid ""
+msgstr ""
+"Project-Id-Version: Katan
+"
+"MIME-Version: 1.0
+"
+"Content-Type: text/plain; charset=UTF-8
+"
+"Content-Transfer-Encoding: 8bit
+"
+"Language: en_GB
+"
+"Plural-Forms: nplurals=2; plural=(n != 1);
+"
+
+msgctxt "#32200"
+msgid "Continue watching"
+msgstr ""
+
+msgctxt "#32201"
+msgid "Trending movies"
+msgstr ""
+
+msgctxt "#32202"
+msgid "Trending shows"
+msgstr ""
+
+msgctxt "#32203"
+msgid "Popular this week"
+msgstr ""
+
+msgctxt "#32204"
+msgid "Popular shows this week"
+msgstr ""
+
+msgctxt "#32205"
+msgid "In cinemas now"
+msgstr ""
+
+msgctxt "#32206"
+msgid "Coming soon"
+msgstr ""
+
+msgctxt "#32207"
+msgid "New episodes today"
+msgstr ""
+
+msgctxt "#32208"
+msgid "Returning series"
+msgstr ""
+
+msgctxt "#32209"
+msgid "Most watched movies"
+msgstr ""
+
+msgctxt "#32210"
+msgid "Most watched shows"
+msgstr ""
+
+msgctxt "#32211"
+msgid "Most anticipated"
+msgstr ""
+
+msgctxt "#32212"
+msgid "Box office"
+msgstr ""
+
+msgctxt "#32213"
+msgid "New on Netflix"
+msgstr ""
+
+msgctxt "#32214"
+msgid "Israeli movies"
+msgstr ""
+
+msgctxt "#32215"
+msgid "Israeli series"
+msgstr ""
+
+msgctxt "#32216"
+msgid "Trending anime"
+msgstr ""
+
+msgctxt "#32217"
+msgid "Israeli live TV"
+msgstr ""
+
+msgctxt "#32218"
+msgid "Israeli VOD"
+msgstr ""
+
+msgctxt "#32219"
+msgid "Because you watched"
+msgstr ""
+
+msgctxt "#32220"
+msgid "Top rated movies"
+msgstr ""
+
+msgctxt "#32221"
+msgid "Your watchlist"
+msgstr ""
+
+msgctxt "#32250"
+msgid "Choose a source"
+msgstr ""
+
+msgctxt "#32251"
+msgid "Add to Trakt watchlist"
+msgstr ""
+
+msgctxt "#32252"
+msgid "Toggle watched"
+msgstr ""
+
+msgctxt "#32253"
+msgid "Play trailer"
+msgstr ""
+
+msgctxt "#32254"
+msgid "Search"
+msgstr ""
+
+msgctxt "#32255"
+msgid "Tools"
+msgstr ""
+
+msgctxt "#32256"
+msgid "Set up Katan to get started"
+msgstr ""
+
+msgctxt "#32257"
+msgid "Nothing to show here yet"
+msgstr ""
+
+msgctxt "#32258"
+msgid "No results found"
+msgstr ""
+
+msgctxt "#32260"
+msgid "Setup wizard"
+msgstr ""
+
+msgctxt "#32261"
+msgid "Settings"
+msgstr ""
+
+msgctxt "#32262"
+msgid "Clear cache"
+msgstr ""
+
+msgctxt "#32263"
+msgid "Cache information"
+msgstr ""
+
+msgctxt "#32264"
+msgid "Rebuild home rows"
+msgstr ""
+
+msgctxt "#32265"
+msgid "Clear the whole cache?"
+msgstr ""
+
+msgctxt "#32266"
+msgid "Cache cleared"
+msgstr ""
+
+msgctxt "#32267"
+msgid "Entries"
+msgstr ""
+
+msgctxt "#32268"
+msgid "Size on disk"
+msgstr ""
+
+msgctxt "#32269"
+msgid "Expired"
+msgstr ""
+
+msgctxt "#32270"
+msgid "Refreshed %d rows"
+msgstr ""
+
+msgctxt "#32271"
+msgid "Added to your watchlist"
+msgstr ""
+
+msgctxt "#32272"
+msgid "Connect Trakt first"
+msgstr ""
+
+msgctxt "#32280"
+msgid "Could not load that title"
+msgstr ""
+
+msgctxt "#32281"
+msgid "Sources are not installed yet"
+msgstr ""
+
+msgctxt "#32282"
+msgid "Add a debrid account in settings"
+msgstr ""
+
+msgctxt "#32283"
+msgid "No playable sources found"
+msgstr ""
+
+msgctxt "#32284"
+msgid "That source would not open"
+msgstr ""
+
+msgctxt "#32285"
+msgid "Choose a source"
+msgstr ""
+
+msgctxt "#32290"
+msgid "Type to search"
+msgstr ""
+
+msgctxt "#32291"
+msgid "ABC / Hebrew / 123"
+msgstr ""
+
+msgctxt "#32292"
+msgid "Space"
+msgstr ""
+
+msgctxt "#32293"
+msgid "Delete"
+msgstr ""
+
+msgctxt "#32294"
+msgid "Clear"
+msgstr ""
+
+msgctxt "#32295"
+msgid "Search"
+msgstr ""
+
+msgctxt "#32296"
+msgid "Searching..."
+msgstr ""
+
+msgctxt "#32297"
+msgid "%d suggestions"
+msgstr ""
+
+msgctxt "#32298"
+msgid "Recent search"
+msgstr ""
+
+msgctxt "#32299"
+msgid "Recent searches"
+msgstr ""
+
+msgctxt "#32300"
+msgid "Movie"
+msgstr ""
+
+msgctxt "#32301"
+msgid "Series"
+msgstr ""
+
+msgctxt "#32302"
+msgid "Anime"
+msgstr ""
+
+msgctxt "#32310"
+msgid "TMDB"
+msgstr ""
+
+msgctxt "#32311"
+msgid "Debrid service"
+msgstr ""
+
+msgctxt "#32312"
+msgid "Trakt"
+msgstr ""
+
+msgctxt "#32313"
+msgid "AI translation"
+msgstr ""
+
+msgctxt "#32314"
+msgid "Finish"
+msgstr ""
+
+msgctxt "#32315"
+msgid "That step failed"
+msgstr ""
+
+msgctxt "#32316"
+msgid "Setup complete"
+msgstr ""
+
+msgctxt "#32317"
+msgid "Get a free API key at %s"
+msgstr ""
+
+msgctxt "#32318"
+msgid "Connected"
+msgstr ""
+
+msgctxt "#32319"
+msgid "That key did not work"
+msgstr ""
+
+msgctxt "#32320"
+msgid "That service is not available yet"
+msgstr ""
+
+msgctxt "#32321"
+msgid "%s connected"
+msgstr ""
+
+msgctxt "#32322"
+msgid "Authorisation failed"
+msgstr ""
+
+msgctxt "#32323"
+msgid "Create an application at %s and paste its keys"
+msgstr ""
+
+msgctxt "#32324"
+msgid "Open %s and enter the code %s"
+msgstr ""
+
+msgctxt "#32325"
+msgid "Signed in as %s"
+msgstr ""
+
+msgctxt "#32326"
+msgid "Get a free Gemini key at %s"
+msgstr ""
+
+msgctxt "#32330"
+msgid "Cached"
+msgstr ""
+
+msgctxt "#32331"
+msgid "Searching sources..."
+msgstr ""
+
+msgctxt "#32332"
+msgid "%d sources"
+msgstr ""
+
+msgctxt "#32333"
+msgid "Resolving..."
+msgstr ""
+
+msgctxt "#32334"
+msgid "Subtitle found: %s"
+msgstr ""
+
+msgctxt "#32335"
+msgid "Translating with AI..."
+msgstr ""
+
+msgctxt "#32336"
+msgid "No subtitles found"
+msgstr ""
+
+msgctxt "#32340"
+msgid "Search again"
+msgstr ""
+
+msgctxt "#32341"
+msgid "Show all sources"
+msgstr ""
+
+msgctxt "#32342"
+msgid "Show the best only"
+msgstr ""
+
+msgctxt "#32343"
+msgid "%d seeders"
+msgstr ""
+
+msgctxt "#32344"
+msgid "Hebrew"
+msgstr ""
+
+msgctxt "#32345"
+msgid "%d cached"
+msgstr ""
+
+msgctxt "#32346"
+msgid "Accounts"
+msgstr ""
+
+msgctxt "#32347"
+msgid "Not connected"
+msgstr ""
+
+msgctxt "#32348"
+msgid "Free plan"
+msgstr ""
+
+msgctxt "#32350"
+msgid "Embedded subtitle used"
+msgstr ""
+
+msgctxt "#32351"
+msgid "Subtitle synchronised"
+msgstr ""
+
+msgctxt "#32352"
+msgid "Subtitle timing left as is"
+msgstr ""
+
+msgctxt "#32353"
+msgid "Looking for subtitles..."
+msgstr ""
+
+msgctxt "#32360"
+msgid "Radio"
+msgstr ""
+
+msgctxt "#32361"
+msgid "No episodes were found"
+msgstr ""
+
+msgctxt "#32362"
+msgid "That channel would not open"
+msgstr ""
+
+msgctxt "#32363"
+msgid "Watch on YouTube"
+msgstr ""
+
+msgctxt "#32370"
+msgid "Device report"
+msgstr ""
+
+msgctxt "#32380"
+msgid "Low memory"
+msgstr ""
+
+msgctxt "#32381"
+msgid "Balanced"
+msgstr ""
+
+msgctxt "#32382"
+msgid "Powerful device"
+msgstr ""
+
+msgctxt "#32383"
+msgid "recommended: %s"
+msgstr ""
+
+msgctxt "#32384"
+msgid "Performance profile"
+msgstr ""
+
+msgctxt "#32385"
+msgid "%d settings changed"
+msgstr ""
+
