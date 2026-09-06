@@ -163,3 +163,37 @@ def test_the_channels_that_remain_all_resolve_to_a_url():
         if not url:
             unresolved.append(channel["title"])
     assert not unresolved, unresolved
+
+
+def test_updating_the_bundled_data_invalidates_the_cache(tmp_path, monkeypatch):
+    """A data fix that only takes effect tomorrow is not a fix."""
+    import json
+    import os
+    import time
+
+    seed = tmp_path / "channels.json"
+    seed.write_text(json.dumps({
+        "ch_a": {"name": "A", "index": 1, "type": "tv", "module": "tv",
+                 "image": "", "tvgID": "", "working": True,
+                 "linkDetails": {"link": "https://example.com/a.m3u8"}},
+    }), encoding="utf-8")
+    monkeypatch.setattr(channels, "seed_path", lambda: str(seed))
+    channels.refresh()
+
+    first = channels.load()
+    assert set(first) == {"ch_a"}
+
+    # Ship a new list, as a release or a remote update would.
+    time.sleep(1.1)
+    seed.write_text(json.dumps({
+        "ch_a": {"name": "A", "index": 1, "type": "tv", "module": "tv",
+                 "image": "", "tvgID": "", "working": True,
+                 "linkDetails": {"link": "https://example.com/a.m3u8"}},
+        "ch_b": {"name": "B", "index": 2, "type": "tv", "module": "tv",
+                 "image": "", "tvgID": "", "working": True,
+                 "linkDetails": {"link": "https://example.com/b.m3u8"}},
+    }), encoding="utf-8")
+    os.utime(str(seed), None)
+
+    assert set(channels.load()) == {"ch_a", "ch_b"}, \
+        "the new bundle should be picked up without waiting for the TTL"

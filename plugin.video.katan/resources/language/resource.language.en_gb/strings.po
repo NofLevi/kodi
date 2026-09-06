@@ -460,3 +460,35 @@ msgctxt "#32385"
 msgid "%d settings changed"
 msgstr ""
 
+msgctxt "#32390"
+msgid "Play"
+msgstr ""
+
+msgctxt "#32391"
+msgid "Seasons"
+msgstr ""
+
+msgctxt "#32392"
+msgid "Season %s"
+msgstr ""
+
+msgctxt "#32393"
+msgid "Nothing left to watch"
+msgstr ""
+
+msgctxt "#32394"
+msgid "Cast:"
+msgstr ""
+
+msgctxt "#32395"
+msgid "%d episodes"
+msgstr ""
+
+msgctxt "#32396"
+msgid "Accounts"
+msgstr ""
+
+msgctxt "#32397"
+msgid "expires %s"
+msgstr ""
+

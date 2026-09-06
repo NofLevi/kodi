@@ -25,7 +25,6 @@ from .. import cache, http, kodi, settings
 from ..meta import items
 
 DATA_TTL = 24 * 3600
-CACHE_KEY = "vod|channels"
 
 DEFAULT_HOSTS = {
     "keshet": "https://d18b0e6mopany4.cloudfront.net",
@@ -40,15 +39,34 @@ def seed_path():
     return os.path.join(kodi.addon_path(), "resources", "data", "channels.json")
 
 
+def cache_key():
+    return cache.make_key("vod", "channels", _seed_stamp(seed_path()))
+
+
+def _seed_stamp(path):
+    """A marker that changes when the bundled data changes.
+
+    Without this, updating the shipped list has no effect until the cache
+    expires, so a data fix appears not to work for a day. Folding the file
+    size and modification time into the cache key makes a new bundle
+    invalidate the old copy immediately.
+    """
+    try:
+        stat = os.stat(path)
+        return "%d-%d" % (stat.st_size, int(stat.st_mtime))
+    except OSError:
+        return "none"
+
+
 def load():
     """The channel table, from the remote list or the bundled seed."""
-    cached = cache.get(CACHE_KEY)
+    cached = cache.get(cache_key())
     if cached is not None:
         return cached
 
     data = _fetch_remote() or _read_seed()
     if data:
-        cache.set(CACHE_KEY, data, DATA_TTL)
+        cache.set(cache_key(), data, DATA_TTL)
     return data or {}
 
 
@@ -73,7 +91,7 @@ def _read_seed():
 
 
 def refresh():
-    cache.delete(CACHE_KEY)
+    cache.delete(cache_key())
     return load()
 
 

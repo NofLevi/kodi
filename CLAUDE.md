@@ -142,13 +142,37 @@ catch the errors Kodi would only show as a blank screen.
 
 ## Known gaps
 
-* The Kan and Mako episode extractors in `vod/extractors/` are written
-  defensively with a ladder of strategies, but they have not been run against
-  the live sites. They need verification on a real device.
-* Trakt needs the user's own client id and secret, since the project has no
-  registered application yet.
-* `repository.katan/addon.xml` has USER/REPO placeholders to replace before
-  publishing.
+Ordered by how much they matter. Nothing here is a stub pretending to work:
+settings that promised a provider with no code behind them were removed, and
+`test_addon_integrity.py` now fails if one comes back.
+
+**Needs a real device or account to finish**
+
+* Debrid playback has never run against a live account. Every client is
+  written to its documented API and unit tested against fixtures, but no
+  stream has actually been resolved end to end.
+* Trakt needs the user's own client id and secret, because the project has no
+  registered application.
+* The Kan and Mako episode extractors use a ladder of strategies and have not
+  been checked against the live sites.
+
+**Missing features**
+
+* Sixteen live channels, Keshet 12 among them, are signed with an Akamai token
+  minted by the broadcaster's entitlement service. They are hidden rather than
+  listed as broken. Implementing the token flow is the single biggest win for
+  Israeli live TV.
+* VOD extractors exist for Kan and Mako only. Reshet, Sport 5, Sport 1,
+  Channel 14 and 891FM list their programmes but cannot open them, which is
+  most of the 2,810 entry catalogue.
+* No Ktuvit subtitle provider. Wizdom, OpenSubtitles and SubSource cover a
+  lot of Hebrew, but Ktuvit is the largest source and needs a login flow.
+* No MDBList, no SeaDex anime rankings, no kids mode, no TMDb Helper player
+  file, no Israeli torrent scrapers.
+
+**Not started**
+
+* `repository.katan/addon.xml` still has USER/REPO placeholders.
 
 ## Attribution
 

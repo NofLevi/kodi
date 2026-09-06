@@ -208,6 +208,7 @@ def tools(params):
     handle = _handle()
     entries = [
         (32260, router.url_for("setup")),
+        (32396, router.url_for("accounts")),
         (32261, router.url_for("open_settings")),
         (32262, router.url_for("clear_cache")),
         (32263, router.url_for("cache_info")),
@@ -429,3 +430,75 @@ def profile(params):
     changed = profiles.apply(order[choice])
     catalog.invalidate()
     kodi.notify(kodi.localize(32385, changed))
+
+
+@router.route("accounts")
+def accounts(params):
+    """Show which services are connected, and let one be added or replaced.
+
+    Debrid is the part most likely to be silently wrong: a token expires, a
+    subscription lapses, and every source search quietly returns nothing. This
+    screen makes that visible instead of leaving it to be inferred.
+    """
+    from ..debrid import registry
+    from ..meta import tmdb, trakt
+
+    handle = _handle()
+    kodi.busy_dialog(True)
+    try:
+        rows = registry.account_summary()
+    finally:
+        kodi.busy_dialog(False)
+
+    for row in rows:
+        parts = [row["plan"] or ""]
+        if row["user"]:
+            parts.insert(0, row["user"])
+        if row["expires"]:
+            parts.append(kodi.localize(32397, str(row["expires"])[:10]))
+        if row["is_free"]:
+            parts.append(kodi.localize(32348))
+        note = "  ".join(p for p in parts if p) or kodi.localize(32347)
+        listing.add_directory(
+            handle, "%s   %s" % (row["label"], note),
+            router.url_for("connect", service=row["name"]),
+            art={"icon": "DefaultAddonService.png"}, is_folder=False)
+
+    for name, label, connected in (
+            ("debrid", kodi.localize(32311), bool(rows)),
+            ("trakt", "Trakt", trakt.authorised()),
+            ("tmdb", "TMDB", tmdb.has_key())):
+        if name == "debrid" and rows:
+            continue
+        mark = "[OK]" if connected else "[  ]"
+        listing.add_directory(
+            handle, "%s %s" % (mark, label),
+            router.url_for("connect", service=name),
+            art={"icon": "DefaultAddonService.png"}, is_folder=False)
+
+    listing.end(handle, content="files", cache_to_disc=False)
+
+
+@router.route("connect")
+def connect(params):
+    """Run the sign-in flow for one service."""
+    from . import wizard
+
+    service = params.get("service", "")
+    if service == "trakt":
+        wizard.step_trakt()
+    elif service == "tmdb":
+        wizard.step_tmdb()
+    elif service == "debrid":
+        wizard.step_debrid()
+    else:
+        from ..debrid import registry
+        client = registry.get(service)
+        if client is None:
+            kodi.notify(kodi.localize(32320))
+            return
+        if client.authorize():
+            kodi.notify(kodi.localize(32321, client.label))
+        else:
+            kodi.notify(kodi.localize(32322))
+    kodi.refresh_container()

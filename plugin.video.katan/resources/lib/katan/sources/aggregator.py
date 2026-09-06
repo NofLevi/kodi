@@ -63,8 +63,6 @@ def _enabled_providers(meta):
             continue
         if name in ANIME_PROVIDERS and not anime:
             continue
-        if name == "israeli":
-            continue                     # handled by the Israeli provider set
         chosen.append((name, module))
     return chosen
 

@@ -110,3 +110,68 @@ def test_every_localize_call_has_a_string():
 
     missing = sorted(used - known)
     assert not missing, "localize() ids with no string: %s" % missing
+
+
+def test_every_provider_setting_has_a_module_behind_it():
+    """A switch the user can turn on must do something when they do.
+
+    Settings that promise a provider with no code behind them are worse than
+    an absent feature: the user enables them, nothing changes, and there is no
+    way to tell whether the provider is broken or imaginary.
+    """
+    from katan import settings
+
+    lib = os.path.join(ADDON_DIR, "resources", "lib", "katan")
+    missing = []
+
+    for key in settings.DEFAULTS:
+        if key.startswith("sources.provider."):
+            name = key.rsplit(".", 1)[-1]
+            path = os.path.join(lib, "sources", "providers", "%s.py" % name)
+        elif key.startswith("subs.provider."):
+            name = key.rsplit(".", 1)[-1]
+            path = os.path.join(lib, "subs", "providers", "%s.py" % name)
+        else:
+            continue
+        if not os.path.isfile(path):
+            missing.append(key)
+
+    assert not missing, "settings with no provider module: %s" % missing
+
+
+def test_every_route_referenced_in_the_ui_exists():
+    """A url_for() to a route that was never registered is a dead button."""
+    import re
+
+    from katan import router
+    router._load_handlers()
+    known = set(router.registered_actions())
+
+    lib = os.path.join(ADDON_DIR, "resources", "lib", "katan")
+    referenced = set()
+    for folder, dirs, files in os.walk(lib):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for name in files:
+            if not name.endswith(".py"):
+                continue
+            source = open(os.path.join(folder, name), encoding="utf-8").read()
+            referenced.update(re.findall(r'url_for\(\s*"([a-z_]+)"', source))
+
+    missing = sorted(referenced - known)
+    assert not missing, "routes used but never registered: %s" % missing
+
+
+def test_every_window_python_module_has_its_skin_file():
+    """A WindowXML class without its XML fails only when opened."""
+    import re
+
+    lib = os.path.join(ADDON_DIR, "resources", "lib", "katan", "ui")
+    missing = []
+    for name in os.listdir(lib):
+        if not name.endswith("_window.py"):
+            continue
+        source = open(os.path.join(lib, name), encoding="utf-8").read()
+        for xml_name in re.findall(r'"(katan-[a-z]+\.xml)"', source):
+            if not os.path.isfile(os.path.join(SKIN_DIR, xml_name)):
+                missing.append("%s wants %s" % (name, xml_name))
+    assert not missing, missing
