@@ -13,6 +13,7 @@ A lightweight Netflix-style Kodi 21 add-on, built for weak hardware
         settings.xml          user settings
         data/                 bundled channel list and VOD catalogue
         language/             en_GB and he_IL strings
+        players/              the TMDb Helper player file
         skins/default/1080i/  the custom windows
         lib/katan/            all the Python
     repository.katan/         so devices auto-update
@@ -53,13 +54,31 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   any more, TorBox caps uncached adds at 60 an hour, Premiumize answers
   batches, AllDebrid has no bulk check either.
 * `subs/` picks one subtitle: embedded track, then file hash, then release
-  correlation, then AI translation of the best English match.
+  correlation, then AI translation of the best English match. Wizdom and
+  SubSource are anonymous; Ktuvit is a members' site, so it is off until an
+  account is entered and is asked after the faster sources.
+* `meta/seadex.py` is the exception to ranking by numbers. For anime the
+  release group *is* the quality, and SeaDex publishes which group won. It
+  returns infohashes, the aggregator already merges by infohash, so a
+  recommendation is a set of hashes to recognise rather than a name to match.
+* `kids.py` replaces the home rows rather than filtering them. A TMDB list
+  result carries no certification at all, so a filter alone would let
+  everything through; the kid-safe rows ask TMDB for a ceiling instead.
 * `subs/sync.py` is the part that makes a subtitle actually fit. It correlates
   speech activity as big-integer bitmasks, which is fast enough to align a two
   hour film in about 170 ms, and corrects both constant offset and PAL/NTSC
   drift. Its score is chance corrected, so an unrelated subtitle is refused.
 * `vod/` is Israeli television. Live channels and the on-demand catalogue are
-  separate sections on purpose, because they are browsed differently.
+  separate sections on purpose, because they are browsed differently. Each
+  broadcaster gets one small module under `vod/extractors/`, and all seven in
+  the catalogue now have one: Kan and Mako scrape pages, Reshet talks to
+  Kaltura OTT, Sport 5 and Now 14 reduce a large JSON document before caching
+  it, Sport 1 hops through Walla, and 891FM reads an hourly radio schedule.
+* `vod/entitlement.py` mints the Akamai ticket Mako requires. It is worth
+  reading for the two measurements that make it cheap: the grant is `acl=/*`,
+  so one ticket signs every Keshet channel, and Akamai rewrites the variant
+  URLs inside the master manifest with a much longer lived token, so only the
+  first request needs signing and playback survives the ticket expiring.
 
 ## Testing on Windows
 
@@ -101,7 +120,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-353 tests, all running against Kodi stubs, so no Kodi install is needed:
+521 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -113,23 +132,31 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 
 | File | Tests | What it protects |
 |---|---|---|
-| `test_imports.py` | 4 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences and stray control characters. |
-| `test_addon_integrity.py` | 12 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML. |
+| `test_imports.py` | 90 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences and stray control characters. |
+| `test_addon_integrity.py` | 14 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, and the TMDb Helper player file naming only registered actions. |
 | `test_core.py` | 10 | The SQLite cache and the router: TTLs, compression, LRU eviction under the size cap, and url_for round-tripping through parse_params. |
-| `test_routes.py` | 10 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen. |
-| `test_release_parser.py` | 14 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
+| `test_routes.py` | 20 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen. |
+| `test_release_parser.py` | 29 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
 | `test_sources.py` | 21 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
+| `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_subtitle_matching.py` | 14 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 17 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_pipeline.py` | 13 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. |
+| `test_ktuvit.py` | 19 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
 | `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
-| `test_translation_context.py` | 9 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
+| `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
 | `test_vod.py` | 20 | Israeli live TV and the catalogue: broadcaster ordering, referers carried through, relative paths given their CDN host, broken channels hidden, Hebrew substring search, and updating the bundled data invalidating the cache. |
+| `test_entitlement.py` | 17 | The Akamai ticket: one ticket covering every Keshet channel rather than one each, browsing never asking for one, a refusal leaving the URL unsigned rather than empty, and a failure never being cached. |
+| `test_reshet.py` | 19 | Reshet's numbering, which the broadcaster publishes wrongly. Season and episode come from the Hebrew title because the metadata fields disagree with it, and the API returns episodes unsorted. |
+| `test_sport5.py` | 22 | Six megabytes of broadcaster JSON reduced before it is cached, a season's clips gathered into its programme, the manifest lifted out of the player URL, and the byte order mark that made the whole document unparseable. |
+| `test_extractors_israeli.py` | 23 | Now 14, Sport 1 and 891FM, plus the check that every broadcaster in the catalogue has an extractor behind it. |
+| `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
+| `test_kids.py` | 23 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, and the PIN being stored hashed and actually required to leave. |
 | `test_windows.py` | 16 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard, and suggestions never overwriting what was typed. |
 | `test_details_window.py` | 10 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode. |
-| `test_profiles.py` | 14 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, and the artwork budget shrinking as intended. |
+| `test_profiles.py` | 16 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, and the artwork budget shrinking as intended. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
 | `test_upnext.py` | 5 | The next episode, including across a season boundary, and the signal being well formed. |
 | `test_packaging.py` | 5 | The built zip staying under 600 KB, containing no build junk, rooted at the add-on id, and carrying every file the add-on needs. |
@@ -174,16 +201,39 @@ whole backdrop.
 
 ## Channel data goes stale
 
-Sixteen of the forty-nine television channels no longer play. Keshet 12 and its
-backups return an Akamai "Access Denied": those streams are signed with a token
-minted by Mako's entitlement service, which this add-on does not implement.
-Idan Plus does, which is why they work in the Kodi POV IL build.
+`check_channels.py --update` records a `working` flag and the add-on hides the
+entries that do not play, because a list where a third of the entries fail is
+worse than a shorter list that works. Re-run the probe whenever channels start
+failing; it is a data fix, not a release.
 
-Rather than list entries that fail, `check_channels.py --update` records a
-`working` flag and the add-on hides the ones that do not play. Thirty-three
-television channels and all thirty-five radio stations are verified working.
-Re-run the probe whenever channels start failing; it is a data fix, not a
-release.
+Measured September 2026: **81 of 84 channels stream**, forty-six television and
+all thirty-five radio. Three do not, and all three are genuinely gone rather
+than unimplemented:
+
+* `ch_12c`, the Keshet closed-captions feed, answers 400 on every path tried,
+  including the ones its sister channels use.
+* `ch_bb` and `ch_bbb`, two Big Brother 26 feeds, no longer resolve in DNS.
+
+The thirteen Keshet channels that used to be hidden now work: they needed the
+Akamai ticket, which `vod/entitlement.py` now mints, and Keshet had also moved
+from CloudFront to `mako-streaming.akamaized.net`. Hidabroot 97 moved to its
+own CDN and was repointed.
+
+## Kids mode
+
+`kids.py` does not filter the home screen, it replaces it. That is a design
+decision worth knowing before changing it: a TMDB list result carries no
+certification at all, so a filter that waits to see one either blocks
+everything or lets everything through. The kid-safe rows ask TMDB for a
+certification ceiling and family genres instead, so they are safe by
+construction, and filtering stays as a second line for anything that does
+arrive with metadata. Leaving the mode needs the PIN, which is stored as a
+salted hash.
+
+Adding kids mode also fixed a bug that had nothing to do with it: `items.py`
+read only TMDB's full genre objects, which appear on a details call, and
+ignored the bare `genre_ids` a list result sends, so every row item arrived
+with no genres at all.
 
 ## Device profiles
 
@@ -269,26 +319,34 @@ settings that promised a provider with no code behind them were removed, and
   stream has actually been resolved end to end.
 * Trakt needs the user's own client id and secret, because the project has no
   registered application.
+* Ktuvit is implemented against its documented flow and tested against
+  fixtures, but has never signed in to a real account.
+* MDBList is implemented and fixture tested; the live API needs a key.
 * The Kan and Mako episode extractors use a ladder of strategies and have not
-  been checked against the live sites.
+  been checked against the live sites. The five extractors added since have
+  each been driven against their live sites.
+* No episode from any extractor has been played end to end in a real Kodi.
+  Manifests were fetched and confirmed to be real HLS, which is not the same
+  thing. Reshet in particular advertises a FairPlay licence alongside the
+  clear manifest, so a protected title would fail at the player.
 
 **Missing features**
 
-* Sixteen live channels, Keshet 12 among them, are signed with an Akamai token
-  minted by the broadcaster's entitlement service. They are hidden rather than
-  listed as broken. Implementing the token flow is the single biggest win for
-  Israeli live TV.
-* VOD extractors exist for Kan and Mako only. Reshet, Sport 5, Sport 1,
-  Channel 14 and 891FM list their programmes but cannot open them, which is
-  most of the 2,810 entry catalogue.
-* No Ktuvit subtitle provider. Wizdom, OpenSubtitles and SubSource cover a
-  lot of Hebrew, but Ktuvit is the largest source and needs a login flow.
-* No MDBList, no SeaDex anime rankings, no kids mode, no TMDb Helper player
-  file, no Israeli torrent scrapers.
+* **No Israeli torrent scraper, and there does not appear to be one to
+  write.** This was investigated rather than assumed: the Israeli trackers are
+  private and account-gated, Sdarot was dissolved in 2023, and Torrentio's
+  `language=hebrew` priority was tested against the live service and returns
+  results identical to no filter at all. Shipping something here would mean
+  shipping a stub, so nothing was shipped. Hebrew release hints in the parser
+  and the `prefer_hebrew` ranking weight remain the honest version of this.
+* The repository add-on cannot auto-update while `NofLevi/kodi` is private.
+  Kodi fetches `repo/addons.xml` anonymously, so the URLs 404 until the
+  repository is made public. Nothing in the code needs changing.
 
-**Not started**
+**Done since this list was written**
 
-* `repository.katan/addon.xml` still has USER/REPO placeholders.
+The Akamai entitlement flow, all five missing VOD extractors, Ktuvit, MDBList,
+SeaDex, kids mode, the TMDb Helper player file and the repository URLs.
 
 ## Attribution
 
