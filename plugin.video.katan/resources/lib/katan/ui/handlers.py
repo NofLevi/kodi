@@ -54,6 +54,14 @@ def home(params):
     listing.add_directory(handle, kodi.localize(32218),
                           router.url_for("vod"),
                           art={"icon": "DefaultMovies.png"})
+    # Only shown once a key is entered, because without one it would be a menu
+    # entry that opens an empty screen.
+    from ..meta import mdblist
+    if mdblist.has_key():
+        listing.add_directory(handle, kodi.localize(32232),
+                              router.url_for("mdblist_lists"),
+                              art={"icon": "DefaultVideoPlaylists.png"})
+
     listing.add_directory(handle, kodi.localize(32254),
                           router.url_for("search"),
                           art={"icon": "DefaultAddonsSearch.png"})
@@ -61,6 +69,40 @@ def home(params):
                           router.url_for("tools"),
                           art={"icon": "DefaultAddonProgram.png"})
     listing.end(handle, content="videos")
+
+
+@router.route("mdblist_lists")
+def mdblist_lists(params):
+    """The user's own MDBList lists, then the ones MDBList features."""
+    from ..meta import mdblist
+
+    handle = _handle()
+    seen = set()
+    for source in (mdblist.my_lists(), mdblist.top_lists()):
+        for entry in source:
+            if entry["id"] in seen:
+                continue
+            seen.add(entry["id"])
+            label = entry["name"]
+            if entry["count"]:
+                label = "%s (%d)" % (label, entry["count"])
+            listing.add_directory(
+                handle, label,
+                router.url_for("mdblist_list", id=entry["id"]),
+                plot=entry["description"],
+                art={"icon": "DefaultVideoPlaylists.png"})
+    listing.end(handle, content="videos")
+
+
+@router.route("mdblist_list")
+def mdblist_list(params):
+    """One MDBList list, resolved through TMDB so it has artwork."""
+    from ..meta import mdblist
+
+    handle = _handle()
+    from .. import kids
+    entries = kids.filter_items(mdblist.list_items(params.get("id", "")))
+    listing.add_items(handle, entries, content="movies")
 
 
 def _require_tmdb(handle):

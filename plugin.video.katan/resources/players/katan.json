@@ -1,0 +1,10 @@
+{
+    "name": "Katan",
+    "plugin": "plugin.video.katan",
+    "priority": 100,
+    "is_resolvable": "true",
+    "play_movie": "plugin://plugin.video.katan/?action=movie&tmdb={tmdb}&imdb={imdb}",
+    "play_episode": "plugin://plugin.video.katan/?action=episode&tmdb={tmdb}&season={season}&episode={episode}",
+    "search_movie": "plugin://plugin.video.katan/?action=sources&type=movie&tmdb={tmdb}&imdb={imdb}",
+    "search_episode": "plugin://plugin.video.katan/?action=sources&type=episode&tmdb={tmdb}&season={season}&episode={episode}"
+}

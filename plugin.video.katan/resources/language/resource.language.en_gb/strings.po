@@ -543,3 +543,7 @@ msgstr ""
 msgctxt "#32231"
 msgid "Wrong PIN"
 msgstr ""
+
+msgctxt "#32232"
+msgid "MDBList"
+msgstr ""

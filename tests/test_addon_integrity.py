@@ -35,6 +35,41 @@ def test_declared_assets_exist():
             assert os.path.isfile(os.path.join(ADDON_DIR, asset.text)), asset.text
 
 
+def test_the_tmdb_helper_player_points_at_real_routes():
+    """A player file that names a dead route fails inside somebody else's skin.
+
+    TMDb Helper builds these URLs itself, so nothing in this add-on would ever
+    notice that a route had been renamed. Checking the file against the
+    registered actions is the only place that mistake can be caught.
+    """
+    import json
+
+    from katan import router
+    from katan.ui import handlers      # noqa: F401  (registers the routes)
+
+    path = os.path.join(ADDON_DIR, "resources", "players", "katan.json")
+    assert os.path.isfile(path), "the TMDb Helper player file is missing"
+
+    with open(path, encoding="utf-8") as handle:
+        player = json.load(handle)
+
+    assert player.get("plugin") == "plugin.video.katan"
+
+    known = set(router.registered_actions())
+    checked = 0
+    for key, url in player.items():
+        if not key.startswith(("play_", "search_")):
+            continue
+        assert url.startswith(router.BASE_URL), "%s: %s" % (key, url)
+        action = re.search(r"[?&]action=([a-z_]+)", url)
+        assert action, "%s has no action: %s" % (key, url)
+        assert action.group(1) in known, \
+            "%s points at the unknown action %r" % (key, action.group(1))
+        checked += 1
+
+    assert checked >= 4, "expected play and search entries for films and episodes"
+
+
 def test_every_settings_id_has_a_default():
     """settings.xml and settings.DEFAULTS drift apart silently otherwise."""
     from katan import settings
