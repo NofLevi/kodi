@@ -133,8 +133,16 @@ def _resolve(source):
     It used to be duplicated here and the copy had drifted: it never checked
     that the named service was still configured, so a source cached by an
     account the user had since removed was handed to a client with no key.
+
+    This is also the one moment `allow_uncached` means anything, which is why
+    it is decided here rather than carried along from the search: the setting
+    can change between the two, and a stale answer here is the difference
+    between a download starting and nothing happening at all.
     """
     from .debrid import registry
+
+    source.setdefault("extra", {})
+    source["extra"]["allow_uncached"] = _uncached_allowed()
 
     client = registry.resolver_for(source)
     if client is None:
@@ -144,6 +152,22 @@ def _resolve(source):
     except Exception:
         kodi.log_exception("resolving through %s failed" % client.name)
         return ""
+
+
+def _uncached_allowed():
+    """May a debrid service start a download for this playback?
+
+    Three clients read this flag and nothing ever set it, so it was always
+    false - which made "cached only: off" a trap. The picker would list
+    sources the client then refused to open, and pressing play did nothing at
+    all. Turning that setting off is the viewer saying they will wait for a
+    download, so this is what it now means.
+
+    Left on, which is the default and what the low-memory profile enforces,
+    nothing changes: no download is ever started, and TorBox's sixty-an-hour
+    uncached quota is not touched.
+    """
+    return not settings.get_bool("sources.cached_only")
 
 
 def prefetch_next_episode(meta):

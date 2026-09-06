@@ -157,6 +157,48 @@ def test_a_service_that_raises_is_not_fatal(monkeypatch, film):
 
 
 # --------------------------------------------------------------------------
+# whether a download may be started
+# --------------------------------------------------------------------------
+
+
+def test_cached_only_forbids_starting_a_download(film, settings_module,
+                                                 monkeypatch):
+    """The default, and what the low-memory profile enforces."""
+    settings_module.set("sources.cached_only", "true")
+    monkeypatch.setattr(registry, "resolver_for", lambda source: FakeClient())
+    entry = source("Best 1080p", "a" * 40)
+    play._resolve(entry)
+    assert entry["extra"]["allow_uncached"] is False
+
+
+def test_turning_cached_only_off_lets_a_download_start(film, settings_module,
+                                                       monkeypatch):
+    """Otherwise the setting is a trap.
+
+    Three debrid clients read allow_uncached and nothing ever set it, so it
+    was always false: the picker listed uncached sources and the client then
+    refused to open them, and pressing play did nothing at all.
+    """
+    settings_module.set("sources.cached_only", "false")
+    monkeypatch.setattr(registry, "resolver_for", lambda source: FakeClient())
+    entry = source("Best 1080p", "a" * 40)
+    play._resolve(entry)
+    assert entry["extra"]["allow_uncached"] is True
+
+
+def test_the_answer_is_decided_at_playback_not_at_search(film, settings_module,
+                                                         monkeypatch):
+    """The setting can change between finding a source and playing it."""
+    monkeypatch.setattr(registry, "resolver_for", lambda source: FakeClient())
+    entry = source("Best 1080p", "a" * 40)
+    entry["extra"]["allow_uncached"] = True          # as a stale search left it
+
+    settings_module.set("sources.cached_only", "true")
+    play._resolve(entry)
+    assert entry["extra"]["allow_uncached"] is False
+
+
+# --------------------------------------------------------------------------
 # the bail-outs, each of which must say something
 # --------------------------------------------------------------------------
 

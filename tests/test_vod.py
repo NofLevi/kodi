@@ -240,6 +240,37 @@ def test_a_channel_with_an_unreadable_position_sorts_last(tmp_path,
     assert [c["title"] for c in listed] == ["Two", "Broken"]
 
 
+def test_a_category_stays_inside_its_broadcaster():
+    """The counts beside these names are worked out per broadcaster.
+
+    The link used to drop the broadcaster, so opening "Drama (12)" under Kan
+    would list every broadcaster's drama - a different list, and a longer one
+    than the number beside it promised.
+
+    Nobody has seen that happen, and this test says why: in today's catalogue
+    no category name is used by two broadcasters, so the two answers coincide.
+    That is an accident of the data, which tooling regenerates, and not
+    something the code arranged - which is exactly what this test is for.
+    """
+    modules = set()
+    for module, _count in [(m, 0) for m in ("kan",)]:
+        for name, count in library.categories(module):
+            listed = library.by_category(name, module=module)
+            assert len(listed) == count, "%s / %s" % (module, name)
+            modules |= set(item["extra"]["module"] for item in listed)
+    assert modules <= {"kan"}
+
+
+def test_a_category_across_every_broadcaster_is_still_available():
+    """Without a module it is a genuine cross-broadcaster view, not a bug."""
+    everything = library.categories()
+    if not everything:
+        return
+    name = everything[0][0]
+    assert len(library.by_category(name)) >= len(
+        library.by_category(name, module="kan"))
+
+
 def test_a_catalogue_entry_with_a_null_poster_still_lists(tmp_path,
                                                           monkeypatch):
     """A JSON null is a present key, so a get() default never fires for it."""

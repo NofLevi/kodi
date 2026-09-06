@@ -166,8 +166,18 @@ def categories(module=None):
     return sorted(found.items(), key=lambda kv: -kv[1])
 
 
-def by_category(name, limit=None):
-    entries = [e for e in load() if (e.get("c") or "") == name]
+def by_category(name, module=None, limit=None):
+    """Programmes in one category, optionally within one broadcaster.
+
+    `module` is not optional in practice. Categories are counted per
+    broadcaster - the list reads "Drama (12)" under Kan - so a category
+    opened without it returned every broadcaster's drama, which is both a
+    different list and a longer one than the number beside it promised.
+    """
+    entries = [e for e in load()
+               if (e.get("c") or "") == name
+               and (not module or e.get("m") == module)]
+    entries.sort(key=lambda e: e.get("n") or "")
     result = [_to_item(entry) for entry in entries]
     return result[:limit] if limit else result
 
