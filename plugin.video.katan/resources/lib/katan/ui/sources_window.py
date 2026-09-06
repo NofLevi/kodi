@@ -8,7 +8,6 @@ releases before watching something.
 import xbmcgui
 
 from .. import kodi, settings
-from ..sources import model
 from ..utils import release
 
 ACTION_PREVIOUS_MENU = 10
@@ -237,11 +236,3 @@ def pick_source(sources, meta, all_sources=None):
         if not short and not full:
             kodi.notify(kodi.localize(32283))
             return None
-
-
-def quick_pick(sources, meta):
-    """Fallback picker using the plain Kodi dialog, for tiny screens."""
-    labels = ["%s  |  %s" % (model.label(s), s.get("title", "")[:60])
-              for s in sources]
-    index = kodi.select(labels, kodi.localize(32285))
-    return sources[index] if index >= 0 else None

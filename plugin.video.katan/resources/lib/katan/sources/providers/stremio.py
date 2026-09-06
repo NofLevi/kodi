@@ -81,9 +81,19 @@ def fetch(base_url, config, meta, provider_name, timeout=(4, 9)):
 
 
 def parse_streams(streams, provider_name):
+    """Normalise a service's streams, one bad entry costing only itself.
+
+    These payloads come from other people's servers and their shapes drift.
+    Letting one malformed stream out of two hundred abort the loop would turn
+    a cosmetic upstream change into "no sources found".
+    """
     sources = []
     for stream in streams:
-        source = _parse_stream(stream, provider_name)
+        try:
+            source = _parse_stream(stream, provider_name)
+        except Exception:
+            kodi.log_exception("could not read a %s stream" % provider_name)
+            continue
         if source:
             sources.append(source)
     return sources
@@ -110,7 +120,7 @@ def _parse_stream(stream, provider_name):
     if not info_hash and not direct_url:
         return None
 
-    size = _size_bytes(title) or int(behaviour.get("videoSize") or 0)
+    size = _size_bytes(title) or _as_int(behaviour.get("videoSize"))
     seeders = _seeders(title)
     cached_by = _cached_by(stream.get("name", "") + " " + title)
 
@@ -131,12 +141,26 @@ def _parse_stream(stream, provider_name):
         # ready, otherwise they would have returned a magnet instead.
         source["cached"] = True
 
-    file_index = stream.get("fileIdx")
+    file_index = _as_int(stream.get("fileIdx"), default=None)
     if file_index is not None:
-        source["file_index"] = int(file_index)
+        source["file_index"] = file_index
     if filename:
         source["file_name"] = filename
     return source
+
+
+def _as_int(value, default=0):
+    """A number from a field these services do not always send as one.
+
+    videoSize has arrived as a string and as a float, and a fileIdx that is
+    not a number at all is better ignored than allowed to pick a file.
+    """
+    if value is None or value == "":
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def _first_line(text):

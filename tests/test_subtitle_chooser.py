@@ -212,6 +212,46 @@ def test_an_empty_chooser_tells_the_viewer(chooser):
     assert xbmcgui.NOTIFICATIONS
 
 
+def test_a_provider_that_blows_up_still_closes_the_dialog(chooser, monkeypatch):
+    """Closing the directory is the only thing that stops Kodi's spinner.
+
+    A search that raised - a network error, a payload that changed shape -
+    used to skip the close and leave the viewer looking at "searching for
+    subtitles" with no way out but to dismiss the dialog by hand.
+    """
+    import xbmcgui
+    import xbmcplugin
+    from katan.subs import auto
+
+    def broken(meta, languages, video_hash=""):
+        raise IOError("the provider went away")
+
+    monkeypatch.setattr(auto, "search_candidates", broken)
+    del xbmcgui.NOTIFICATIONS[:]
+    xbmcplugin.reset()
+    service.dispatch(["plugin://plugin.video.katan/", "1", "?action=search"])
+
+    assert xbmcplugin.ENDED, "the dialog must close even when the search fails"
+    assert xbmcgui.NOTIFICATIONS, "and it must say why"
+
+
+def test_the_dialog_is_closed_exactly_once(chooser):
+    """Kodi handles a second endOfDirectory badly, so the close lives in one
+    place and every branch returns rather than closing for itself."""
+    import xbmcplugin
+
+    chooser([{"index": 0, "language": "heb", "name": "Hebrew"}], [])
+    assert len(xbmcplugin.ENDED) == 1
+
+
+def test_an_unknown_subtitle_action_closes_rather_than_hanging():
+    import xbmcplugin
+
+    xbmcplugin.reset()
+    service.dispatch(["plugin://plugin.video.katan/", "1", "?action=nonsense"])
+    assert len(xbmcplugin.ENDED) == 1
+
+
 def test_choosing_an_embedded_track_switches_the_player(monkeypatch):
     """It returns no file: Kodi keeps playing and just changes stream."""
     import xbmcplugin

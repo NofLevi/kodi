@@ -1052,3 +1052,31 @@ msgstr "הערוץ הזה דורש את התוסף InputStream Adaptive"
 msgctxt "#32234"
 msgid "%d min"
 msgstr "%d דק'"
+
+msgctxt "#32403"
+msgid "Katan could not start. See the log."
+msgstr "קטן לא הצליח לעלות. ראה את הלוג."
+
+msgctxt "#32404"
+msgid "Something went wrong. See the log."
+msgstr "משהו השתבש. ראה את הלוג."
+
+msgctxt "#32405"
+msgid "only %d MB free"
+msgstr "רק %d MB פנויים"
+
+msgctxt "#32406"
+msgid "%d MB free on %d cores"
+msgstr "%d MB פנויים על %d ליבות"
+
+msgctxt "#32407"
+msgid "a 4K display"
+msgstr "מסך 4K"
+
+msgctxt "#32408"
+msgid "an ordinary streaming device"
+msgstr "מכשיר סטרימינג רגיל"
+
+msgctxt "#32409"
+msgid "%s, %d workers, %d providers, %s posters, %s MB cache"
+msgstr "%s, %d עובדים, %d ספקים, פוסטרים %s, מטמון %s MB"
