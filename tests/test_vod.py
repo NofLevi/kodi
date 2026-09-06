@@ -314,3 +314,30 @@ def test_updating_the_bundled_data_invalidates_the_cache(tmp_path, monkeypatch):
 
     assert set(channels.load()) == {"ch_a", "ch_b"}, \
         "the new bundle should be picked up without waiting for the TTL"
+
+
+def test_html_entities_do_not_reach_the_screen(tmp_path, monkeypatch):
+    """The broadcasters' pages are scraped, so their entities travel into the
+    catalogue and out again. "ירדן ודידי בפיג&#x27;מה" is a real programme,
+    and that is exactly what the row said."""
+    seed = tmp_path / "series.json"
+    seed.write_text(json.dumps([
+        {"m": "kan", "u": "/a", "n": "\u05d1\u05e4\u05d9\u05d2&#x27;\u05de\u05d4",
+         "d": "\u05d0 &amp; \u05d1", "i": "", "o": "", "c": "\u05d9\u05dc\u05d3\u05d9\u05dd &#x27;"},
+    ]), encoding="utf-8")
+    monkeypatch.setattr(library, "seed_path", lambda: str(seed))
+    library.refresh()
+
+    item = library.by_module("kan")[0]
+    assert "&#x27;" not in item["title"]
+    assert item["title"] == "\u05d1\u05e4\u05d9\u05d2'\u05de\u05d4"
+    assert item["plot"] == "\u05d0 & \u05d1"
+
+
+def test_a_cleaned_category_is_the_one_you_can_search_for():
+    """Cleaning only on the way to the screen would leave search and
+    by_category matching text nobody can type."""
+    from katan.vod import library as lib
+
+    for name, _count in lib.categories():
+        assert "&#" not in name and "&amp;" not in name, name

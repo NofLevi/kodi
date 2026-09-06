@@ -15,6 +15,7 @@ The index and its per-broadcaster URL formats were derived from the Idan Plus
 add-on by Fishenzon (github.com/Fishenzon/repo), which is where the Kodi POV IL
 build gets its Israeli catalogue.
 """
+import html
 import json
 import os
 
@@ -67,10 +68,32 @@ def load():
     cached = cache.get(cache_key())
     if cached is not None:
         return cached
-    data = _fetch_remote() or _read_seed()
+    data = _readable(_fetch_remote() or _read_seed())
     if data:
         cache.set(cache_key(), data, INDEX_TTL)
     return data or []
+
+
+def _readable(entries):
+    """Text as a person should see it, not as the page stored it.
+
+    The broadcasters' own pages are scraped, so their HTML entities travel
+    into the catalogue and out again: "ירדן ודידי בפיג&#x27;מה" is a real
+    programme in Kan's children's section, and that is exactly what the row
+    said.
+
+    It happens here, on the one path everything comes through, rather than in
+    _to_item. Search matches on the stored name and by_category compares
+    against the stored category, so cleaning only on the way to the screen
+    would leave those two matching text nobody can type. Cleaning once means
+    the cached copy is already clean and the warm path costs nothing.
+    """
+    for entry in entries or []:
+        for key in ("n", "d", "c"):
+            value = entry.get(key)
+            if value and "&" in value:
+                entry[key] = html.unescape(value)
+    return entries
 
 
 def _fetch_remote():

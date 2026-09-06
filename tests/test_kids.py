@@ -199,3 +199,51 @@ def test_the_settings_have_defaults():
 
 def test_kids_mode_is_off_by_default():
     assert settings.DEFAULTS["kids.enabled"] == "false"
+
+
+# --------------------------------------------------------------------------
+# the Israeli kids row
+# --------------------------------------------------------------------------
+
+
+def test_the_israeli_row_takes_the_broadcasters_own_childrens_section():
+    """Kan curates a children's podcast section. That is the signal used."""
+    from katan import catalog
+
+    found = catalog._kids_israel()
+    assert found, "the row should not be empty"
+    titles = [item["title"] for item in found]
+    assert u"היסטוריה לילדים" in titles
+
+
+def test_a_programme_about_children_is_not_a_programme_for_children():
+    """A name describes the subject; only a section describes the audience.
+
+    Matching names put "לא לפני הילדים", "מחפשת תשובה - חינוך ילדים" and
+    "הילדים האבודים" into a row for small children - three adult programmes
+    that happen to be about children.
+    """
+    from katan import catalog
+
+    titles = [item["title"] for item in catalog._kids_israel()]
+    for adult in (u"לא לפני הילדים", u"הילדים האבודים",
+                  u"מחפשת תשובה - חינוך ילדים"):
+        assert adult not in titles, adult
+
+
+def test_a_three_letter_substring_is_not_a_word():
+    """"הופ" for the Hop! channel also matched "הופעה" (performance) and
+    "הופקר" (abandoned), which is how a documentary about 7 October reached a
+    row for small children."""
+    from katan import catalog
+
+    assert u"הופ" not in catalog.KIDS_CATEGORY_WORDS
+    assert u"הופ" not in catalog.KIDS_CHANNEL_WORDS
+    titles = [item["title"] for item in catalog._kids_israel()]
+    assert u"נחל עוז - המוצב שהופקר" not in titles
+
+
+def test_the_row_stays_within_its_limit():
+    from katan import catalog
+
+    assert len(catalog._kids_israel()) <= catalog.ROW_LIMIT
