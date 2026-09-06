@@ -544,3 +544,7 @@ msgstr "מצב ילדים כבוי"
 msgctxt "#32231"
 msgid "Wrong PIN"
 msgstr "קוד שגוי"
+
+msgctxt "#32232"
+msgid "MDBList"
+msgstr "MDBList"
