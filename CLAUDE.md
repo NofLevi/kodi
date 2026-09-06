@@ -156,6 +156,38 @@ The test suite runs against stubs in `tests/stubs`, so no Kodi install is
 needed. `test_imports.py` imports every module, which is the cheapest way to
 catch the errors Kodi would only show as a blank screen.
 
+## What was taken from Kodi POV IL, and what was not
+
+Their MoranSubs add-on is 152 files and 2.5 MB of Python for subtitles alone.
+Two of its ideas are genuinely good and are implemented here; one is not worth
+its cost.
+
+**Taken: gender context.** Hebrew marks the speaker's gender on verbs and
+adjectives, so "I am tired" has two correct translations. English carries no
+such information, which is why English to Hebrew machine translation reads as
+obviously foreign. They solve it by downloading an *Arabic* subtitle as a
+gender oracle and aligning it line by line, which costs an extra download, an
+alignment pass and a much larger prompt.
+
+`subs/ai/context.py` gets most of the same benefit for a few hundred bytes: the
+TMDB cast list, which already comes with a gender per person and which the
+add-on already fetches for the details screen, is named in the prompt. The same
+insight also picks the translation source: a Spanish or Arabic subtitle carries
+gender through for free, so it wins a close call against English.
+
+**Taken: progressive delivery.** Translating a feature film takes minutes.
+Showing each finished chunk as it arrives means the viewer starts watching
+almost immediately. Kodi caches a subtitle by path, so the file name alternates
+between two slots to force a re-read.
+
+**Not taken: extracting embedded subtitles from a remote file.** They ship an
+818 line Matroska parser and a 155 KB extractor that read the container over
+HTTP ranges, with a deadline of up to 900 seconds. Subtitle blocks are spread
+across every cluster, so getting them means pulling a large fraction of an
+8 GB file. On a device with a gigabyte of RAM that is the wrong trade. Kodi
+already demuxes the file it is playing, so selecting an embedded Hebrew track
+costs nothing and is done first.
+
 ## Known gaps
 
 Ordered by how much they matter. Nothing here is a stub pretending to work:
