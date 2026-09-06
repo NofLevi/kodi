@@ -86,6 +86,40 @@ def home(monkeypatch, configured):
     return window
 
 
+def test_the_real_flow_fills_the_rows(monkeypatch, configured):
+    """open_home calls prepare() and then Kodi calls onInit().
+
+    Every other home test calls onInit() alone, so none of them exercised the
+    order the add-on actually uses. When prepare() started working out the rows
+    early, onInit's "have I run already" guard was reading self.rows and
+    returned at once: the window drew its headings above completely empty rows.
+    """
+    from katan import catalog
+    from katan.meta import trakt_state
+
+    rows = [{"id": "row%d" % n, "title_id": 32201, "loader": lambda: [],
+             "ttl": 60, "needs": [], "default": True} for n in range(3)]
+    monkeypatch.setattr(catalog, "enabled_rows", lambda: rows)
+    monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
+    monkeypatch.setattr(catalog, "peek", lambda row_id: make_items(5, row_id))
+    monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
+
+    window = home_window.HomeWindow()
+    window.prepare()          # what open_home does before showing the window
+    window.onInit()           # what Kodi does when it appears
+
+    assert window.data, "prepare() must not stop onInit from filling the rows"
+    assert window.getControl(home_window.LIST_BASE).size() == 5
+    assert window.getProperty("katan.hero.title"), "the hero should be seeded"
+
+
+def test_onInit_still_only_runs_once(home):
+    """It fires again when a dialog closes; the second pass must be a no-op."""
+    before = dict(home.data)
+    home.onInit()
+    assert home.data == before
+
+
 def test_home_fills_its_rows_and_sets_headings(home):
     assert len(home.rows) == 4
     assert home.getProperty("katan.row0.title") == "Row row0"

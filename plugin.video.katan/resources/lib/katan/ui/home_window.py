@@ -54,12 +54,19 @@ class HomeWindow(xbmcgui.WindowXML):
         self.filled = set()       # slot indexes already populated
         self.loading = set()
         self.lock = threading.Lock()
+        # Whether onInit has already done its work. This has to be its own flag
+        # rather than "do we know the rows yet", because prepare() now works
+        # them out before the window is shown: guarding on self.rows made
+        # onInit return immediately and the window rendered its headings above
+        # completely empty rows. The other three windows already use a flag.
+        self.ready = False
 
     # -- lifecycle ---------------------------------------------------------
 
     def onInit(self):
-        if self.rows:
+        if self.ready:
             return                # onInit fires again when returning from a dialog
+        self.ready = True
 
         # Without a TMDB key almost every row is unavailable, and the ones that
         # remain are the Israeli ones further down the list. Filling the first
