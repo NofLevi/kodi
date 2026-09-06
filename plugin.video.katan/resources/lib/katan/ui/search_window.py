@@ -60,6 +60,27 @@ assert all(len(charset) == KEY_COUNT for charset in CHARSETS), \
 # interface language.
 CHARSET_NAMES = ["ABC", "אבג", "123"]
 
+LATIN, HEBREW, DIGITS = 0, 1, 2
+
+
+def initial_charset():
+    """Which keyboard to open on.
+
+    A Hebrew interface opened on the Latin keyboard, which is the wrong way
+    round for an add-on whose live TV and on-demand catalogue are titled
+    entirely in Hebrew: every one of those searches began with a trip to the
+    charset button.
+
+    The language question is answered by tmdb.language(), which already reads
+    the ui.language setting and falls back to Kodi's own. A second opinion on
+    "is this interface Hebrew" would be one more thing to keep in step.
+    """
+    try:
+        from ..meta import tmdb
+        return HEBREW if tmdb.language().startswith("he") else LATIN
+    except Exception:
+        return LATIN
+
 
 def _typed_character(action):
     """The printable character an action carries, if this Kodi exposes one.
@@ -84,7 +105,7 @@ class SearchWindow(xbmcgui.WindowXML):
     def __init__(self, *args, **kwargs):
         super(SearchWindow, self).__init__()
         self.text = ""
-        self.charset = 0
+        self.charset = initial_charset()
         self.entries = []
         self.generation = 0
         self.submitted = None

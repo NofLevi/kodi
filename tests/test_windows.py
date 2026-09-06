@@ -406,3 +406,51 @@ def test_choosing_a_recent_query_reruns_it(search):
     control.position = 1
     search.onClick(search_window.LIST_RESULTS)
     assert search.submitted == "severance"
+
+
+# --------------------------------------------------------------------------
+# which keyboard the search window opens on
+# --------------------------------------------------------------------------
+
+
+def test_a_hebrew_interface_opens_on_the_hebrew_keyboard(settings_module):
+    """Live TV and the on-demand catalogue are titled entirely in Hebrew.
+
+    Opening on the Latin keyboard meant every one of those searches began
+    with a trip to the charset button.
+    """
+    from katan.ui import search_window
+
+    settings_module.set("ui.language", "he")
+    assert search_window.initial_charset() == search_window.HEBREW
+    assert search_window.SearchWindow().charset == search_window.HEBREW
+
+
+def test_an_english_interface_opens_on_the_latin_keyboard(settings_module):
+    from katan.ui import search_window
+
+    settings_module.set("ui.language", "en")
+    assert search_window.initial_charset() == search_window.LATIN
+    assert search_window.SearchWindow().charset == search_window.LATIN
+
+
+def test_the_charset_button_still_names_where_it_goes_next(settings_module):
+    """It names the set it will move to, not the one you are on."""
+    from katan.ui import search_window
+
+    settings_module.set("ui.language", "he")
+    window = search_window.SearchWindow()
+    window.prepare()
+    assert window.getProperty("katan.search.charset") == "123"
+
+    window.onClick(search_window.BUTTON_CHARSET)
+    assert window.getProperty("katan.search.charset") == "ABC"
+
+
+def test_every_charset_fills_the_grid(settings_module):
+    """A key with no character used to be hidden, and a hidden control cannot
+    take focus, which left the grid with nothing focused at all."""
+    from katan.ui import search_window
+
+    for charset in search_window.CHARSETS:
+        assert len(charset) == search_window.KEY_COUNT

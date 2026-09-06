@@ -544,6 +544,13 @@ def profile(params):
     kodi.notify(kodi.localize(32385, changed))
 
 
+def _mark(connected):
+    """The signed-in marker. Deliberately not an emoji: the Kodi list font
+    renders one as a box on some Android builds, and a box beside every
+    account is worse than no marker at all."""
+    return "[OK]" if connected else "[  ]"
+
+
 @router.route("accounts")
 def accounts(params):
     """Show which services are connected, and let one be added or replaced.
@@ -571,8 +578,12 @@ def accounts(params):
         if row["is_free"]:
             parts.append(kodi.localize(32348))
         note = "  ".join(p for p in parts if p) or kodi.localize(32347)
+        # The same marker the other rows use. A debrid row carried a note and
+        # no marker, so a service whose token had expired looked much like one
+        # that was fine - on the screen whose whole purpose is to say which is
+        # which.
         listing.add_directory(
-            handle, "%s   %s" % (row["label"], note),
+            handle, "%s %s   %s" % (_mark(row["connected"]), row["label"], note),
             router.url_for("connect", service=row["name"]),
             art={"icon": "DefaultAddonService.png"}, is_folder=False)
 
@@ -582,9 +593,8 @@ def accounts(params):
             ("tmdb", "TMDB", tmdb.has_key())):
         if name == "debrid" and rows:
             continue
-        mark = "[OK]" if connected else "[  ]"
         listing.add_directory(
-            handle, "%s %s" % (mark, label),
+            handle, "%s %s" % (_mark(connected), label),
             router.url_for("connect", service=name),
             art={"icon": "DefaultAddonService.png"}, is_folder=False)
 
