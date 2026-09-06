@@ -79,6 +79,8 @@
                 <width>230</width>
                 <height>60</height>
                 <font>font14</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
                 <label>$ADDON[plugin.video.katan 32390]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -88,6 +90,8 @@
                 <width>230</width>
                 <height>60</height>
                 <font>font14</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
                 <label>$ADDON[plugin.video.katan 32250]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
@@ -97,16 +101,23 @@
                 <width>230</width>
                 <height>60</height>
                 <font>font14</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
                 <label>$ADDON[plugin.video.katan 32253]</label>
                 <visible>!String.IsEmpty(Window.Property(katan.detail.trailer))</visible>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
+            <!-- Widest on purpose. "Add to Trakt watchlist" is four words in
+                 Hebrew and one Latin word, and at 270 it was clipped at both
+                 ends: the label read as a fragment with no beginning. -->
             <control type="button" id="9103">
-                <width>270</width>
+                <width>360</width>
                 <height>60</height>
                 <font>font14</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
                 <label>$ADDON[plugin.video.katan 32251]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
