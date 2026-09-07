@@ -430,6 +430,13 @@ settings that promised a provider with no code behind them were removed, and
   issues", to any User-Agent including a browser one. The anime row therefore
   comes back empty and is hidden, and anime search returns nothing. It will fix
   itself; nothing here needs changing when it does.
+* **SubSource has moved behind a login.** The `POST /api/...` surface this
+  add-on was written against answers 404, and the `/v1` REST API that replaced
+  it answers 401 "Not authenticated" with no anonymous search route left. The
+  provider therefore ships off in every profile, and says so in the log if it
+  is switched on, rather than being a provider that is enabled and silently
+  contributes nothing. That leaves Wizdom as the working Hebrew source;
+  OpenSubtitles needs a key and Ktuvit needs an account.
 
 **Missing features**
 

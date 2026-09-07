@@ -2,8 +2,20 @@
 
 Its endpoints have moved more than once, so every response is read defensively:
 a shape we do not recognise yields no candidates rather than an exception.
+
+**It has moved again, and this time behind a login.** Measured on 7 September
+2026: the whole `POST /api/...` surface this module was written against answers
+404 "Cannot POST /api/searchMovie", and the API that replaced it is a REST one
+under `/v1` where `GET /v1/subtitle/search` answers **401 "Not
+authenticated"**. There is no anonymous route left to search.
+
+So the provider ships off in every profile. The code stays because it is
+tested and because it records what the old API looked like, but a setting that
+promises a provider which cannot answer is exactly the thing this project
+refuses to ship. Turning it on now says so in the log rather than returning
+nothing in silence.
 """
-from ... import http
+from ... import http, kodi
 from . import common
 
 NAME = "subsource"
@@ -59,8 +71,20 @@ def _find_title(meta):
     query = meta.get("title") or ""
     if not query:
         return ""
-    payload = http.post_json("%s/searchMovie" % BASE,
-                             json={"query": query}, timeout=(4, 8), default=None)
+    response = http.post("%s/searchMovie" % BASE, json={"query": query},
+                         timeout=(4, 8))
+    if response is None:
+        return ""
+    if response.status_code >= 400:
+        # Said once and plainly, because the alternative is a provider that is
+        # switched on and silently contributes nothing.
+        kodi.log("SubSource is no longer answering anonymously (HTTP %s); the "
+                 "API moved to /v1 and requires a login" % response.status_code)
+        return ""
+    try:
+        payload = response.json()
+    except ValueError:
+        return ""
     found = (payload or {}).get("found")
     if not isinstance(found, list) or not found:
         return ""

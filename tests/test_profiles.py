@@ -234,3 +234,18 @@ def test_an_unreadable_poster_width_does_not_break_the_estimate():
     from katan import profiles
 
     assert profiles.artwork_megabytes("nonsense", 12) > 0
+
+
+def test_no_profile_switches_on_a_provider_that_cannot_answer():
+    """SubSource moved behind a login in September 2026.
+
+    Its whole POST /api surface answers 404 and the /v1 REST API that replaced
+    it answers 401 "Not authenticated". A setting that promises a provider
+    which cannot answer is the thing this project refuses to ship, so no
+    profile turns it on.
+    """
+    from katan import profiles, settings
+
+    for name, values in profiles.PROFILES.items():
+        assert values.get("subs.provider.subsource") == "false", name
+    assert settings.DEFAULTS["subs.provider.subsource"] == "false"

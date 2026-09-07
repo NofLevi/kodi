@@ -66,7 +66,9 @@ LOW_MEMORY = {
     "sources.max_size_gb": "8",
     "sources.size_preference": "smallest",
 
-    # One subtitle provider at a time, and a small on-disk footprint.
+    # A small on-disk footprint. SubSource is off here for the same reason it
+    # is off in every profile - it moved behind a login in September 2026 and
+    # has no anonymous search left - not to save the device anything.
     "subs.provider.subsource": "false",
     "subs.cache_files": "30",
     "subs.ai.chunk": "50",
@@ -98,7 +100,9 @@ BALANCED = {
     "sources.max_size_gb": "12",
     "sources.size_preference": "balanced",
 
-    "subs.provider.subsource": "true",
+    # Off everywhere: SubSource moved behind a login in September 2026
+    # and has no anonymous search left. See subs/providers/subsource.py.
+    "subs.provider.subsource": "false",
     "subs.cache_files": "60",
     "subs.ai.chunk": "80",
     "cache.max_mb": "50",
@@ -128,7 +132,9 @@ POWERFUL = {
     "sources.max_size_gb": "40",
     "sources.size_preference": "balanced",
 
-    "subs.provider.subsource": "true",
+    # Off everywhere: SubSource moved behind a login in September 2026
+    # and has no anonymous search left. See subs/providers/subsource.py.
+    "subs.provider.subsource": "false",
     "subs.cache_files": "200",
     "subs.ai.chunk": "120",
     "cache.max_mb": "200",
