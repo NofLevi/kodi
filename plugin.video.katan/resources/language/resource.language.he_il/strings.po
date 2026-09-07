@@ -1108,3 +1108,7 @@ msgstr "המכשיר הזה נראה כמו: %s"
 msgctxt "#32414"
 msgid "Nothing to show right now"
 msgstr "אין מה להציג כרגע"
+
+msgctxt "#32415"
+msgid "1 episode"
+msgstr "פרק אחד"

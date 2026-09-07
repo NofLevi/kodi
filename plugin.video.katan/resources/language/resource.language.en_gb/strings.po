@@ -1147,3 +1147,7 @@ msgstr ""
 msgctxt "#32414"
 msgid "Nothing to show right now"
 msgstr ""
+
+msgctxt "#32415"
+msgid "1 episode"
+msgstr ""

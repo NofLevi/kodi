@@ -199,3 +199,38 @@ def test_properties_are_cleared_on_close(window):
 
 def test_opening_details_for_nothing_is_safe():
     assert details_window.open_details(None) is False
+
+
+# --------------------------------------------------------------------------
+# the small print under each row
+# --------------------------------------------------------------------------
+
+
+def test_a_season_with_one_episode_reads_as_one(window):
+    """Hebrew takes the singular after one. "1 פרקים" is the plural, and Silo
+    has exactly such a season."""
+    from katan import kodi
+
+    one = details_window._row_subtitle(
+        {"type": "season", "season": 4, "extra": {"episode_count": 1}})
+    many = details_window._row_subtitle(
+        {"type": "season", "season": 1, "extra": {"episode_count": 10}})
+
+    assert one == kodi.localize(32415)
+    assert one != many
+    assert "10" in many
+
+
+def test_a_season_with_no_count_says_nothing(window):
+    assert details_window._row_subtitle(
+        {"type": "season", "season": 1, "extra": {}}) == ""
+
+
+def test_an_episode_runtime_is_localised(window):
+    """The last "min" left in a window that is otherwise entirely Hebrew."""
+    from katan import kodi
+
+    line = details_window._row_subtitle(
+        {"type": "episode", "premiered": "2023-05-04", "duration": 62 * 60})
+    assert "2023-05-04" in line
+    assert kodi.localize(32234, 62) in line
