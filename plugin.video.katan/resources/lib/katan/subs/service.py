@@ -90,7 +90,7 @@ def _search(handle, params):
     Kodi has already demuxed the file it is playing.
     """
     meta = _current_meta()
-    languages = _requested_languages(params) or settings.subtitle_languages()
+    languages = _search_languages(params)
 
     inside = embedded.candidates(languages)
 
@@ -108,6 +108,26 @@ def _search(handle, params):
         _add(handle, position, candidate)
 
 
+def _search_languages(params):
+    """What Kodi asked for, plus what this add-on is configured for.
+
+    Kodi ships with its subtitle language set to English, and that is what it
+    passes here. Wizdom is a Hebrew site, so a Hebrew viewer on a stock Kodi
+    opened the subtitle list in a Hebrew add-on and was told "no subtitles
+    found" - which was true of the question asked and useless as an answer.
+
+    The union rather than a replacement, and in Kodi's order: what the viewer
+    explicitly asked Kodi for still comes first and is never dropped, and the
+    add-on's own preference is added rather than imposed. The automatic path
+    is unaffected; it has always used this add-on's setting directly.
+    """
+    languages = _requested_languages(params)
+    for code in settings.subtitle_languages():
+        if code not in languages:
+            languages.append(code)
+    return languages
+
+
 def _requested_languages(params):
     """Kodi passes the wanted languages as English names."""
     raw = params.get("languages", "")
@@ -116,7 +136,7 @@ def _requested_languages(params):
     codes = []
     for name in raw.split(","):
         code = xbmc.convertLanguage(name.strip(), xbmc.ISO_639_1)
-        if code:
+        if code and code not in codes:
             codes.append(code)
     return codes
 

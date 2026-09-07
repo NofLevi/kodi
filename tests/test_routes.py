@@ -155,3 +155,51 @@ def test_playback_without_a_debrid_account_explains_itself(settings_module):
     assert xbmcplugin.RESOLVED
     _handle, succeeded, _item = xbmcplugin.RESOLVED[-1]
     assert succeeded is False
+
+
+# --------------------------------------------------------------------------
+# the subtitle dialog, which arrives through the plugin entry point
+# --------------------------------------------------------------------------
+
+
+def test_kodis_subtitle_search_does_not_open_the_search_window():
+    """The bug this test exists for.
+
+    Kodi runs the plugin source for a subtitle module belonging to an add-on
+    that is also a video plugin: the dialog calls
+    plugin://plugin.video.katan/?action=search&languages=English, and Kodi
+    resolves that to main.py, never to subtitles.py. So action=search landed
+    in the video search-window route, which tried to open a window over a
+    modal dialog and failed, and the chooser said "no subtitles found" for
+    every film ever tried.
+    """
+    assert router.is_subtitle_request(
+        {"action": "search", "languages": "English",
+         "preferredlanguage": "English"})
+
+
+def test_the_addons_own_search_is_not_mistaken_for_a_subtitle_search():
+    assert not router.is_subtitle_request({"action": "search"})
+    assert not router.is_subtitle_request({"action": "search", "q": "dune"})
+
+
+def test_the_unambiguous_subtitle_actions_are_recognised():
+    """No route of ours is called manualsearch or download."""
+    assert router.is_subtitle_request({"action": "manualsearch"})
+    assert router.is_subtitle_request({"action": "download", "id": "x"})
+    assert "manualsearch" not in router.registered_actions()
+    assert "download" not in router.registered_actions()
+
+
+def test_nothing_else_is_a_subtitle_request():
+    for action in router.registered_actions():
+        assert not router.is_subtitle_request({"action": action}), action
+
+
+def test_a_subtitle_search_reaches_the_subtitle_service(monkeypatch):
+    from katan.subs import service
+
+    seen = []
+    monkeypatch.setattr(service, "dispatch", lambda argv: seen.append(argv))
+    dispatch("search", languages="English", preferredlanguage="English")
+    assert seen, "the subtitle service should have been called"

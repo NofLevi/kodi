@@ -28,7 +28,12 @@ def getLanguage(fmt=ISO_639_1, region=False):
 
 
 def convertLanguage(language, format=ISO_639_1):
-    names = {"hebrew": "he", "english": "en", "arabic": "ar"}
+    # Kodi knows every ISO-639 name. This knows the handful the tests use,
+    # plus a couple that are neither Hebrew nor English, so a test can check
+    # that a language the viewer explicitly asked for is not dropped.
+    names = {"hebrew": "he", "english": "en", "arabic": "ar",
+             "french": "fr", "german": "de", "russian": "ru",
+             "spanish": "es"}
     return names.get((language or "").strip().lower(), "")
 
 
