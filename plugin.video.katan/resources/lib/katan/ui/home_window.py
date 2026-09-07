@@ -132,7 +132,15 @@ class HomeWindow(xbmcgui.WindowXML):
             if self.data.get(index):
                 self.setFocusId(LIST_BASE + index)
                 return
-        self.setFocusId(LIST_BASE)
+        # Nothing filled: every row is hidden, so row zero is not there to
+        # focus either and the screen would be black with no way off it but
+        # the back button. The top bar is always visible, so the viewer can
+        # still reach search, tools and the settings that will fix it. That
+        # became easier to hit when an empty row started being remembered as
+        # empty - a TMDB outage now paints this screen rather than a stale one.
+        kodi.log("home: no row has anything in it, focusing the top bar")
+        self.setFocusId(BUTTON_SEARCH)
+        self.setProperty("katan.hero.title", kodi.localize(32256))
 
     def _require_setup(self):
         """Offer the wizard when there is no TMDB key, and close.
