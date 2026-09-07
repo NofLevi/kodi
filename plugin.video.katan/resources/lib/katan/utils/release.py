@@ -61,6 +61,40 @@ LANGUAGE_PATTERNS = {
 # "+" is deliberately NOT stripped: HDR10+ and DD+ depend on it.
 _JUNK = re.compile(r"[\[\]\(\)\{\}_.]+")
 _GROUP_TAIL = re.compile(r"-([A-Za-z0-9]{2,20})$")
+
+# A bracket at the *end* is the site that re-hosted it, or a CRC, and never
+# the release group: "silo.s01e01.1080p.web.h264-ggwp[eztv.re].mkv" is a ggwp
+# release. A bracket at the *start* is the opposite - that is exactly how
+# anime names its group - which is why only the trailing ones come off.
+_TRAILING_BRACKET = re.compile(r"(?:\s*[\[(][^\[\]()]{1,30}[\])])+$")
+
+# A leading bracket is how anime names its group - [SubsPlease], [Erai-raws] -
+# and also how a torrent site stamps its name on a file it did not make:
+# "[COOL-TORENTS.PL]Silo.S01E01...-Ralf.mkv" is a Ralf release. A domain is
+# the tell, so anything holding a dot or saying "torrent" is a site and the
+# real group is looked for behind it.
+_SITE_BRACKET = re.compile(r"\.|www|torrent|\.com|\.net|\.org", re.I)
+
+
+def _is_a_site(text):
+    return bool(_SITE_BRACKET.search(text or ""))
+
+
+def strip_site_tags(name):
+    """Take the torrent site's stamp off a file name, leaving the release.
+
+    A site brands what it re-hosts - "[ OxTorrent.com ] Les evades (1994) -
+    1080p ..." is the same file as "Les evades (1994) - 1080p ...", and both
+    were sitting in the picker. Only a leading bracket that looks like a
+    domain is removed, so an anime group in the same position survives.
+    """
+    stem = str(name or "").strip()
+    while True:
+        bracket = _GROUP_BRACKET.match(stem)
+        if not bracket or not _is_a_site(bracket.group(1)):
+            break
+        stem = stem[bracket.end():].strip()
+    return _TRAILING_BRACKET.sub("", stem).strip()
 _GROUP_DOT_TAIL = re.compile(r"\.([A-Za-z][A-Za-z0-9]{1,19})$")
 
 # Everything a dot-separated tail could be other than a release group. The
@@ -187,9 +221,12 @@ def release_group(name):
     if not raw:
         return ""
     bracket = _GROUP_BRACKET.match(raw)
-    if bracket:
+    if bracket and not _is_a_site(bracket.group(1)):
         return bracket.group(1).lower()
-    stem = strip_subtitle_tags(raw)
+    if bracket:
+        raw = raw[bracket.end():].strip()
+    stem = _TRAILING_BRACKET.sub("", strip_subtitle_tags(raw)).strip()
+    stem = strip_subtitle_tags(stem)
     tail = _GROUP_TAIL.search(stem)
     if tail:
         candidate = tail.group(1).lower()

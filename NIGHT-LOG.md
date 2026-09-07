@@ -1366,3 +1366,62 @@ point of that button.
 and the three that do not are the same three that were already gone - the
 Keshet closed-captions feed and two Big Brother feeds that no longer resolve
 in DNS.
+
+## The picker was offering one file six times and calling it six
+
+Sources are merged by infohash, which catches three providers reporting the
+same torrent. It does not catch the same *file* re-uploaded as a different
+torrent, and that is what a viewer is actually looking at. Counting release
+name and size together across four real searches:
+
+    The Matrix     94 sources,  5 repeats, 1 wasted row in the visible six
+    Shawshank      95 sources,  5 repeats, 2 wasted rows
+    Silo S01E01   116 sources, 34 repeats, 5 wasted rows
+    Dune Part Two 131 sources,  7 repeats
+
+Silo is the one that matters: **one file occupied positions 1 to 8**. The
+picker shows six rows, so somebody choosing a source for that episode was
+shown one option, six times, and told it was six.
+
+The merge now runs twice. The infohash pass is unchanged and still first,
+because it is exact. The second keys on the release group together with the
+size to the megabyte, the resolution and the codec - and an unnamed release
+joins a named group only when exactly **one** named group has that shape.
+
+### Why the obvious simplification is wrong, with the evidence
+
+Every source in one of these lists is already the answer to a search for one
+film or one episode, so it is tempting to say that the same size, resolution
+and codec simply is the same file, and drop the group from the key. Measured,
+that is wrong, and not marginally: six different releases of Silo S01E01
+share 4977 MB - LostFilm, EniaHD, an Italian dub, a Spanish one, BlackBit,
+and a Spanish season pack. Collapsing on shape alone hides every non-English
+version behind one row, which is the exact opposite of showing somebody their
+options. Dune has the same shape twice at 1526 MB, one BluRay and one WEBRip.
+
+So the group has to agree, and the interesting cases are the ones where the
+parser could not read it. Three were fixed at the source:
+
+**A trailing bracket is the site, not the group.**
+`silo.s01e01.1080p.web.h264-ggwp[eztv.re].mkv` is a ggwp release. A leading
+bracket is the opposite - that is exactly how anime names its group - so only
+the trailing ones come off.
+
+**A leading bracket holding a domain is also the site.**
+`[COOL-TORENTS.PL]Silo.S01E01...-Ralf.mkv` is a Ralf release, and
+`[ OxTorrent.com ] Les evades (1994) - 1080p` is the same file as the one
+without the stamp. A dot in the bracket is the tell, which leaves
+`[SubsPlease]` alone.
+
+**A name mangled past the group** - `...H264-Ralf-PSOTNIK HT.mkv` beside
+`...H264-Ralf.mkv` at the same 4.80 GB - is adopted, because exactly one named
+group has that shape.
+
+Silo went from 116 sources with 34 repeats to 72 distinct ones, and the six
+in the picker are now six different releases: NTb, ggwp, a dual-audio WEB-DL,
+Ralf, an Atmos TFA and an x265. Confirmed by eye in a real Kodi with the cache
+emptied first, which was itself worth doing - the first attempt looked like it
+had changed nothing, because the picker was reading a source list cached
+before the change.
+
+1042 tests, zip 427 KB.

@@ -205,3 +205,42 @@ def test_a_quality_token_at_the_end_is_not_a_group():
 
 def test_a_year_at_the_end_is_not_a_group():
     assert release.release_group("The.Film.1080p.BluRay.1994") == ""
+
+
+def test_a_trailing_bracket_is_the_site_not_the_group():
+    """It is where a torrent was re-hosted, or a CRC. The release is ggwp."""
+    assert release.release_group(
+        "silo.s01e01.1080p.web.h264-ggwp[eztv.re].mkv") == "ggwp"
+    assert release.release_group(
+        "Show.S01E01.1080p.WEB.H264-NTb[TGx]") == "ntb"
+
+
+def test_stacked_trailing_brackets_all_come_off():
+    assert release.release_group(
+        "Show.S01E01.1080p.WEB.H264-NTb [eztv] [TGx]") == "ntb"
+
+
+def test_a_leading_bracket_is_still_the_group():
+    """That is exactly how anime names its group, which is why only the
+    trailing brackets are treated as noise."""
+    assert release.release_group(
+        "[SubsPlease] Bleach - 46 (1080p) [A1B2C3D4].mkv") == "subsplease"
+
+
+def test_a_site_in_a_leading_bracket_is_not_the_group():
+    """A domain is the tell. The release is Ralf, not COOL-TORENTS.PL."""
+    assert release.release_group(
+        "[COOL-TORENTS.PL]Silo.S01E01.1080p.WEB-DL.H264-Ralf.mkv") == "ralf"
+    assert release.release_group(
+        "[ OxTorrent.com ] The.Film.2024.1080p.BluRay.x264-AMIABLE") == "amiable"
+
+
+def test_the_site_stamp_comes_off_the_name_as_well():
+    assert release.strip_site_tags(
+        "[ OxTorrent.com ] Les evades (1994) - 1080p x264.mkv") == \
+        "Les evades (1994) - 1080p x264.mkv"
+
+
+def test_an_anime_group_in_the_same_position_survives():
+    assert release.strip_site_tags(
+        "[SubsPlease] Bleach - 46 (1080p).mkv").startswith("[SubsPlease]")

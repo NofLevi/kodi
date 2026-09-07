@@ -322,3 +322,188 @@ def test_label_is_readable():
                   seeders=88)
     text = model.label(source)
     assert "1080P" in text and "5.00 GB" in text and "FLUX" in text
+
+
+# --------------------------------------------------------------------------
+# the same file in two different torrents
+#
+# The infohash cannot see this and it is what the viewer is actually looking
+# at: a popular release gets re-uploaded, and each upload is a different
+# torrent of byte-identical content. Measured on a real search, Silo S01E01
+# had one file occupying positions 1 to 8 - and the picker shows six rows, so
+# the viewer was offered one option six times and told it was six.
+# --------------------------------------------------------------------------
+
+TWIN = "The.Matrix.1999.1080p.BrRip.x264.YIFY.mp4"
+GB = 1024 ** 3
+
+
+def test_the_same_file_in_two_torrents_becomes_one_row():
+    merged = model.dedupe([
+        make(TWIN, size=1990000000, info_hash="a" * 40),
+        make(TWIN, size=1990000000, info_hash="b" * 40),
+    ])
+    assert len(merged) == 1
+
+
+def test_the_survivor_keeps_every_provider_that_had_it():
+    """The picker credits the providers, and losing one would make a second
+    scraper look as though it had found nothing."""
+    merged = model.dedupe([
+        make(TWIN, size=1990000000, info_hash="a" * 40, provider="torrentio"),
+        make(TWIN, size=1990000000, info_hash="b" * 40, provider="torrentsdb"),
+    ])
+    assert sorted(merged[0]["providers"]) == ["torrentio", "torrentsdb"]
+
+
+def test_the_survivor_keeps_the_best_seeder_count():
+    merged = model.dedupe([
+        make(TWIN, size=1990000000, info_hash="a" * 40, seeders=12),
+        make(TWIN, size=1990000000, info_hash="b" * 40, seeders=2081),
+    ])
+    assert merged[0]["seeders"] == 2081
+
+
+def test_one_cached_copy_makes_the_row_cached():
+    """Being cached is what decides whether a source can play at all, so it
+    must survive the merge whichever copy carried it."""
+    first = make(TWIN, size=1990000000, info_hash="a" * 40)
+    second = make(TWIN, size=1990000000, info_hash="b" * 40)
+    second["cached"] = True
+    second["cached_by"] = "torbox"
+
+    merged = model.dedupe([first, second])
+
+    assert merged[0]["cached"] is True
+    assert merged[0]["cached_by"] == "torbox"
+
+
+def test_a_few_bytes_apart_is_still_the_same_file():
+    """One provider counts the torrent and another the file inside it."""
+    merged = model.dedupe([
+        make(TWIN, size=1990000000, info_hash="a" * 40),
+        make(TWIN, size=1990000512, info_hash="b" * 40),
+    ])
+    assert len(merged) == 1
+
+
+def test_the_same_name_at_a_different_size_is_a_different_encode():
+    """Matching on the name alone would let a 1080p rip eat the 720p one that
+    shares its name, which is the opposite of showing a viewer their options."""
+    merged = model.dedupe([
+        make("The.Matrix.1999.mkv", size=2 * GB, info_hash="a" * 40),
+        make("The.Matrix.1999.mkv", size=8 * GB, info_hash="b" * 40),
+    ])
+    assert len(merged) == 2
+
+
+def test_the_same_size_with_a_different_name_is_a_different_film():
+    merged = model.dedupe([
+        make("The.Matrix.1999.1080p.mkv", size=2 * GB, info_hash="a" * 40),
+        make("Dune.Part.Two.2024.1080p.mkv", size=2 * GB, info_hash="b" * 40),
+    ])
+    assert len(merged) == 2
+
+
+def test_a_source_with_no_size_is_left_alone():
+    """There is nothing to confirm the name with, and collapsing on a name by
+    itself is how a good release disappears into a badly named one."""
+    merged = model.dedupe([
+        make(TWIN, size=0, info_hash="a" * 40),
+        make(TWIN, size=0, info_hash="b" * 40),
+    ])
+    assert len(merged) == 2
+
+
+def test_the_same_torrent_still_merges_by_infohash():
+    """The exact answer, and still the first one applied."""
+    merged = model.dedupe([
+        make(TWIN, size=1990000000, info_hash="a" * 40, provider="torrentio"),
+        make(TWIN, size=0, info_hash="a" * 40, provider="comet", seeders=99),
+    ])
+    assert len(merged) == 1
+    assert merged[0]["seeders"] == 99
+
+
+def test_a_re_upload_renamed_on_the_way_is_the_same_file():
+    """These two sat one above the other in the picker for a Silo episode."""
+    merged = model.dedupe([
+        make("silo.s01e01.1080p.web.h264-ggwp.mkv",
+             size=4885000000, info_hash="a" * 40),
+        make("silo.s01e01.1080p.web.h264-ggwp[eztv.re].mkv",
+             size=4885000000, info_hash="b" * 40),
+    ])
+    assert len(merged) == 1
+
+
+def test_a_prefix_on_the_show_name_does_not_make_a_new_release():
+    merged = model.dedupe([
+        make("Silo.S01E01.Freedom.Day.MULTi.1080p.ATVP.WEB-DL.DD5.1.H264-Ralf.mkv",
+             size=5150000000, info_hash="a" * 40),
+        make("Silo8.S01E01.Freedom.Day.MULTi.1080p.ATVP.WEB-DL.DD5.1.H264-Ralf.mkv",
+             size=5150000000, info_hash="b" * 40),
+    ])
+    assert len(merged) == 1
+
+
+def test_the_same_group_at_a_different_resolution_is_a_different_release():
+    """A group publishes several encodes and a viewer choosing between them
+    is the whole point of the picker."""
+    merged = model.dedupe([
+        make("Show.S01E01.1080p.WEB.H264-NTb.mkv",
+             size=3 * GB, info_hash="a" * 40),
+        make("Show.S01E01.720p.WEB.H264-NTb.mkv",
+             size=3 * GB, info_hash="b" * 40),
+    ])
+    assert len(merged) == 2
+
+
+def test_two_groups_at_the_same_size_stay_apart():
+    merged = model.dedupe([
+        make("Show.S01E01.1080p.WEB.H264-NTb.mkv",
+             size=3 * GB, info_hash="a" * 40),
+        make("Show.S01E01.1080p.WEB.H264-GGWP.mkv",
+             size=3 * GB, info_hash="b" * 40),
+    ])
+    assert len(merged) == 2
+
+
+def test_an_unnamed_reupload_joins_the_one_group_it_can_belong_to():
+    """A name mangled past the point where the group can be read, beside the
+    release it came from at the same size."""
+    merged = model.dedupe([
+        make("Silo.S01E01.MULTi.1080p.WEB-DL.H264-Ralf.mkv",
+             size=5150000000, info_hash="a" * 40),
+        make("Silo.S01E01.MULTi.1080p.WEB-DL.H264-Ralf-PSOTNIK HT.mkv",
+             size=5150000000, info_hash="b" * 40),
+    ])
+    assert len(merged) == 1
+    assert merged[0]["group"] == "ralf"
+
+
+def test_it_does_not_join_when_it_could_belong_to_either():
+    """Measured on a real search, six releases of one Silo episode share
+    4977 MB - LostFilm, EniaHD, an Italian one, a Spanish one. An unnamed
+    source at that size could be any of them, and folding it into whichever
+    came first would hide a language somebody needs."""
+    merged = model.dedupe([
+        make("Silo.S01E01.1080p.WEB-DL.H264-LostFilm.mkv",
+             size=5220000000, info_hash="a" * 40),
+        make("Silo.S01E01.1080p.WEB-DL.H264-EniaHD.mkv",
+             size=5220000000, info_hash="b" * 40),
+        make("Silo - Temporada 1 [WEB-DL 1080p][Dual].mkv",
+             size=5220000000, info_hash="c" * 40),
+    ])
+    assert len(merged) == 3
+
+
+def test_a_site_stamp_does_not_make_a_second_row():
+    """"[ OxTorrent.com ] Les evades (1994) - 1080p" is the same file as
+    "Les evades (1994) - 1080p", and both were in the picker."""
+    merged = model.dedupe([
+        make("Les evades (1994) - 1080p FR EN x264 ac3 mHDgz.mkv",
+             size=3790000000, info_hash="a" * 40),
+        make("[ OxTorrent.com ] Les evades (1994) - 1080p FR EN x264 ac3 mHDgz.mkv",
+             size=3790000000, info_hash="b" * 40),
+    ])
+    assert len(merged) == 1

@@ -80,7 +80,19 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Each debrid client declares `methods` and `key_url`; nothing else about
   signing in lives in the clients any more.
 * `sources/aggregator.py` runs providers, merges by infohash, asks each debrid
-  service once in batches which hashes are cached, then ranks.
+  service once in batches which hashes are cached, then ranks. `model.dedupe`
+  merges **twice**, and the second pass matters more than it sounds: an
+  infohash catches three providers reporting one torrent, but not the same
+  file re-uploaded as a different torrent, which is what the viewer is
+  actually looking at. Measured on a real search, one file occupied positions
+  1 to 8 for a Silo episode - the picker shows six rows, so it offered one
+  option six times and called it six. The second pass keys on the release
+  group with the size to the megabyte, the resolution and the codec, and an
+  unnamed release joins a named group only when exactly one named group has
+  its shape. That restriction is the safety: six different releases of that
+  same episode share 4977 MB - LostFilm, EniaHD, an Italian one, a Spanish
+  one - and collapsing there would hide every non-English version behind one
+  row.
 * `debrid/` has one class per service behind a common interface. The API
   quirks are documented where they matter: Real-Debrid has no bulk cache check
   any more, TorBox caps uncached adds at 60 an hour, Premiumize answers
@@ -152,7 +164,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1020 tests, all running against Kodi stubs, so no Kodi install is needed:
+1042 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -172,8 +184,8 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_aggregator.py` | 23 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |
 | `test_providers.py` | 17 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
-| `test_release_parser.py` | 39 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
-| `test_sources.py` | 21 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
+| `test_release_parser.py` | 45 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
+| `test_sources.py` | 36 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 23 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
