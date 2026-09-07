@@ -33,8 +33,9 @@ marked confirmed on the strength of a passing unit test alone.
 | DASH channels without inputstream.adaptive | `kodi.has_adaptive()` in a Kodi that lacks it | **Confirmed hidden** rather than listed and broken |
 | VOD — all 7 broadcasters | Each opened and an episode played in Kodi | **Confirmed.** Kan, Keshet, Reshet, Sport 5, Now 14, Sport 1, 891FM. |
 | VOD catalogue browsing | Route sweep + screenshots | **Confirmed.** Kan shows 11 Hebrew categories with counts; Keshet 671 programmes. |
-| Debrid playback — films | Shawshank, Dark Knight, Inception through the real route | **Confirmed.** 3 of 3, full runtime. |
-| Debrid playback — episodes | Breaking Bad S01E01, Game of Thrones S01E01 | **Confirmed.** 2 of 2, including a 73-file S01–S08 pack from which the right episode was picked. |
+| Debrid playback — films | Shawshank, Dark Knight, Inception through the real route | **Confirmed.** 3 of 3, full runtime, re-confirmed at 09:05 on the lean defaults. |
+| Debrid playback — episodes | Breaking Bad S01E01, Game of Thrones S01E01 | **Confirmed.** Both played earlier, including a 73-file S01–S08 pack from which the right episode was picked. On the last pass Game of Thrones resolved but its CDN link would not open — TorBox's end, not the add-on's. |
+| Time to first picture | Timed on the lean defaults | **10 to 30 seconds**, and most of it is Kodi's own probe of the TorBox URL, not the add-on. The plugin's own work is 2–8 seconds. |
 | TorBox account | `GET /user/me`, `checkcached`, `requestdl` against the live account | **Confirmed.** Plan Essential, premium to 2026-10-23. Both undocumented response shapes now measured and tested. |
 | Source ranking and the picker | Opened with real data, all eight rows, screenshotted | **Confirmed.** It was crashing this morning; fixed and seen working. |
 | "Show all" in the picker | New test, plus the cache path it reads | **Confirmed fixed.** It was returning the same eight rows it was toggling away from. |
@@ -47,9 +48,10 @@ marked confirmed on the strength of a passing unit test alone.
 | Lightweight default | Device report on a fresh profile | **Confirmed.** w185, 12 a row, **about 6 MB of artwork**, profile `low_memory`. |
 | Visual-polish switch | Tests plus the wizard step | **Confirmed.** Raises to w342/20 (~22 MB), never lowers a richer profile. |
 | Every route opens | `drive_kodi.py`, 9 paths | **Confirmed.** 0 failed, 0 Python errors. Home 108 ms, search 406 ms. |
-| Subtitles — the pipeline | Ran on a real playback | **Confirmed running**: file hash computed in about a second, Hebrew search started. |
-| Subtitles — chooser and sync | 54 tests against fixtures | **Confirmed by test only.** No subtitle has been watched end to end on a real file. |
-| Kids mode | 25 tests | **Confirmed by test only.** Not exercised in Kodi tonight. |
+| Subtitles — the automatic path | A real playback of a real film | **Confirmed.** A Hebrew subtitle was found, downloaded and applied; the player reports it as a `heb` track. File hash computed in 1.9s. |
+| Subtitles — the manual chooser | Opened on that playback | **Confirmed, after a fix.** 33 subtitles, the applied track first at "100% מובנה" with Kodi's SYNC badge, then honest estimates. **It had never once been reachable** — see 09:40. |
+| Subtitles — sync and translation | 57 tests against fixtures | **Confirmed by test only.** Translation needs a Gemini key. |
+| Kids mode | Exercised in Kodi | **Confirmed, after two fixes.** 17 rows become 8, all four kids rows have content. Two safety failures found and fixed — see 08:50. |
 | Trakt | — | **Blocked.** No client id or secret. Watchlist, continue-watching and scrobbling are unverified. |
 | Ktuvit | 19 tests against fixtures | **Blocked.** Needs a members' account. |
 | MDBList | 19 tests against fixtures | **Blocked.** Needs a key. |
@@ -418,3 +420,93 @@ to say which accounts are working. A service whose token had expired looked
 much like one that was fine.
 
 700 tests. Zip 358 KB against a 600 KB budget.
+
+## 08:50 — Kids mode, and two ways a safe list stops being safe
+
+25 tests, never run in Kodi. It works: seventeen rows become eight, only the
+structural entries survive, and the rows are real Hebrew children's content.
+But the Israeli row was empty, and filling it turned up something worse than
+an empty row.
+
+Empty because of arithmetic nobody had done: of eighty-four channels exactly
+one is a children's channel, and it is a DASH stream, so without
+inputstream.adaptive there was nothing left. The word list was English against
+a Hebrew channel list, matching on the key alone.
+
+So the row now draws on the broadcasters' own children's sections — Kan alone
+publishes one with twenty programmes. And then:
+
+* **"הופ", for the Hop! channel, is three letters, and Hebrew has no word
+  boundary there.** It matched "הופעה" (performance) and "הופקר" (abandoned).
+  That is how a documentary about 7 October ended up in a row for small
+  children.
+* **A programme's name describes its subject, not its audience.** Matching
+  names also pulled in "לא לפני הילדים", "מחפשת תשובה - חינוך ילדים" and
+  "הילדים האבודים" — three adult programmes *about* children.
+
+Only the broadcaster's own section says who something is *for*, so that is the
+only signal used for on-demand programmes now. Channel names keep matching,
+because a channel's name does name its audience.
+
+Separately: HTML entities were reaching the screen. "ירדן ודידי בפיג&#x27;מה"
+is a real programme and that is exactly what the row said. Unescaping happens
+on load, the one path everything comes through, because search matches on the
+stored name and would otherwise be matching text nobody can type.
+
+## 09:05 — A regression I nearly reported, and one I did not
+
+The playback test came back **0 of 5**. It had been 5 of 5.
+
+It was my own test profile: `sources.autoplay` was left `false` from the picker
+work at 02:40, so the add-on was correctly opening the source picker and
+waiting for a keypress nobody sent. Nothing was broken. With autoplay restored,
+4 of 5 played at `speed=1`.
+
+The fifth, Game of Thrones, resolved to a URL that TorBox's CDN then would not
+open. Its own end, not ours.
+
+And a measurement worth having: **Kodi spends ten to thirty seconds on its own
+probe of the resolved URL before it opens a player.** The add-on's work — find,
+rank, resolve — is two to eight seconds of that. A fixed twenty-second wait in
+my harness was reporting working films as "not playing", which is the third
+instrument error of the night and the reason the harness now polls.
+
+## 09:40 — The subtitle chooser had never once been reachable
+
+The one screen never seen. Opening it on a real playback showed "No subtitles
+found", and the reason is not a subtitle bug at all.
+
+**Kodi runs the plugin source for a subtitle module belonging to an add-on that
+is also a video plugin.** The dialog calls
+
+    plugin://plugin.video.katan/?action=search&languages=English
+
+and Kodi resolves that to `main.py` — never to `subtitles.py`. So the declared
+`xbmc.subtitle.module` library has not executed once in this add-on's history,
+and `action=search` landed in the **video search-window route**, which tried to
+open a window over a modal dialog and failed.
+
+Nothing in the unit suite could have found it: every subtitle test calls
+`subs.service.dispatch` directly, which is precisely the function Kodi was
+never reaching. It took opening the dialog on a real playback and reading which
+`.py` Kodi actually ran.
+
+The router recognises a subtitle request now. `manualsearch` and `download` are
+unambiguous, and a test asserts no route of ours ever takes those names.
+`search` is the collision, and Kodi always sends `preferredlanguage` with it,
+which none of our own URLs do.
+
+Second thing, found on the way: Kodi ships with its subtitle language set to
+**English** and passes that here. Wizdom is a Hebrew site, so even with the
+route fixed a Hebrew viewer on a stock Kodi would have been told "no subtitles
+found" — true of the question asked, useless as an answer. The search is now
+the union of what Kodi asked for and what this add-on is configured for, in
+Kodi's order: an explicit request is honoured and never dropped.
+
+**Seen working**: 33 subtitles for The Shawshank Redemption, the applied Hebrew
+track first at "100% מובנה" with five stars and Kodi's SYNC badge, then the
+downloadable candidates as honest estimates — 33%, 27%, 15% — each naming its
+release and why it scored what it did. The automatic path had already found,
+downloaded and applied a Hebrew subtitle before the dialog was even opened.
+
+715 tests.
