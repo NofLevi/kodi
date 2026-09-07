@@ -472,3 +472,46 @@ def test_no_public_function_is_defined_and_never_called():
     assert not orphans, (
         "defined and referenced nowhere - wire it up or delete it:\n  "
         + "\n  ".join(orphans))
+
+
+# Read through a prefix loop rather than by name.
+_PREFIX_READ = ("sources.provider.", "subs.provider.")
+
+
+def test_every_declared_setting_is_read_by_something():
+    """The mirror of the check that every setting the code uses is declared.
+
+    A setting nobody reads is a switch that does nothing while sitting in the
+    dialog looking like a feature. Two were found this way: "Verbose logging",
+    which was never consulted at all, and "Metadata cache (hours)", whose
+    default of 6 sat next to a hard-coded constant of exactly six hours.
+    """
+    import io
+
+    with io.open(os.path.join(ADDON_DIR, "resources", "settings.xml"),
+                 encoding="utf-8") as handle:
+        declared = re.findall(r'<setting id="([^"]+)"', handle.read())
+    assert declared, "expected some settings"
+
+    source = []
+    for folder, dirs, files in os.walk(PACKAGE_ROOT):
+        if "__pycache__" in folder:
+            continue
+        for name in files:
+            if name.endswith(".py"):
+                with io.open(os.path.join(folder, name), encoding="utf-8",
+                             errors="replace") as handle:
+                    source.append(handle.read())
+    blob = "\n".join(source)
+
+    unread = []
+    for key in declared:
+        if key.startswith(_PREFIX_READ):
+            continue
+        # One mention is the DEFAULTS table; a second means somebody reads it.
+        if len(re.findall(re.escape('"%s"' % key), blob)) <= 1:
+            unread.append(key)
+
+    assert not unread, (
+        "declared and read by nothing - wire it up or remove it:\n  "
+        + "\n  ".join(unread))

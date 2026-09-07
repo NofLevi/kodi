@@ -9,9 +9,25 @@ from . import items
 
 API_BASE = "https://api.themoviedb.org/3"
 
-TTL_LIST = 6 * 3600          # trending, popular, discover
 TTL_DETAILS = 7 * 24 * 3600  # a specific movie or show
 TTL_SEARCH = 3600            # search results and suggestions
+
+# How long a discovery list stays fresh. The default of six hours was a
+# constant here and "Metadata cache (hours)" was a setting in the dialog with
+# the same default and nothing reading it - a switch that looked like a
+# feature and did nothing. They are the same number now.
+DEFAULT_LIST_HOURS = 6
+
+
+def list_ttl():
+    """Seconds a trending or discover list is kept before asking TMDB again.
+
+    Floored at ten minutes: this is an advanced setting, and someone typing 0
+    into it should not turn every home screen into a fresh round of network
+    calls on a device that has a few hundred megabytes to work with.
+    """
+    return max(600, settings.get_int("cache.meta_hours",
+                                     DEFAULT_LIST_HOURS) * 3600)
 
 # TMDB numeric ids for the streaming services people actually ask for.
 WATCH_PROVIDERS = {
@@ -51,8 +67,15 @@ def region():
     return settings.get("ui.region") or "IL"
 
 
-def _call(path, ttl=TTL_LIST, **params):
-    """GET a TMDB endpoint through the cache. Always returns a dict."""
+def _call(path, ttl=None, **params):
+    """GET a TMDB endpoint through the cache. Always returns a dict.
+
+    `ttl` is resolved here rather than as a default argument, because a
+    default is evaluated once at import and would never notice the setting
+    changing.
+    """
+    if ttl is None:
+        ttl = list_ttl()
     key = api_key()
     if not key:
         return {}

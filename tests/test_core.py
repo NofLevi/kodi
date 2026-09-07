@@ -158,3 +158,48 @@ def test_all_routes_register_without_error():
     for expected in ("home", "row", "search", "seasons", "episodes", "movie",
                      "episode", "tools", "setup"):
         assert expected in actions
+
+
+# --------------------------------------------------------------------------
+# "Metadata cache (hours)", which used to be a switch that did nothing
+# --------------------------------------------------------------------------
+
+
+def test_the_metadata_cache_setting_actually_sets_the_ttl(settings_module):
+    """It was in the settings dialog with a default of 6, and TTL_LIST was a
+    constant of exactly six hours that nothing connected to it."""
+    from katan.meta import tmdb
+
+    assert tmdb.list_ttl() == 6 * 3600, "the shipped default"
+    settings_module.set("cache.meta_hours", "24")
+    assert tmdb.list_ttl() == 24 * 3600
+
+
+def test_a_silly_metadata_cache_value_is_floored(settings_module):
+    """An advanced setting should not let someone turn every home screen into
+    a fresh round of network calls."""
+    from katan.meta import tmdb
+
+    settings_module.set("cache.meta_hours", "0")
+    assert tmdb.list_ttl() == 600
+    settings_module.set("cache.meta_hours", "not a number")
+    assert tmdb.list_ttl() == 6 * 3600
+
+
+def test_the_ttl_is_read_per_call_not_at_import(settings_module, monkeypatch):
+    """A default argument is evaluated once and would never notice a change."""
+    from katan import cache
+    from katan.meta import tmdb
+
+    monkeypatch.setattr(tmdb, "api_key", lambda: "k")
+    monkeypatch.setattr(tmdb, "language", lambda: "en-GB")
+    seen = []
+    monkeypatch.setattr(cache, "cached",
+                        lambda key, producer, ttl: seen.append(ttl) or {})
+
+    settings_module.set("cache.meta_hours", "12")
+    tmdb._call("/trending/movie/day")
+    settings_module.set("cache.meta_hours", "3")
+    tmdb._call("/trending/movie/day")
+
+    assert seen == [12 * 3600, 3 * 3600]
