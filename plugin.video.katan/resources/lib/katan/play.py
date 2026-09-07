@@ -88,7 +88,7 @@ def play(handle, request, force_picker=False):
         listing.resolve_failed(handle)
         return
 
-    url = _resolve(chosen)
+    chosen, url = _resolve_any(chosen, sources, force_picker)
     if not url:
         kodi.notify(kodi.localize(32284))
         listing.resolve_failed(handle)
@@ -104,6 +104,44 @@ def play(handle, request, force_picker=False):
     meta["stream_url"] = url
     player.set_now_playing(meta)
     listing.resolve(handle, url, meta.get("item"))
+
+
+# How many sources autoplay will try before giving up. Small on purpose: each
+# attempt is a round trip to a debrid service, and on TorBox an attempt can
+# spend one of sixty uncached torrent adds an hour.
+RESOLVE_ATTEMPTS = 3
+
+
+def _resolve_any(chosen, sources, force_picker):
+    """Resolve the chosen source, falling through to the next ones.
+
+    A source can be flagged cached by the indexer and turn out not to be on
+    the debrid service at all - TorBox will accept the magnet and report it as
+    downloading, with no files. Giving up there told the viewer "could not
+    play" while the second source in the list would have played immediately,
+    which is what happened to The Dark Knight tonight.
+
+    Only when the add-on picked the source itself. If the viewer chose one
+    from the picker, that is the one they asked for, and quietly playing a
+    different release would be worse than saying so.
+    """
+    url = _resolve(chosen)
+    if url or force_picker:
+        return chosen, url
+
+    tried = {id(chosen)}
+    for candidate in sources:
+        if len(tried) >= RESOLVE_ATTEMPTS:
+            break
+        if id(candidate) in tried:
+            continue
+        tried.add(id(candidate))
+        kodi.log("falling through to the next source: %s"
+                 % (candidate.get("title", "")[:70]))
+        url = _resolve(candidate)
+        if url:
+            return candidate, url
+    return chosen, ""
 
 
 def _choose(sources, meta, force_picker):
