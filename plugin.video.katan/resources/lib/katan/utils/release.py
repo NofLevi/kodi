@@ -115,6 +115,41 @@ _SEASON_EPISODE = re.compile(
     r"\bs(\d{1,2})[\s._-]?e(\d{1,3})\b|\b(\d{1,2})x(\d{1,3})\b", re.I)
 _SEASON_ONLY = re.compile(r"\bs(\d{1,2})\b", re.I)
 _ABSOLUTE_EPISODE = re.compile(r"\s-\s(\d{1,4})(?:\s|$|v\d)")
+
+# The dash form above - "Show - 12" - is the tidy convention and plenty of
+# groups do not follow it. These three were found by surveying a thousand
+# titles rather than by imagining them, and are shown here as `normalise`
+# leaves them, with every bracket already flattened to a space:
+#
+#   ksn katekyo hitman reborn! 149 576p h264 b036f3bf     a bare number
+#   late bleach tybw 46 v2 web x264                       a version suffix
+#   yonkou one piece 539 hd 01891224                      underscores
+#
+# What tells an episode number from every other number in a release name is
+# what comes *after* it: a resolution, a source, a codec, or a version tag.
+# "the matrix 1999 1080p bluray" would qualify on that rule alone, which is
+# why years are refused outright - and no anime has run for nineteen hundred
+# episodes, so nothing real is lost.
+_AFTER_EPISODE = (
+    r"\d{3,4}p|4k|uhd|hd|sd|x26[45]|h\.?26[45]|hevc|avc|av1|xvid|divx"
+    r"|web|webrip|web-dl|bluray|blu-ray|bdrip|brrip|bdremux|remux|hdtv"
+    r"|dvdrip|aac|ac3|eac3|ddp|dts|truehd|atmos|flac|opus|multi|dual"
+    r"|batch|complete|10bit|8bit|v\d")
+_BARE_EPISODE = re.compile(
+    r"\b(\d{1,4})\s+(?:%s)\b" % _AFTER_EPISODE, re.I)
+
+# "episode 930" says so in as many words, and the word is the whole signal.
+_NAMED_EPISODE = re.compile(r"\bep(?:isode)?\s*(\d{1,4})\b", re.I)
+
+# A batch or a range: "(125-203)", "[Complete Episodes 1 - 203]", "01-12".
+# It is a pack containing the episode rather than the episode itself, and
+# saying so is what lets a fansub batch answer for an episode inside it -
+# which for a long-running anime is often the only thing anybody is seeding.
+_EPISODE_RANGE = re.compile(r"\b(\d{1,4})\s*-\s*(\d{1,4})\b")
+
+
+def _is_a_year(number):
+    return 1900 <= number <= 2099
 _YEAR = re.compile(r"\b(19\d{2}|20\d{2})\b")
 _PROPER = re.compile(r"\b(proper|repack|rerip|fixed)\b", re.I)
 _3D = re.compile(r"\b(3d|sbs|hsbs|half-?ou)\b", re.I)
@@ -172,6 +207,7 @@ def parse(name, size=0):
         "season": season,
         "episode": episode,
         "absolute": absolute,
+        "episode_range": _episode_range(text),
         "proper": bool(_PROPER.search(text)),
         "three_d": bool(_3D.search(text)),
         "size": int(size or 0),
@@ -271,25 +307,71 @@ def _episode_numbers(text):
         return int(match.group(3)), int(match.group(4)), 0
     absolute = _ABSOLUTE_EPISODE.search(text)
     if absolute:
-        return 0, 0, int(absolute.group(1))
+        # A season marker alongside the number changes what the number means.
+        # "[AnimeRG] Shingeki no Kyojin S3 - 11" is season three episode
+        # eleven, not absolute episode eleven - and refusing it as the wrong
+        # episode threw away a correct source, which is worse than the loose
+        # matching it was meant to prevent. Both readings are kept and
+        # matches_episode tries each.
+        alongside = _SEASON_ONLY.search(text)
+        return (int(alongside.group(1)) if alongside else 0), 0,             int(absolute.group(1))
+    named = _NAMED_EPISODE.search(text)
+    if named and not _is_a_year(int(named.group(1))):
+        return 0, 0, int(named.group(1))
+    for bare in _BARE_EPISODE.finditer(text):
+        number = int(bare.group(1))
+        if number and not _is_a_year(number):
+            return 0, 0, number
     season_only = _SEASON_ONLY.search(text)
     if season_only:
         return int(season_only.group(1)), 0, 0      # a season pack
     return 0, 0, 0
 
 
-def matches_episode(parsed, season, episode):
+def _episode_range(text):
+    """The span of episodes a batch covers, or None."""
+    for match in _EPISODE_RANGE.finditer(text):
+        first, last = int(match.group(1)), int(match.group(2))
+        if first >= last or _is_a_year(first) or _is_a_year(last):
+            continue
+        if last - first < 1 or last > 3000:
+            continue
+        return (first, last)
+    return None
+
+
+def matches_episode(parsed, season, episode, absolute=None):
     """Does a parsed release name refer to this episode?
 
     A season pack has no episode number and is treated as a match, because the
     debrid layer can still pick the right file out of it.
+
+    `absolute` is the episode counted from the first rather than from the
+    season, which is how fansub groups number anime. Without it, an
+    absolutely-numbered release was compared against the *season-relative*
+    number - so "season 8, episode 14" of Reborn matched a release named
+    episode 14, which is in season one. It defaults to the season-relative
+    number, which is correct for a single-season show and is what every
+    caller that does not know any better gets.
     """
+    wanted = int(absolute) if absolute else int(episode)
+
     if parsed["season"] and parsed["episode"]:
         return parsed["season"] == int(season) and parsed["episode"] == int(episode)
-    if parsed["season"] and not parsed["episode"]:
-        return parsed["season"] == int(season)        # season pack
+
     if parsed["absolute"]:
-        return parsed["absolute"] == int(episode)
+        if parsed["absolute"] == wanted:
+            return True
+        # The number is season-relative when the name also states a season.
+        return bool(parsed["season"]
+                    and parsed["season"] == int(season)
+                    and parsed["absolute"] == int(episode))
+
+    if parsed["season"]:
+        return parsed["season"] == int(season)        # season pack
+    span = parsed.get("episode_range")
+    if span and span[0] <= wanted <= span[1]:
+        return True                                   # a batch containing it
     return False
 
 

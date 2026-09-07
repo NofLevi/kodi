@@ -160,9 +160,15 @@ class DebridService(object):
         if meta.get("type") == "episode":
             season = int(meta.get("season") or 0)
             episode = int(meta.get("episode") or 0)
+            # A fansub batch of a long-running anime names its files by the
+            # absolute number - "Reborn! - 203.mkv" for season 8 episode 14 -
+            # so without this the right file is in the pack and nothing
+            # matches it, and the episode refuses to play at all.
+            absolute = int(meta.get("absolute") or 0) or episode
             matches = [c for c in candidates
                        if release.matches_episode(
-                           release.parse(_basename(c["name"])), season, episode)]
+                           release.parse(_basename(c["name"])), season,
+                           episode, absolute)]
             if matches:
                 return max(matches, key=lambda c: c["size"])
             kodi.log("no file in the pack matched S%02dE%02d" % (season, episode))

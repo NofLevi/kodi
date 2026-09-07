@@ -1425,3 +1425,118 @@ had changed nothing, because the picker was reading a source list cached
 before the change.
 
 1042 tests, zip 427 KB.
+
+## A thousand titles, asked what they can actually offer
+
+The unit suite proves the pipeline is right about the cases somebody thought
+of. `tools/survey_sources.py` asks a different question of 826 real titles:
+how many sources does each have, how good is the best Hebrew subtitle, and
+which come back with nothing.
+
+The sample is **stratified rather than random**, and that is the whole point.
+A thousand titles from "trending" would be a thousand recent English
+blockbusters, every one of which works, and would prove nothing. Nineteen
+strata, each a way this has broken or could.
+
+    everything      826 titles   sources median 18   nothing at all 26%
+                                 subtitles median 0  none at all    57%
+    films           443          sources median 40   nothing        11%
+                                 subtitles median 70 none           38%
+    episodes        383          sources median  3   nothing        43%
+                                 subtitles median 0  none           80%
+
+Two numbers are worth sitting with. **Films are in good shape and episodes are
+not** - four times as many episodes find nothing. And **57% of titles have no
+Hebrew subtitle at all**, rising to 80% for episodes, which is the strongest
+possible argument for the AI translation path built earlier tonight: for four
+episodes in five there is nothing to find, however good the matching gets.
+
+By stratum, worst first, the picture is not flat at all:
+
+    episodes airing today    23 of 24 found nothing
+    the latest episode       69 of 78
+    israeli episodes         32 of 46
+    israeli films            25 of 43
+    anime episodes           20 of 60
+    films of the 1970s-2000s  0 of 141      subtitle median 85-100
+
+Most of the "latest episode" failures are honest: 94 of the 216 empty results
+are episodes that **have not gone out yet**, because TMDB lists a whole
+ordered season the moment it is announced. The survey separates those out
+rather than counting them as misses, which is the difference between a useful
+report and a scary one. The Israeli results are expected too and already
+written down: there is no Israeli torrent scraper because there is none to
+write, and Israeli content is served by the VOD and live sections instead.
+
+That leaves 122 genuine misses, and reading them found a real defect.
+
+### Anime was broken in three separate places, and each alone was fatal
+
+**The name.** Two providers - nyaa and animetosho - search by name rather than
+by IMDb id, and they were handed `original_title`. For anime that is Japanese,
+in Japanese script, and Nyaa searches the release name as text. Measured:
+
+    japanese title       english name
+    0 results            75      Doraemon
+    0                    45      Katekyo Hitman Reborn
+    0                     6      Frieren
+    0                     0      Madoka (genuinely absent)
+
+Not a near miss - it cannot match, because English-translated releases are
+named in romaji. `tmdb.english_title` now supplies the name, for anime only.
+
+**The number.** Fansub groups number absolutely. Season 8 episode 14 of Reborn
+is released as episode 203, and searching for 14 returned forty-five results
+for episode **149** - Nyaa matches "14" inside "149". `tmdb.absolute_episode`
+counts the earlier seasons, skipping specials, and the number travels all the
+way to the debrid file picker, where a batch names its files "Reborn! - 203"
+and looking for 14 finds nothing in a pack that contains the episode.
+
+**The checking.** nyaa returned whatever Nyaa matched, unfiltered. Every other
+provider is asked by id and is right by construction; this one has to check,
+and did not - so those forty-five wrong episodes went into the picker looking
+like answers. Worse than finding nothing.
+
+Measured against the survey own anime rows, re-asked with the fixes in:
+
+    went from nothing to something   7 of 18   Naruto s04e62  0 -> 46
+                                               Detective Conan s01e1212 0 -> 10
+                                               Reborn s08e14   0 -> 7
+    wrong episodes refused          39 titles  Attack on Titan s03e11 148 -> 94
+                                               Hunter x Hunter s03e12  84 -> 46
+
+### Four traps in reading a number off a release name
+
+All found by looking at what the filter refused, which is the only way to tell
+a working filter from an over-eager one.
+
+**A year sits exactly where an episode number sits.** "the matrix 1999 1080p"
+qualifies on every structural rule, so years are refused outright. No anime
+has run for nineteen hundred episodes.
+
+**A CRC contains any number you like.**
+`[Yonkou]_One_Piece_539_[HD][01891224].mkv` was offered for episode 1891.
+
+**A bare number is still an episode number.** The tidy "Show - 12" convention
+is not the only one: "Reborn! 149 [576p]", "Bleach TYBW 46 v2", and underscores
+throughout. What separates an episode number from every other number is what
+follows it - a resolution, a source, a codec, a version tag.
+
+**A season marker changes what the number means.** "[AnimeRG] Shingeki no
+Kyojin S3 - 11" is season three episode eleven, not absolute eleven, and
+reading it the other way refused a *correct* source. That one is the
+cautionary half: a filter that is too strict is its own bug, and only reading
+the refusals shows it.
+
+### What the survey says is not worth fixing
+
+**Doraemon episode 1464 and the Madoka film find nothing with the correct
+English name and the correct number.** They are not on Nyaa. That is an answer,
+not a defect.
+
+**Sword Art Online season 4 episode 23 is absolute 96 by TMDB arithmetic**, and
+nobody releases it that way - the cours are named "Alicization - 09". TMDB
+season structure for anime often is not how it was released, and no amount of
+counting fixes that.
+
+1075 tests, zip 431 KB.

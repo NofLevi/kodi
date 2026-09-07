@@ -44,20 +44,40 @@ def search(meta):
 
 
 def _query_for(meta):
-    title = meta.get("original_title") or meta.get("title") or ""
+    """The name and number this index is actually going to match on.
+
+    `search_title` is the English one, set for anime by play.build_meta,
+    because the original title is Japanese and this searches release names as
+    text: the Japanese title returns zero results, every time, for every
+    anime tried.
+
+    `absolute` is the episode counted from the first rather than from the
+    season, because fansub groups number that way. Both fall back to what was
+    used before when they are absent, so nothing else changes.
+    """
+    title = (meta.get("search_title") or meta.get("original_title")
+             or meta.get("title") or "")
     if not title:
         return ""
     if meta.get("type") == "episode":
-        return "%s %02d" % (title, int(meta.get("episode") or 1))
+        number = int(meta.get("absolute") or meta.get("episode") or 1)
+        return "%s %02d" % (title, number)
     return title
 
 
 def _episode_matches(entry, title, meta, episode):
-    """Trust the AniDB episode id when present, fall back to the name."""
+    """Trust the AniDB episode id when present, fall back to the name.
+
+    AniDB numbers absolutely, so its episode id is compared against the
+    absolute number when there is one - the same correction the name path
+    needs, for the same reason.
+    """
+    absolute = int(meta.get("absolute") or 0) or episode
     if entry.get("anidb_eid") and entry.get("episode_number"):
         try:
-            return int(entry["episode_number"]) == episode
+            return int(entry["episode_number"]) in (episode, absolute)
         except (TypeError, ValueError):
             pass
     parsed = release.parse(title)
-    return release.matches_episode(parsed, int(meta.get("season") or 1), episode)
+    return release.matches_episode(parsed, int(meta.get("season") or 1),
+                                   episode, absolute)

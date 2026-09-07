@@ -281,6 +281,51 @@ def episodes(tmdb_id, season_number):
     return out
 
 
+def english_title(media_type, tmdb_id):
+    """The title TMDB has in English, for searching indexes by name.
+
+    Nearly every provider is asked by IMDb id and does not care what anything
+    is called. The two that are asked by *name* are the anime ones, and they
+    were being handed `original_title` - which for anime is Japanese, in
+    Japanese script. Measured against Nyaa: the Japanese title returns zero
+    results for Doraemon, Reborn, Frieren and Madoka alike, while the English
+    name returns 75, 45, 6 and 0. It is not a near miss; it cannot match,
+    because English-translated releases are named in romaji or English and
+    Nyaa searches the release name as text.
+
+    One extra call, cached like every other, and only made for anime.
+    """
+    if not tmdb_id:
+        return ""
+    path = "/movie/%s" if media_type == "movie" else "/tv/%s"
+    payload = _call(path % tmdb_id, ttl=TTL_DETAILS, language="en-US")
+    return payload.get("title") or payload.get("name") or ""
+
+
+def absolute_episode(tmdb_id, season, episode):
+    """Which episode this is counting from the first, not from the season.
+
+    Fansub groups number anime absolutely far more often than by season, so
+    "season 8, episode 14" of Reborn is released as episode 203 and searching
+    for 14 finds episode 149 - Nyaa matches "14" inside "149" - which is a
+    different episode of the same show, offered confidently.
+
+    Season zero is skipped: specials are not part of the count.
+    """
+    season = int(season or 0)
+    episode = int(episode or 0)
+    if season <= 1 or not tmdb_id:
+        return episode
+    payload = _call("/tv/%s" % tmdb_id, ttl=TTL_DETAILS)
+    total = 0
+    for row in payload.get("seasons") or []:
+        number = row.get("season_number")
+        if number is None or int(number) < 1 or int(number) >= season:
+            continue
+        total += int(row.get("episode_count") or 0)
+    return total + episode if total else episode
+
+
 def search(query, media_type="multi", page=1):
     if not query:
         return []

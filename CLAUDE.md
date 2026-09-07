@@ -101,6 +101,19 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   correlation, then AI translation of the best English match. Wizdom and
   SubSource are anonymous; Ktuvit is a members' site, so it is off until an
   account is entered and is asked after the faster sources.
+* **Anime is named and numbered differently, and every layer had it wrong.**
+  Two providers search by *name* rather than by IMDb id, and they were handed
+  `original_title`, which for anime is Japanese in Japanese script - measured
+  against Nyaa, that returns zero results for Doraemon, Reborn, Frieren and
+  Madoka alike. `tmdb.english_title` supplies the name the trackers use. The
+  episode number was season-relative, and fansub groups number absolutely, so
+  season 8 episode 14 of Reborn is released as 203 - `tmdb.absolute_episode`
+  counts it, `matches_episode` takes it, and the debrid file picker uses it to
+  find the right file inside a batch. And nyaa never checked what came back,
+  so a search for episode 14 returned forty-five results for episode *149*,
+  because Nyaa matches the number as text. One subtlety worth keeping: a
+  season marker changes what the number means, so "S3 - 11" is season three
+  episode eleven and not absolute eleven.
 * `meta/seadex.py` is the exception to ranking by numbers. For anime the
   release group *is* the quality, and SeaDex publishes which group won. It
   returns infohashes, the aggregator already merges by infohash, so a
@@ -164,7 +177,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1042 tests, all running against Kodi stubs, so no Kodi install is needed:
+1075 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -184,6 +197,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_aggregator.py` | 23 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |
 | `test_providers.py` | 17 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
+| `test_anime_numbering.py` | 33 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. |
 | `test_release_parser.py` | 45 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
 | `test_sources.py` | 36 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
@@ -230,6 +244,26 @@ finds settings and routes that promise something with no code behind them, and
                                       the stream for a few bytes
     python tools/check_channels.py --update
                                       record what worked into channels.json
+
+    python tools/survey_sources.py --count 1000
+                                      ask a thousand titles how many sources
+                                      and what subtitle accuracy they have
+    python tools/survey_sources.py --report
+                                      summarise it, and list the edge cases
+
+`survey_sources.py` is the test that finds cases nobody thought of. The sample
+is **stratified rather than random**, which is the whole point: a thousand
+titles from "trending" would be a thousand recent English blockbusters, every
+one of which works. The nineteen strata are each a way this has broken or
+could - an anime episode numbered absolutely, an episode that aired three days
+ago, a film nobody has seeded since 2009, a season-zero special, an Israeli
+title. It writes one JSON line per title so a run can be stopped and resumed,
+keeps its own cache so it never evicts what a real Kodi has warmed, and does
+not touch the debrid services unless asked, because a thousand batched
+requests is a poor way to treat somebody's account for a number that does not
+depend on the answer.
+
+It found the anime numbering defects below in its first forty titles.
 
 `drive_kodi.py` is the test the unit suite cannot be: Files.GetDirectory on a
 plugin path runs the plugin exactly as a user would, so a broken route shows up
