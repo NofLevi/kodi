@@ -36,7 +36,13 @@ ACTION_MOUSE_MOVE = 107
 MOVE_ACTIONS = (ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT, ACTION_MOVE_UP,
                 ACTION_MOVE_DOWN, ACTION_MOUSE_MOVE)
 
-ROW_SLOTS = 10
+# How many row controls exist in katan-home.xml. Fifteen rows are on by
+# default, so ten was not a limit anybody would notice hitting - it was five
+# rows quietly cut off the end of the list, and the Israeli live channels were
+# among them: the add-on's own reason for existing, enabled, warmed by the
+# service, and never drawn. `_slot_count` now says so in the log if it ever
+# happens again, and test_addon_integrity checks this number against the skin.
+ROW_SLOTS = 16
 LIST_BASE = 5000
 BUTTON_SEARCH = 9010
 BUTTON_TOOLS = 9011
@@ -44,6 +50,21 @@ BUTTON_SETTINGS = 9012
 
 PRELOAD_ROWS = 3          # rows filled before the window is shown
 LOOKAHEAD = 2             # rows filled ahead of the focused one
+
+# Rows grow as you scroll along them rather than ending at one page. The
+# margin is how close to the end the selection has to get before the next page
+# is fetched, and it is set from how fast a held-down remote actually moves:
+# Kodi repeats at roughly eight items a second, so eight items is about a
+# second of runway - enough for a TMDB page over the projector's wifi rather
+# than over a desk's ethernet. A row nobody scrolls still costs exactly one
+# page, which is the part that matters for a device with a gigabyte of RAM.
+EXTEND_MARGIN = 8
+# And a ceiling, because "infinite" on a device with a gigabyte of RAM is a
+# promise that ends in the process being killed. TMDB pages are twenty items,
+# so this is ten pages: far past where anyone is still browsing rather than
+# searching, and about 200 list items, which is cheap - Kodi only decodes the
+# artwork for the handful actually on screen.
+MAX_ITEMS = 200
 
 
 class HomeWindow(xbmcgui.WindowXML):
@@ -53,6 +74,10 @@ class HomeWindow(xbmcgui.WindowXML):
         self.data = {}            # slot index -> list of item dicts
         self.filled = set()       # slot indexes already populated
         self.loading = set()
+        self.pages = {}           # slot index -> last page fetched
+        self.exhausted = set()    # rows with nothing further to fetch
+        self.extending = set()    # rows with a page in flight
+        self.pending = {}         # slot index -> items fetched, not yet added
         self.lock = threading.Lock()
         # Whether onInit has already done its work. This has to be its own flag
         # rather than "do we know the rows yet", because prepare() now works
@@ -77,7 +102,7 @@ class HomeWindow(xbmcgui.WindowXML):
             return
 
         if not self.rows:
-            self.rows = catalog.enabled_rows()[:ROW_SLOTS]
+            self.rows = _pick_rows()
         if not self.rows:
             kodi.notify(kodi.localize(32256))
             self.close()
@@ -116,7 +141,7 @@ class HomeWindow(xbmcgui.WindowXML):
         Setting the properties on the window object before doModal means the
         groups are already visible the first time it renders.
         """
-        self.rows = catalog.enabled_rows()[:ROW_SLOTS]
+        self.rows = _pick_rows()
         for index in range(len(self.rows)):
             self._set_title(index, catalog.row_title(self.rows[index]))
         return bool(self.rows)
@@ -162,7 +187,12 @@ class HomeWindow(xbmcgui.WindowXML):
 
     def onAction(self, action):
         code = action.getId()
+        # First thing, and before anything reads a position: this is the GUI
+        # thread, which is the only place a list may be added to.
+        self._absorb()
         if code in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
+            if self._stay_put():
+                return
             self._cleanup()
             self.close()
             return
@@ -171,8 +201,39 @@ class HomeWindow(xbmcgui.WindowXML):
         if code in MOVE_ACTIONS:
             self._update_hero()
             self._fill_ahead()
+            # Deliberately not on mouse movement. Kodi sends ACTION_MOUSE_MOVE
+            # while the pointer merely rests over the window, and Kodi moves
+            # the selection on hover, so a pointer left anywhere near the end
+            # of a row fetched page after page on its own: measured at 94
+            # items in a row nobody had touched, during the startup wait, with
+            # no input of any kind. Hovering is not scrolling.
+            if code != ACTION_MOUSE_MOVE:
+                self._extend_ahead()
         elif code == ACTION_CONTEXT_MENU:
             self._context_menu()
+
+    def _stay_put(self):
+        """Should back keep us here rather than drop out to Kodi?
+
+        On a box that exists to run this add-on, backing out of the home
+        screen lands on Kodi's own interface, which is not somewhere anyone
+        wanted to go - it is the screen this add-on replaces. So with "stay in
+        Katan" switched on, back does nothing here.
+
+        Only *here*. Back still works everywhere inside Katan - out of a film's
+        details, out of the source picker, out of a season's episodes - because
+        those are places you can be finished with. The home screen is not.
+
+        And there is deliberately still a way out: the top bar's settings
+        button opens this add-on's own settings, where the switch is. A door
+        with no handle on the inside is a worse idea than the problem it
+        solves.
+        """
+        from .. import settings
+        if not settings.get_bool("ui.stay_in_katan", False):
+            return False
+        kodi.log("back on the home screen, staying in Katan")
+        return True
 
     def _move_row(self, code):
         """Move up or down between rows, skipping the ones that are empty.
@@ -212,6 +273,7 @@ class HomeWindow(xbmcgui.WindowXML):
         self.setFocusId(LIST_BASE + later[0])
         self._update_hero()
         self._fill_ahead()
+        self._extend_ahead()
         return True
 
     def onClick(self, control_id):
@@ -230,6 +292,7 @@ class HomeWindow(xbmcgui.WindowXML):
 
     def onFocus(self, control_id):
         if LIST_BASE <= control_id < LIST_BASE + ROW_SLOTS:
+            self._absorb()
             self._fill_ahead()
 
     # -- filling rows ------------------------------------------------------
@@ -253,6 +316,7 @@ class HomeWindow(xbmcgui.WindowXML):
                 self._set_title(index, "")     # hides the whole group
                 return
             self.data[index] = entries
+            self.pages[index] = 1
             control = self.getControl(LIST_BASE + index)
             control.reset()
             control.addItems([listing.make_list_item(item) for item in entries])
@@ -288,6 +352,139 @@ class HomeWindow(xbmcgui.WindowXML):
         for index in range(current, min(current + LOOKAHEAD + 1, len(self.rows))):
             if index not in self.filled:
                 self._fill(index)
+
+    # -- growing a row as it is scrolled -----------------------------------
+
+    def _extend_ahead(self):
+        """Fetch the next page of the focused row if the end is in sight.
+
+        A row used to be one page and stop, so scrolling right ran into a wall
+        after twenty items with no indication that there was more - the
+        catalogue looked far smaller than it is. Now the row grows under the
+        cursor.
+
+        Two decisions worth keeping. It is done on a worker thread, because a
+        page is an HTTP round trip and doing it on the GUI thread would freeze
+        the scroll for as long as TMDB takes to answer, which is exactly the
+        moment the viewer is holding the button down. And the new items are
+        appended rather than the list being rebuilt: `reset()` would drop the
+        selection back to the start, which on a device where the fetch takes a
+        second reads as the row throwing the viewer out.
+        """
+        index = self._focused_row()
+        if index is None or not self._wants_more(index):
+            return
+        with self.lock:
+            if index in self.extending:
+                return
+            self.extending.add(index)
+
+        thread = threading.Thread(target=self._extend, args=(index,))
+        thread.daemon = True
+        thread.start()
+
+    def _wants_more(self, index):
+        """Is the selection near the end of a row that has more to give?"""
+        if index in self.exhausted or index in self.extending:
+            return False
+        entries = self.data.get(index)
+        if not entries or len(entries) >= MAX_ITEMS:
+            return False
+        row = self.rows[index] if index < len(self.rows) else None
+        if not row or not catalog.has_more(row["id"]):
+            return False
+        try:
+            position = self.getControl(LIST_BASE + index).getSelectedPosition()
+        except Exception:
+            return False
+        return position >= len(entries) - EXTEND_MARGIN
+
+    def _extend(self, index):
+        """Fetch one more page for a row. Runs on a worker thread.
+
+        It only fetches. Putting the items into the control is left to
+        `_absorb`, on the GUI thread, and that division is the whole point of
+        this pair of methods rather than an abundance of caution - see there.
+        """
+        try:
+            row = self.rows[index]
+            page = self.pages.get(index, 1) + 1
+            entries = catalog.load(row["id"], page=page) or []
+            # A row that gives nothing back has reached its end. TMDB keeps
+            # answering past the last page with an empty list rather than an
+            # error, so this is the only signal there is, and remembering it
+            # stops every further keypress asking again.
+            if not entries:
+                self.exhausted.add(index)
+                kodi.log("row %s has no page %d" % (row["id"], page))
+                return
+
+            known = {item.get("id") or item.get("title")
+                     for item in self.data.get(index, [])}
+            fresh = [item for item in trakt_state.annotate(entries)
+                     if (item.get("id") or item.get("title")) not in known]
+            if not fresh:
+                # Pages that repeat what we already have are not progress, and
+                # a trending list reshuffling between requests does exactly
+                # that. Stop rather than fetch page after page of duplicates.
+                self.exhausted.add(index)
+                return
+
+            self.pages[index] = page
+            self.pending[index] = fresh
+        except Exception:
+            # A row that cannot grow is still a row that works. Give up on
+            # this one rather than letting it retry on every keypress.
+            self.exhausted.add(index)
+            kodi.log_exception("failed to extend home row %d" % index)
+        finally:
+            with self.lock:
+                self.extending.discard(index)
+
+    def _absorb(self):
+        """Put fetched pages into their controls. GUI thread only.
+
+        This exists because of a bug the viewer described exactly: scrolling
+        right faster than the next page loaded threw the selection back to the
+        start of the row. Adding items to a list Kodi is *currently
+        navigating*, from a worker thread, makes it reflow underneath the
+        cursor - measured in a real Kodi, the cursor went 56 -> 0 on one
+        append, and slid backwards by ten or twenty on several others. From
+        the sofa that reads as the row throwing you out for scrolling too
+        fast, which is the one thing an endless row must never do.
+
+        So the worker only fetches, and the items are added here, inside a
+        Kodi callback, which is the GUI thread. The position is read before
+        and restored after regardless, because a list that has just changed
+        length is entitled to move its own cursor and this is cheap insurance.
+        """
+        if not self.pending:
+            return
+        for index in sorted(self.pending):
+            fresh = self.pending.pop(index, None)
+            if not fresh:
+                continue
+            try:
+                control = self.getControl(LIST_BASE + index)
+                before = control.getSelectedPosition()
+                self.data[index] = self.data.get(index, []) + fresh
+                control.addItems(
+                    [listing.make_list_item(item) for item in fresh])
+                # Unconditionally, and this is the whole fix. Both addItems
+                # and selectItem post *thread messages* rather than acting on
+                # the control there and then, so getSelectedPosition() right
+                # after an append reads the state before it - which is why
+                # guarding this on "did the position change?" did nothing at
+                # all, and the row still threw the viewer back to the start.
+                # The messages are processed in the order they were posted, so
+                # the rebind lands first and this lands on top of it.
+                control.selectItem(before)
+                kodi.log("row %s grew to %d items, cursor held at %d"
+                         % (self.rows[index]["id"], len(self.data[index]),
+                            before))
+            except Exception:
+                self.exhausted.add(index)
+                kodi.log_exception("failed to add page to home row %d" % index)
 
     # -- selection ---------------------------------------------------------
 
@@ -394,6 +591,30 @@ class HomeWindow(xbmcgui.WindowXML):
         for name in ("title", "plot", "fanart", "meta"):
             self.clearProperty("katan.hero.%s" % name)
         self.data.clear()
+        self.pages.clear()
+        self.exhausted.clear()
+
+
+def _pick_rows():
+    """The rows this window will draw, and a complaint about any it cannot.
+
+    The window has a fixed number of row controls, so a viewer who enables
+    more rows than that gets the first ROW_SLOTS of them. That part is fine.
+    What was not fine is that it happened in silence: the slice sat inline in
+    two places, and the rows it removed had every appearance of working -
+    enabled in the settings, warmed by the background service, present in the
+    cache, listed by every tool that asks the catalog rather than the window.
+    Only the screen disagreed, and a screen that is missing a row does not say
+    which one.
+    """
+    rows = catalog.enabled_rows()
+    if len(rows) <= ROW_SLOTS:
+        return rows
+    dropped = [row["id"] for row in rows[ROW_SLOTS:]]
+    kodi.log("home: %d rows enabled but only %d can be drawn, so these are "
+             "not on the screen: %s" % (len(rows), ROW_SLOTS,
+                                        ", ".join(dropped)), kodi.LOG_WARNING)
+    return rows[:ROW_SLOTS]
 
 
 def _hero_meta(item):

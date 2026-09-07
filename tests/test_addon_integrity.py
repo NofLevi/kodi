@@ -199,6 +199,63 @@ def test_the_home_rows_fit_on_screen():
                 row.get("id"), needed - value(row, "height"))
 
 
+def test_the_home_screen_has_a_slot_for_every_row_on_by_default():
+    """ROW_SLOTS must match the skin, and cover the rows shipped switched on.
+
+    The window draws `catalog.enabled_rows()[:ROW_SLOTS]`. When ROW_SLOTS was
+    ten and fifteen rows were on by default, the last five were dropped -
+    among them the Israeli live channels, which is the thing the add-on is
+    for. Nothing failed, nothing was logged, and the rows were present and
+    correct everywhere except on the screen.
+
+    Two separate claims, because they break separately: the constant has to
+    match the number of list controls that actually exist in the XML, and
+    there have to be enough of them for a fresh install to show its own
+    default rows without any being cut.
+    """
+    from katan import catalog
+    from katan.ui import home_window
+
+    with open(os.path.join(SKIN_DIR, "katan-home.xml"),
+              encoding="utf-8") as handle:
+        body = handle.read()
+    in_skin = sorted(int(i) for i in
+                     re.findall(r'type="list" id="(50\d\d)"', body))
+
+    assert in_skin == list(range(home_window.LIST_BASE,
+                                 home_window.LIST_BASE + len(in_skin))), \
+        "the row list ids must run consecutively from LIST_BASE: %s" % in_skin
+    assert len(in_skin) == home_window.ROW_SLOTS, (
+        "ROW_SLOTS is %d but katan-home.xml has %d row lists, so %s"
+        % (home_window.ROW_SLOTS, len(in_skin),
+           "rows would be dropped" if home_window.ROW_SLOTS > len(in_skin)
+           else "controls exist that nothing can fill"))
+
+    on_by_default = [row["id"] for row in catalog.rows() if row.get("default")]
+    assert len(on_by_default) <= home_window.ROW_SLOTS, (
+        "%d rows ship switched on but only %d can be drawn, so a fully "
+        "configured install would never see %s"
+        % (len(on_by_default), home_window.ROW_SLOTS,
+           on_by_default[home_window.ROW_SLOTS:]))
+
+
+def test_the_israeli_rows_are_near_the_top_of_the_home_screen():
+    """The two rows this add-on exists for should not be below the fold.
+
+    They were twelfth and thirteenth, past a ten-slot window, so they were
+    never drawn at all. Keeping them inside the first handful is a deliberate
+    editorial choice for an Israeli add-on, not an accident of list order, so
+    it is asserted rather than left to whoever next adds a row.
+    """
+    from katan import catalog
+    order = [row["id"] for row in catalog.rows() if row.get("default")]
+    for row_id in ("israel_live", "israel_vod"):
+        assert row_id in order, "%s should be on by default" % row_id
+        assert order.index(row_id) < 6, (
+            "%s is row %d of the default set; the Israeli rows belong near "
+            "the top" % (row_id, order.index(row_id) + 1))
+
+
 def test_the_tmdb_helper_player_points_at_real_routes():
     """A player file that names a dead route fails inside somebody else's skin.
 

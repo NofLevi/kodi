@@ -60,7 +60,15 @@ def _tmdb():
     return tmdb
 
 
-def _row(row_id, title_id, loader, ttl=TTL_MEDIUM, needs=("tmdb",), default=True):
+def _row(row_id, title_id, loader, ttl=TTL_MEDIUM, needs=("tmdb",),
+         default=True, paged=True):
+    """One row.
+
+    `loader` takes a page number. `paged` says whether asking for page two is
+    worth doing at all: a row built from the bundled Israeli data, or from a
+    Trakt list that arrives whole, has exactly one page and asking for another
+    would be a wasted round trip.
+    """
     return {
         "id": row_id,
         "title_id": title_id,
@@ -68,83 +76,109 @@ def _row(row_id, title_id, loader, ttl=TTL_MEDIUM, needs=("tmdb",), default=True
         "ttl": ttl,
         "needs": list(needs),
         "default": default,
+        "paged": paged,
     }
 
 
 def _build_rows():
     """Build the row table. Loaders are lazy so no metadata module is imported
-    until a row is actually rendered."""
+    until a row is actually rendered.
+
+    **This order is the default running order of the home screen**, and the
+    home window has ten slots. That makes the order load-bearing rather than
+    cosmetic: the Israeli live channels and on-demand catalogue used to sit at
+    positions twelve and thirteen and were therefore never drawn at all - the
+    two things this add-on exists for, cut off the end of its own front page,
+    silently. They are near the top now, where an Israeli add-on should have
+    put them in the first place.
+    """
     return [
         _row("continue", S["continue"],
-             lambda: _continue_watching(), ttl=300, needs=("trakt",)),
+             lambda page: _continue_watching(), ttl=300, needs=("trakt",),
+             paged=False),
 
         _row("trending_movies", S["trending_movies"],
-             lambda: _tmdb().trending("movie", "day"), TTL_SHORT),
+             lambda page: _tmdb().trending("movie", "day", page), TTL_SHORT),
         _row("trending_shows", S["trending_shows"],
-             lambda: _tmdb().trending("tv", "day"), TTL_SHORT),
+             lambda page: _tmdb().trending("tv", "day", page), TTL_SHORT),
 
-        _row("popular_week_movies", S["popular_week_movies"],
-             lambda: _tmdb().trending("movie", "week"), TTL_MEDIUM),
-        _row("popular_week_shows", S["popular_week_shows"],
-             lambda: _tmdb().trending("tv", "week"), TTL_MEDIUM),
-
-        _row("in_cinemas", S["in_cinemas"],
-             lambda: _tmdb().now_playing(), TTL_LONG),
-        _row("coming_soon", S["coming_soon"],
-             lambda: _tmdb().upcoming(), TTL_LONG, default=False),
-
-        _row("airing_today", S["airing_today"],
-             lambda: _tmdb().airing_today(), TTL_SHORT),
-        _row("returning", S["returning"],
-             lambda: _tmdb().on_the_air(), TTL_MEDIUM, default=False),
-
-        _row("trakt_trending_movies", S["trakt_trending_movies"],
-             lambda: _trakt_list("movies", "trending"), TTL_SHORT, needs=("trakt_public",)),
-        _row("trakt_trending_shows", S["trakt_trending_shows"],
-             lambda: _trakt_list("shows", "trending"), TTL_SHORT, needs=("trakt_public",)),
-        _row("anticipated", S["anticipated"],
-             lambda: _trakt_list("movies", "anticipated"), TTL_LONG,
-             needs=("trakt_public",), default=False),
-        _row("box_office", S["box_office"],
-             lambda: _trakt_list("movies", "boxoffice"), TTL_LONG,
-             needs=("trakt_public",), default=False),
-
-        _row("new_netflix", S["new_netflix"],
-             lambda: _tmdb().new_on_provider("netflix", "movie"), TTL_LONG, default=False),
+        # The Israeli half, high up. Neither needs a key of any kind.
+        _row("israel_live", S["israel_live"],
+             lambda page: _israel_live(), TTL_LONG, needs=("vod",),
+             paged=False),
+        _row("israel_vod", S["israel_vod"],
+             lambda page: _israel_vod_new(), TTL_SHORT, needs=("vod",),
+             paged=False),
 
         _row("israeli_movies", S["israeli_movies"],
-             lambda: _tmdb().by_original_language("he", "movie"), TTL_LONG),
+             lambda page: _tmdb().by_original_language("he", "movie", page),
+             TTL_LONG),
         _row("israeli_shows", S["israeli_shows"],
-             lambda: _tmdb().by_original_language("he", "tv"), TTL_LONG),
+             lambda page: _tmdb().by_original_language("he", "tv", page),
+             TTL_LONG),
 
-        _row("top_rated_movies", S["top_rated_movies"],
-             lambda: _tmdb().top_rated("movie"), TTL_LONG, default=False),
+        _row("popular_week_movies", S["popular_week_movies"],
+             lambda page: _tmdb().trending("movie", "week", page), TTL_MEDIUM),
+        _row("popular_week_shows", S["popular_week_shows"],
+             lambda page: _tmdb().trending("tv", "week", page), TTL_MEDIUM),
+
+        _row("in_cinemas", S["in_cinemas"],
+             lambda page: _tmdb().now_playing(page), TTL_LONG),
+        _row("coming_soon", S["coming_soon"],
+             lambda page: _tmdb().upcoming(page), TTL_LONG, default=False),
+
+        _row("airing_today", S["airing_today"],
+             lambda page: _tmdb().airing_today(page), TTL_SHORT),
+        _row("returning", S["returning"],
+             lambda page: _tmdb().on_the_air(page), TTL_MEDIUM, default=False),
 
         _row("anime_trending", S["anime_trending"],
-             lambda: _anime_trending(), TTL_SHORT, needs=("anilist",)),
+             lambda page: _anime_trending(page), TTL_SHORT, needs=("anilist",)),
 
-        _row("israel_live", S["israel_live"],
-             lambda: _israel_live(), TTL_LONG, needs=("vod",)),
-        _row("israel_vod", S["israel_vod"],
-             lambda: _israel_vod_new(), TTL_SHORT, needs=("vod",)),
+        # Below the fold by default. These need a Trakt client id to return
+        # anything at all, and without one they were spending two of the ten
+        # slots on nothing.
+        _row("trakt_trending_movies", S["trakt_trending_movies"],
+             lambda page: _trakt_list("movies", "trending"), TTL_SHORT,
+             needs=("trakt_public",), paged=False),
+        _row("trakt_trending_shows", S["trakt_trending_shows"],
+             lambda page: _trakt_list("shows", "trending"), TTL_SHORT,
+             needs=("trakt_public",), paged=False),
+        _row("anticipated", S["anticipated"],
+             lambda page: _trakt_list("movies", "anticipated"), TTL_LONG,
+             needs=("trakt_public",), default=False, paged=False),
+        _row("box_office", S["box_office"],
+             lambda page: _trakt_list("movies", "boxoffice"), TTL_LONG,
+             needs=("trakt_public",), default=False, paged=False),
+
+        _row("new_netflix", S["new_netflix"],
+             lambda page: _tmdb().new_on_provider("netflix", "movie", page),
+             TTL_LONG, default=False),
+
+        _row("top_rated_movies", S["top_rated_movies"],
+             lambda page: _tmdb().top_rated("movie", page), TTL_LONG,
+             default=False),
 
         _row("because_you_watched", S["because_you_watched"],
-             lambda: _because_you_watched(), TTL_MEDIUM, needs=("trakt",), default=False),
+             lambda page: _because_you_watched(page), TTL_MEDIUM,
+             needs=("trakt",), default=False),
         _row("watchlist", S["watchlist"],
-             lambda: _watchlist(), 900, needs=("trakt",)),
+             lambda page: _watchlist(), 900, needs=("trakt",), paged=False),
 
         # Kids mode rows. These are never in the default set: kids.rows_allowed
         # swaps the whole row list for them when the mode is on. They ask TMDB
         # for a certification ceiling rather than filtering afterwards, which
         # is what makes them safe on list data that carries no rating.
         _row("kids_movies", S["kids_movies"],
-             lambda: _kids_discover("movie"), TTL_LONG, default=False),
+             lambda page: _kids_discover("movie", page), TTL_LONG,
+             default=False),
         _row("kids_shows", S["kids_shows"],
-             lambda: _kids_discover("tv"), TTL_LONG, default=False),
+             lambda page: _kids_discover("tv", page), TTL_LONG, default=False),
         _row("kids_anime", S["kids_anime"],
-             lambda: _kids_anime(), TTL_LONG, default=False),
+             lambda page: _kids_anime(page), TTL_LONG, default=False),
         _row("kids_israel", S["kids_israel"],
-             lambda: _kids_israel(), TTL_LONG, needs=("vod",), default=False),
+             lambda page: _kids_israel(), TTL_LONG, needs=("vod",),
+             default=False, paged=False),
     ]
 
 
@@ -231,9 +265,14 @@ def row_limit():
 ROW_LIMIT = 20      # kept for callers that want the default
 
 
-def cache_key(row_id):
+def cache_key(row_id, page=1):
     from .meta import tmdb
-    return cache.make_key("row", row_id, tmdb.language(), tmdb.region())
+    # Page one keeps the key it has always had, so an upgrade does not throw
+    # away every warmed row.
+    parts = ["row", row_id, tmdb.language(), tmdb.region()]
+    if page > 1:
+        parts.append("p%d" % page)
+    return cache.make_key(*parts)
 
 
 def peek(row_id):
@@ -251,21 +290,40 @@ def peek(row_id):
     return kids.filter_items(cached)
 
 
-def load(row_id, refresh=False):
-    """Return the items for a row, fetching only when the cache is cold."""
+def has_more(row_id):
+    """Could this row go on past its first page?
+
+    A row built from the bundled Israeli data, or from a Trakt chart that
+    arrives whole, has exactly one page: asking for a second is a round trip
+    that can only come back empty.
+    """
+    row = by_id(row_id)
+    return bool(row and row.get("paged"))
+
+
+def load(row_id, refresh=False, page=1):
+    """Return one page of a row, fetching only when the cache is cold.
+
+    Page one is what everything has always asked for and behaves exactly as it
+    did. Later pages exist so a row can grow as the viewer scrolls along it
+    rather than arriving all at once - twelve posters is what a row costs to
+    show, not what the row has to contain.
+    """
     row = by_id(row_id)
     if row is None:
         return []
-    key = cache_key(row_id)
+    if page > 1 and not row.get("paged"):
+        return []
+    key = cache_key(row_id, page)
     if not refresh:
         hit = cache.get(key)
         if hit is not None:
             return hit
     try:
-        with kodi.Timer("row %s" % row_id, threshold_ms=800):
-            result = row["loader"]() or []
+        with kodi.Timer("row %s page %d" % (row_id, page), threshold_ms=800):
+            result = row["loader"](page) or []
     except Exception:
-        kodi.log_exception("row %s failed to load" % row_id)
+        kodi.log_exception("row %s page %d failed to load" % (row_id, page))
         return cache.get(key) or []
     result = items.dedupe(result)[:row_limit()]
     if result:
@@ -345,7 +403,7 @@ def _trakt_list(media_type, chart):
     return trakt.chart(media_type, chart, limit=ROW_LIMIT)
 
 
-def _because_you_watched():
+def _because_you_watched(page=1):
     """Recommendations seeded from the last thing the user finished."""
     try:
         from .meta import trakt
@@ -358,15 +416,15 @@ def _because_you_watched():
     if not tmdb_id:
         return []
     media_type = "movie" if seed.get("type") == "movie" else "tv"
-    return _tmdb().recommendations(media_type, tmdb_id)
+    return _tmdb().recommendations(media_type, tmdb_id, page)
 
 
-def _anime_trending():
+def _anime_trending(page=1):
     try:
         from .meta import anilist
     except ImportError:
         return []
-    return anilist.trending(limit=ROW_LIMIT)
+    return anilist.trending(limit=ROW_LIMIT, page=page)
 
 
 def _israel_live():
@@ -390,7 +448,7 @@ def _israel_vod_new():
 _KIDS_GENRES = {"movie": "10751,16", "tv": "10762,10751"}
 
 
-def _kids_discover(media_type):
+def _kids_discover(media_type, page=1):
     """Family titles under the configured certification ceiling.
 
     The ceiling is applied by TMDB rather than by filtering afterwards. That
@@ -409,18 +467,18 @@ def _kids_discover(media_type):
         filters["certification_country"] = "US"
         filters["certification.lte"] = kids.ceiling()
 
-    found = _tmdb().discover(media_type, **filters)
+    found = _tmdb().discover(media_type, page=page, **filters)
     # Second line of defence: anything that did arrive with genres attached is
     # still checked, so a mislabelled title does not ride in on the row.
     return kids.filter_items(found)
 
 
-def _kids_anime():
+def _kids_anime(page=1):
     """Animation that is actually for children, not animation in general."""
     from . import kids
 
     found = _tmdb().discover(
-        "tv", with_genres="16,10762", sort_by="popularity.desc",
+        "tv", page=page, with_genres="16,10762", sort_by="popularity.desc",
         include_adult="false", **{"vote_count.gte": 20})
     return kids.filter_items(found)
 

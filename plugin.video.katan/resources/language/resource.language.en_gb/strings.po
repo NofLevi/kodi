@@ -1159,3 +1159,15 @@ msgstr ""
 msgctxt "#30137"
 msgid "Go straight in instead of stopping at the Kodi home screen. Back still leaves Katan normally."
 msgstr ""
+
+msgctxt "#30138"
+msgid "Stay in Katan"
+msgstr ""
+
+msgctxt "#30139"
+msgid "Back on the home screen does nothing instead of dropping out to Kodi. Back still works everywhere inside Katan, and this settings screen is still reachable from the top bar."
+msgstr ""
+
+msgctxt "#32416"
+msgid "Next page"
+msgstr ""

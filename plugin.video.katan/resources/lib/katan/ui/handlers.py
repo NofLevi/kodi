@@ -171,15 +171,38 @@ def _require_tmdb(handle):
 
 @router.route("row")
 def row(params):
-    """One catalog row rendered as a normal Kodi list."""
+    """One catalog row rendered as a normal Kodi list, a page at a time.
+
+    A directory in Kodi is a fixed list - there is no scroll event to hang a
+    fetch off, which is why the custom window grows its rows and this cannot.
+    The idiomatic answer, and the one Kodi's own skins already understand, is
+    a "next page" entry at the end, so the listing stays one page long however
+    deep the viewer goes.
+    """
     handle = _handle()
     row_id = params.get("id", "")
-    entries = catalog.load(row_id)
+    page = _page(params)
+    entries = catalog.load(row_id, page=page)
     if not entries:
         kodi.notify(kodi.localize(32257))
     from ..meta import trakt_state
     trakt_state.annotate(entries)
     listing.add_items(handle, entries)
+    if entries and catalog.has_more(row_id):
+        listing.add_directory(
+            handle,
+            kodi.localize(32416),
+            router.url_for("row", id=row_id, page=page + 1),
+            art={"icon": "DefaultFolderBack.png"},
+        )
+
+
+def _page(params):
+    """The page number from a url, which a viewer can also type wrongly."""
+    try:
+        return max(1, int(params.get("page", 1)))
+    except (TypeError, ValueError):
+        return 1
 
 
 @router.route("seasons")

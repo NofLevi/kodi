@@ -796,3 +796,124 @@ plural. Hebrew takes the singular after one.
 Both confirmed fixed in Kodi: the list now reads "62 דק'", "52 דק'", "66 דק'".
 
 756 tests.
+
+## 04:10 - The channels were never on the screen at all
+
+"Also I dont see the channels." They were not there, and the reason is worth
+writing down because nothing in the project would ever have caught it.
+
+`catalog.enabled_rows()` returned thirteen rows. The home window has ten row
+controls, and both `prepare()` and `onInit` sliced the list to fit:
+
+    self.rows = catalog.enabled_rows()[:ROW_SLOTS]
+
+`israel_live` and `israel_vod` were rows twelve and thirteen. So the two rows
+this add-on exists for were enabled in the settings, warmed by the background
+service, sitting in the cache, listed correctly by every tool that asks the
+catalog - and cut off the end of the list before anything was drawn. Every
+screenshot of the home screen all night was of a screen that was missing them,
+and looked completely fine.
+
+With every account configured it is fifteen rows on by default, so five were
+being dropped, not three.
+
+Three things changed.
+
+**The row order.** The Israeli rows are now third and fourth rather than
+twelfth and thirteenth. They need no API key of any kind, which makes them the
+rows most likely to have something in them on a fresh install, and this is an
+Israeli add-on. The two Trakt charts moved down, because they need a client id
+nobody has yet and were spending two of the ten slots on nothing.
+
+**Sixteen row slots instead of ten**, so the whole default set fits. The six
+new groups are hidden until a heading is set, exactly like the others, and a
+hidden group costs nothing to draw.
+
+**The slice says so now.** `_pick_rows()` logs a warning naming every row it
+could not draw. The silence was the actual defect; ten was only a number.
+
+Confirmed in Kodi by asking the window what it was showing rather than looking
+at it - `Window(13000).Property(katan.rowN.title)` for all sixteen slots:
+
+    0  סרטים חמים        3  VOD ישראלי         6  פופולרי השבוע
+    1  סדרות חמות        4  סרטים ישראליים     7  סדרות במגמה השבוע
+    2  שידורים חיים      5  סדרות ישראליות     8  עכשיו בקולנוע
+                                               9  פרקים חדשים היום
+
+Row two is the live channels. "rows dropped for want of a slot: none."
+
+## 04:30 - Rows that never end, and the cursor that would not stay put
+
+"the series and everything just be infinite [or at least load while scrolling
+not all immideatly]". The catalog half was straightforward: every loader takes
+a page, `load()` takes a page, cache keys carry it, and rows that are whole
+lists rather than pages - the live channels, the VOD catalogue, a Trakt
+watchlist - are marked `paged=False` and never asked for a second one.
+
+The window half took three attempts and a measurement each time.
+
+**First attempt.** Fetch the next page on a worker thread when the selection
+comes within a few items of the end, and append it. In Kodi this produced
+exactly the complaint that arrived while I was testing it: *"When you scrolls
+in the movies right faster then it can load it jump back to the first instead
+of waiting."* The log, with the cursor position printed either side of the
+append:
+
+    row trending_movies grew to 70 items (page 6), cursor 56 -> 0
+
+and quieter versions of the same thing - 30 to 9, 22 to 5 - on nearly every
+other page. Adding items to a list Kodi is currently navigating makes it
+reflow underneath the cursor.
+
+**Second attempt.** Split it: the worker only fetches, and the items are added
+inside a Kodi callback, on the GUI thread, with the position read before and
+restored after. Measured again. Still jumping: 22 to 7, 33 to 8.
+
+**What was actually wrong**, and it is the sort of thing only a real Kodi
+tells you. `ControlList.addItems` and `ControlList.selectItem` do not act on
+the control when you call them - they post *thread messages*. So
+`getSelectedPosition()` immediately after an append reads the state from
+before it, which meant the restore was guarded on a condition that was never
+true and never ran at all. The second attempt looked right, passed its tests
+against a synchronous stub, and did nothing.
+
+Removing the guard fixes it, because the two messages are processed in the
+order they were posted: Kodi's rebind lands first and the restore lands on top
+of it. Forty-five presses of right, traced out of the add-on itself:
+
+    0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+    29 30 31 32 33 34 35 36 37 38 40 41 42 43 44 45     backward jumps: 0
+
+through four page loads, 12 items to 57.
+
+**And one thing the fix uncovered.** The first live run grew a row to 94 items
+during the eighteen-second start-up wait, with no input of any kind. Kodi
+sends `ACTION_MOUSE_MOVE` while the pointer merely rests over the window, and
+moves the selection on hover, so a pointer left near the end of a row paged
+through the catalogue on its own. That is the opposite of "not all
+immediately". Hovering is not scrolling, and no longer triggers a fetch. The
+log for a full start-up is now empty of page fetches.
+
+The plain directory listing pages too, but it cannot do this - a Kodi
+directory is a fixed list with no scroll event to hang a fetch off - so it
+ends with a "next page" entry, which is what Kodi's own skins expect.
+
+Ceilings, because "infinite" on a device with a gigabyte of RAM is a promise
+that ends in a killed process: 200 items a row, one page in flight at a time,
+a row that returns nothing or returns what it already has is marked finished
+and never asked again.
+
+## 04:45 - Back, confirmed in Kodi rather than in stubs
+
+Six presses of Back on the home screen: window 13000 every time, "back on the
+home screen, staying in Katan" six times in the log. Then into a title's
+details (window 13001) and Back once: returns to 13000. So the screen you
+cannot leave is only the home screen, and everything inside Katan still goes
+back - which was the design, now measured rather than asserted.
+
+`ui.stay_in_katan` still ships **off**. It is on in the test profile here.
+Turning it on by default would take over the Kodi of anyone who installs this
+from the repository, and that is their call rather than mine - it is one
+switch in Settings -> Interface.
+
+774 tests, zip 376 KB.

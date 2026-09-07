@@ -264,7 +264,7 @@ def test_an_empty_row_is_remembered_as_empty_not_as_unknown(monkeypatch):
     from katan import catalog
 
     row_id = catalog.enabled_row_ids()[0]
-    monkeypatch.setitem(catalog.by_id(row_id), "loader", lambda: [])
+    monkeypatch.setitem(catalog.by_id(row_id), "loader", lambda page: [])
 
     assert catalog.peek(row_id) is None, "cold to begin with"
     assert catalog.load(row_id) == []
@@ -287,7 +287,7 @@ def test_an_empty_row_is_forgotten_again_quickly(monkeypatch):
     monkeypatch.setattr(cache, "set",
                         lambda key, value, ttl: written.append((key, ttl)))
     for row in catalog.rows():
-        monkeypatch.setitem(row, "loader", lambda: [])
+        monkeypatch.setitem(row, "loader", lambda page: [])
         catalog.load(row["id"], refresh=True)
     for key, ttl in written:
         assert ttl <= catalog.TTL_EMPTY, key

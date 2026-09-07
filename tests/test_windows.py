@@ -565,3 +565,346 @@ def test_down_from_the_top_bar_goes_into_the_content(monkeypatch):
     window.setFocusId(home_window.BUTTON_SEARCH)
     window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
     assert window.getFocusId() == home_window.LIST_BASE + 2
+
+
+# --------------------------------------------------------------------------
+# rows that grow as they are scrolled
+# --------------------------------------------------------------------------
+
+
+def _scrollable_home(monkeypatch, pages, paged=True):
+    """A home window with one row whose pages come from `pages`.
+
+    `pages` maps a page number to the items that page returns, so a test can
+    say what the second page holds, or that there is not one.
+    """
+    from katan import catalog
+    from katan.meta import tmdb, trakt_state
+    from katan.ui import home_window
+
+    monkeypatch.setattr(tmdb, "has_key", lambda: True)
+    monkeypatch.setattr(catalog, "has_more", lambda row_id: paged)
+    monkeypatch.setattr(catalog, "row_title", lambda row: "Row")
+    monkeypatch.setattr(catalog, "peek", lambda row_id: list(pages.get(1, [])))
+    monkeypatch.setattr(catalog, "enabled_rows",
+                        lambda: [{"id": "r0", "title_id": 0, "loader": None,
+                                  "ttl": 60, "needs": [], "default": True,
+                                  "paged": paged}])
+    monkeypatch.setattr(catalog, "load",
+                        lambda row_id, page=1, **kw: list(pages.get(page, [])))
+    monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
+
+    window = home_window.HomeWindow()
+    window.onInit()
+    return window
+
+
+def test_a_row_grows_when_the_selection_nears_its_end(monkeypatch):
+    """Scrolling right used to run into a wall after one page, with nothing
+    to say there was more, so the catalogue looked far smaller than it is."""
+    from katan.ui import home_window
+
+    pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
+    window = _scrollable_home(monkeypatch, pages)
+    control = window.getControl(home_window.LIST_BASE)
+    assert control.size() == 20
+
+    control.selectItem(18)                 # inside EXTEND_MARGIN of the end
+    window._extend_ahead()
+    _settle()
+    window._absorb()                       # what the next keypress does
+
+    assert control.size() == 40, "the next page should have been appended"
+    assert len(window.data[0]) == 40
+    assert window.pages[0] == 2
+
+
+def test_a_page_is_never_added_from_the_worker_thread(monkeypatch):
+    """The fetch happens off the GUI thread; the append must not.
+
+    This is the bug the viewer hit: adding items to a list Kodi is currently
+    navigating makes it reflow under the cursor. Measured in a real Kodi, one
+    append moved the selection from item 56 to item 0 - scrolling right faster
+    than the page loaded threw you back to the start of the row.
+    """
+    from katan.ui import home_window
+
+    pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
+    window = _scrollable_home(monkeypatch, pages)
+    control = window.getControl(home_window.LIST_BASE)
+
+    control.selectItem(18)
+    window._extend_ahead()
+    _settle()
+
+    assert control.size() == 20, \
+        "the worker must not touch the control - only fetch"
+    assert window.pending, "the page should be waiting for the GUI thread"
+
+    window._absorb()
+    assert control.size() == 40
+    assert not window.pending
+
+
+def test_the_cursor_does_not_move_when_a_row_grows(monkeypatch):
+    """Scrolling fast must feel like waiting, never like being thrown out.
+
+    The stub list is better behaved than Kodi's, so this makes it misbehave
+    the way the real one was measured to: the append drops the selection back
+    to the start. `_absorb` has to put it back.
+    """
+    from katan.ui import home_window
+
+    pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
+    window = _scrollable_home(monkeypatch, pages)
+    control = window.getControl(home_window.LIST_BASE)
+    control.selectItem(18)
+
+    original = control.addItems
+
+    def reflows(items):
+        original(items)
+        control.position = 0          # what a real Kodi list did at item 56
+
+    monkeypatch.setattr(control, "addItems", reflows)
+
+    window._extend_ahead()
+    _settle()
+    window._absorb()
+
+    assert control.size() == 40, "the page still arrives"
+    assert control.getSelectedPosition() == 18, \
+        "the viewer stays where they were scrolling, not back at the start"
+
+
+def test_the_cursor_is_put_back_without_asking_whether_it_moved(monkeypatch):
+    """The restore must not be guarded on reading the position first.
+
+    In Kodi both addItems and selectItem post thread messages rather than
+    acting on the control immediately, so a getSelectedPosition() taken just
+    after an append reads the state *before* it. Guarding the restore on "has
+    the position changed?" therefore answered no every time and the restore
+    never ran - the first version of this fix looked right, passed its tests
+    against a synchronous stub, and did nothing at all in a real Kodi.
+    """
+    from katan.ui import home_window
+
+    pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
+    window = _scrollable_home(monkeypatch, pages)
+    control = window.getControl(home_window.LIST_BASE)
+    control.selectItem(18)
+
+    selected = []
+    monkeypatch.setattr(control, "selectItem", lambda n: selected.append(n))
+
+    window._extend_ahead()
+    _settle()
+    window._absorb()
+
+    assert selected == [18], (
+        "the position must be restored whatever the control claims it is; "
+        "got %s" % selected)
+
+
+def test_a_resting_mouse_pointer_does_not_page_through_the_catalogue(
+        monkeypatch):
+    """Kodi sends mouse-move actions while the pointer merely sits there, and
+    moves the selection on hover. A pointer left near the end of a row fetched
+    page after page on its own - 94 items in a row nobody had touched, during
+    start-up, with no input at all."""
+    from katan.ui import home_window
+
+    pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
+    window = _scrollable_home(monkeypatch, pages)
+    control = window.getControl(home_window.LIST_BASE)
+    control.selectItem(19)
+    window.setFocusId(home_window.LIST_BASE)
+
+    window.onAction(MoveAction(home_window.ACTION_MOUSE_MOVE))
+    _settle()
+    assert not window.pending, "hovering is not scrolling"
+
+    window.onAction(MoveAction(home_window.ACTION_MOVE_RIGHT))
+    _settle()
+    assert window.pending, "but pressing right still grows the row"
+
+
+def test_a_keypress_absorbs_a_page_that_arrived(monkeypatch):
+    """The GUI thread only exists between callbacks, so a page waits for one."""
+    from katan.ui import home_window
+
+    pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
+    window = _scrollable_home(monkeypatch, pages)
+    control = window.getControl(home_window.LIST_BASE)
+
+    control.selectItem(18)
+    window._extend_ahead()
+    _settle()
+    assert control.size() == 20
+
+    window.onAction(MoveAction(home_window.ACTION_MOVE_RIGHT))
+    assert control.size() == 40, "the next keypress should take the new page"
+
+
+def test_a_row_is_left_alone_until_the_end_is_in_sight(monkeypatch):
+    """A row nobody scrolls must cost exactly one page."""
+    pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
+    window = _scrollable_home(monkeypatch, pages)
+
+    window.getControl(home_window.LIST_BASE).selectItem(2)
+    assert window._wants_more(0) is False
+    window._extend_ahead()
+    _settle()
+    assert len(window.data[0]) == 20
+
+
+def test_a_row_that_cannot_page_never_asks(monkeypatch):
+    """The live channels and the VOD catalogue are whole lists, not pages."""
+    pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
+    window = _scrollable_home(monkeypatch, pages, paged=False)
+
+    window.getControl(home_window.LIST_BASE).selectItem(19)
+    assert window._wants_more(0) is False
+
+
+def test_a_row_that_runs_out_stops_being_asked(monkeypatch):
+    """TMDB answers past the last page with an empty list rather than an
+    error, so an exhausted row would otherwise be re-fetched on every press."""
+    from katan.ui import home_window
+
+    calls = []
+    pages = {1: make_items(20, "one")}
+    window = _scrollable_home(monkeypatch, pages)
+
+    from katan import catalog
+    monkeypatch.setattr(catalog, "load",
+                        lambda row_id, page=1, **kw: calls.append(page) or [])
+
+    window.getControl(home_window.LIST_BASE).selectItem(19)
+    window._extend_ahead()
+    _settle()
+    window._absorb()
+    assert calls == [2]
+
+    window._extend_ahead()
+    _settle()
+    assert calls == [2], "an exhausted row must not be asked again"
+    assert window._wants_more(0) is False
+
+
+def test_a_page_that_repeats_what_we_have_is_not_progress(monkeypatch):
+    """A trending list reshuffles between requests and hands back items the
+    row already holds. Appending those would grow the row with duplicates and
+    never reach the end."""
+    from katan.ui import home_window
+
+    first = make_items(20, "one")
+    window = _scrollable_home(monkeypatch, {1: first, 2: list(first)})
+
+    window.getControl(home_window.LIST_BASE).selectItem(19)
+    window._extend_ahead()
+    _settle()
+    window._absorb()
+
+    assert len(window.data[0]) == 20
+    assert 0 in window.exhausted
+
+
+def test_a_row_stops_growing_at_the_ceiling(monkeypatch):
+    """"Infinite" on a device with a gigabyte of RAM ends in a killed
+    process, so the row has a ceiling."""
+    from katan.ui import home_window
+
+    window = _scrollable_home(monkeypatch, {1: make_items(20, "one")})
+    window.data[0] = make_items(home_window.MAX_ITEMS, "many")
+    window.getControl(home_window.LIST_BASE).selectItem(
+        home_window.MAX_ITEMS - 1)
+    assert window._wants_more(0) is False
+
+
+def test_a_row_that_fails_to_grow_still_works(monkeypatch):
+    """One page that will not load is not a reason to break the row."""
+    from katan import catalog
+    from katan.ui import home_window
+
+    window = _scrollable_home(monkeypatch, {1: make_items(20, "one")})
+
+    def explode(row_id, page=1, **kw):
+        raise ValueError("TMDB is having a moment")
+
+    monkeypatch.setattr(catalog, "load", explode)
+    window.getControl(home_window.LIST_BASE).selectItem(19)
+    window._extend_ahead()
+    _settle()
+    window._absorb()
+
+    assert len(window.data[0]) == 20, "the row keeps what it already had"
+    assert 0 in window.exhausted, "and gives up rather than retrying forever"
+
+
+def _settle():
+    """Wait for the worker thread the window starts to finish."""
+    import threading
+    import time
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        workers = [t for t in threading.enumerate()
+                   if t is not threading.current_thread() and t.daemon
+                   and t.is_alive()]
+        if not workers:
+            return
+        for worker in workers:
+            worker.join(0.05)
+    raise AssertionError("a home window worker never finished")
+
+
+# --------------------------------------------------------------------------
+# back on the home screen
+# --------------------------------------------------------------------------
+
+
+class BackAction(object):
+    def getId(self):
+        from katan.ui import home_window
+        return home_window.ACTION_NAV_BACK
+
+
+def test_back_leaves_katan_by_default(monkeypatch, settings_module):
+    """Nobody's Kodi is taken over unless they asked for it."""
+    from katan.ui import home_window
+
+    window = _home_with_rows(monkeypatch, [0])
+    assert settings_module.get_bool("ui.stay_in_katan") is False
+    window.onAction(BackAction())
+    assert window.closed is True
+
+
+def test_back_stays_put_when_asked(monkeypatch, settings_module):
+    """On a box that exists to run this add-on, backing out of the home screen
+    lands on the Kodi interface this add-on replaces."""
+    from katan.ui import home_window
+
+    settings_module.set("ui.stay_in_katan", "true")
+    window = _home_with_rows(monkeypatch, [0])
+    window.onAction(BackAction())
+    window.onAction(BackAction())
+    assert window.closed is False
+
+
+def test_staying_put_does_not_break_the_rest_of_the_window(monkeypatch,
+                                                            settings_module):
+    """Only the home screen holds on. Everything inside Katan still goes back,
+    and the top bar - where the settings that turn this off live - is still
+    reachable."""
+    from katan.ui import home_window
+
+    settings_module.set("ui.stay_in_katan", "true")
+    window = _home_with_rows(monkeypatch, [0, 1])
+    window.setFocusId(home_window.LIST_BASE)
+
+    window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
+    assert window.getFocusId() == home_window.LIST_BASE + 1
+    window.onAction(MoveAction(home_window.ACTION_MOVE_UP))
+    window.onAction(MoveAction(home_window.ACTION_MOVE_UP))
+    assert window.getFocusId() == home_window.BUTTON_SETTINGS - 2, \
+        "the top bar is still reachable, so the switch can be turned off"
