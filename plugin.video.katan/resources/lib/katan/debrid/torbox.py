@@ -41,16 +41,32 @@ class TorBox(base.DebridService):
 
     # -- account -----------------------------------------------------------
 
-    def authorize(self):
-        entered = kodi.keyboard(self.key(), "TorBox API key")
+    # TorBox has no device flow at all - the key from its settings page is
+    # the only way in - so "scan" here means scanning a link to that page,
+    # which is honest about what it does and still saves finding it by hand.
+    methods = ("scan", "key")
+    key_url = "https://torbox.app/settings"
+
+    def credential_settings(self):
+        return ["torbox.apikey"]
+
+    def authorize(self, method=None):
+        from ..ui import signin
+
+        previous = self.key()
+        entered = signin.ask_for_key(
+            "%s API key" % self.label, previous,
+            help_url=self.key_url if method == "scan" else "")
         if entered is None:
             return False
-        settings.set("torbox.apikey", entered.strip())
+        settings.set("torbox.apikey", entered)
         info = self.account_info()
         if info:
             kodi.log("TorBox plan: %s" % info.get("plan"))
             return True
-        settings.set("torbox.apikey", "")
+        # Put back whatever was working before rather than leaving the viewer
+        # signed out because they mistyped a replacement key.
+        settings.set("torbox.apikey", previous)
         return False
 
     def account_info(self):

@@ -20,14 +20,50 @@ class DebridService(object):
     name = ""
     label = ""
 
+    # How this service can be signed in to, best first: "scan" a code with a
+    # phone, open a "link" and type a short code, or type the "key" here. Each
+    # service declares only what it really has - a service with no device flow
+    # does not get offered a "scan a code" that leads to a page and then asks
+    # for the key anyway. `ui/signin.py` turns this into the one screen every
+    # service shares.
+    methods = ("key",)
+
+    # Where the key lives on the service's website, for the services that use
+    # one. Shown as a scannable code before the keyboard opens, which is the
+    # difference between "find your API key" and a link you can open.
+    key_url = ""
+
     # -- credentials -------------------------------------------------------
 
     def configured(self):
         raise NotImplementedError
 
-    def authorize(self):
-        """Run the sign-in flow. Returns True on success."""
+    def authorize(self, method=None):
+        """Run the sign-in flow. Returns True on success.
+
+        `method` is one of `methods`, chosen by the viewer. A client may
+        ignore it when it only supports one way in.
+        """
         raise NotImplementedError
+
+    def sign_out(self):
+        """Forget this account. Returns True if there was one to forget."""
+        keys = self.credential_settings()
+        if not keys or not self.configured():
+            return False
+        settings.set_many({key: "" for key in keys})
+        cache.delete_prefix("debrid|%s|" % self.name)
+        kodi.log("signed out of %s" % self.label)
+        return True
+
+    def credential_settings(self):
+        """Every setting that holds a credential for this service.
+
+        Used by sign-out, and by the accounts screen to know whether there is
+        anything to sign out of. Named rather than guessed, because clearing
+        the wrong setting here would silently break something else.
+        """
+        return []
 
     def account_info(self):
         """A dict describing the account, or None."""

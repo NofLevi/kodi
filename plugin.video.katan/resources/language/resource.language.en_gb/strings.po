@@ -1295,3 +1295,43 @@ msgstr ""
 msgctxt "#32450"
 msgid "Hidden gem series"
 msgstr ""
+
+msgctxt "#32460"
+msgid "Scan a code with your phone"
+msgstr ""
+
+msgctxt "#32461"
+msgid "Open a link and type a code"
+msgstr ""
+
+msgctxt "#32462"
+msgid "Type the key here"
+msgstr ""
+
+msgctxt "#32463"
+msgid "Scan this to open the page on your phone, then come back and type the key."
+msgstr ""
+
+msgctxt "#32464"
+msgid "Scan the code, or open the address and enter the code below."
+msgstr ""
+
+msgctxt "#32465"
+msgid "Close"
+msgstr ""
+
+msgctxt "#32466"
+msgid "Signed in"
+msgstr ""
+
+msgctxt "#32467"
+msgid "Not signed in"
+msgstr ""
+
+msgctxt "#32468"
+msgid "Connect an account"
+msgstr ""
+
+msgctxt "#32469"
+msgid "Sign out of %s"
+msgstr ""

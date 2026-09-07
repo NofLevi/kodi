@@ -46,8 +46,24 @@ class RealDebrid(base.DebridService):
 
     # -- authorisation -----------------------------------------------------
 
-    def authorize(self):
-        import xbmcgui
+    # Real-Debrid has no typed key: the API token on its website is not a
+    # credential this flow can use, because the device flow mints a per-user
+    # client id and secret and the refresh depends on having both. So this
+    # service offers the two scan-or-link options and no third one, which is
+    # the whole point of the methods list being per service.
+    methods = ("scan", "link")
+
+    def credential_settings(self):
+        # All five, because the device flow mints a client id and secret of
+        # its own and a refresh needs both. Clearing only the token would
+        # leave a half-signed-out account that looks disconnected and still
+        # holds credentials.
+        return ["realdebrid.token", "realdebrid.refresh",
+                "realdebrid.expires", "realdebrid.client_id",
+                "realdebrid.client_secret"]
+
+    def authorize(self, method=None):
+        from ..ui import signin
 
         payload = http.get_json("%s/device/code" % OAUTH,
                                 params={"client_id": OPEN_SOURCE_CLIENT_ID,
@@ -56,34 +72,29 @@ class RealDebrid(base.DebridService):
         if not payload:
             return False
 
-        interval = max(5, int(payload.get("interval") or 5))
-        lifetime = float(payload.get("expires_in") or 600)
-        deadline = time.time() + lifetime
         device_code = payload.get("device_code")
+        found = {}
 
-        progress = xbmcgui.DialogProgress()
-        progress.create("Real-Debrid",
-                        kodi.localize(32324,
-                                      payload.get("verification_url", DEVICE_URL),
-                                      payload.get("user_code", "")))
-        credentials = None
-        try:
-            while time.time() < deadline and not progress.iscanceled():
-                progress.update(int(100 - ((deadline - time.time()) / lifetime) * 100))
-                time.sleep(interval)
-                found = http.get_json("%s/device/credentials" % OAUTH,
-                                      params={"client_id": OPEN_SOURCE_CLIENT_ID,
-                                              "code": device_code},
-                                      default=None)
-                if found and found.get("client_id"):
-                    credentials = found
-                    break
-        finally:
-            progress.close()
-
-        if not credentials:
+        def poll():
+            answer = http.get_json("%s/device/credentials" % OAUTH,
+                                   params={"client_id": OPEN_SOURCE_CLIENT_ID,
+                                           "code": device_code},
+                                   default=None)
+            if answer and answer.get("client_id"):
+                found.update(answer)
+                return True
             return False
-        return self._exchange(credentials, device_code)
+
+        if not signin.run_device(
+                self.label,
+                payload.get("verification_url", DEVICE_URL),
+                payload.get("user_code", ""),
+                poll,
+                lifetime=payload.get("expires_in"),
+                interval=max(5, int(payload.get("interval") or 5)),
+                scan=(method != "link")):
+            return False
+        return self._exchange(found, device_code)
 
     def _exchange(self, credentials, device_code):
         response = http.post("%s/token" % OAUTH, data={

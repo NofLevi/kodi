@@ -35,8 +35,26 @@ class AllDebrid(base.DebridService):
 
     # -- authorisation -----------------------------------------------------
 
-    def authorize(self):
-        import xbmcgui
+    methods = ("scan", "link", "key")
+    key_url = "https://alldebrid.com/apikeys"
+
+    def credential_settings(self):
+        return ["alldebrid.apikey"]
+
+    def authorize(self, method=None):
+        from ..ui import signin
+
+        if method == "key":
+            previous = self.key()
+            entered = signin.ask_for_key("%s API key" % self.label, previous,
+                                         help_url=self.key_url)
+            if entered is None:
+                return False
+            settings.set("alldebrid.apikey", entered)
+            if self.account_info():
+                return True
+            settings.set("alldebrid.apikey", previous)
+            return False
 
         start = http.get_json("%s/pin/get" % API_41, params={"agent": AGENT},
                               timeout=base.timeout_for("auth"), default=None)
@@ -44,28 +62,24 @@ class AllDebrid(base.DebridService):
         if not data:
             return False
 
-        lifetime = float(data.get("expires_in") or 600)
-        deadline = time.time() + lifetime
-        progress = xbmcgui.DialogProgress()
-        progress.create("AllDebrid",
-                        kodi.localize(32324, data.get("user_url", ""),
-                                      data.get("pin", "")))
-        try:
-            while time.time() < deadline and not progress.iscanceled():
-                progress.update(int(100 - ((deadline - time.time()) / lifetime) * 100))
-                time.sleep(4)
-                payload = http.get_json("%s/pin/check" % API,
-                                        params={"agent": AGENT,
-                                                "check": data.get("check"),
-                                                "pin": data.get("pin")},
-                                        default=None)
-                found = (payload or {}).get("data") or {}
-                if found.get("activated") and found.get("apikey"):
-                    settings.set("alldebrid.apikey", found["apikey"])
-                    return True
-        finally:
-            progress.close()
-        return False
+        def poll():
+            payload = http.get_json("%s/pin/check" % API,
+                                    params={"agent": AGENT,
+                                            "check": data.get("check"),
+                                            "pin": data.get("pin")},
+                                    default=None)
+            found = (payload or {}).get("data") or {}
+            if found.get("activated") and found.get("apikey"):
+                settings.set("alldebrid.apikey", found["apikey"])
+                return True
+            return False
+
+        # AllDebrid's own page is the one to scan: it carries the PIN in the
+        # URL, so scanning it skips typing the PIN as well as the address.
+        return signin.run_device(self.label, data.get("user_url", ""),
+                                 data.get("pin", ""), poll,
+                                 lifetime=data.get("expires_in"), interval=4,
+                                 scan=(method != "link"))
 
     def account_info(self):
         if not self.configured():

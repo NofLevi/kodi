@@ -91,23 +91,48 @@ def step_debrid():
         ("premiumize", "Premiumize"),
         ("alldebrid", "AllDebrid"),
     ]
-    choice = kodi.select([name for _, name in services], kodi.localize(32311))
-    if choice < 0:
-        return
-    service = services[choice][0]
     try:
         from ..debrid import registry
     except ImportError:
         kodi.ok_dialog(kodi.localize(32281))
         return
+
+    # Say which ones are already connected rather than making the viewer
+    # remember. This screen is reached again and again from Tools.
+    labels = []
+    for service, name in services:
+        client = registry.get(service)
+        connected = bool(client and client.configured())
+        labels.append("%s  %s" % ("[OK]" if connected else "[  ]", name))
+
+    choice = kodi.select(labels, kodi.localize(32311))
+    if choice < 0:
+        return
+    service, name = services[choice]
     client = registry.get(service)
     if client is None:
         kodi.notify(kodi.localize(32320))
         return
-    if client.authorize():
-        kodi.notify(kodi.localize(32321, services[choice][1]))
+    if connect(client, name):
+        kodi.notify(kodi.localize(32321, name))
     else:
         kodi.notify(kodi.localize(32322))
+
+
+def connect(client, name=""):
+    """Sign in to one service, however that service can be signed in to.
+
+    The choice of method belongs here rather than inside each client, so that
+    every service asks the same question in the same words and a client only
+    has to say which ways in it actually has.
+    """
+    from . import signin
+
+    title = name or getattr(client, "label", "") or ""
+    method = signin.choose_method(title, getattr(client, "methods", ("key",)))
+    if method is None:
+        return False
+    return bool(client.authorize(method))
 
 
 def step_trakt():
@@ -128,25 +153,29 @@ def step_trakt():
         kodi.notify(kodi.localize(32322))
         return
 
-    import xbmcgui
-    progress = xbmcgui.DialogProgress()
-    progress.create(kodi.localize(32312),
-                    kodi.localize(32324, device.get("verification_url", ""),
-                                  device.get("user_code", "")))
-    total = float(device.get("expires_in") or 600)
+    from . import signin
 
-    def tick(seconds_left):
-        if progress.iscanceled():
-            return False
-        progress.update(int(100 - (seconds_left / total) * 100))
-        return True
+    # Trakt puts the code on its own page, so the address is the thing to
+    # scan and the code still has to be typed there. Both are on screen.
+    method = signin.choose_method(kodi.localize(32312), ("scan", "link"))
+    if method is None:
+        return
 
-    try:
-        token = trakt.poll_device_token(device, on_tick=tick)
-    finally:
-        progress.close()
+    def poll():
+        answer = trakt.exchange_device_token(device)
+        # None has to survive: it is "this code is dead", and turning it into
+        # False would leave the screen waiting out the full ten minutes for
+        # something that is never going to happen.
+        return None if answer is None else bool(answer)
 
-    if token:
+    signed_in = signin.run_device(
+        kodi.localize(32312), device.get("verification_url", ""),
+        device.get("user_code", ""), poll,
+        lifetime=device.get("expires_in"),
+        interval=max(5, int(device.get("interval") or 5)),
+        scan=(method != "link"))
+
+    if signed_in:
         trakt.sync_state()
         kodi.notify(kodi.localize(32325, settings.get("trakt.user")))
     else:

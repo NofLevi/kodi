@@ -641,12 +641,19 @@ def accounts(params):
             router.url_for("connect", service=row["name"]),
             art={"icon": "DefaultAddonService.png"}, is_folder=False)
 
+    # Always, even when one is already connected. This entry used to be
+    # skipped as soon as any debrid service was signed in, which meant the
+    # only way to add a second one was to have had none - so a viewer with
+    # TorBox could not reach Real-Debrid from this screen at all, and the
+    # screen gave no hint that the other three existed.
+    listing.add_directory(
+        handle, "%s %s" % (_mark(bool(rows)), kodi.localize(32311)),
+        router.url_for("connect", service="debrid"),
+        art={"icon": "DefaultAddonService.png"}, is_folder=False)
+
     for name, label, connected in (
-            ("debrid", kodi.localize(32311), bool(rows)),
             ("trakt", "Trakt", trakt.authorised()),
             ("tmdb", "TMDB", tmdb.has_key())):
-        if name == "debrid" and rows:
-            continue
         listing.add_directory(
             handle, "%s %s" % (_mark(connected), label),
             router.url_for("connect", service=name),
@@ -673,8 +680,34 @@ def connect(params):
         if client is None:
             kodi.notify(kodi.localize(32320))
             return
-        if client.authorize():
-            kodi.notify(kodi.localize(32321, client.label))
-        else:
-            kodi.notify(kodi.localize(32322))
+        if not _connect_or_disconnect(client):
+            return
     kodi.refresh_container()
+
+
+def _connect_or_disconnect(client):
+    """Sign in, or sign out of an account that is already connected.
+
+    A connected service used to offer only "connect again", which is the one
+    thing somebody looking at a working account does not want. Signing out
+    matters more than it sounds: a stale token makes every source search
+    quietly return nothing, and clearing it is the fix.
+    """
+    from . import wizard
+
+    if client.configured():
+        options = [kodi.localize(32468),
+                   kodi.localize(32469) % client.label]
+        choice = kodi.select(options, client.label)
+        if choice < 0:
+            return False
+        if choice == 1:
+            client.sign_out()
+            kodi.notify(kodi.localize(32467))
+            return True
+
+    if wizard.connect(client, client.label):
+        kodi.notify(kodi.localize(32321, client.label))
+    else:
+        kodi.notify(kodi.localize(32322))
+    return True
