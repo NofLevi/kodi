@@ -1,4 +1,4 @@
-"""The custom home and search windows.
+﻿"""The custom home and search windows.
 
 These are the main interface, so an error in them is a black screen. The stub
 WindowXML records controls and properties, which is enough to check that rows
@@ -76,7 +76,7 @@ def home(monkeypatch, configured):
 
     rows = [{"id": "row%d" % n, "title_id": 32201, "loader": lambda: [],
              "ttl": 60, "needs": [], "default": True} for n in range(4)]
-    monkeypatch.setattr(catalog, "enabled_rows", lambda: rows)
+    monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
     monkeypatch.setattr(catalog, "peek", lambda row_id: make_items(5, row_id))
     monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
@@ -99,7 +99,7 @@ def test_the_real_flow_fills_the_rows(monkeypatch, configured):
 
     rows = [{"id": "row%d" % n, "title_id": 32201, "loader": lambda: [],
              "ttl": 60, "needs": [], "default": True} for n in range(3)]
-    monkeypatch.setattr(catalog, "enabled_rows", lambda: rows)
+    monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
     monkeypatch.setattr(catalog, "peek", lambda row_id: make_items(5, row_id))
     monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
@@ -236,7 +236,7 @@ def test_home_preloads_past_rows_that_come_back_empty(monkeypatch, configured):
     rows = [{"id": "row%d" % n, "title_id": 32201, "loader": lambda: [],
              "ttl": 60, "needs": [], "default": True} for n in range(6)]
     empty = {"row0", "row1", "row2"}
-    monkeypatch.setattr(catalog, "enabled_rows", lambda: rows)
+    monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
     monkeypatch.setattr(catalog, "peek",
                         lambda row_id: [] if row_id in empty
@@ -280,7 +280,7 @@ def test_an_empty_row_hides_itself(monkeypatch):
 
     rows = [{"id": "empty", "title_id": 32201, "loader": lambda: [],
              "ttl": 60, "needs": [], "default": True}]
-    monkeypatch.setattr(catalog, "enabled_rows", lambda: rows)
+    monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Empty")
     monkeypatch.setattr(catalog, "peek", lambda row_id: [])
     monkeypatch.setattr(catalog, "load", lambda row_id: [])
@@ -587,9 +587,10 @@ def _scrollable_home(monkeypatch, pages, paged=True):
     monkeypatch.setattr(catalog, "row_title", lambda row: "Row")
     monkeypatch.setattr(catalog, "peek", lambda row_id: list(pages.get(1, [])))
     monkeypatch.setattr(catalog, "enabled_rows",
-                        lambda: [{"id": "r0", "title_id": 0, "loader": None,
-                                  "ttl": 60, "needs": [], "default": True,
-                                  "paged": paged}])
+                        lambda section=None: [
+                            {"id": "r0", "title_id": 0, "loader": None,
+                             "ttl": 60, "needs": [], "default": True,
+                             "paged": paged}])
     monkeypatch.setattr(catalog, "load",
                         lambda row_id, page=1, **kw: list(pages.get(page, [])))
     monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
@@ -894,8 +895,8 @@ def test_back_stays_put_when_asked(monkeypatch, settings_module):
 def test_staying_put_does_not_break_the_rest_of_the_window(monkeypatch,
                                                             settings_module):
     """Only the home screen holds on. Everything inside Katan still goes back,
-    and the top bar - where the settings that turn this off live - is still
-    reachable."""
+    and the rest of the window still works - including the way out, which is
+    the settings entry at the bottom of the rail."""
     from katan.ui import home_window
 
     settings_module.set("ui.stay_in_katan", "true")
@@ -906,5 +907,12 @@ def test_staying_put_does_not_break_the_rest_of_the_window(monkeypatch,
     assert window.getFocusId() == home_window.LIST_BASE + 1
     window.onAction(MoveAction(home_window.ACTION_MOVE_UP))
     window.onAction(MoveAction(home_window.ACTION_MOVE_UP))
-    assert window.getFocusId() == home_window.BUTTON_SETTINGS - 2, \
-        "the top bar is still reachable, so the switch can be turned off"
+    assert window.getFocusId() == home_window.BUTTON_SEARCH, \
+        "the top bar is still reachable"
+
+    opened = []
+    from katan import settings as settings_mod
+    monkeypatch.setattr(settings_mod, "open_settings",
+                        lambda *a, **k: opened.append(True))
+    window.onClick(home_window.BUTTON_RAIL_SETTINGS)
+    assert opened, "the switch that turns this off has to stay reachable"

@@ -45,7 +45,209 @@ S = {
     "kids_shows": 32223,
     "kids_anime": 32224,
     "kids_israel": 32225,
+
+    # The sections, and the rows that only exist to fill them.
+    "section_home": 32420,
+    "section_movies": 32421,
+    "section_shows": 32422,
+    "section_live": 32423,
+
+    "top_rated_shows": 32424,
+    "israel_radio": 32425,
+    "movies_action": 32426,
+    "movies_comedy": 32427,
+    "movies_drama": 32428,
+    "movies_thriller": 32429,
+    "movies_scifi": 32430,
+    "movies_horror": 32431,
+    "movies_animation": 32432,
+    "movies_documentary": 32433,
+    "shows_drama": 32434,
+    "shows_comedy": 32435,
+    "shows_crime": 32436,
+    "shows_scifi": 32437,
+    "shows_documentary": 32438,
+    "shows_reality": 32439,
+
+    # Topics, which are what a tab is actually for: new, popular, classics,
+    # rather than eighteen genres and nothing to browse by.
+    "movies_new": 32440,
+    "movies_popular": 32441,
+    "movies_classics": 32442,
+    "movies_gems": 32443,
+    "movies_blockbusters": 32444,
+    "movies_nineties": 32445,
+    "movies_eighties": 32446,
+    "shows_new": 32447,
+    "shows_popular": 32448,
+    "shows_classics": 32449,
+    "shows_gems": 32450,
 }
+
+# --------------------------------------------------------------------------
+# sections
+#
+# The home screen used to be one long mixed list: films, series, live
+# channels and Israeli VOD interleaved, ten rows of it, and no way to say "I
+# want a film". These are the tabs down the left-hand side. A row can belong
+# to more than one, so the mixed view survives as the "home" section rather
+# than being thrown away.
+# --------------------------------------------------------------------------
+
+HOME = "home"
+MOVIES = "movies"
+SHOWS = "shows"
+LIVE = "live"
+
+# What the rail offers, in order. There is deliberately no "Home" entry: a
+# mixed section of everything is what the rail exists to replace, and a button
+# called Home next to Films, Series and Live TV does not say what it would
+# show. `HOME` survives as the row set the plain directory listing and the
+# background service use - "every row that is switched on" - which is a
+# different question from "which tab am I looking at".
+SECTIONS = [
+    {"id": MOVIES, "title_id": S["section_movies"]},
+    {"id": SHOWS, "title_id": S["section_shows"]},
+    {"id": LIVE, "title_id": S["section_live"]},
+]
+
+# Where the window opens. Films rather than Live TV because it is the larger
+# catalogue, and the channels are one clearly labelled button away.
+DEFAULT_SECTION = MOVIES
+
+
+# The running order of each tab. This is an editorial decision and belongs in
+# one visible list, not implied by the order rows happen to be declared in:
+# the tab is what somebody sees when they say "show me films", and it should
+# open on what is new and popular rather than on whatever was defined first.
+# Rows in a section but missing from its order follow, in table order.
+SECTION_ORDER = {
+    MOVIES: [
+        "continue", "because_you_watched",
+        "trending_movies", "movies_new", "in_cinemas", "movies_popular",
+        "popular_week_movies", "top_rated_movies", "movies_classics",
+        "movies_gems", "movies_blockbusters", "israeli_movies",
+        "coming_soon", "movies_nineties", "movies_eighties",
+        "movies_action", "movies_comedy", "movies_drama", "movies_thriller",
+        "movies_scifi", "movies_horror", "movies_animation",
+        "movies_documentary",
+    ],
+    SHOWS: [
+        "continue", "because_you_watched",
+        "trending_shows", "shows_new", "airing_today", "shows_popular",
+        "popular_week_shows", "top_rated_shows", "shows_classics",
+        "shows_gems", "returning", "israeli_shows", "anime_trending",
+        "shows_drama", "shows_comedy", "shows_crime", "shows_scifi",
+        "shows_documentary", "shows_reality",
+    ],
+    LIVE: [
+        "israel_live", "israel_radio", "israel_vod",
+        # the per-broadcaster rows follow, in the catalogue's own order
+    ],
+}
+
+
+def section_ids():
+    return [section["id"] for section in SECTIONS]
+
+
+def section_title(section_id):
+    for section in SECTIONS:
+        if section["id"] == section_id:
+            text = kodi.localize(section["title_id"])
+            if text and text != str(section["title_id"]):
+                return text
+            return section_id.title()
+    return section_id.title()
+
+
+# TMDB genre ids, which are stable and documented. Film and television use
+# different sets - television has no "Action", it has "Action & Adventure" -
+# so they are kept apart rather than shared and fudged.
+GENRE_MOVIE = {
+    "action": 28, "comedy": 35, "drama": 18, "thriller": 53,
+    "scifi": 878, "horror": 27, "animation": 16, "documentary": 99,
+}
+GENRE_TV = {
+    "drama": 18, "comedy": 35, "crime": 80, "scifi": 10765,
+    "documentary": 99, "reality": 10764,
+}
+
+
+def _by_genre(media_type, genre_id, page):
+    """One TMDB discover call, most popular first."""
+    return _tmdb().discover(media_type, page=page, with_genres=str(genre_id),
+                            sort_by="popularity.desc")
+
+
+# --------------------------------------------------------------------------
+# topics
+#
+# A tab wants topics - new, popular, classics - more than it wants a wall of
+# genres. Each of these is one discover call with the filters that make the
+# label true, and the vote-count floors are the important part: without them
+# "top rated" is a film four people have seen and scored ten, and "classics"
+# is an obscure 1974 short rather than anything anybody would call a classic.
+# --------------------------------------------------------------------------
+
+# Television uses first_air_date where film uses primary_release_date, and
+# there is no third option: asking TMDB for the wrong one is not an error, it
+# is silently ignored, and the row comes back unfiltered.
+_DATE_FIELD = {"movie": "primary_release_date", "tv": "first_air_date"}
+
+VOTES_MAINSTREAM = 300      # enough people to mean the score is real
+VOTES_CLASSIC = 800         # a classic is by definition widely seen
+VOTES_GEM_MIN = 80          # a gem is well liked...
+VOTES_GEM_MAX = 900         # ...and not already famous
+CLASSIC_BEFORE = "1996-01-01"
+
+
+def _newest(media_type, page):
+    """Released recently, and seen by enough people to not be noise."""
+    field = _DATE_FIELD[media_type]
+    return _tmdb().discover(
+        media_type, page=page, sort_by="%s.desc" % field,
+        **{"%s.lte" % field: _today(), "vote_count.gte": 20})
+
+
+def _popular(media_type, page):
+    return _tmdb().popular(media_type, page)
+
+
+def _classics(media_type, page):
+    field = _DATE_FIELD[media_type]
+    return _tmdb().discover(
+        media_type, page=page, sort_by="vote_average.desc",
+        **{"%s.lte" % field: CLASSIC_BEFORE,
+           "vote_count.gte": VOTES_CLASSIC})
+
+
+def _hidden_gems(media_type, page):
+    """Well rated, not widely seen. The upper bound is what makes it a gem."""
+    return _tmdb().discover(
+        media_type, page=page, sort_by="vote_average.desc",
+        **{"vote_average.gte": 7.2, "vote_count.gte": VOTES_GEM_MIN,
+           "vote_count.lte": VOTES_GEM_MAX})
+
+
+def _blockbusters(page):
+    """Highest grossing. Film only - TMDB has no revenue for television."""
+    return _tmdb().discover("movie", page=page, sort_by="revenue.desc",
+                            **{"vote_count.gte": VOTES_MAINSTREAM})
+
+
+def _decade(media_type, first_year, page):
+    field = _DATE_FIELD[media_type]
+    return _tmdb().discover(
+        media_type, page=page, sort_by="popularity.desc",
+        **{"%s.gte" % field: "%d-01-01" % first_year,
+           "%s.lte" % field: "%d-12-31" % (first_year + 9),
+           "vote_count.gte": VOTES_MAINSTREAM})
+
+
+def _today():
+    import time
+    return time.strftime("%Y-%m-%d")
 
 TTL_SHORT = 3 * 3600
 TTL_MEDIUM = 6 * 3600
@@ -61,13 +263,18 @@ def _tmdb():
 
 
 def _row(row_id, title_id, loader, ttl=TTL_MEDIUM, needs=("tmdb",),
-         default=True, paged=True):
+         default=True, paged=True, sections=(HOME,)):
     """One row.
 
     `loader` takes a page number. `paged` says whether asking for page two is
     worth doing at all: a row built from the bundled Israeli data, or from a
     Trakt list that arrives whole, has exactly one page and asking for another
     would be a wasted round trip.
+
+    `sections` is which tabs this row appears under, and `default` means "on
+    the mixed home tab out of the box". The two are separate on purpose: a
+    genre row belongs in Films but would crowd out the mixed view, so it has
+    a section and no default.
     """
     return {
         "id": row_id,
@@ -77,6 +284,7 @@ def _row(row_id, title_id, loader, ttl=TTL_MEDIUM, needs=("tmdb",),
         "needs": list(needs),
         "default": default,
         "paged": paged,
+        "sections": list(sections),
     }
 
 
@@ -93,102 +301,280 @@ def _build_rows():
     put them in the first place.
     """
     return [
+        # The top two rows, and they are personal ones. Both need Trakt, and
+        # both hide themselves without it - `available` drops them when there
+        # is no token, and an empty result hides the row - so on an install
+        # with no account the screen simply starts at what is trending, with
+        # no gap where they would have been.
         _row("continue", S["continue"],
              lambda page: _continue_watching(), ttl=300, needs=("trakt",),
-             paged=False),
+             paged=False, sections=(HOME, MOVIES, SHOWS)),
+        _row("because_you_watched", S["because_you_watched"],
+             lambda page: _because_you_watched(page), TTL_MEDIUM,
+             needs=("trakt",), sections=(HOME, MOVIES, SHOWS)),
 
         _row("trending_movies", S["trending_movies"],
-             lambda page: _tmdb().trending("movie", "day", page), TTL_SHORT),
+             lambda page: _tmdb().trending("movie", "day", page), TTL_SHORT,
+             sections=(HOME, MOVIES)),
         _row("trending_shows", S["trending_shows"],
-             lambda page: _tmdb().trending("tv", "day", page), TTL_SHORT),
+             lambda page: _tmdb().trending("tv", "day", page), TTL_SHORT,
+             sections=(HOME, SHOWS)),
 
         # The Israeli half, high up. Neither needs a key of any kind.
         _row("israel_live", S["israel_live"],
              lambda page: _israel_live(), TTL_LONG, needs=("vod",),
-             paged=False),
+             paged=False, sections=(HOME, LIVE)),
         _row("israel_vod", S["israel_vod"],
              lambda page: _israel_vod_new(), TTL_SHORT, needs=("vod",),
-             paged=False),
+             paged=False, sections=(HOME, LIVE)),
 
         _row("israeli_movies", S["israeli_movies"],
              lambda page: _tmdb().by_original_language("he", "movie", page),
-             TTL_LONG),
+             TTL_LONG, sections=(HOME, MOVIES)),
         _row("israeli_shows", S["israeli_shows"],
              lambda page: _tmdb().by_original_language("he", "tv", page),
-             TTL_LONG),
+             TTL_LONG, sections=(HOME, SHOWS)),
 
         _row("popular_week_movies", S["popular_week_movies"],
-             lambda page: _tmdb().trending("movie", "week", page), TTL_MEDIUM),
+             lambda page: _tmdb().trending("movie", "week", page), TTL_MEDIUM,
+             sections=(HOME, MOVIES)),
         _row("popular_week_shows", S["popular_week_shows"],
-             lambda page: _tmdb().trending("tv", "week", page), TTL_MEDIUM),
+             lambda page: _tmdb().trending("tv", "week", page), TTL_MEDIUM,
+             sections=(HOME, SHOWS)),
 
         _row("in_cinemas", S["in_cinemas"],
-             lambda page: _tmdb().now_playing(page), TTL_LONG),
+             lambda page: _tmdb().now_playing(page), TTL_LONG,
+             sections=(HOME, MOVIES)),
         _row("coming_soon", S["coming_soon"],
-             lambda page: _tmdb().upcoming(page), TTL_LONG, default=False),
+             lambda page: _tmdb().upcoming(page), TTL_LONG, default=False,
+             sections=(MOVIES,)),
 
         _row("airing_today", S["airing_today"],
-             lambda page: _tmdb().airing_today(page), TTL_SHORT),
+             lambda page: _tmdb().airing_today(page), TTL_SHORT,
+             sections=(HOME, SHOWS)),
         _row("returning", S["returning"],
-             lambda page: _tmdb().on_the_air(page), TTL_MEDIUM, default=False),
+             lambda page: _tmdb().on_the_air(page), TTL_MEDIUM, default=False,
+             sections=(SHOWS,)),
 
         _row("anime_trending", S["anime_trending"],
-             lambda page: _anime_trending(page), TTL_SHORT, needs=("anilist",)),
+             lambda page: _anime_trending(page), TTL_SHORT, needs=("anilist",),
+             sections=(HOME, SHOWS)),
 
         # Below the fold by default. These need a Trakt client id to return
         # anything at all, and without one they were spending two of the ten
         # slots on nothing.
+        # Trakt rows stay on the mixed home view only. They need a client id
+        # nobody has yet, and a tab whose first four rows are empty is worse
+        # than a tab that does not offer them.
         _row("trakt_trending_movies", S["trakt_trending_movies"],
              lambda page: _trakt_list("movies", "trending"), TTL_SHORT,
-             needs=("trakt_public",), paged=False),
+             needs=("trakt_public",), paged=False, sections=(HOME,)),
         _row("trakt_trending_shows", S["trakt_trending_shows"],
              lambda page: _trakt_list("shows", "trending"), TTL_SHORT,
-             needs=("trakt_public",), paged=False),
+             needs=("trakt_public",), paged=False, sections=(HOME,)),
         _row("anticipated", S["anticipated"],
              lambda page: _trakt_list("movies", "anticipated"), TTL_LONG,
-             needs=("trakt_public",), default=False, paged=False),
+             needs=("trakt_public",), default=False, paged=False,
+             sections=(HOME,)),
         _row("box_office", S["box_office"],
              lambda page: _trakt_list("movies", "boxoffice"), TTL_LONG,
-             needs=("trakt_public",), default=False, paged=False),
+             needs=("trakt_public",), default=False, paged=False,
+             sections=(HOME,)),
 
         _row("new_netflix", S["new_netflix"],
              lambda page: _tmdb().new_on_provider("netflix", "movie", page),
-             TTL_LONG, default=False),
+             TTL_LONG, default=False, sections=(HOME,)),
 
         _row("top_rated_movies", S["top_rated_movies"],
              lambda page: _tmdb().top_rated("movie", page), TTL_LONG,
-             default=False),
+             default=False, sections=(MOVIES,)),
+        _row("top_rated_shows", S["top_rated_shows"],
+             lambda page: _tmdb().top_rated("tv", page), TTL_LONG,
+             default=False, sections=(SHOWS,)),
 
-        _row("because_you_watched", S["because_you_watched"],
-             lambda page: _because_you_watched(page), TTL_MEDIUM,
-             needs=("trakt",), default=False),
         _row("watchlist", S["watchlist"],
-             lambda page: _watchlist(), 900, needs=("trakt",), paged=False),
+             lambda page: _watchlist(), 900, needs=("trakt",), paged=False,
+             sections=(HOME,)),
+
+        # --- the Films tab ------------------------------------------------
+        # Topics first, then genres. These are all off the mixed home view on
+        # purpose: twenty more rows there would bury everything else, which is
+        # the problem the tabs were added to solve.
+        _row("movies_new", S["movies_new"],
+             lambda page: _newest("movie", page), TTL_MEDIUM,
+             default=False, sections=(MOVIES,)),
+        _row("movies_popular", S["movies_popular"],
+             lambda page: _popular("movie", page), TTL_MEDIUM,
+             default=False, sections=(MOVIES,)),
+        _row("movies_classics", S["movies_classics"],
+             lambda page: _classics("movie", page), TTL_LONG,
+             default=False, sections=(MOVIES,)),
+        _row("movies_gems", S["movies_gems"],
+             lambda page: _hidden_gems("movie", page), TTL_LONG,
+             default=False, sections=(MOVIES,)),
+        _row("movies_blockbusters", S["movies_blockbusters"],
+             lambda page: _blockbusters(page), TTL_LONG,
+             default=False, sections=(MOVIES,)),
+        _row("movies_nineties", S["movies_nineties"],
+             lambda page: _decade("movie", 1990, page), TTL_LONG,
+             default=False, sections=(MOVIES,)),
+        _row("movies_eighties", S["movies_eighties"],
+             lambda page: _decade("movie", 1980, page), TTL_LONG,
+             default=False, sections=(MOVIES,)),
+
+        _row("movies_action", S["movies_action"],
+             lambda page: _by_genre("movie", GENRE_MOVIE["action"], page),
+             TTL_LONG, default=False, sections=(MOVIES,)),
+        _row("movies_comedy", S["movies_comedy"],
+             lambda page: _by_genre("movie", GENRE_MOVIE["comedy"], page),
+             TTL_LONG, default=False, sections=(MOVIES,)),
+        _row("movies_drama", S["movies_drama"],
+             lambda page: _by_genre("movie", GENRE_MOVIE["drama"], page),
+             TTL_LONG, default=False, sections=(MOVIES,)),
+        _row("movies_thriller", S["movies_thriller"],
+             lambda page: _by_genre("movie", GENRE_MOVIE["thriller"], page),
+             TTL_LONG, default=False, sections=(MOVIES,)),
+        _row("movies_scifi", S["movies_scifi"],
+             lambda page: _by_genre("movie", GENRE_MOVIE["scifi"], page),
+             TTL_LONG, default=False, sections=(MOVIES,)),
+        _row("movies_horror", S["movies_horror"],
+             lambda page: _by_genre("movie", GENRE_MOVIE["horror"], page),
+             TTL_LONG, default=False, sections=(MOVIES,)),
+        _row("movies_animation", S["movies_animation"],
+             lambda page: _by_genre("movie", GENRE_MOVIE["animation"], page),
+             TTL_LONG, default=False, sections=(MOVIES,)),
+        _row("movies_documentary", S["movies_documentary"],
+             lambda page: _by_genre("movie", GENRE_MOVIE["documentary"], page),
+             TTL_LONG, default=False, sections=(MOVIES,)),
+
+        # --- the Series tab -----------------------------------------------
+        _row("shows_new", S["shows_new"],
+             lambda page: _newest("tv", page), TTL_MEDIUM,
+             default=False, sections=(SHOWS,)),
+        _row("shows_popular", S["shows_popular"],
+             lambda page: _popular("tv", page), TTL_MEDIUM,
+             default=False, sections=(SHOWS,)),
+        _row("shows_classics", S["shows_classics"],
+             lambda page: _classics("tv", page), TTL_LONG,
+             default=False, sections=(SHOWS,)),
+        _row("shows_gems", S["shows_gems"],
+             lambda page: _hidden_gems("tv", page), TTL_LONG,
+             default=False, sections=(SHOWS,)),
+
+        _row("shows_drama", S["shows_drama"],
+             lambda page: _by_genre("tv", GENRE_TV["drama"], page),
+             TTL_LONG, default=False, sections=(SHOWS,)),
+        _row("shows_comedy", S["shows_comedy"],
+             lambda page: _by_genre("tv", GENRE_TV["comedy"], page),
+             TTL_LONG, default=False, sections=(SHOWS,)),
+        _row("shows_crime", S["shows_crime"],
+             lambda page: _by_genre("tv", GENRE_TV["crime"], page),
+             TTL_LONG, default=False, sections=(SHOWS,)),
+        _row("shows_scifi", S["shows_scifi"],
+             lambda page: _by_genre("tv", GENRE_TV["scifi"], page),
+             TTL_LONG, default=False, sections=(SHOWS,)),
+        _row("shows_documentary", S["shows_documentary"],
+             lambda page: _by_genre("tv", GENRE_TV["documentary"], page),
+             TTL_LONG, default=False, sections=(SHOWS,)),
+        _row("shows_reality", S["shows_reality"],
+             lambda page: _by_genre("tv", GENRE_TV["reality"], page),
+             TTL_LONG, default=False, sections=(SHOWS,)),
+
+        # --- the Live tab -------------------------------------------------
+        # One row per broadcaster is built below rather than listed here,
+        # because the broadcasters come from the bundled catalogue and their
+        # names are already Hebrew in the data.
+        _row("israel_radio", S["israel_radio"],
+             lambda page: _israel_radio(), TTL_LONG, needs=("vod",),
+             default=False, paged=False, sections=(LIVE,)),
+    ] + [
 
         # Kids mode rows. These are never in the default set: kids.rows_allowed
         # swaps the whole row list for them when the mode is on. They ask TMDB
         # for a certification ceiling rather than filtering afterwards, which
         # is what makes them safe on list data that carries no rating.
-        _row("kids_movies", S["kids_movies"],
-             lambda page: _kids_discover("movie", page), TTL_LONG,
-             default=False),
-        _row("kids_shows", S["kids_shows"],
-             lambda page: _kids_discover("tv", page), TTL_LONG, default=False),
-        _row("kids_anime", S["kids_anime"],
-             lambda page: _kids_anime(page), TTL_LONG, default=False),
-        _row("kids_israel", S["kids_israel"],
-             lambda page: _kids_israel(), TTL_LONG, needs=("vod",),
-             default=False, paged=False),
+        _kids(_row("kids_movies", S["kids_movies"],
+                   lambda page: _kids_discover("movie", page), TTL_LONG,
+                   default=False, sections=(HOME, MOVIES))),
+        _kids(_row("kids_shows", S["kids_shows"],
+                   lambda page: _kids_discover("tv", page), TTL_LONG,
+                   default=False, sections=(HOME, SHOWS))),
+        _kids(_row("kids_anime", S["kids_anime"],
+                   lambda page: _kids_anime(page), TTL_LONG, default=False,
+                   sections=(HOME, SHOWS))),
+        _kids(_row("kids_israel", S["kids_israel"],
+                   lambda page: _kids_israel(), TTL_LONG, needs=("vod",),
+                   default=False, paged=False, sections=(HOME, LIVE))),
     ]
 
 
+def _kids(row):
+    """Mark a row as belonging to kids mode and nowhere else.
+
+    Without this the kid-safe rows appeared on the Films and Series tabs with
+    the mode switched off - not a safety problem, they are only films, but a
+    grown-up browsing films was being shown a children's row for no reason.
+    """
+    row["kids_only"] = True
+    return row
+
+
+def _broadcaster_rows():
+    """One Live-tab row per Israeli broadcaster in the bundled catalogue.
+
+    Built rather than listed because the catalogue is data: adding a
+    broadcaster to it should not need a code change here, and the names are
+    already Hebrew in the file, so they need no string ids either. The title
+    comes back through `row_title`, which prefers a literal `title` when a row
+    carries one.
+    """
+    try:
+        from .vod import library
+    except ImportError:
+        return []
+    try:
+        modules = library.modules()
+    except Exception:
+        kodi.log_exception("could not list the VOD broadcasters")
+        return []
+
+    out = []
+    for module, _count in modules:
+        if not module:
+            continue
+        row = _row("israel_vod_%s" % module, 0,
+                   lambda page, m=module: _broadcaster(m), TTL_SHORT,
+                   needs=("vod",), default=False, paged=False,
+                   sections=(LIVE,))
+        row["title"] = library.MODULE_NAMES.get(module, module)
+        out.append(row)
+    return out
+
+
 _ROWS = None
+_HAVE_BROADCASTERS = False
 
 
 def rows():
-    global _ROWS
+    """The row table, built once.
+
+    The broadcaster rows are appended separately and retried until they
+    arrive, rather than being built with the rest. They are the only rows that
+    come from data rather than from this file, so they are the only ones that
+    can fail to exist: the bundled catalogue has to be readable, which means
+    the cache and the profile directory have to be there. Folding them into
+    the one-time build meant a single early failure - the service starting
+    before the profile did, say - removed the whole Live tab for the life of
+    the process, silently and permanently.
+    """
+    global _ROWS, _HAVE_BROADCASTERS
     if _ROWS is None:
         _ROWS = _build_rows()
+    if not _HAVE_BROADCASTERS:
+        extra = _broadcaster_rows()
+        if extra:
+            _ROWS = _ROWS + extra
+            _HAVE_BROADCASTERS = True
     return _ROWS
 
 
@@ -221,16 +607,33 @@ def available(row):
     return True
 
 
-def enabled_row_ids():
-    """Ordered row ids from settings, falling back to the defaults.
+def enabled_row_ids(section=HOME):
+    """Ordered row ids for one section, falling back to the defaults.
+
+    Only the mixed home section is user-orderable. `ui.rows` is a list the
+    viewer arranged for *that* screen, and applying it to the Films tab would
+    either empty the tab or reorder it by a preference expressed about
+    something else. The other tabs are the row table's own order, filtered.
 
     Kids mode replaces the list rather than filtering it, so a row that cannot
-    express a certification ceiling is never offered while it is on.
+    express a certification ceiling is never offered while it is on. The kids
+    rows carry sections of their own, so the tabs keep working inside it: the
+    Films tab shows kid-safe films rather than nothing.
     """
     from . import kids
 
     if kids.enabled():
-        return list(kids.ROW_IDS)
+        allowed = [by_id(row_id) for row_id in kids.ROW_IDS]
+        return [row["id"] for row in allowed
+                if row and section in row["sections"]]
+
+    if section != HOME:
+        members = [row for row in rows()
+                   if section in row["sections"] and not row.get("kids_only")]
+        order = SECTION_ORDER.get(section, [])
+        rank = {row_id: n for n, row_id in enumerate(order)}
+        members.sort(key=lambda row: rank.get(row["id"], len(order)))
+        return [row["id"] for row in members]
 
     configured = settings.get_list("ui.rows")
     if configured:
@@ -239,9 +642,9 @@ def enabled_row_ids():
     return [row["id"] for row in rows() if row["default"]]
 
 
-def enabled_rows():
+def enabled_rows(section=HOME):
     out = []
-    for row_id in enabled_row_ids():
+    for row_id in enabled_row_ids(section):
         row = by_id(row_id)
         if row and available(row):
             out.append(row)
@@ -443,6 +846,23 @@ def _israel_vod_new():
     return library.newest_episodes(limit=ROW_LIMIT)
 
 
+def _israel_radio():
+    try:
+        from .vod import channels
+    except ImportError:
+        return []
+    return channels.radio_stations(limit=ROW_LIMIT)
+
+
+def _broadcaster(module):
+    """One broadcaster's programmes, for its row on the Live tab."""
+    try:
+        from .vod import library
+    except ImportError:
+        return []
+    return library.by_module(module, limit=ROW_LIMIT)
+
+
 # TMDB genre ids. Family and Animation for film, Kids and Family for
 # television, which is what "safe by construction" means here.
 _KIDS_GENRES = {"movie": "10751,16", "tv": "10762,10751"}
@@ -546,7 +966,15 @@ def _kids_israel():
 
 
 def row_title(row):
-    """Localised heading for a row, with a readable fallback."""
+    """Localised heading for a row, with a readable fallback.
+
+    A row may carry a literal `title` instead of a string id. That is for the
+    broadcaster rows, whose names come out of the bundled catalogue already in
+    Hebrew and are proper nouns in any language - translating "כאן" would be
+    inventing a word for a television channel.
+    """
+    if row.get("title"):
+        return row["title"]
     text = kodi.localize(row["title_id"])
     if text and text != str(row["title_id"]):
         return text

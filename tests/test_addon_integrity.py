@@ -238,6 +238,64 @@ def test_the_home_screen_has_a_slot_for_every_row_on_by_default():
         % (len(on_by_default), home_window.ROW_SLOTS,
            on_by_default[home_window.ROW_SLOTS:]))
 
+    # And the same for every tab, which is the bigger number now: the Films
+    # tab is the one that decides how many row controls the skin needs.
+    for section in catalog.section_ids():
+        ids = catalog.enabled_row_ids(section)
+        assert len(ids) <= home_window.ROW_SLOTS, (
+            "the %s section has %d rows and only %d fit, so %s would never "
+            "be drawn" % (section, len(ids), home_window.ROW_SLOTS,
+                          ids[home_window.ROW_SLOTS:]))
+
+
+def test_the_section_rail_matches_the_catalog():
+    """The rail's control ids run in catalog.SECTIONS order.
+
+    The window maps a control id to a section by subtracting SECTION_BASE, so
+    a button in the wrong place does not fail - it quietly switches to the
+    wrong section, which is the sort of thing that gets shipped.
+    """
+    from katan import catalog
+    from katan.ui import home_window
+
+    with open(os.path.join(SKIN_DIR, "katan-home.xml"),
+              encoding="utf-8") as handle:
+        body = handle.read()
+
+    ids = [home_window.SECTION_BASE + n
+           for n in range(len(catalog.SECTIONS))]
+    for n, control_id in enumerate(ids):
+        assert 'id="%d"' % control_id in body, (
+            "section %s has no button in the skin"
+            % catalog.SECTIONS[n]["id"])
+        assert 'Window.Property(katan.rail%d.title)' % n in body, (
+            "section %s has a button with no label bound to it"
+            % catalog.SECTIONS[n]["id"])
+
+    # Settings is the entry after the last section, and it is on the rail
+    # rather than in the top bar, which is where people look for it.
+    assert 'id="%d"' % home_window.BUTTON_RAIL_SETTINGS in body, \
+        "the rail has no settings entry"
+    assert 'Window.Property(katan.rail%d.title)' % len(catalog.SECTIONS) in body
+
+    # No "Home" tab. A button called Home beside Films, Series and Live TV
+    # does not say what it would show, and the viewer said so.
+    assert catalog.HOME not in [s["id"] for s in catalog.SECTIONS]
+
+    # The accent bar for each section tests the property the window writes.
+    for section in catalog.SECTIONS:
+        assert 'katan.section),%s)' % section["id"] in body, (
+            "no active marker for the %s section" % section["id"])
+
+    # And every section has a title string that actually exists.
+    po = os.path.join(LANG_DIR, "resource.language.en_gb", "strings.po")
+    with open(po, encoding="utf-8") as handle:
+        defined = set(re.findall(r'msgctxt "#(\d+)"', handle.read()))
+    for section in catalog.SECTIONS:
+        assert str(section["title_id"]) in defined, \
+            "section %s names string %s, which is not defined" % (
+                section["id"], section["title_id"])
+
 
 def test_the_israeli_rows_are_near_the_top_of_the_home_screen():
     """The two rows this add-on exists for should not be below the fold.

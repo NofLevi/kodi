@@ -36,17 +36,25 @@ ACTION_MOUSE_MOVE = 107
 MOVE_ACTIONS = (ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT, ACTION_MOVE_UP,
                 ACTION_MOVE_DOWN, ACTION_MOUSE_MOVE)
 
-# How many row controls exist in katan-home.xml. Fifteen rows are on by
-# default, so ten was not a limit anybody would notice hitting - it was five
-# rows quietly cut off the end of the list, and the Israeli live channels were
-# among them: the add-on's own reason for existing, enabled, warmed by the
-# service, and never drawn. `_slot_count` now says so in the log if it ever
-# happens again, and test_addon_integrity checks this number against the skin.
-ROW_SLOTS = 16
+# How many row controls exist in katan-home.xml. Ten was not a limit anybody
+# would notice hitting - it was five rows quietly cut off the end of the list,
+# and the Israeli live channels were among them: the add-on's own reason for
+# existing, enabled, warmed by the service, and never drawn. `_pick_rows` now
+# says so in the log if it ever happens again, and test_addon_integrity checks
+# this number against the skin and against the largest section.
+ROW_SLOTS = 24
 LIST_BASE = 5000
 BUTTON_SEARCH = 9010
 BUTTON_TOOLS = 9011
-BUTTON_SETTINGS = 9012
+
+# The section rail down the left-hand side. The ids run in the same order as
+# catalog.SECTIONS, and an integrity test holds them to that. Settings is the
+# last entry rather than a section - it opens the dialog and comes back - and
+# it lives here rather than in the top bar because that is where somebody
+# looks for it.
+RAIL = 9019
+SECTION_BASE = 9020
+BUTTON_RAIL_SETTINGS = SECTION_BASE + len(catalog.SECTIONS)
 
 PRELOAD_ROWS = 3          # rows filled before the window is shown
 LOOKAHEAD = 2             # rows filled ahead of the focused one
@@ -78,6 +86,7 @@ class HomeWindow(xbmcgui.WindowXML):
         self.exhausted = set()    # rows with nothing further to fetch
         self.extending = set()    # rows with a page in flight
         self.pending = {}         # slot index -> items fetched, not yet added
+        self.section = catalog.DEFAULT_SECTION
         self.lock = threading.Lock()
         # Whether onInit has already done its work. This has to be its own flag
         # rather than "do we know the rows yet", because prepare() now works
@@ -102,11 +111,13 @@ class HomeWindow(xbmcgui.WindowXML):
             return
 
         if not self.rows:
-            self.rows = _pick_rows()
+            self.rows = _pick_rows(self.section)
         if not self.rows:
             kodi.notify(kodi.localize(32256))
             self.close()
             return
+        self.setProperty("katan.section", self.section)
+        self._label_rail()
         for index in range(len(self.rows)):
             self._set_title(index, catalog.row_title(self.rows[index]))
 
@@ -141,7 +152,9 @@ class HomeWindow(xbmcgui.WindowXML):
         Setting the properties on the window object before doModal means the
         groups are already visible the first time it renders.
         """
-        self.rows = _pick_rows()
+        self.rows = _pick_rows(self.section)
+        self.setProperty("katan.section", self.section)
+        self._label_rail()
         for index in range(len(self.rows)):
             self._set_title(index, catalog.row_title(self.rows[index]))
         return bool(self.rows)
@@ -195,6 +208,12 @@ class HomeWindow(xbmcgui.WindowXML):
                 return
             self._cleanup()
             self.close()
+            return
+        if code == ACTION_MOVE_RIGHT and self._on_rail():
+            # Back into the content. The skin points the rail at row 5000,
+            # which is the wrong row whenever the first one came back empty -
+            # and on the Live tab without the bundled data, every one of them.
+            self._focus_first_row()
             return
         if code in (ACTION_MOVE_UP, ACTION_MOVE_DOWN) and self._move_row(code):
             return
@@ -251,6 +270,13 @@ class HomeWindow(xbmcgui.WindowXML):
         Python knows which rows came back empty, and an explicit <ondown> at a
         hidden row would simply fail.
         """
+        if self._on_rail():
+            # The rail is a vertical grouplist, so Kodi already walks up and
+            # down it correctly. Taking over here sent the first press
+            # straight into the rows, which made the sections below Home
+            # unreachable with a remote.
+            return False
+
         current = self._focused_row()
         if current is None:
             # On the top bar: down goes into the content, up stays put.
@@ -276,16 +302,97 @@ class HomeWindow(xbmcgui.WindowXML):
         self._extend_ahead()
         return True
 
+    # -- sections ----------------------------------------------------------
+
+    def _label_rail(self):
+        """Name the rail's entries from the catalog rather than from the XML.
+
+        The skin could hold the string ids itself, and did at first. Putting
+        them here keeps one list of sections instead of two that have to agree
+        - adding a section to `catalog.SECTIONS` and forgetting the XML would
+        otherwise give an unlabelled button that still worked.
+        """
+        for index, section_id in enumerate(catalog.section_ids()):
+            self.setProperty("katan.rail%d.title" % index,
+                             catalog.section_title(section_id))
+        self.setProperty("katan.rail%d.title" % len(catalog.SECTIONS),
+                         kodi.localize(32261))       # Settings
+
+    def _switch_section(self, section):
+        """Swap the whole set of rows for another section's.
+
+        Everything per-row is thrown away, because every index now means a
+        different row: the data, which pages have been fetched, which rows are
+        finished, and any page still in flight. Keeping any of it would show
+        one section's films under another section's heading.
+        """
+        if section == self.section:
+            return
+        kodi.log("switching to the %s section" % section)
+        self.section = section
+        self.setProperty("katan.section", section)
+
+        for index in range(ROW_SLOTS):
+            self._set_title(index, "")
+            try:
+                self.getControl(LIST_BASE + index).reset()
+            except Exception:
+                pass          # a slot the skin has but this section never used
+
+        self.data.clear()
+        self.filled.clear()
+        self.pages.clear()
+        self.exhausted.clear()
+        self.pending.clear()
+
+        self.rows = _pick_rows(section)
+        for index in range(len(self.rows)):
+            self._set_title(index, catalog.row_title(self.rows[index]))
+
+        filled = 0
+        for index in range(len(self.rows)):
+            if filled >= PRELOAD_ROWS:
+                break
+            self._fill(index)
+            if self.data.get(index):
+                filled += 1
+
+        if not self._focus_first_row():
+            # Nothing in this section yet. Leave focus on the rail rather than
+            # sending it to the top bar: the viewer is picking sections, and
+            # the next thing they will want is a different one.
+            self.setFocusId(SECTION_BASE + catalog.section_ids().index(section))
+        self._seed_hero()
+        self._fill_rest_async()
+
+    def _section_for(self, control_id):
+        index = control_id - SECTION_BASE
+        ids = catalog.section_ids()
+        return ids[index] if 0 <= index < len(ids) else None
+
+    def _on_rail(self):
+        """Anywhere on the rail, settings included.
+
+        Settings is not a section, so asking `_section_for` about it answers
+        None - which would have made up, down and right behave on that one
+        entry as though focus were in the rows.
+        """
+        return SECTION_BASE <= self.getFocusId() <= BUTTON_RAIL_SETTINGS
+
     def onClick(self, control_id):
+        section = self._section_for(control_id)
+        if section:
+            self._switch_section(section)
+            return
+        if control_id == BUTTON_RAIL_SETTINGS:
+            from .. import settings
+            settings.open_settings()
+            return
         if control_id == BUTTON_SEARCH:
             self._open_search()
             return
         if control_id == BUTTON_TOOLS:
             self._run("tools")
-            return
-        if control_id == BUTTON_SETTINGS:
-            from .. import settings
-            settings.open_settings()
             return
         if LIST_BASE <= control_id < LIST_BASE + ROW_SLOTS:
             self._open_selected(control_id - LIST_BASE)
@@ -590,12 +697,15 @@ class HomeWindow(xbmcgui.WindowXML):
             self.clearProperty("katan.row%d.title" % index)
         for name in ("title", "plot", "fanart", "meta"):
             self.clearProperty("katan.hero.%s" % name)
+        self.clearProperty("katan.section")
+        for index in range(len(catalog.SECTIONS) + 1):
+            self.clearProperty("katan.rail%d.title" % index)
         self.data.clear()
         self.pages.clear()
         self.exhausted.clear()
 
 
-def _pick_rows():
+def _pick_rows(section=catalog.HOME):
     """The rows this window will draw, and a complaint about any it cannot.
 
     The window has a fixed number of row controls, so a viewer who enables
@@ -607,13 +717,14 @@ def _pick_rows():
     Only the screen disagreed, and a screen that is missing a row does not say
     which one.
     """
-    rows = catalog.enabled_rows()
+    rows = catalog.enabled_rows(section)
     if len(rows) <= ROW_SLOTS:
         return rows
     dropped = [row["id"] for row in rows[ROW_SLOTS:]]
-    kodi.log("home: %d rows enabled but only %d can be drawn, so these are "
-             "not on the screen: %s" % (len(rows), ROW_SLOTS,
-                                        ", ".join(dropped)), kodi.LOG_WARNING)
+    kodi.log("home: section %s has %d rows but only %d can be drawn, so these "
+             "are not on the screen: %s"
+             % (section, len(rows), ROW_SLOTS, ", ".join(dropped)),
+             kodi.LOG_WARNING)
     return rows[:ROW_SLOTS]
 
 

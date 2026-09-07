@@ -85,6 +85,13 @@ def play(handle, request, force_picker=False):
 
     chosen = _choose(sources, meta, force_picker)
     if not chosen:
+        # Either the viewer closed the picker, or - the case that used to be
+        # invisible - autoplay was handed a list it could make nothing of. An
+        # episode once reached this line with eighty-one sources behind it and
+        # left no trace at all: no attempt, no message, nothing in the log,
+        # and a remote that appeared not to have been pressed.
+        kodi.log("nothing chosen from %d sources for %s"
+                 % (len(sources), meta.get("title", "")), kodi.LOG_INFO)
         listing.resolve_failed(handle)
         return
 
@@ -106,10 +113,20 @@ def play(handle, request, force_picker=False):
     listing.resolve(handle, url, meta.get("item"))
 
 
-# How many sources autoplay will try before giving up. Small on purpose: each
-# attempt is a round trip to a debrid service, and on TorBox an attempt can
-# spend one of sixty uncached torrent adds an hour.
+# How many sources autoplay will try before giving up.
+#
+# Two numbers, because the cost of an attempt is not the same in both modes.
+# With "cached only" on - the default, and what the low-memory profile
+# enforces - no attempt can start a download, so the only cost is a round trip
+# and the sixty-an-hour uncached quota is never touched. Being stingy there
+# buys nothing and loses playbacks: The Matrix was refused by three sources in
+# a row, each honestly ("still downloading", "no seeds", "no usable video
+# file"), and giving up at that point left three more in the list untried.
+#
+# With uncached downloads allowed, an attempt can spend one of those sixty, so
+# the small number stands.
 RESOLVE_ATTEMPTS = 3
+RESOLVE_ATTEMPTS_CACHED = 6
 
 
 def _resolve_any(chosen, sources, force_picker):
@@ -129,9 +146,11 @@ def _resolve_any(chosen, sources, force_picker):
     if url or force_picker:
         return chosen, url
 
+    limit = RESOLVE_ATTEMPTS if _uncached_allowed() else RESOLVE_ATTEMPTS_CACHED
     tried = {id(chosen)}
     for candidate in sources:
-        if len(tried) >= RESOLVE_ATTEMPTS:
+        if len(tried) >= limit:
+            kodi.log("gave up after %d sources, none of them playable" % limit)
             break
         if id(candidate) in tried:
             continue
@@ -184,6 +203,12 @@ def _resolve(source):
 
     client = registry.resolver_for(source)
     if client is None:
+        # Silence here reads as "the button did nothing". It happens for a
+        # real reason - the source is cached on a service that is no longer
+        # configured, or on none at all - and the reason is worth one line.
+        kodi.log("no configured debrid service can open %s (cached by %s)"
+                 % (source.get("title", "")[:60],
+                    source.get("cached_by") or "nobody"))
         return ""
     try:
         return client.resolve(source) or ""

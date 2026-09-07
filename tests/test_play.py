@@ -306,12 +306,48 @@ def test_a_source_the_viewer_picked_is_not_quietly_swapped(film, monkeypatch):
 
 
 def test_it_gives_up_rather_than_working_through_every_source(film,
-                                                              monkeypatch):
-    """Each attempt is a round trip, and on TorBox it can spend one of sixty
-    uncached adds an hour."""
+                                                              monkeypatch,
+                                                              settings_module):
+    """It must stop, but where it stops depends on what an attempt costs.
+
+    With uncached downloads allowed an attempt can spend one of TorBox's sixty
+    an hour, so the limit is small. With "cached only" on - the default - no
+    attempt can start a download, and being stingy only loses playbacks: The
+    Matrix was refused by three sources in a row, each for an honest reason,
+    with three more in the list that were never tried.
+    """
     many = [dict(SOURCES[0], title="source %d" % n) for n in range(20)]
-    tried = []
-    monkeypatch.setattr(play, "_resolve",
-                        lambda s: tried.append(s["title"]) or "")
-    play._resolve_any(many[0], many, force_picker=False)
-    assert len(tried) == play.RESOLVE_ATTEMPTS
+
+    def run():
+        tried = []
+        monkeypatch.setattr(play, "_resolve",
+                            lambda s: tried.append(s["title"]) or "")
+        play._resolve_any(many[0], many, force_picker=False)
+        return tried
+
+    settings_module.set("sources.cached_only", "true")
+    assert len(run()) == play.RESOLVE_ATTEMPTS_CACHED
+
+    settings_module.set("sources.cached_only", "false")
+    assert len(run()) == play.RESOLVE_ATTEMPTS
+
+    assert play.RESOLVE_ATTEMPTS < play.RESOLVE_ATTEMPTS_CACHED, \
+        "an attempt that can start a download is the expensive one"
+
+
+def test_a_source_no_service_can_open_says_so(film, monkeypatch, caplog):
+    """Silence here reads as "the button did nothing".
+
+    An episode reached the end of playback with eighty-one sources behind it
+    and left no trace at all - no attempt, no message, nothing in the log.
+    """
+    from katan.debrid import registry
+
+    monkeypatch.setattr(registry, "resolver_for", lambda source: None)
+    logged = []
+    monkeypatch.setattr(play.kodi, "log",
+                        lambda message, *a, **k: logged.append(message))
+
+    assert play._resolve(dict(SOURCES[0])) == ""
+    assert any("no configured debrid service" in line for line in logged), \
+        "a source nothing can open must say so: %s" % logged
