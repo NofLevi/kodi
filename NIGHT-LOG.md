@@ -62,7 +62,7 @@ polish is one switch that can only ever raise what a profile chose.
 Kodi a URL went from 5–8 seconds to **1.4–3.9**, by not downloading the entire
 TorBox account (466 KB, 58 torrents) to look up one hash.
 
-Tests went from 559 to **753**. Everything is committed and pushed.
+Tests went from 559 to **756**. Everything is committed and pushed.
 
 **On the keys, since you asked twice.** Checked properly, not just glanced at:
 neither the TorBox key nor the TMDB key appears in any tracked file *or in any
