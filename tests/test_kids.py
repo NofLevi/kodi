@@ -349,43 +349,77 @@ def test_kodi_is_not_taken_over_unless_asked(monkeypatch, settings_module):
     assert not ran
 
 
-def test_it_opens_katan_when_asked(monkeypatch, settings_module):
+def _asked_to_open(monkeypatch, settings_module, home_active=True,
+                   playing=False):
+    """A service told to open on boot, with Kodi's state under control."""
+    import xbmc
     from katan import background, kodi
 
     settings_module.set("ui.start_on_boot", "true")
+    monkeypatch.setattr(xbmc, "getCondVisibility", lambda condition:
+                        (playing if condition == "Player.HasMedia"
+                         else home_active))
     ran = []
     monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
-    background.Service().open_on_boot()
+    return background.Service(), ran
 
+
+def test_it_opens_katan_when_asked(monkeypatch, settings_module):
+    service, ran = _asked_to_open(monkeypatch, settings_module)
+
+    # The settle: it does not fire the instant Kodi's home appears.
+    now = __import__("time").time()
+    assert service.open_on_boot(now) is False
+    assert not ran
+
+    assert service.open_on_boot(now + 5) is True
     assert len(ran) == 1
     assert "plugin://plugin.video.katan/" in ran[0]
     assert "return" in ran[0], "back should leave Katan, not the window stack"
 
 
+def test_it_waits_for_kodis_home_screen_rather_than_a_clock(monkeypatch,
+                                                            settings_module):
+    """The first version slept eight seconds because eight looked safe, and
+    eight seconds of staring at Kodi's home screen is the wasted step this is
+    meant to remove."""
+    service, ran = _asked_to_open(monkeypatch, settings_module,
+                                  home_active=False)
+    now = __import__("time").time()
+
+    for offset in (0, 1, 5, 10):
+        assert service.open_on_boot(now + offset) is False, offset
+    assert not ran, "nothing should open while Kodi is still starting"
+
+
+def test_it_opens_anyway_if_that_home_screen_never_comes(monkeypatch,
+                                                         settings_module):
+    """A skin that starts somewhere else must not mean Katan never opens."""
+    from katan import background
+
+    service, ran = _asked_to_open(monkeypatch, settings_module,
+                                  home_active=False)
+    assert service.open_on_boot(service.open_deadline + 1) is True
+    assert len(ran) == 1
+    assert background.OPEN_DEADLINE <= 30
+
+
 def test_it_does_not_interrupt_something_already_playing(monkeypatch,
                                                          settings_module):
-    import xbmc
-    from katan import background, kodi
-
-    settings_module.set("ui.start_on_boot", "true")
-    monkeypatch.setattr(xbmc, "getCondVisibility",
-                        lambda condition: condition == "Player.HasMedia")
-    ran = []
-    monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
-    background.Service().open_on_boot()
+    service, ran = _asked_to_open(monkeypatch, settings_module, playing=True)
+    assert service.open_on_boot() is True, "decided, and the answer is no"
     assert not ran
 
 
 def test_it_happens_once_a_session(monkeypatch, settings_module):
-    """Backing out of Katan must leave you in Kodi, not bounce you back in."""
-    from katan import background, kodi
+    """Backing out of Katan must leave you in Kodi, not bounce you back in.
 
-    settings_module.set("ui.start_on_boot", "true")
-    ran = []
-    monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
+    The loop stops asking as soon as open_on_boot returns True, and that is
+    the only thing keeping it to once.
+    """
+    service, ran = _asked_to_open(monkeypatch, settings_module)
+    now = __import__("time").time()
 
-    service = background.Service()
-    assert service.opened is False
-    service.open_on_boot()
-    assert service.opened is True, "the loop must not call it again"
+    service.open_on_boot(now)
+    assert service.open_on_boot(now + 5) is True
     assert len(ran) == 1
