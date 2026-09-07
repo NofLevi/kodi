@@ -131,7 +131,7 @@ class HomeWindow(xbmcgui.WindowXML):
         for index in sorted(self.data):
             if self.data.get(index):
                 self.setFocusId(LIST_BASE + index)
-                return
+                return True
         # Nothing filled: every row is hidden, so row zero is not there to
         # focus either and the screen would be black with no way off it but
         # the back button. The top bar is always visible, so the viewer can
@@ -166,11 +166,53 @@ class HomeWindow(xbmcgui.WindowXML):
             self._cleanup()
             self.close()
             return
+        if code in (ACTION_MOVE_UP, ACTION_MOVE_DOWN) and self._move_row(code):
+            return
         if code in MOVE_ACTIONS:
             self._update_hero()
             self._fill_ahead()
         elif code == ACTION_CONTEXT_MENU:
             self._context_menu()
+
+    def _move_row(self, code):
+        """Move up or down between rows, skipping the ones that are empty.
+
+        Kodi does this itself when a skin says where up and down go. These
+        lists say nothing - they only wire left and right, so a horizontal
+        list wraps within itself - and Kodi's geometric fallback does not find
+        its way out of the nested groups. The result was that **down never
+        left the first row**: the main screen of the add-on showed one row and
+        everything under it was visible and unreachable with a remote. Six
+        presses, focus never moved, confirmed by asking Kodi which control it
+        thought was focused.
+
+        Python is the right place to fix it rather than the skin, because only
+        Python knows which rows came back empty, and an explicit <ondown> at a
+        hidden row would simply fail.
+        """
+        current = self._focused_row()
+        if current is None:
+            # On the top bar: down goes into the content, up stays put.
+            if code == ACTION_MOVE_DOWN:
+                return self._focus_first_row()
+            return False
+
+        filled = sorted(index for index in self.data if self.data.get(index))
+        if not filled:
+            return False
+        later = [i for i in filled if i > current] if code == ACTION_MOVE_DOWN \
+            else [i for i in reversed(filled) if i < current]
+        if not later:
+            # Past the last row, or above the first: the top bar is up there.
+            if code == ACTION_MOVE_UP:
+                self.setFocusId(BUTTON_SEARCH)
+                return True
+            return False
+
+        self.setFocusId(LIST_BASE + later[0])
+        self._update_hero()
+        self._fill_ahead()
+        return True
 
     def onClick(self, control_id):
         if control_id == BUTTON_SEARCH:
