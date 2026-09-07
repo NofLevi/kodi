@@ -267,3 +267,40 @@ def test_choosing_an_embedded_track_switches_the_player(monkeypatch):
     assert switched == ["2"]
     assert xbmcplugin.ITEMS == [], "an embedded pick returns no file"
     assert xbmcplugin.ENDED
+
+
+# --------------------------------------------------------------------------
+# which languages the chooser searches for
+# --------------------------------------------------------------------------
+
+
+def test_the_addons_languages_are_added_to_what_kodi_asked_for(settings_module):
+    """Kodi ships with its subtitle language set to English.
+
+    Wizdom is a Hebrew site, so a Hebrew viewer on a stock Kodi opened the
+    subtitle list in a Hebrew add-on and was told "no subtitles found" -
+    true of the question asked, and useless as an answer.
+    """
+    settings_module.set("subs.languages", "he,en")
+    languages = service._search_languages({"languages": "English"})
+    assert "he" in languages
+    assert languages[0] == "en", "what Kodi asked for still comes first"
+
+
+def test_what_kodi_asked_for_is_never_dropped(settings_module):
+    settings_module.set("subs.languages", "he")
+    languages = service._search_languages({"languages": "French,German"})
+    assert languages[:2] == ["fr", "de"]
+    assert "he" in languages
+
+
+def test_no_request_falls_back_to_the_addons_own_setting(settings_module):
+    settings_module.set("subs.languages", "he,en")
+    assert service._search_languages({}) == ["he", "en"]
+
+
+def test_a_language_is_not_asked_for_twice(settings_module):
+    settings_module.set("subs.languages", "he,en")
+    languages = service._search_languages({"languages": "Hebrew,English"})
+    assert len(languages) == len(set(languages))
+    assert sorted(languages) == ["en", "he"]

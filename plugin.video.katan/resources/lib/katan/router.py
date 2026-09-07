@@ -58,12 +58,42 @@ def _load_handlers():
     from .ui import handlers          # noqa: F401  (registers routes on import)
 
 
+def is_subtitle_request(params):
+    """Is this Kodi's subtitle dialog rather than a viewer browsing?
+
+    It matters because Kodi runs the **plugin source** for a subtitle module
+    that belongs to an add-on which is also a video plugin: the dialog calls
+    `plugin://plugin.video.katan/?action=search&languages=...`, and Kodi
+    resolves that to main.py, never to subtitles.py. So the declared
+    `xbmc.subtitle.module` library was never executed once, and `action=search`
+    landed in the video search-window route instead - which tried to open a
+    window over a modal dialog, failed, and left the chooser saying "no
+    subtitles found" for every film ever tried.
+
+    `manualsearch` and `download` are unambiguous: no route of ours uses those
+    names. `search` is the collision, and Kodi always sends `preferredlanguage`
+    with it, which nothing in this add-on's own URLs ever does.
+    """
+    action = params.get("action", "")
+    if action in ("manualsearch", "download"):
+        return True
+    return action == "search" and "preferredlanguage" in params
+
+
 def dispatch(argv=None):
     """Entry point called from main.py."""
     argv = argv or sys.argv
     query = argv[2] if len(argv) > 2 else ""
     params = parse_params(query)
     action = params.get("action", "home")
+
+    if is_subtitle_request(params):
+        try:
+            from .subs import service
+            service.dispatch(argv)
+        except Exception:
+            kodi.log_exception("subtitle service failed")
+        return
 
     try:
         _load_handlers()

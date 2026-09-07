@@ -1,7 +1,14 @@
 """Subtitle service entry point.
 
-Kodi calls this with action=search|manualsearch|download when the user opens
-the subtitle dialog during playback.
+Declared as the add-on's `xbmc.subtitle.module` library, and Kodi does not
+actually run it. When a subtitle module belongs to an add-on that is also a
+video plugin, Kodi's subtitle dialog calls
+`plugin://plugin.video.katan/?action=search&languages=...`, and resolves that
+plugin path to main.py. So the real path in is router.dispatch, which
+recognises a subtitle request and hands it here.
+
+This file stays because the extension point requires a library that exists,
+and because a Kodi that does call it directly will get the same behaviour.
 """
 import os
 import sys
