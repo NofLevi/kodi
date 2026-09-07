@@ -24,7 +24,13 @@ from . import listing
 ACTION_PREVIOUS_MENU = 10
 ACTION_NAV_BACK = 92
 ACTION_BACKSPACE = 110
-ACTION_ENTER = 7
+
+# 135, not 7. Kodi calls 7 ACTION_SELECT_ITEM - it is the OK button - so
+# naming it ACTION_ENTER meant every press on the key grid ran a search as
+# well as typing a letter. `_submit` wants two characters, so the effect was
+# that you could type exactly two and the *third* key closed the window and
+# searched for the fragment. The keyboard looked broken because it was.
+ACTION_ENTER = 135
 
 KEY_BASE = 4000
 KEY_COUNT = 30
@@ -43,12 +49,18 @@ MIN_QUERY = 2
 # hidden control cannot take focus, so opening the window logged "Control 4000
 # has been asked to focus, but it can't" and the grid was left with nothing
 # focused. Filling every slot means every key is always there to focus.
+#
+# Hebrew first and Latin second, so one press of the switch moves between the
+# two *alphabets*. The order used to be Latin, Hebrew, digits, which meant a
+# Hebrew interface - the one this opens on - offered the number pad as its
+# next set and reached English only on the second press. Somebody looking for
+# English pressed once, got digits, and reasonably concluded there was none.
 CHARSETS = [
-    list("abcdefghijklmnopqrstuvwxyz") + ["-", "'", ":", "."],
     list("\u05d0\u05d1\u05d2\u05d3\u05d4\u05d5\u05d6\u05d7\u05d8\u05d9"
          "\u05db\u05dc\u05de\u05e0\u05e1\u05e2\u05e4\u05e6\u05e7\u05e8"
          "\u05e9\u05ea") + ["\u05da", "\u05dd", "\u05df", "\u05e3", "\u05e5",
                             "-", "'", "."],
+    list("abcdefghijklmnopqrstuvwxyz") + ["-", "'", ":", "."],
     list("0123456789") + ["&", "+", "!", "?", ",", "(", ")", "-", "'", ":",
                           ".", "/", "#", "@", "*", "%", "=", "_", "\"", ";"],
 ]
@@ -58,9 +70,9 @@ assert all(len(charset) == KEY_COUNT for charset in CHARSETS), \
 
 # Written in the script each one is, so the button reads as itself in any
 # interface language.
-CHARSET_NAMES = ["ABC", "אבג", "123"]
+CHARSET_NAMES = ["אבג", "ABC", "123"]
 
-LATIN, HEBREW, DIGITS = 0, 1, 2
+HEBREW, LATIN, DIGITS = 0, 1, 2
 
 
 def initial_charset():

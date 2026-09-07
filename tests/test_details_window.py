@@ -234,3 +234,97 @@ def test_an_episode_runtime_is_localised(window):
         {"type": "episode", "premiered": "2023-05-04", "duration": 62 * 60})
     assert "2023-05-04" in line
     assert kodi.localize(32234, 62) in line
+
+
+# --------------------------------------------------------------------------
+# choosing a source for a series
+#
+# A film has one thing to choose a source for and a show has forty, so
+# "choose a source" on a series has to mean the episode being looked at. It
+# meant the next unwatched one - the same episode Play starts - so having
+# highlighted episode nine and found its only source unwatchable, there was
+# no way at all to ask for another.
+# --------------------------------------------------------------------------
+
+
+def _picker_calls(monkeypatch):
+    """Record what the window asked the picker for, instead of running it."""
+    calls = []
+    monkeypatch.setattr(details_window.DetailsWindow, "_play",
+                        lambda self, entry, force_picker=False:
+                        calls.append((entry, force_picker)))
+    return calls
+
+
+def test_choosing_a_source_uses_the_highlighted_episode(window, monkeypatch):
+    detail = window(SHOW)
+    detail.getControl(details_window.LIST_CONTENT).position = 0
+    detail.onClick(details_window.LIST_CONTENT)          # into season 1
+    detail.getControl(details_window.LIST_CONTENT).position = 1
+
+    calls = _picker_calls(monkeypatch)
+    detail.onClick(details_window.BUTTON_SOURCES)
+
+    assert len(calls) == 1
+    entry, force_picker = calls[0]
+    assert force_picker is True
+    assert entry["type"] == "episode"
+    assert entry["episode"] == detail.entries[1]["episode"]
+
+
+def test_the_context_menu_opens_the_picker_for_that_episode(window,
+                                                            monkeypatch):
+    detail = window(SHOW)
+    detail.getControl(details_window.LIST_CONTENT).position = 0
+    detail.onClick(details_window.LIST_CONTENT)
+    detail.getControl(details_window.LIST_CONTENT).position = 1
+
+    calls = _picker_calls(monkeypatch)
+    detail.onAction(FakeAction(details_window.ACTION_CONTEXT_MENU))
+
+    assert len(calls) == 1
+    entry, force_picker = calls[0]
+    assert force_picker is True
+    assert entry["episode"] == detail.entries[1]["episode"]
+
+
+def test_a_season_is_not_something_a_source_can_be_chosen_for(window,
+                                                              monkeypatch):
+    """On the season list the selection is a season, so this has to fall back
+    to what Play would start rather than offering sources for "Season 2"."""
+    detail = window(SHOW)
+    detail.getControl(details_window.LIST_CONTENT).position = 1
+
+    calls = _picker_calls(monkeypatch)
+    detail.onClick(details_window.BUTTON_SOURCES)
+
+    assert len(calls) == 1
+    entry, force_picker = calls[0]
+    assert force_picker is True
+    assert entry["type"] == "episode", "a season is not playable"
+
+
+def test_a_film_still_chooses_a_source_for_itself(window, monkeypatch):
+    detail = window(MOVIE)
+    calls = _picker_calls(monkeypatch)
+
+    detail.onClick(details_window.BUTTON_SOURCES)
+
+    assert calls == [(detail.item, True)]
+
+
+def test_play_still_means_the_next_unwatched_episode(window, monkeypatch):
+    """Play keeps what it always meant. Only the source picker follows the
+    highlight, because that is the one that has to name an episode."""
+    detail = window(SHOW)
+    detail.getControl(details_window.LIST_CONTENT).position = 0
+    detail.onClick(details_window.LIST_CONTENT)
+    detail.getControl(details_window.LIST_CONTENT).position = 0   # episode 1
+
+    calls = _picker_calls(monkeypatch)
+    detail.onClick(details_window.BUTTON_PLAY)
+
+    assert len(calls) == 1
+    entry, force_picker = calls[0]
+    assert force_picker is False
+    assert entry["episode"] == 2, "episode 1 is already watched"
