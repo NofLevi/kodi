@@ -18,8 +18,18 @@ SENDER = "plugin.video.katan"
 
 
 def notify_upnext(meta):
-    """Send the current and next episode to Up Next."""
+    """Send the current and next episode to Up Next.
+
+    The installed check is first because working out the next episode costs up
+    to two TMDB requests - the rest of this season, and then the next one -
+    and without Up Next there is nothing to draw the card. That is two round
+    trips per episode, on a device with a few hundred megabytes, for a signal
+    with no listener. `installed()` existed for exactly this and was never
+    called.
+    """
     if not meta or meta.get("type") != "episode":
+        return False
+    if not installed():
         return False
 
     nxt = next_episode(meta)
@@ -121,9 +131,9 @@ def _send(payload):
 
 
 def installed():
-    try:
-        import xbmcaddon
-        xbmcaddon.Addon("service.upnext")
-        return True
-    except Exception:
-        return False
+    """Is the Up Next add-on here to receive the signal?
+
+    Through kodi.has_addon rather than its own Addon() call, because that one
+    remembers the answer for the process and this is asked once per episode.
+    """
+    return kodi.has_addon("service.upnext")

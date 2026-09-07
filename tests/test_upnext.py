@@ -65,3 +65,53 @@ def test_notify_is_a_no_op_for_movies(fake_show):
     del xbmc.JSONRPC_CALLS[:]
     assert upnext.notify_upnext({"type": "movie", "ids": {"tmdb": 1}}) is False
     assert not xbmc.JSONRPC_CALLS
+
+
+# --------------------------------------------------------------------------
+# whether the signal is worth working out at all
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def without_upnext(monkeypatch):
+    from katan import kodi
+    monkeypatch.setattr(kodi, "has_addon", lambda addon_id: False)
+
+
+def test_nothing_is_worked_out_when_up_next_is_not_installed(fake_show,
+                                                             without_upnext,
+                                                             monkeypatch):
+    """Finding the next episode costs up to two TMDB requests - the rest of
+    this season, then the next one - and without Up Next there is nothing to
+    draw the card. Two round trips per episode for a signal with no listener.
+    """
+    from katan.meta import tmdb
+
+    asked = []
+    monkeypatch.setattr(tmdb, "episodes",
+                        lambda tmdb_id, season: asked.append(season) or [])
+
+    del xbmc.JSONRPC_CALLS[:]
+    assert upnext.notify_upnext(base_meta(1, 1)) is False
+    assert not asked, "TMDB should not have been asked anything"
+    assert not xbmc.JSONRPC_CALLS
+
+
+def test_the_signal_is_sent_when_up_next_is_installed(fake_show, monkeypatch):
+    from katan import kodi
+
+    monkeypatch.setattr(kodi, "has_addon",
+                        lambda addon_id: addon_id == "service.upnext")
+    del xbmc.JSONRPC_CALLS[:]
+    assert upnext.notify_upnext(base_meta(1, 1)) is True
+    assert xbmc.JSONRPC_CALLS
+
+
+def test_installed_asks_about_the_right_addon(monkeypatch):
+    from katan import kodi
+
+    asked = []
+    monkeypatch.setattr(kodi, "has_addon",
+                        lambda addon_id: asked.append(addon_id) or True)
+    assert upnext.installed() is True
+    assert asked == ["service.upnext"]
