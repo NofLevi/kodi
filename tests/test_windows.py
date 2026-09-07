@@ -793,10 +793,9 @@ def test_a_row_that_runs_out_stops_being_asked(monkeypatch):
     assert window._wants_more(0) is False
 
 
-def test_a_page_that_repeats_what_we_have_is_not_progress(monkeypatch):
+def test_a_page_that_repeats_what_we_have_is_not_appended(monkeypatch):
     """A trending list reshuffles between requests and hands back items the
-    row already holds. Appending those would grow the row with duplicates and
-    never reach the end."""
+    row already holds. Appending those would grow the row with duplicates."""
     from katan.ui import home_window
 
     first = make_items(20, "one")
@@ -808,7 +807,52 @@ def test_a_page_that_repeats_what_we_have_is_not_progress(monkeypatch):
     window._absorb()
 
     assert len(window.data[0]) == 20
+
+
+def test_one_repeated_page_does_not_end_the_row(monkeypatch):
+    """This is what stopped the trending rows after a single page.
+
+    Trending reshuffles, so page two legitimately repeats much of page one -
+    and trending is the first row of both the Films and Series tabs, so that
+    one duplicate page killed scrolling on the row most likely to be
+    scrolled. It steps over the page and carries on.
+    """
+    from katan.ui import home_window
+
+    first = make_items(20, "one")
+    window = _scrollable_home(monkeypatch, {1: first, 2: list(first),
+                                            3: make_items(20, "three")})
+
+    window.getControl(home_window.LIST_BASE).selectItem(19)
+    window._extend_ahead()
+    _settle()
+    window._absorb()
+    assert 0 not in window.exhausted, "one repeated page is not the end"
+    assert window.pages[0] == 2, "and the row moved past it"
+
+    # The next attempt reaches page three, which has something new.
+    window._extend_ahead()
+    _settle()
+    window._absorb()
+    assert len(window.data[0]) == 40
+
+
+def test_a_row_that_keeps_repeating_is_eventually_finished(monkeypatch):
+    """A list that has genuinely run out should stop being asked."""
+    from katan.ui import home_window
+
+    first = make_items(20, "one")
+    pages = {n: list(first) for n in range(1, 12)}
+    window = _scrollable_home(monkeypatch, pages)
+
+    window.getControl(home_window.LIST_BASE).selectItem(19)
+    for _ in range(home_window.BARREN_PAGES):
+        window._extend_ahead()
+        _settle()
+        window._absorb()
+
     assert 0 in window.exhausted
+    assert len(window.data[0]) == 20
 
 
 def test_a_row_stops_growing_at_the_ceiling(monkeypatch):
@@ -840,7 +884,14 @@ def test_a_row_that_fails_to_grow_still_works(monkeypatch):
     window._absorb()
 
     assert len(window.data[0]) == 20, "the row keeps what it already had"
-    assert 0 in window.exhausted, "and gives up rather than retrying forever"
+    assert 0 not in window.exhausted, (
+        "one failure is not the end of a row - a request can time out on a "
+        "wireless projector and mean nothing at all")
+
+    for _ in range(home_window.BARREN_PAGES):
+        window._extend_ahead()
+        _settle()
+    assert 0 in window.exhausted, "but it does give up eventually"
 
 
 def _settle():
