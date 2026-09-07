@@ -443,24 +443,30 @@ def test_no_public_function_is_defined_and_never_called():
                     "%s:%d" % (os.path.relpath(path, PACKAGE_ROOT),
                                node.lineno))
 
-    haystack = []
+    # Count every identifier in one pass rather than searching the whole tree
+    # once per name. Four hundred regex scans over a few megabytes took six
+    # seconds, which is a third of the suite for one check.
+    import collections
+
+    mentions = collections.Counter()
+    word = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
     for base in (ADDON_DIR, TESTS_DIR, os.path.join(ROOT, "tools")):
         for folder, dirs, files in os.walk(base):
             if "__pycache__" in folder or ".kodi-test" in folder:
                 continue
             for name in files:
-                if name.endswith((".py", ".xml")):
-                    with io.open(os.path.join(folder, name), encoding="utf-8",
-                                 errors="replace") as handle:
-                        haystack.append(handle.read())
-    blob = "\n".join(haystack)
+                if not name.endswith((".py", ".xml")):
+                    continue
+                with io.open(os.path.join(folder, name), encoding="utf-8",
+                             errors="replace") as handle:
+                    mentions.update(word.findall(handle.read()))
 
     orphans = []
     for name, places in sorted(defined.items()):
         if name in _CALLED_BY_KODI:
             continue
         # The definition itself is one mention; more means somebody calls it.
-        if len(re.findall(r"\b%s\b" % re.escape(name), blob)) <= len(places):
+        if mentions[name] <= len(places):
             orphans.append("%s (%s)" % (name, ", ".join(places)))
 
     assert not orphans, (
