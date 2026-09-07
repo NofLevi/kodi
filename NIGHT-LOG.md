@@ -25,9 +25,10 @@ TorBox and TMDB are both connected and working. Films and episodes play.
 If you read nothing else, read this.
 
 **The add-on now does the thing it was built for.** Before tonight not one film
-or episode had ever played. Three films, two episodes and a 73-file season pack
-have now played in a real Kodi 21 with the player reporting `speed=1`, and a
-Hebrew subtitle was found, downloaded and applied to one of them automatically.
+or episode had ever played. The last run played **5 of 5** — three films, two
+episodes and a 73-file season pack — in a real Kodi 21 with the player
+reporting `speed=1`, and a Hebrew subtitle was found, downloaded and applied to
+one of them automatically.
 
 **Five things were broken in ways no test could have found**, and all five are
 fixed and photographed:
@@ -53,10 +54,10 @@ About **6 MB of visible artwork**, measured on the device report. The visual
 polish is one switch that can only ever raise what a profile chose.
 
 **And it is faster.** The plugin's own work between pressing play and handing
-Kodi a URL went from 5–8 seconds to **1.0–2.3**, by not downloading the entire
+Kodi a URL went from 5–8 seconds to **1.4–3.9**, by not downloading the entire
 TorBox account (466 KB, 58 torrents) to look up one hash.
 
-Tests went from 559 to **735**. Everything is committed and pushed.
+Tests went from 559 to **744**. Everything is committed and pushed.
 
 **On the keys, since you asked twice.** Checked properly, not just glanced at:
 neither the TorBox key nor the TMDB key appears in any tracked file *or in any
@@ -81,8 +82,7 @@ marked confirmed on the strength of a passing unit test alone.
 | DASH channels without inputstream.adaptive | `kodi.has_adaptive()` in a Kodi that lacks it | **Confirmed hidden** rather than listed and broken |
 | VOD — all 7 broadcasters | Each opened and an episode played in Kodi | **Confirmed.** Kan, Keshet, Reshet, Sport 5, Now 14, Sport 1, 891FM. |
 | VOD catalogue browsing | Route sweep + screenshots | **Confirmed.** Kan shows 11 Hebrew categories with counts; Keshet 671 programmes. |
-| Debrid playback — films | Shawshank, Dark Knight, Inception through the real route | **Confirmed.** 3 of 3, full runtime, re-confirmed at 09:05 on the lean defaults. |
-| Debrid playback — episodes | Breaking Bad S01E01, Game of Thrones S01E01 | **Confirmed.** Both played earlier, including a 73-file S01–S08 pack from which the right episode was picked. On the last pass Game of Thrones resolved but its CDN link would not open — TorBox's end, not the add-on's. |
+| Debrid playback — films and episodes | Five titles through the real route, last run 12:55 | **Confirmed — 5 of 5.** Shawshank, Dark Knight, Inception, Breaking Bad S01E01 and Game of Thrones S01E01, all at `speed=1`, including a 73-file S01–S08 pack from which the right episode was picked. **Two of the five only played because of the fall-through**: their first source was one TorBox had accepted but was still downloading. |
 | Time to first picture | Timed on the lean defaults | **5 to 15 seconds**, and nearly all of it is Kodi's own probe of the TorBox URL, not the add-on. The plugin's own work — find, rank, resolve — is now **1.0 to 2.3 seconds**, down from 5 to 8: see 11:30. |
 | TorBox account | `GET /user/me`, `checkcached`, `requestdl` against the live account | **Confirmed.** Plan Essential, premium to 2026-10-23. Both undocumented response shapes now measured and tested. |
 | Source ranking and the picker | Opened the way a viewer does — home, film, "choose a source" | **Confirmed.** Six ranked rows with release name, provider, size, seeders and "TorBox 1080P במטמון". It was crashing this morning. |
@@ -695,3 +695,50 @@ Nothing in the add-on can fix it, and the runs where it behaves play 4 or 5 of
 5.
 
 732 tests.
+
+## 12:40 — Twelve more functions nothing called, and two of them mattered
+
+Three defects tonight had the same shape: a public function defined, never
+called, and in two cases a check somebody meant to make. So I went looking for
+the rest. There were twelve, and `test_addon_integrity` now fails if one comes
+back.
+
+Writing that test correctly mattered more than running it. My first sweep said
+"zero" because it counted the source tree twice and hid everything. It has to
+skip route handlers, which are called through the decorator's registry, Kodi's
+own callbacks, and methods — `urlsession.redirect_request` is urllib's own API
+and looks identical to dead code from outside.
+
+Two were worth wiring rather than deleting.
+
+**"Verbose logging" did nothing at all.** Everything this add-on logs is DEBUG,
+and Kodi throws DEBUG away unless the whole application has debug logging on —
+a firehose nobody wants to read to find out why one film would not play. The
+toggle now writes this add-on's own messages at INFO, so they survive in an
+ordinary log. Off by default; nothing changes.
+
+**A subtitle listed as Hebrew and written in English** was applied silently.
+`srt.looks_hebrew` existed for exactly that and was never called. The automatic
+path checks now and falls through. The manual chooser deliberately does not:
+you picked that entry, and second-guessing you would be worse than honouring a
+choice you can see and change.
+
+## 12:55 — 5 of 5, and two of them only because of the fall-through
+
+The best playback run of the night, and the log reads like a summary of it:
+
+    sources: 147 found, 60 kept, showing 6 (dropped: 30 HDR is switched off...)
+    TorBox is still fetching 66672b822002 (state 'downloading'), so there is
+      nothing to play yet
+    falling through to the next source: Inception.2010.1080p...GalaxyRG265.mkv
+    action movie took 3929 ms
+
+Three separate fixes from tonight, working together in four lines. Inception
+and The Dark Knight both had a first source that Torrentio called cached and
+TorBox was still downloading — the exact failure that made them "did not play"
+six hours ago. They play now.
+
+Every plugin call between pressing play and Kodi having a URL: **1.4 to 3.9
+seconds**. First picture: 5 to 10.
+
+744 tests.
