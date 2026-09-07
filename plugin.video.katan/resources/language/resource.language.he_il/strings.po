@@ -1416,3 +1416,27 @@ msgstr "TorrentsDB"
 msgctxt "#30149"
 msgid "TorrentsDB address"
 msgstr "כתובת TorrentsDB"
+
+msgctxt "#32492"
+msgid "will translate from %s"
+msgstr "יתרגם מ-%s"
+
+msgctxt "#32493"
+msgid "will translate whatever it can find"
+msgstr "יתרגם כל מה שימצא"
+
+msgctxt "#32494"
+msgid "AI translation"
+msgstr "תרגום AI"
+
+msgctxt "#32495"
+msgid "A translation is already running"
+msgstr "תרגום כבר רץ ברקע"
+
+msgctxt "#32496"
+msgid "Translating. It will appear as it is ready."
+msgstr "מתרגם. הכתוביות יופיעו תוך כדי"
+
+msgctxt "#32497"
+msgid "needs an AI key - press to set one up"
+msgstr "דרוש מפתח AI - לחצו להגדרה"

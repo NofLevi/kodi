@@ -140,7 +140,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-910 tests, all running against Kodi stubs, so no Kodi install is needed:
+993 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -167,6 +167,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_subtitle_matching.py` | 14 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
+| `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
 | `test_subtitle_pipeline.py` | 16 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. |
 | `test_ktuvit.py` | 19 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
 | `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
@@ -295,6 +296,27 @@ A later pass added two more, both about lists rather than layout:
   paged through the catalogue on its own: 94 items during a start-up with no
   input at all.
 
+A later pass added two more, and both are about *where* code runs rather than
+what it does. Neither is visible from Python and neither could fail a test.
+
+* **Kodi's subtitle window is modal, and a modal silently refuses to let
+  anything open over it.** The AI row asks for a Gemini key when there is
+  none; the prompt was opened, Kodi declined, and nothing appeared - no
+  error, no log line, just a press that did nothing. This is the same rule
+  that stopped a context menu starting playback until the busy dialog was
+  closed, met in a second place. Kodi also does not close the subtitle list
+  when the plugin hands nothing back, and this row deliberately hands nothing
+  back, so the list sat there over the thing it was writing to. The service
+  closes it itself and waits until it has actually gone.
+* **A plugin invocation is torn down the moment it returns**, so a thread
+  started there is killed part way through anything slow. `player.py` already
+  says this in its first paragraph - it is why the player monitor lives in the
+  service - and the AI translation had to learn it again: a feature film is
+  minutes of work, and the plugin process is gone in milliseconds. The dialog
+  now leaves a window property and the background service, which outlives
+  every window and every plugin call, picks it up within a second and does
+  the work on a thread of its own.
+
 The lesson worth keeping: the stubs can only be as right as our belief about
 Kodi, and five of these were the stubs being more generous, or more
 synchronous, than the real thing. Anything about how Kodi *renders*,
@@ -419,6 +441,21 @@ What the viewer sees when they open the subtitle list, in order:
                      confirmed by hash. No qualifier, because none is needed.
     82% estimate     everything else, shown as an estimate so a guess reads
                      as a guess rather than a promise.
+    AI translation   last, and not a subtitle anyone has - an offer to make
+                     one. It is shown whether or not the list above it is
+                     empty, because nothing here can tell a good Hebrew
+                     subtitle from a bad one by looking at it, and the case
+                     people complain about is subtitles that exist, are in
+                     the right language, and are wrong. It appears without a
+                     key configured and says so, because hiding it until
+                     there is a key shows nothing at all to the one viewer
+                     who most needs it. Switching AI off in the settings does
+                     hide it - that is somebody saying they do not want it.
+
+The row is honest about what it does not know: no percentage and a flat three
+stars, because its accuracy is the accuracy of whatever it ends up
+translating, which is not known until it has run. Its timings are not a guess
+- they come from the source subtitle and are never touched.
 
 A forced or signs-only embedded track is scored lower and labelled as such. It
 captions on-screen text rather than translating dialogue, so the automatic path
@@ -474,6 +511,11 @@ settings that promised a provider with no code behind them were removed, and
   fixtures, but has never signed in to a real account.
 * MDBList is implemented and fixture tested; the live API needs a key.
 * AI subtitle translation is fixture tested; the live path needs a Gemini key.
+  Everything around it *has* been run in a real Kodi 21 over a real playback:
+  the row appears in Kodi's own subtitle dialog in Hebrew, pressing it reaches
+  the background service in about 170 ms, the subtitle list closes itself and
+  the key prompt opens over the still-playing film. What no key can prove is
+  the only thing left - that the model returns usable Hebrew.
 * Subtitles have run on a real playback - the file hash is computed in about a
   second and the Hebrew search starts - but no subtitle has been watched
   through to the end of a film on a real file.

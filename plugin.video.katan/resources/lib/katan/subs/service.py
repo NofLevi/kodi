@@ -5,6 +5,7 @@ the manual counterpart to auto.py: the same candidates, the same scoring, but
 shown as a list with the match score visible so the viewer can decide.
 """
 import os
+import time
 
 try:
     from urllib.parse import parse_qsl, urlencode
@@ -22,6 +23,16 @@ from . import auto, embedded, matcher, srt, sync
 
 # Kodi shows five stars; the score is a percentage.
 STARS = 5
+
+# The synthetic entry that is not a subtitle anyone has, but one we can make.
+AI_PROVIDER = "ai"
+
+# The two window properties this and the background service talk over. They
+# are properties rather than module variables because Kodi runs each plugin
+# call in its own Python process, so a module variable would be a fresh empty
+# one every time.
+AI_REQUEST = "subs.translate"       # the dialog asks; the service answers
+AI_RUNNING = "subs.translating"     # set while one is under way
 
 
 def dispatch(argv):
@@ -100,12 +111,78 @@ def _search(handle, params):
     ranked = matcher.rank(found, target, video_hash, languages) if found else []
 
     entries = inside + ranked
+    offer = _ai_entry(ranked, _target_language(languages))
+    if offer:
+        entries = entries + [offer]
     if not entries:
         kodi.notify(kodi.localize(32336))
         return
 
     for position, candidate in enumerate(entries[:40]):
         _add(handle, position, candidate)
+
+
+def _target_language(languages):
+    """The language a translation should produce.
+
+    Kodi's own subtitle language leads, because the viewer set it in the
+    dialog they are standing in and that is the clearest statement of what
+    they want right now. Falling back to this add-on's own preference matters
+    on a stock Kodi, which asks for English whatever the interface language.
+    """
+    return (languages or settings.subtitle_languages() or ["he"])[0]
+
+
+def _ai_entry(ranked, target):
+    """The "translate this with AI" row, or None when there is no engine.
+
+    It is offered whether or not anything was found, and that is the point.
+    Offering it only when the list is empty would miss the case the viewer
+    actually complains about - subtitles that exist, are in the right
+    language, and are wrong - and there is no way for this add-on to tell a
+    good subtitle from a bad one by looking at it. So the row is always there
+    and the viewer decides.
+
+    It is listed last, because a real subtitle in the right language is
+    usually the better answer and takes seconds rather than minutes.
+
+    The row appears without a key configured, and says so. Hiding it until a
+    key exists means the one viewer who most needs it - the one staring at a
+    film with no subtitles - is shown nothing and has no way to find out the
+    feature is there. Switching AI off in the settings does hide it, because
+    that is somebody saying they do not want it rather than not having got to
+    it yet.
+    """
+    from .ai import translator
+
+    if not settings.get_bool("subs.ai.enabled"):
+        return None
+    ready = translator.available()
+
+    # Label it with the source it would most likely use, when the search just
+    # found one. It is a guess - the download path searches wider than this
+    # list does - so it is only shown when we have something to point at.
+    source = ""
+    for candidate in ranked or []:
+        language = candidate.get("language", "")
+        if language and language != target:
+            source = language
+            break
+
+    if not ready:
+        detail = kodi.localize(32497)
+    elif source:
+        detail = kodi.localize(32492, source.upper())
+    else:
+        detail = kodi.localize(32493)
+
+    return {
+        "provider": AI_PROVIDER,
+        "language": target,
+        "score": 0,
+        "ai": True,
+        "release": detail,
+    }
 
 
 def _search_languages(params):
@@ -148,6 +225,9 @@ def match_label(candidate):
     match says 100% with nothing else to explain. Everything else shows the
     estimate, so a 62% is visibly a guess rather than a promise.
     """
+    if candidate.get("ai"):
+        return kodi.localize(32494)
+
     score = int(round(candidate.get("score") or 0))
 
     if candidate.get("embedded"):
@@ -163,7 +243,11 @@ def match_label(candidate):
 
 def _add(handle, position, candidate):
     score = candidate.get("score", 0)
-    stars = str(max(1, min(STARS, int(round(score / 100.0 * STARS)))))
+    # Three of five for the AI row, and deliberately not a computed number.
+    # Its accuracy is the accuracy of whatever it ends up translating, which
+    # is not known until it has run, so any figure here would be invented.
+    stars = ("3" if candidate.get("ai")
+             else str(max(1, min(STARS, int(round(score / 100.0 * STARS))))))
 
     parts = [match_label(candidate)]
     release = candidate.get("release") or candidate.get("provider", "")
@@ -202,6 +286,10 @@ def _download(handle, params):
         "release": params.get("release", ""),
         "extra_movie": params.get("extra_movie", ""),
     }
+
+    if candidate["provider"] == AI_PROVIDER:
+        _translate_with_ai(candidate["language"])
+        return
 
     # An embedded track is switched on in the player. There is no file to hand
     # back, so the directory is closed empty and Kodi keeps what it has.
@@ -251,3 +339,115 @@ def _active_subtitle_path():
         if value and value.lower().endswith(".srt") and xbmcvfs.exists(value):
             return value
     return ""
+
+
+def _translate_with_ai(language):
+    """Ask the background service to translate, and return immediately.
+
+    Doing it here does not work, and both reasons were found in a real Kodi
+    rather than reasoned about.
+
+    A plugin invocation is torn down the moment it returns - the player
+    monitor lives in the service for exactly this reason - so a thread started
+    here would be killed part way through a translation that takes minutes.
+    And Kodi's subtitle window is *modal*, so the API key prompt opened from
+    under it never appears at all: the same rule that stopped a context menu
+    starting playback until the busy dialog was closed. The service is neither
+    of those things. It outlives every window and every plugin call, and it
+    can wait for the dialog to close before it asks for anything.
+    """
+    if kodi.get_property(AI_RUNNING) == "1":
+        kodi.notify(kodi.localize(32495))
+        return
+    kodi.set_property(
+        AI_REQUEST, language or _target_language(settings.subtitle_languages()))
+
+
+def take_request():
+    """The language the dialog asked for, taken rather than read.
+
+    Called by the service on its own single thread, so taking it is what makes
+    sure one press cannot start two translations.
+    """
+    target = kodi.get_property(AI_REQUEST)
+    if target:
+        kodi.clear_property(AI_REQUEST)
+    return target
+
+
+def run_translation(target):
+    """Do what the dialog asked for. Runs on the service's own thread."""
+    import xbmc
+
+    if kodi.get_property(AI_RUNNING) == "1":
+        kodi.notify(kodi.localize(32495))
+        return ""
+    kodi.set_property(AI_RUNNING, "1")
+    try:
+        _close_the_dialog()
+        if not _engine_ready():
+            return ""
+        kodi.notify(kodi.localize(32496))
+        path = auto.translate_now(_current_meta(), target, xbmc.Player())
+        kodi.notify(kodi.localize(32334, kodi.localize(32494)) if path
+                    else kodi.localize(32336))
+        return path
+    except Exception:
+        kodi.log_exception("AI subtitle translation failed")
+        kodi.notify(kodi.localize(32336))
+        return ""
+    finally:
+        kodi.clear_property(AI_RUNNING)
+
+
+def _engine_ready():
+    """Make sure there is something to translate with, asking if there is not.
+
+    Picking the row is the clearest possible statement that the viewer wants
+    AI translation, so it is the right moment to ask for the key rather than
+    telling them to go and find a settings page. The wizard already owns that
+    conversation, including checking the key actually works.
+    """
+    from .ai import translator
+
+    if translator.available():
+        return True
+
+    from ..ui import wizard
+    wizard.step_ai()
+
+    if translator.available():
+        return True
+    kodi.notify(kodi.localize(32497))
+    return False
+
+
+def _close_the_dialog(seconds=5):
+    """Put Kodi's subtitle list away, and wait until it has actually gone.
+
+    Two reasons, and the first was measured. It is a modal dialog, and Kodi
+    refuses to open a window over a modal - silently, the new window simply
+    never appearing - so the API key prompt asked for from under it did
+    nothing at all. Kodi closes the list itself when a subtitle is handed
+    back, but this row hands nothing back: there is no file yet, only a
+    promise to make one, so the list stayed up.
+
+    The second is what the viewer wants. They picked a row; the list has done
+    its job, and the translation appears on the film behind it. Leaving the
+    list on top of the thing it is writing to would be a strange place to
+    leave somebody.
+    """
+    import xbmc
+
+    if not xbmc.getCondVisibility("Window.IsActive(subtitlesearch)"):
+        return True
+    xbmc.executebuiltin("Dialog.Close(subtitlesearch)")
+    monitor = xbmc.Monitor()
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        if not xbmc.getCondVisibility("Window.IsActive(subtitlesearch)"):
+            return True
+        if monitor.waitForAbort(0.2):
+            return False
+    kodi.log("the subtitle list would not close")
+    return False

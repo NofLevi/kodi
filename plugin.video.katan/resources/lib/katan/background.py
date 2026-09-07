@@ -137,6 +137,34 @@ class Service(xbmc.Monitor):
             "ActivateWindow(Videos,plugin://plugin.video.katan/,return)")
         return True
 
+    def check_translation_request(self):
+        """Pick up an AI translation the subtitle dialog asked for.
+
+        The dialog cannot do this itself: a plugin invocation is torn down as
+        soon as it returns, and a translation takes minutes. So it leaves a
+        window property and this picks it up within a second.
+
+        On its own thread, because the loop this runs in also drives Trakt
+        scrobbling and the Up Next prompt once a second, and holding it for
+        the length of a feature film would stop both. A thread here is safe in
+        the way one in a plugin process is not - the service lives as long as
+        Kodi does.
+        """
+        try:
+            from .subs import service as subtitles
+        except Exception:
+            kodi.log_exception("could not load the subtitle service")
+            return
+        target = subtitles.take_request()
+        if not target:
+            return
+        import threading
+        kodi.log("the subtitle dialog asked for a %s translation" % target)
+        thread = threading.Thread(target=subtitles.run_translation,
+                                  args=(target,))
+        thread.daemon = True
+        thread.start()
+
     def prune_cache(self):
         try:
             cache.maybe_prune(force=True)
@@ -202,6 +230,7 @@ class Service(xbmc.Monitor):
                 break
             if self.player is not None and self.player.isPlaying():
                 self.player.tick()
+            self.check_translation_request()
             now = time.time()
             if not self.opened:
                 self.opened = self.open_on_boot(now)

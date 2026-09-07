@@ -1109,3 +1109,73 @@ would be shipping a provider that contributes nothing, which is the thing
 this project keeps saying it does not do.
 
 968 tests, zip 416 KB.
+
+## Subtitles you can ask for, and subtitles where there were none
+
+Two requests, and they turn out to be the same machinery pointed at different
+problems.
+
+**"What do we do in films where there is nothing?"** Usually there *was*
+something. The automatic path asks the providers for the two languages in the
+settings - Hebrew and English - and if neither comes back it reports "no
+subtitles found" and stops. That sentence was often untrue: an obscure film
+with no Hebrew and no English subtitle frequently has a Spanish or an Arabic
+one, and translating out of it is a far better answer than nothing. So when
+the normal search comes up empty the search now widens to ten languages -
+which costs no extra requests, because it is one more value in the same call
+and only OpenSubtitles even reads it - and translates whatever it finds. The
+timings come from the source subtitle and are never touched, so the result
+fits exactly as well as the file it came from.
+
+**"A flag to enable AI even when there are subtitles and I can see they are
+not good."** There is now a row at the bottom of Kodi's own subtitle dialog,
+and it is there whether or not the list above it is empty. That is the point:
+nothing in this add-on can tell a good Hebrew subtitle from a bad one by
+looking at it, so a row that only appeared when the list was empty would miss
+the exact case being complained about. It works for any language pair - the
+target is whatever Kodi's own subtitle language is set to, so it is not a
+Hebrew feature - and it says no percentage and shows a flat three stars,
+because its accuracy is the accuracy of whatever it ends up translating and
+inventing a figure would be worse than admitting that.
+
+It also appears with no API key configured, and says "needs an AI key - press
+to set one up". Hiding it until a key exists shows nothing at all to the one
+viewer who most needs it.
+
+### Two things the real Kodi taught, neither of which a test could
+
+The first build put the translation on a thread in the plugin process and
+opened the key prompt from inside the subtitle dialog. Both are wrong, and
+both looked completely fine from Python.
+
+**Kodi's subtitle window is modal, and a modal silently refuses to let
+anything open over it.** The prompt was opened, Kodi declined, nothing
+appeared - no error, no log line, just a press that did nothing. It is the
+same rule that stopped a context menu starting playback until the busy dialog
+was closed, met in a second place. Kodi also does not close the subtitle list
+when a plugin hands nothing back, and this row deliberately hands nothing
+back - there is no file yet, only a promise to make one - so the list stayed
+up over the film it was writing to.
+
+**A plugin invocation is torn down the moment it returns.** `player.py` says
+so in its first paragraph; it is why the player monitor lives in the
+background service. A translation is minutes of work and the plugin process is
+gone in milliseconds, so that thread would have been killed part way through.
+
+Both are now the service's job. The dialog leaves a window property, the
+service takes it within a second - taking rather than reading, so one press
+cannot start two - closes the subtitle list, waits until it has actually gone,
+and then does the work on a thread of its own. Measured in a real Kodi over a
+live playback: press to service, 170 ms; the list closes; the key prompt opens
+over the still-playing film, in Hebrew.
+
+What no amount of this can prove is the only thing left: that the model
+returns usable Hebrew. That needs a Gemini key.
+
+### One stray thing found on the way
+
+The automatic path, whenever it translated a subtitle, notified **"Subtitle
+found: Anime"**. String 32302 is the heading of the anime row on the home
+screen, and it had been passed as the description of what had just happened.
+
+993 tests, zip 421 KB.
