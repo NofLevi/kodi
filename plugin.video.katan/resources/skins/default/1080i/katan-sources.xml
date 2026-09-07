@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <window>
-    <defaultcontrol always="true">5200</defaultcontrol>
+    <!-- A button, not the list. Kodi acts on this at Window Init, before
+         Python has put a single row in the list, and an empty list cannot take
+         focus: "Control 5200 has been asked to focus, but it can't", logged on
+         every open. onInit focuses the list itself once it has rows. Same
+         reasoning as the home window. -->
+    <defaultcontrol always="true">9020</defaultcontrol>
     <controls>
 
         <control type="image">
@@ -36,8 +41,15 @@
             <top>150</top>
             <width>1740</width>
             <height>790</height>
+            <!-- Down off the end of the list reaches the two buttons, which
+                 are drawn below it. They used to be on Left only, and nothing
+                 on screen says so: the "show all sources" and "search again"
+                 buttons sit at the bottom of the window and the obvious way
+                 to reach something below a list is to press down. I failed to
+                 find them twice while testing this window, which is as good a
+                 demonstration as any. Left still works. -->
             <onup>5200</onup>
-            <ondown>5200</ondown>
+            <ondown>9019</ondown>
             <onleft>9020</onleft>
             <onright>5200</onright>
             <orientation>vertical</orientation>
@@ -122,8 +134,12 @@
             <itemgap>12</itemgap>
             <onup>5200</onup>
             <ondown>5200</ondown>
+            <!-- Wide enough for both of its labels. The button says one thing
+                 and then its opposite - "show all sources" going one way,
+                 "show only the best" coming back - and the second is the
+                 longer of the two. At 260 it read "...ג את הטובים בלבד". -->
             <control type="button" id="9020">
-                <width>260</width>
+                <width>340</width>
                 <height>56</height>
                 <font>font13</font>
                 <textcolor>white</textcolor>
