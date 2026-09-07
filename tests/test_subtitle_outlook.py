@@ -109,6 +109,26 @@ def test_a_score_is_a_percentage():
     assert 1 <= entry["score"] <= 100
 
 
+def test_an_exact_match_is_a_hundred_percent():
+    """The matcher already answers 0..100, and its answer was being divided
+    by the sum of the weights to "convert" it - so the ceiling became
+    unreachable. A subtitle with the identical release name is a certainty
+    and scored 100; the picker showed 72%, and one matched on group, source
+    and resolution scored 72 and showed 52%. That is what was on screen."""
+    entry = outlook._for_one(
+        META, source("A.Film.2020.1080p.WEB-DL.x264-GRP.mkv"),
+        _candidates("A.Film.2020.1080p.WEB-DL.x264-GRP"))
+    assert entry["score"] == 100
+
+
+def test_the_matchers_score_is_not_rescaled():
+    """Whatever the matcher says, that is the number shown."""
+    from katan.subs import matcher
+
+    for points in (12, 33, 72, 100):
+        assert outlook._as_percent(points) == points
+
+
 def test_one_candidate_is_scored_freshly_for_every_source():
     """score_candidate writes its answer onto the candidate it is given, so
     the same candidate reused across sources would carry the previous

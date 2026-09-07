@@ -344,11 +344,11 @@ def _build_rows():
 
         # The Israeli half, high up. Neither needs a key of any kind.
         _row("israel_live", S["israel_live"],
-             lambda page: _israel_live(), TTL_LONG, needs=("vod",),
-             paged=False, sections=(HOME, LIVE)),
+             lambda page: _israel_live(page), TTL_LONG, needs=("vod",),
+             sections=(HOME, LIVE)),
         _row("israel_vod", S["israel_vod"],
-             lambda page: _israel_vod_new(), TTL_SHORT, needs=("vod",),
-             paged=False, sections=(HOME, LIVE)),
+             lambda page: _israel_vod_new(page), TTL_SHORT, needs=("vod",),
+             sections=(HOME, LIVE)),
 
         _row("israeli_movies", S["israeli_movies"],
              lambda page: _tmdb().by_original_language("he", "movie", page),
@@ -514,8 +514,8 @@ def _build_rows():
         # because the broadcasters come from the bundled catalogue and their
         # names are already Hebrew in the data.
         _row("israel_radio", S["israel_radio"],
-             lambda page: _israel_radio(), TTL_LONG, needs=("vod",),
-             default=False, paged=False, sections=(LIVE,)),
+             lambda page: _israel_radio(page), TTL_LONG, needs=("vod",),
+             default=False, sections=(LIVE,)),
     ] + [
 
         # Kids mode rows. These are never in the default set: kids.rows_allowed
@@ -572,9 +572,8 @@ def _broadcaster_rows():
         if not module:
             continue
         row = _row("israel_vod_%s" % module, 0,
-                   lambda page, m=module: _broadcaster(m), TTL_SHORT,
-                   needs=("vod",), default=False, paged=False,
-                   sections=(LIVE,))
+                   lambda page, m=module: _broadcaster(m, page), TTL_SHORT,
+                   needs=("vod",), default=False, sections=(LIVE,))
         row["title"] = library.MODULE_NAMES.get(module, module)
         out.append(row)
     return out
@@ -868,37 +867,61 @@ def _anime_trending(page=1):
     return anilist.trending(limit=ROW_LIMIT, page=page)
 
 
-def _israel_live():
+def _slice(items, page):
+    """One page of a list that is already in memory.
+
+    The Israeli rows come from bundled data - every channel, every station,
+    every programme is already loaded - and they were each handed to the row
+    with a limit of twenty and marked as having no further pages. So the
+    channels row showed twelve of forty-six and stopped, on the screen this
+    add-on exists for, and scrolling it did nothing because as far as the
+    catalog was concerned there was nothing more to fetch.
+
+    Paging a list in memory costs a slice.
+    """
+    size = row_limit()
+    start = (max(1, page) - 1) * size
+    return list(items or [])[start:start + size]
+
+
+def _israel_live(page=1):
     try:
         from .vod import channels
     except ImportError:
         return []
-    return channels.live_channels(limit=ROW_LIMIT)
+    return _slice(channels.live_channels(), page)
 
 
-def _israel_vod_new():
+def _israel_vod_new(page=1):
     try:
         from .vod import library
     except ImportError:
         return []
-    return library.newest_episodes(limit=ROW_LIMIT)
+    # Ask for enough to page through rather than for one row's worth.
+    return _slice(library.newest_episodes(limit=row_limit() * 10), page)
 
 
-def _israel_radio():
+def _israel_radio(page=1):
     try:
         from .vod import channels
     except ImportError:
         return []
-    return channels.radio_stations(limit=ROW_LIMIT)
+    return _slice(channels.radio_stations(), page)
 
 
-def _broadcaster(module):
-    """One broadcaster's programmes, for its row on the Live tab."""
+def _broadcaster(module, page=1):
+    """One broadcaster's programmes, for its row on the Live tab.
+
+    Kan alone has over eight hundred programmes in the bundled catalogue.
+    Showing twelve of them and calling the row finished was not a decision
+    anybody made; it was the row limit being applied where a page size was
+    meant.
+    """
     try:
         from .vod import library
     except ImportError:
         return []
-    return library.by_module(module, limit=ROW_LIMIT)
+    return _slice(library.by_module(module), page)
 
 
 # TMDB genre ids. Family and Animation for film, Kids and Family for

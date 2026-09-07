@@ -4,6 +4,48 @@ import os
 
 import pytest
 
+
+def test_the_israeli_rows_page_through_everything_they_have():
+    """Forty-six channels were reachable twelve at a time and no further.
+
+    `_slice` is what makes the rest of them reachable: the data is already
+    in memory, so a page is a slice and there is no reason a row built from
+    it should stop at one.
+    """
+    from katan import catalog
+
+    items = ["item %d" % n for n in range(46)]
+    limit = catalog.row_limit()
+
+    first = catalog._slice(items, 1)
+    second = catalog._slice(items, 2)
+    assert len(first) == limit
+    assert len(second) == limit
+    assert not set(first) & set(second), "pages must not repeat each other"
+
+    gathered = []
+    page = 1
+    while True:
+        chunk = catalog._slice(items, page)
+        if not chunk:
+            break
+        gathered.extend(chunk)
+        page += 1
+    assert gathered == items, "every channel has to be reachable eventually"
+
+
+def test_a_page_past_the_end_is_empty_rather_than_wrapping():
+    """An empty page is how a row knows it has finished."""
+    from katan import catalog
+    assert catalog._slice(["a", "b"], 9) == []
+    assert catalog._slice([], 1) == []
+    assert catalog._slice(None, 1) == []
+
+
+def test_page_zero_is_treated_as_the_first():
+    from katan import catalog
+    assert catalog._slice(["a", "b"], 0) == catalog._slice(["a", "b"], 1)
+
 from katan.vod import channels, library
 
 

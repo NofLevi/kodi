@@ -153,11 +153,19 @@ def _for_one(meta, source, candidates):
 
 
 def _as_percent(score):
-    """The matcher's points as the percentage the chooser already shows."""
-    ceiling = float(matcher.WEIGHT_EXACT_NAME + matcher.WEIGHT_GROUP
-                    + matcher.WEIGHT_SOURCE + matcher.WEIGHT_RESOLUTION
-                    + matcher.WEIGHT_CODEC)
-    return max(1, min(100, int(round(score / ceiling * 100))))
+    """The matcher's score, which is already a percentage.
+
+    It was being divided by the sum of the weights to "convert" it, and it
+    did not need converting: `score_candidate` clamps to 0..100 before
+    returning. So everything was scaled down by a factor of 1.38 and the
+    ceiling became unreachable - a subtitle matched by file hash, or one
+    with the identical release name, is a certainty and scored 100, and the
+    picker showed it as 72%. A release matched on group, source and
+    resolution scored 72 and showed as 52%, which is what was on screen and
+    what prompted "52% isn't good enough": it was 72% all along, and even
+    that was being read as a worse answer than it is.
+    """
+    return max(1, min(100, int(round(score))))
 
 
 def _hebrew_code():
