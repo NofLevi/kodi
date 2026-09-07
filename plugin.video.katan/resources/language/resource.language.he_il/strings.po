@@ -1132,3 +1132,127 @@ msgstr "לחיצה על חזרה במסך הבית לא עושה כלום במק
 msgctxt "#32416"
 msgid "Next page"
 msgstr "העמוד הבא"
+
+msgctxt "#32420"
+msgid "Home"
+msgstr "בית"
+
+msgctxt "#32421"
+msgid "Films"
+msgstr "סרטים"
+
+msgctxt "#32422"
+msgid "Series"
+msgstr "סדרות"
+
+msgctxt "#32423"
+msgid "Live TV"
+msgstr "טלוויזיה חיה"
+
+msgctxt "#32424"
+msgid "Top rated series"
+msgstr "הסדרות המדורגות ביותר"
+
+msgctxt "#32425"
+msgid "Radio"
+msgstr "רדיו"
+
+msgctxt "#32426"
+msgid "Action"
+msgstr "אקשן"
+
+msgctxt "#32427"
+msgid "Comedy"
+msgstr "קומדיה"
+
+msgctxt "#32428"
+msgid "Drama"
+msgstr "דרמה"
+
+msgctxt "#32429"
+msgid "Thriller"
+msgstr "מותחנים"
+
+msgctxt "#32430"
+msgid "Science fiction"
+msgstr "מדע בדיוני"
+
+msgctxt "#32431"
+msgid "Horror"
+msgstr "אימה"
+
+msgctxt "#32432"
+msgid "Animation"
+msgstr "אנימציה"
+
+msgctxt "#32433"
+msgid "Documentary"
+msgstr "דוקומנטרי"
+
+msgctxt "#32434"
+msgid "Drama series"
+msgstr "סדרות דרמה"
+
+msgctxt "#32435"
+msgid "Comedy series"
+msgstr "סדרות קומדיה"
+
+msgctxt "#32436"
+msgid "Crime"
+msgstr "פשע"
+
+msgctxt "#32437"
+msgid "Science fiction and fantasy"
+msgstr "מדע בדיוני ופנטזיה"
+
+msgctxt "#32438"
+msgid "Documentary series"
+msgstr "סדרות תעודה"
+
+msgctxt "#32439"
+msgid "Reality"
+msgstr "ריאליטי"
+
+msgctxt "#32440"
+msgid "New releases"
+msgstr "חדשים"
+
+msgctxt "#32441"
+msgid "Popular"
+msgstr "פופולריים"
+
+msgctxt "#32442"
+msgid "Classics"
+msgstr "קלאסיקות"
+
+msgctxt "#32443"
+msgid "Hidden gems"
+msgstr "פנינים נסתרות"
+
+msgctxt "#32444"
+msgid "Biggest hits"
+msgstr "להיטי הקופות"
+
+msgctxt "#32445"
+msgid "The nineties"
+msgstr "שנות התשעים"
+
+msgctxt "#32446"
+msgid "The eighties"
+msgstr "שנות השמונים"
+
+msgctxt "#32447"
+msgid "New series"
+msgstr "סדרות חדשות"
+
+msgctxt "#32448"
+msgid "Popular series"
+msgstr "סדרות פופולריות"
+
+msgctxt "#32449"
+msgid "Classic series"
+msgstr "סדרות קלאסיות"
+
+msgctxt "#32450"
+msgid "Hidden gem series"
+msgstr "סדרות שלא הכרתם"

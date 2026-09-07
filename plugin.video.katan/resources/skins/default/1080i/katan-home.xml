@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <window>
     <!-- The top bar, not the first row. Kodi acts on this at Window Init,
          before it has evaluated any <visible> condition and before Python's
@@ -35,9 +35,9 @@
 
         <!-- hero -->
         <control type="group">
-            <left>90</left>
+            <left>300</left>
             <top>96</top>
-            <width>980</width>
+            <width>770</width>
             <!-- The tallest thing inside ends at 278 (plot at 118 + 160), so
                  this is the content height rather than a reserved block. It
                  used to be 350, which pushed the rows down far enough that
@@ -48,7 +48,7 @@
             <control type="label">
                 <left>0</left>
                 <top>0</top>
-                <width>900</width>
+                <width>770</width>
                 <height>70</height>
                 <font>font30_title</font>
                 <textcolor>white</textcolor>
@@ -59,7 +59,7 @@
             <control type="label">
                 <left>0</left>
                 <top>72</top>
-                <width>900</width>
+                <width>770</width>
                 <height>34</height>
                 <font>font13</font>
                 <textcolor>grey</textcolor>
@@ -69,7 +69,7 @@
             <control type="textbox">
                 <left>0</left>
                 <top>118</top>
-                <width>900</width>
+                <width>770</width>
                 <height>160</height>
                 <font>font13</font>
                 <textcolor>white</textcolor>
@@ -79,9 +79,9 @@
 
         <!-- top bar -->
         <control type="grouplist">
-            <left>90</left>
+            <left>300</left>
             <top>28</top>
-            <width>1740</width>
+            <width>1530</width>
             <height>44</height>
             <orientation>horizontal</orientation>
             <itemgap>12</itemgap>
@@ -108,17 +108,7 @@
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
-            <control type="button" id="9012">
-                <width>180</width>
-                <height>44</height>
-                <font>font13</font>
-                <textcolor>white</textcolor>
-                <focusedcolor>FF141414</focusedcolor>
-                <label>$ADDON[plugin.video.katan 32261]</label>
-                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
-                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
-            </control>
-        </control>
+                    </control>
 
 
         <!-- rows: a fixed pool of ten horizontal lists that Python fills
@@ -138,6 +128,116 @@
              which sits in the last 24 px of the row, has a margin instead of
              touching the edge of the panel.
              test_addon_integrity checks this arithmetic now. -->
+        <!-- The section rail. The home screen used to be one mixed list of
+             films, series, live channels and Israeli VOD with no way to say
+             "I want a film".
+
+             The buttons sit directly in the grouplist. They were wrapped in a
+             group each, with the accent bar inside, and a grouplist will not
+             walk between wrapped entries: pressing down did nothing and every
+             section below the first was unreachable with a remote. The accent
+             bars are drawn behind the rail instead, at the y each button will
+             occupy, which is arithmetic rather than layout. -->
+
+        <control type="image">
+            <left>12</left>
+            <top>410</top>
+            <width>6</width>
+            <height>36</height>
+            <texture>special://home/addons/plugin.video.katan/resources/media/button-focus.png</texture>
+            <visible>String.IsEqual(Window.Property(katan.section),movies)</visible>
+        </control>
+
+        <control type="image">
+            <left>12</left>
+            <top>472</top>
+            <width>6</width>
+            <height>36</height>
+            <texture>special://home/addons/plugin.video.katan/resources/media/button-focus.png</texture>
+            <visible>String.IsEqual(Window.Property(katan.section),shows)</visible>
+        </control>
+
+        <control type="image">
+            <left>12</left>
+            <top>534</top>
+            <width>6</width>
+            <height>36</height>
+            <texture>special://home/addons/plugin.video.katan/resources/media/button-focus.png</texture>
+            <visible>String.IsEqual(Window.Property(katan.section),live)</visible>
+        </control>
+
+        <control type="grouplist" id="9019">
+            <left>20</left>
+            <top>400</top>
+            <width>260</width>
+            <height>248</height>
+            <orientation>vertical</orientation>
+            <itemgap>6</itemgap>
+            <onup>9010</onup>
+            <onleft>9019</onleft>
+            <onright>5000</onright>
+
+            <control type="button" id="9020">
+                <width>236</width>
+                <height>56</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <align>left</align>
+                <textoffsetx>18</textoffsetx>
+                <label>$INFO[Window.Property(katan.rail0.title)]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+                <onleft>9019</onleft>
+                <onright>5000</onright>
+            </control>
+
+            <control type="button" id="9021">
+                <width>236</width>
+                <height>56</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <align>left</align>
+                <textoffsetx>18</textoffsetx>
+                <label>$INFO[Window.Property(katan.rail1.title)]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+                <onleft>9019</onleft>
+                <onright>5000</onright>
+            </control>
+
+            <control type="button" id="9022">
+                <width>236</width>
+                <height>56</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <align>left</align>
+                <textoffsetx>18</textoffsetx>
+                <label>$INFO[Window.Property(katan.rail2.title)]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+                <onleft>9019</onleft>
+                <onright>5000</onright>
+            </control>
+
+            <control type="button" id="9023">
+                <width>236</width>
+                <height>56</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <align>left</align>
+                <textoffsetx>18</textoffsetx>
+                <label>$INFO[Window.Property(katan.rail3.title)]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+                <onleft>9019</onleft>
+                <onright>5000</onright>
+            </control>
+        </control>
+
         <control type="grouplist" id="8000">
             <left>0</left>
             <top>400</top>
@@ -151,9 +251,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row0.title))</visible>
                 <control type="label" id="6000">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -161,11 +261,11 @@
                     <label>$INFO[Window.Property(katan.row0.title)]</label>
                 </control>
                 <control type="list" id="5000">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5000</onleft>
+                    <onleft>9019</onleft>
                     <onright>5000</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -233,9 +333,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row1.title))</visible>
                 <control type="label" id="6001">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -243,11 +343,11 @@
                     <label>$INFO[Window.Property(katan.row1.title)]</label>
                 </control>
                 <control type="list" id="5001">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5001</onleft>
+                    <onleft>9019</onleft>
                     <onright>5001</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -315,9 +415,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row2.title))</visible>
                 <control type="label" id="6002">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -325,11 +425,11 @@
                     <label>$INFO[Window.Property(katan.row2.title)]</label>
                 </control>
                 <control type="list" id="5002">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5002</onleft>
+                    <onleft>9019</onleft>
                     <onright>5002</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -397,9 +497,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row3.title))</visible>
                 <control type="label" id="6003">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -407,11 +507,11 @@
                     <label>$INFO[Window.Property(katan.row3.title)]</label>
                 </control>
                 <control type="list" id="5003">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5003</onleft>
+                    <onleft>9019</onleft>
                     <onright>5003</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -479,9 +579,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row4.title))</visible>
                 <control type="label" id="6004">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -489,11 +589,11 @@
                     <label>$INFO[Window.Property(katan.row4.title)]</label>
                 </control>
                 <control type="list" id="5004">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5004</onleft>
+                    <onleft>9019</onleft>
                     <onright>5004</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -561,9 +661,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row5.title))</visible>
                 <control type="label" id="6005">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -571,11 +671,11 @@
                     <label>$INFO[Window.Property(katan.row5.title)]</label>
                 </control>
                 <control type="list" id="5005">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5005</onleft>
+                    <onleft>9019</onleft>
                     <onright>5005</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -643,9 +743,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row6.title))</visible>
                 <control type="label" id="6006">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -653,11 +753,11 @@
                     <label>$INFO[Window.Property(katan.row6.title)]</label>
                 </control>
                 <control type="list" id="5006">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5006</onleft>
+                    <onleft>9019</onleft>
                     <onright>5006</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -725,9 +825,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row7.title))</visible>
                 <control type="label" id="6007">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -735,11 +835,11 @@
                     <label>$INFO[Window.Property(katan.row7.title)]</label>
                 </control>
                 <control type="list" id="5007">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5007</onleft>
+                    <onleft>9019</onleft>
                     <onright>5007</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -807,9 +907,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row8.title))</visible>
                 <control type="label" id="6008">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -817,11 +917,11 @@
                     <label>$INFO[Window.Property(katan.row8.title)]</label>
                 </control>
                 <control type="list" id="5008">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5008</onleft>
+                    <onleft>9019</onleft>
                     <onright>5008</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -889,9 +989,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row9.title))</visible>
                 <control type="label" id="6009">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -899,11 +999,11 @@
                     <label>$INFO[Window.Property(katan.row9.title)]</label>
                 </control>
                 <control type="list" id="5009">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5009</onleft>
+                    <onleft>9019</onleft>
                     <onright>5009</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -971,9 +1071,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row10.title))</visible>
                 <control type="label" id="6010">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -981,11 +1081,11 @@
                     <label>$INFO[Window.Property(katan.row10.title)]</label>
                 </control>
                 <control type="list" id="5010">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5010</onleft>
+                    <onleft>9019</onleft>
                     <onright>5010</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -1053,9 +1153,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row11.title))</visible>
                 <control type="label" id="6011">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -1063,11 +1163,11 @@
                     <label>$INFO[Window.Property(katan.row11.title)]</label>
                 </control>
                 <control type="list" id="5011">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5011</onleft>
+                    <onleft>9019</onleft>
                     <onright>5011</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -1135,9 +1235,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row12.title))</visible>
                 <control type="label" id="6012">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -1145,11 +1245,11 @@
                     <label>$INFO[Window.Property(katan.row12.title)]</label>
                 </control>
                 <control type="list" id="5012">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5012</onleft>
+                    <onleft>9019</onleft>
                     <onright>5012</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -1217,9 +1317,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row13.title))</visible>
                 <control type="label" id="6013">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -1227,11 +1327,11 @@
                     <label>$INFO[Window.Property(katan.row13.title)]</label>
                 </control>
                 <control type="list" id="5013">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5013</onleft>
+                    <onleft>9019</onleft>
                     <onright>5013</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -1299,9 +1399,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row14.title))</visible>
                 <control type="label" id="6014">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -1309,11 +1409,11 @@
                     <label>$INFO[Window.Property(katan.row14.title)]</label>
                 </control>
                 <control type="list" id="5014">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5014</onleft>
+                    <onleft>9019</onleft>
                     <onright>5014</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -1381,9 +1481,9 @@
                 <width>1920</width>
                 <visible>!String.IsEmpty(Window.Property(katan.row15.title))</visible>
                 <control type="label" id="6015">
-                    <left>90</left>
+                    <left>300</left>
                     <top>0</top>
-                    <width>1600</width>
+                    <width>1390</width>
                     <height>36</height>
                     <font>font16</font>
                     <textcolor>white</textcolor>
@@ -1391,11 +1491,11 @@
                     <label>$INFO[Window.Property(katan.row15.title)]</label>
                 </control>
                 <control type="list" id="5015">
-                    <left>90</left>
+                    <left>300</left>
                     <top>40</top>
-                    <width>1740</width>
+                    <width>1530</width>
                     <height>286</height>
-                    <onleft>5015</onleft>
+                    <onleft>9019</onleft>
                     <onright>5015</onright>
                     <orientation>horizontal</orientation>
                     <scrolltime tween="sine">200</scrolltime>
@@ -1434,6 +1534,662 @@
                             <height>264</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5015)</visible>
+                        </control>
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="label">
+                            <left>4</left>
+                            <top>262</top>
+                            <width>176</width>
+                            <height>24</height>
+                            <font>font12</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <scroll>true</scroll>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="group" id="7016">
+                <height>330</height>
+                <width>1920</width>
+                <visible>!String.IsEmpty(Window.Property(katan.row16.title))</visible>
+                <control type="label" id="6016">
+                    <left>300</left>
+                    <top>0</top>
+                    <width>1390</width>
+                    <height>36</height>
+                    <font>font16</font>
+                    <textcolor>white</textcolor>
+                    <shadowcolor>black</shadowcolor>
+                    <label>$INFO[Window.Property(katan.row16.title)]</label>
+                </control>
+                <control type="list" id="5016">
+                    <left>300</left>
+                    <top>40</top>
+                    <width>1530</width>
+                    <height>286</height>
+                    <onleft>9019</onleft>
+                    <onright>5016</onright>
+                    <orientation>horizontal</orientation>
+                    <scrolltime tween="sine">200</scrolltime>
+                    <preloaditems>2</preloaditems>
+                    <itemlayout width="190" height="286">
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="image">
+                            <left>140</left>
+                            <top>8</top>
+                            <width>36</width>
+                            <height>36</height>
+                            <texture>special://home/addons/plugin.video.katan/resources/media/watched.png</texture>
+                            <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                        </control>
+                        <control type="progress">
+                            <left>4</left>
+                            <top>250</top>
+                            <width>176</width>
+                            <height>6</height>
+                            <info>ListItem.PercentPlayed</info>
+                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="190" height="286">
+                        <control type="image">
+                            <left>0</left>
+                            <top>0</top>
+                            <width>184</width>
+                            <height>264</height>
+                            <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
+                            <visible>Control.HasFocus(5016)</visible>
+                        </control>
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="label">
+                            <left>4</left>
+                            <top>262</top>
+                            <width>176</width>
+                            <height>24</height>
+                            <font>font12</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <scroll>true</scroll>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="group" id="7017">
+                <height>330</height>
+                <width>1920</width>
+                <visible>!String.IsEmpty(Window.Property(katan.row17.title))</visible>
+                <control type="label" id="6017">
+                    <left>300</left>
+                    <top>0</top>
+                    <width>1390</width>
+                    <height>36</height>
+                    <font>font16</font>
+                    <textcolor>white</textcolor>
+                    <shadowcolor>black</shadowcolor>
+                    <label>$INFO[Window.Property(katan.row17.title)]</label>
+                </control>
+                <control type="list" id="5017">
+                    <left>300</left>
+                    <top>40</top>
+                    <width>1530</width>
+                    <height>286</height>
+                    <onleft>9019</onleft>
+                    <onright>5017</onright>
+                    <orientation>horizontal</orientation>
+                    <scrolltime tween="sine">200</scrolltime>
+                    <preloaditems>2</preloaditems>
+                    <itemlayout width="190" height="286">
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="image">
+                            <left>140</left>
+                            <top>8</top>
+                            <width>36</width>
+                            <height>36</height>
+                            <texture>special://home/addons/plugin.video.katan/resources/media/watched.png</texture>
+                            <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                        </control>
+                        <control type="progress">
+                            <left>4</left>
+                            <top>250</top>
+                            <width>176</width>
+                            <height>6</height>
+                            <info>ListItem.PercentPlayed</info>
+                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="190" height="286">
+                        <control type="image">
+                            <left>0</left>
+                            <top>0</top>
+                            <width>184</width>
+                            <height>264</height>
+                            <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
+                            <visible>Control.HasFocus(5017)</visible>
+                        </control>
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="label">
+                            <left>4</left>
+                            <top>262</top>
+                            <width>176</width>
+                            <height>24</height>
+                            <font>font12</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <scroll>true</scroll>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="group" id="7018">
+                <height>330</height>
+                <width>1920</width>
+                <visible>!String.IsEmpty(Window.Property(katan.row18.title))</visible>
+                <control type="label" id="6018">
+                    <left>300</left>
+                    <top>0</top>
+                    <width>1390</width>
+                    <height>36</height>
+                    <font>font16</font>
+                    <textcolor>white</textcolor>
+                    <shadowcolor>black</shadowcolor>
+                    <label>$INFO[Window.Property(katan.row18.title)]</label>
+                </control>
+                <control type="list" id="5018">
+                    <left>300</left>
+                    <top>40</top>
+                    <width>1530</width>
+                    <height>286</height>
+                    <onleft>9019</onleft>
+                    <onright>5018</onright>
+                    <orientation>horizontal</orientation>
+                    <scrolltime tween="sine">200</scrolltime>
+                    <preloaditems>2</preloaditems>
+                    <itemlayout width="190" height="286">
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="image">
+                            <left>140</left>
+                            <top>8</top>
+                            <width>36</width>
+                            <height>36</height>
+                            <texture>special://home/addons/plugin.video.katan/resources/media/watched.png</texture>
+                            <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                        </control>
+                        <control type="progress">
+                            <left>4</left>
+                            <top>250</top>
+                            <width>176</width>
+                            <height>6</height>
+                            <info>ListItem.PercentPlayed</info>
+                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="190" height="286">
+                        <control type="image">
+                            <left>0</left>
+                            <top>0</top>
+                            <width>184</width>
+                            <height>264</height>
+                            <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
+                            <visible>Control.HasFocus(5018)</visible>
+                        </control>
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="label">
+                            <left>4</left>
+                            <top>262</top>
+                            <width>176</width>
+                            <height>24</height>
+                            <font>font12</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <scroll>true</scroll>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="group" id="7019">
+                <height>330</height>
+                <width>1920</width>
+                <visible>!String.IsEmpty(Window.Property(katan.row19.title))</visible>
+                <control type="label" id="6019">
+                    <left>300</left>
+                    <top>0</top>
+                    <width>1390</width>
+                    <height>36</height>
+                    <font>font16</font>
+                    <textcolor>white</textcolor>
+                    <shadowcolor>black</shadowcolor>
+                    <label>$INFO[Window.Property(katan.row19.title)]</label>
+                </control>
+                <control type="list" id="5019">
+                    <left>300</left>
+                    <top>40</top>
+                    <width>1530</width>
+                    <height>286</height>
+                    <onleft>9019</onleft>
+                    <onright>5019</onright>
+                    <orientation>horizontal</orientation>
+                    <scrolltime tween="sine">200</scrolltime>
+                    <preloaditems>2</preloaditems>
+                    <itemlayout width="190" height="286">
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="image">
+                            <left>140</left>
+                            <top>8</top>
+                            <width>36</width>
+                            <height>36</height>
+                            <texture>special://home/addons/plugin.video.katan/resources/media/watched.png</texture>
+                            <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                        </control>
+                        <control type="progress">
+                            <left>4</left>
+                            <top>250</top>
+                            <width>176</width>
+                            <height>6</height>
+                            <info>ListItem.PercentPlayed</info>
+                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="190" height="286">
+                        <control type="image">
+                            <left>0</left>
+                            <top>0</top>
+                            <width>184</width>
+                            <height>264</height>
+                            <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
+                            <visible>Control.HasFocus(5019)</visible>
+                        </control>
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="label">
+                            <left>4</left>
+                            <top>262</top>
+                            <width>176</width>
+                            <height>24</height>
+                            <font>font12</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <scroll>true</scroll>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="group" id="7020">
+                <height>330</height>
+                <width>1920</width>
+                <visible>!String.IsEmpty(Window.Property(katan.row20.title))</visible>
+                <control type="label" id="6020">
+                    <left>300</left>
+                    <top>0</top>
+                    <width>1390</width>
+                    <height>36</height>
+                    <font>font16</font>
+                    <textcolor>white</textcolor>
+                    <shadowcolor>black</shadowcolor>
+                    <label>$INFO[Window.Property(katan.row20.title)]</label>
+                </control>
+                <control type="list" id="5020">
+                    <left>300</left>
+                    <top>40</top>
+                    <width>1530</width>
+                    <height>286</height>
+                    <onleft>9019</onleft>
+                    <onright>5020</onright>
+                    <orientation>horizontal</orientation>
+                    <scrolltime tween="sine">200</scrolltime>
+                    <preloaditems>2</preloaditems>
+                    <itemlayout width="190" height="286">
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="image">
+                            <left>140</left>
+                            <top>8</top>
+                            <width>36</width>
+                            <height>36</height>
+                            <texture>special://home/addons/plugin.video.katan/resources/media/watched.png</texture>
+                            <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                        </control>
+                        <control type="progress">
+                            <left>4</left>
+                            <top>250</top>
+                            <width>176</width>
+                            <height>6</height>
+                            <info>ListItem.PercentPlayed</info>
+                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="190" height="286">
+                        <control type="image">
+                            <left>0</left>
+                            <top>0</top>
+                            <width>184</width>
+                            <height>264</height>
+                            <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
+                            <visible>Control.HasFocus(5020)</visible>
+                        </control>
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="label">
+                            <left>4</left>
+                            <top>262</top>
+                            <width>176</width>
+                            <height>24</height>
+                            <font>font12</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <scroll>true</scroll>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="group" id="7021">
+                <height>330</height>
+                <width>1920</width>
+                <visible>!String.IsEmpty(Window.Property(katan.row21.title))</visible>
+                <control type="label" id="6021">
+                    <left>300</left>
+                    <top>0</top>
+                    <width>1390</width>
+                    <height>36</height>
+                    <font>font16</font>
+                    <textcolor>white</textcolor>
+                    <shadowcolor>black</shadowcolor>
+                    <label>$INFO[Window.Property(katan.row21.title)]</label>
+                </control>
+                <control type="list" id="5021">
+                    <left>300</left>
+                    <top>40</top>
+                    <width>1530</width>
+                    <height>286</height>
+                    <onleft>9019</onleft>
+                    <onright>5021</onright>
+                    <orientation>horizontal</orientation>
+                    <scrolltime tween="sine">200</scrolltime>
+                    <preloaditems>2</preloaditems>
+                    <itemlayout width="190" height="286">
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="image">
+                            <left>140</left>
+                            <top>8</top>
+                            <width>36</width>
+                            <height>36</height>
+                            <texture>special://home/addons/plugin.video.katan/resources/media/watched.png</texture>
+                            <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                        </control>
+                        <control type="progress">
+                            <left>4</left>
+                            <top>250</top>
+                            <width>176</width>
+                            <height>6</height>
+                            <info>ListItem.PercentPlayed</info>
+                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="190" height="286">
+                        <control type="image">
+                            <left>0</left>
+                            <top>0</top>
+                            <width>184</width>
+                            <height>264</height>
+                            <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
+                            <visible>Control.HasFocus(5021)</visible>
+                        </control>
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="label">
+                            <left>4</left>
+                            <top>262</top>
+                            <width>176</width>
+                            <height>24</height>
+                            <font>font12</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <scroll>true</scroll>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="group" id="7022">
+                <height>330</height>
+                <width>1920</width>
+                <visible>!String.IsEmpty(Window.Property(katan.row22.title))</visible>
+                <control type="label" id="6022">
+                    <left>300</left>
+                    <top>0</top>
+                    <width>1390</width>
+                    <height>36</height>
+                    <font>font16</font>
+                    <textcolor>white</textcolor>
+                    <shadowcolor>black</shadowcolor>
+                    <label>$INFO[Window.Property(katan.row22.title)]</label>
+                </control>
+                <control type="list" id="5022">
+                    <left>300</left>
+                    <top>40</top>
+                    <width>1530</width>
+                    <height>286</height>
+                    <onleft>9019</onleft>
+                    <onright>5022</onright>
+                    <orientation>horizontal</orientation>
+                    <scrolltime tween="sine">200</scrolltime>
+                    <preloaditems>2</preloaditems>
+                    <itemlayout width="190" height="286">
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="image">
+                            <left>140</left>
+                            <top>8</top>
+                            <width>36</width>
+                            <height>36</height>
+                            <texture>special://home/addons/plugin.video.katan/resources/media/watched.png</texture>
+                            <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                        </control>
+                        <control type="progress">
+                            <left>4</left>
+                            <top>250</top>
+                            <width>176</width>
+                            <height>6</height>
+                            <info>ListItem.PercentPlayed</info>
+                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="190" height="286">
+                        <control type="image">
+                            <left>0</left>
+                            <top>0</top>
+                            <width>184</width>
+                            <height>264</height>
+                            <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
+                            <visible>Control.HasFocus(5022)</visible>
+                        </control>
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="label">
+                            <left>4</left>
+                            <top>262</top>
+                            <width>176</width>
+                            <height>24</height>
+                            <font>font12</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <scroll>true</scroll>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="group" id="7023">
+                <height>330</height>
+                <width>1920</width>
+                <visible>!String.IsEmpty(Window.Property(katan.row23.title))</visible>
+                <control type="label" id="6023">
+                    <left>300</left>
+                    <top>0</top>
+                    <width>1390</width>
+                    <height>36</height>
+                    <font>font16</font>
+                    <textcolor>white</textcolor>
+                    <shadowcolor>black</shadowcolor>
+                    <label>$INFO[Window.Property(katan.row23.title)]</label>
+                </control>
+                <control type="list" id="5023">
+                    <left>300</left>
+                    <top>40</top>
+                    <width>1530</width>
+                    <height>286</height>
+                    <onleft>9019</onleft>
+                    <onright>5023</onright>
+                    <orientation>horizontal</orientation>
+                    <scrolltime tween="sine">200</scrolltime>
+                    <preloaditems>2</preloaditems>
+                    <itemlayout width="190" height="286">
+                        <control type="image">
+                            <left>4</left>
+                            <top>4</top>
+                            <width>176</width>
+                            <height>256</height>
+                            <aspectratio>scale</aspectratio>
+                            <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
+                        </control>
+                        <control type="image">
+                            <left>140</left>
+                            <top>8</top>
+                            <width>36</width>
+                            <height>36</height>
+                            <texture>special://home/addons/plugin.video.katan/resources/media/watched.png</texture>
+                            <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                        </control>
+                        <control type="progress">
+                            <left>4</left>
+                            <top>250</top>
+                            <width>176</width>
+                            <height>6</height>
+                            <info>ListItem.PercentPlayed</info>
+                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="190" height="286">
+                        <control type="image">
+                            <left>0</left>
+                            <top>0</top>
+                            <width>184</width>
+                            <height>264</height>
+                            <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
+                            <visible>Control.HasFocus(5023)</visible>
                         </control>
                         <control type="image">
                             <left>4</left>
