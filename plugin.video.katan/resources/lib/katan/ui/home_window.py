@@ -79,6 +79,13 @@ EXTEND_MARGIN = 8
 # artwork for the handful actually on screen.
 MAX_ITEMS = 200
 
+# How many pages in a row may come back with nothing new before the row is
+# treated as finished. More than one, because a single repeated page is normal
+# for a list that reshuffles between requests - and trending is exactly such a
+# list, and is the first row of both the Films and Series tabs. Fewer than a
+# handful, because a list that really has run out should stop being asked.
+BARREN_PAGES = 3
+
 
 class HomeWindow(xbmcgui.WindowXML):
     def __init__(self, *args, **kwargs):
@@ -91,6 +98,7 @@ class HomeWindow(xbmcgui.WindowXML):
         self.exhausted = set()    # rows with nothing further to fetch
         self.extending = set()    # rows with a page in flight
         self.pending = {}         # slot index -> items fetched, not yet added
+        self.barren = {}          # slot index -> pages running with nothing new
         self.section = catalog.DEFAULT_SECTION
         self.lock = threading.Lock()
         # Whether onInit has already done its work. This has to be its own flag
@@ -382,6 +390,7 @@ class HomeWindow(xbmcgui.WindowXML):
         self.pages.clear()
         self.exhausted.clear()
         self.pending.clear()
+        self.barren.clear()
 
         self.rows = _pick_rows(section)
         for index in range(len(self.rows)):
@@ -572,18 +581,34 @@ class HomeWindow(xbmcgui.WindowXML):
             fresh = [item for item in trakt_state.annotate(entries)
                      if (item.get("id") or item.get("title")) not in known]
             if not fresh:
-                # Pages that repeat what we already have are not progress, and
-                # a trending list reshuffling between requests does exactly
-                # that. Stop rather than fetch page after page of duplicates.
-                self.exhausted.add(index)
+                # A page of things we already have is not the end of the row,
+                # and treating it as one is what stopped the trending rows
+                # after a single page. Trending reshuffles between requests,
+                # so page two legitimately repeats much of page one - and
+                # since trending is the *first* row of both the Films and
+                # Series tabs, that one duplicate page killed scrolling on
+                # the row most likely to be scrolled.
+                #
+                # Step over it and try the next one. Give up only after
+                # several in a row, which is what a list that has genuinely
+                # run out looks like.
+                self.pages[index] = page
+                self.barren[index] = self.barren.get(index, 0) + 1
+                kodi.log("row %s page %d repeated what we had (%d in a row)"
+                         % (row["id"], page, self.barren[index]))
+                if self.barren[index] >= BARREN_PAGES:
+                    self.exhausted.add(index)
                 return
 
+            self.barren[index] = 0
             self.pages[index] = page
             self.pending[index] = fresh
         except Exception:
-            # A row that cannot grow is still a row that works. Give up on
-            # this one rather than letting it retry on every keypress.
-            self.exhausted.add(index)
+            # One failure is not the end of a row either - a request can time
+            # out on a wireless projector and mean nothing at all.
+            self.barren[index] = self.barren.get(index, 0) + 1
+            if self.barren[index] >= BARREN_PAGES:
+                self.exhausted.add(index)
             kodi.log_exception("failed to extend home row %d" % index)
         finally:
             with self.lock:
@@ -739,6 +764,7 @@ class HomeWindow(xbmcgui.WindowXML):
         self.data.clear()
         self.pages.clear()
         self.exhausted.clear()
+        self.barren.clear()
 
 
 def _pick_rows(section=catalog.HOME):
