@@ -120,6 +120,7 @@ def open_auth(title, url, code="", message="", poll=None, interval=5,
             kodi.log("no QR code for %s, showing the link alone" % url)
     try:
         window.prepare()
+        kodi.clear_busy_dialogs()
         window.doModal()
     finally:
         window.stop.set()

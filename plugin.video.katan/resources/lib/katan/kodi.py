@@ -226,6 +226,38 @@ def busy_dialog(show=True):
                         else "Dialog.Close(busydialognocancel)")
 
 
+# Kodi's own busy dialogs. Both, because which one is up depends on how the
+# plugin was invoked and there is no cheap way to ask.
+BUSY_DIALOGS = ("busydialognocancel", "busydialog")
+
+
+def clear_busy_dialogs():
+    """Close Kodi's busy dialogs, and wait for them to actually go.
+
+    A modal dialog refuses every other window: "Activate of window '13000'
+    refused because there are active modal dialogs". Kodi puts a busy dialog
+    up while a plugin runs as a script - which is what a context-menu entry
+    is - so "choose a source" found its sources, asked for the picker, and
+    the picker was refused. `doModal` then blocked on a window that was
+    never shown, and the viewer waited on a screen where nothing happened.
+
+    Closing is asynchronous, so this waits briefly rather than closing and
+    hoping. Half a second is far longer than it takes and is only ever spent
+    when a dialog was actually up.
+    """
+    if not xbmc.getCondVisibility("Window.IsActive(busydialognocancel)")             and not xbmc.getCondVisibility("Window.IsActive(busydialog)"):
+        return False
+    for name in BUSY_DIALOGS:
+        xbmc.executebuiltin("Dialog.Close(%s,true)" % name)
+    for _ in range(25):
+        if not any(xbmc.getCondVisibility("Window.IsActive(%s)" % name)
+                   for name in BUSY_DIALOGS):
+            break
+        xbmc.sleep(20)
+    log("closed Kodi's busy dialog so our window could open")
+    return True
+
+
 def run_builtin(command):
     xbmc.executebuiltin(command)
 
@@ -270,8 +302,29 @@ def clear_property(key):
     xbmcgui.Window(_HOME).clearProperty("katan.%s" % key)
 
 
+_HANDLE = None
+
+
+def set_plugin_handle(value):
+    """Remember the handle the router was invoked with.
+
+    `sys.argv` is right in Kodi and wrong everywhere else - under pytest it
+    is pytest's own argv, so every handler saw -1 and the whole suite
+    exercised the "no handle" path that Kodi only takes for RunPlugin. The
+    router knows the real answer because it is handed argv; this is where it
+    says so.
+    """
+    global _HANDLE
+    try:
+        _HANDLE = int(value)
+    except (TypeError, ValueError):
+        _HANDLE = None
+
+
 def plugin_handle():
     """The handle Kodi passed to this plugin invocation, or -1."""
+    if _HANDLE is not None:
+        return _HANDLE
     try:
         return int(sys.argv[1])
     except (IndexError, ValueError):

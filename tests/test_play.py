@@ -544,3 +544,56 @@ def test_a_source_no_service_can_open_says_so(film, monkeypatch, caplog):
     assert play._resolve(dict(SOURCES[0])) == ""
     assert any("no configured debrid service" in line for line in logged), \
         "a source nothing can open must say so: %s" % logged
+
+
+# --------------------------------------------------------------------------
+# there are two ways Kodi expects to be handed a stream
+# --------------------------------------------------------------------------
+
+
+def test_a_context_menu_run_starts_playback_itself(film):
+    """"Choose a source" found sources, resolved one, and played nothing.
+
+    A context-menu entry is `RunPlugin`, which runs the plugin as a script:
+    the handle is -1 and nothing is waiting for `setResolvedUrl`, so the
+    resolved URL was handed to nobody. Pressing play on the same title
+    worked, because that path passes a real handle.
+    """
+    import xbmc
+    import xbmcplugin
+    from katan.ui import listing
+
+    del xbmc.Player.PLAYED[:]
+    xbmcplugin.reset()
+
+    listing.resolve(-1, "https://cdn/a.mkv",
+                    {"type": "movie", "title": "A Film", "ids": {}, "art": {}})
+
+    assert not xbmcplugin.RESOLVED, "there was no handle to resolve to"
+    assert xbmc.Player.PLAYED, "so it has to start playback itself"
+    assert xbmc.Player.PLAYED[0][0][0] == "https://cdn/a.mkv"
+
+
+def test_a_real_handle_is_still_resolved_to(film):
+    """The normal path must not change: Kodi is waiting for this one."""
+    import xbmc
+    import xbmcplugin
+    from katan.ui import listing
+
+    del xbmc.Player.PLAYED[:]
+    xbmcplugin.reset()
+
+    listing.resolve(1, "https://cdn/a.mkv",
+                    {"type": "movie", "title": "A Film", "ids": {}, "art": {}})
+
+    assert xbmcplugin.RESOLVED, "Kodi is waiting for a resolved URL"
+    assert not xbmc.Player.PLAYED, "and must not be played to twice"
+
+
+def test_a_failure_with_no_handle_is_not_reported_to_nobody(film):
+    import xbmcplugin
+    from katan.ui import listing
+
+    xbmcplugin.reset()
+    listing.resolve_failed(-1)
+    assert not xbmcplugin.RESOLVED

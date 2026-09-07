@@ -83,6 +83,8 @@ def is_subtitle_request(params):
 def dispatch(argv=None):
     """Entry point called from main.py."""
     argv = argv or sys.argv
+    if len(argv) > 1:
+        kodi.set_plugin_handle(argv[1])
     query = argv[2] if len(argv) > 2 else ""
     params = parse_params(query)
     action = params.get("action", "home")

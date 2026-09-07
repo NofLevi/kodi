@@ -38,6 +38,10 @@ def kodi_environment(tmp_path):
 
     from katan import cache, kodi
     kodi.refresh_addon()
+    # The router remembers the handle it was invoked with, and a handle left
+    # over from another test is exactly the sort of thing that makes a suite
+    # depend on the order it runs in.
+    kodi.set_plugin_handle(None)
     cache.close()
 
     yield

@@ -329,6 +329,7 @@ def pick_source(sources, meta, all_sources=None):
             # Before showing, so the first paint has a title, a status line and
             # a toggle button with a label on it.
             window.prepare()
+            kodi.clear_busy_dialogs()
             window.doModal()
             chosen = window.chosen
             refresh = window.refresh_requested
