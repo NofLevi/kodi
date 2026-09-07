@@ -480,3 +480,88 @@ def test_a_home_with_nothing_in_it_is_still_navigable(monkeypatch,
     assert window.getFocusId() == home_window.BUTTON_SEARCH
     assert window.getProperty("katan.hero.title"), \
         "and it should say something rather than sit blank"
+
+
+# --------------------------------------------------------------------------
+# moving between rows, which Kodi was not doing
+# --------------------------------------------------------------------------
+
+
+class MoveAction(object):
+    def __init__(self, action_id):
+        self._id = action_id
+
+    def getId(self):
+        return self._id
+
+
+def _home_with_rows(monkeypatch, filled):
+    """A home window whose slots hold exactly the rows named in `filled`."""
+    from katan import catalog
+    from katan.meta import tmdb
+    from katan.ui import home_window
+
+    monkeypatch.setattr(tmdb, "has_key", lambda: True)
+    window = home_window.HomeWindow()
+    window.rows = [{"id": "r%d" % n, "title_id": 0} for n in range(5)]
+    window.data = {n: [{"title": "item %d" % n, "type": "movie",
+                        "ids": {}, "art": {}}] for n in filled}
+    assert catalog is not None
+    return window
+
+
+def test_down_moves_to_the_next_row(monkeypatch):
+    """It did not. Six presses and focus never left the first row, so the
+    main screen showed one row and everything below it was visible and
+    unreachable with a remote."""
+    from katan.ui import home_window
+
+    window = _home_with_rows(monkeypatch, [0, 1, 2])
+    window.setFocusId(home_window.LIST_BASE)
+
+    window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
+    assert window.getFocusId() == home_window.LIST_BASE + 1
+    window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
+    assert window.getFocusId() == home_window.LIST_BASE + 2
+
+
+def test_up_moves_back_and_then_to_the_top_bar(monkeypatch):
+    from katan.ui import home_window
+
+    window = _home_with_rows(monkeypatch, [0, 1])
+    window.setFocusId(home_window.LIST_BASE + 1)
+
+    window.onAction(MoveAction(home_window.ACTION_MOVE_UP))
+    assert window.getFocusId() == home_window.LIST_BASE
+    window.onAction(MoveAction(home_window.ACTION_MOVE_UP))
+    assert window.getFocusId() == home_window.BUTTON_SEARCH
+
+
+def test_an_empty_row_is_stepped_over(monkeypatch):
+    """A row that came back empty has had its heading cleared and is hidden,
+    so focusing it would land on a control that is not there."""
+    from katan.ui import home_window
+
+    window = _home_with_rows(monkeypatch, [0, 3])
+    window.setFocusId(home_window.LIST_BASE)
+
+    window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
+    assert window.getFocusId() == home_window.LIST_BASE + 3
+
+
+def test_down_past_the_last_row_stays_put(monkeypatch):
+    from katan.ui import home_window
+
+    window = _home_with_rows(monkeypatch, [0, 1])
+    window.setFocusId(home_window.LIST_BASE + 1)
+    window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
+    assert window.getFocusId() == home_window.LIST_BASE + 1
+
+
+def test_down_from_the_top_bar_goes_into_the_content(monkeypatch):
+    from katan.ui import home_window
+
+    window = _home_with_rows(monkeypatch, [2])
+    window.setFocusId(home_window.BUTTON_SEARCH)
+    window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
+    assert window.getFocusId() == home_window.LIST_BASE + 2
