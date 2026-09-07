@@ -344,6 +344,54 @@ def test_a_link_the_viewer_picked_is_handed_over_without_a_probe(film,
     assert probed == []
 
 
+def test_a_part_watched_item_resumes_without_being_asked(film, monkeypatch):
+    """Kodi asks "resume or start again?" when it is given a resume point and
+    nothing else. Nobody wants that question on the way into something they
+    were already watching, and ResumeTime is what answers it in advance."""
+    import xbmcplugin
+    from katan.ui import listing
+
+    xbmcplugin.reset()
+    listing.resolve(1, "https://cdn/a.mkv",
+                    {"type": "movie", "title": "A Film", "ids": {}, "art": {},
+                     "resume": {"position": 2040.0, "total": 7200.0}})
+
+    item = xbmcplugin.RESOLVED[-1][2]
+    assert item.getProperty("ResumeTime") == "2040.0"
+    assert item.getProperty("TotalTime") == "7200.0"
+
+
+def test_something_never_started_has_no_resume_properties(film):
+    import xbmcplugin
+    from katan.ui import listing
+
+    xbmcplugin.reset()
+    listing.resolve(1, "https://cdn/a.mkv",
+                    {"type": "movie", "title": "A Film", "ids": {}, "art": {}})
+    item = xbmcplugin.RESOLVED[-1][2]
+    assert not item.getProperty("ResumeTime")
+
+
+def test_the_resume_point_is_fetched_before_playback(film, monkeypatch):
+    """The rows carry it - that is the progress bar under a poster - but the
+    item playback builds comes from TMDB and knows nothing about it, so
+    resuming worked from a plain listing and not from the Katan window."""
+    from katan.meta import trakt_state
+
+    asked = []
+    monkeypatch.setattr(trakt_state, "annotate",
+                        lambda items: asked.append(items) or items)
+    monkeypatch.setattr(play, "_resolve", lambda s: "https://cdn/a.mkv")
+    monkeypatch.setattr(play, "build_meta", lambda request: {
+        "type": "movie", "title": "A Film", "ids": {"imdb": "tt1"},
+        "item": {"type": "movie", "title": "A Film", "ids": {}, "art": {}}})
+    from katan.sources import aggregator
+    monkeypatch.setattr(aggregator, "find", lambda meta, **kw: list(SOURCES))
+
+    play.play(1, {"type": "movie", "tmdb": "1"})
+    assert asked, "nothing asked the Trakt mirror where the viewer got to"
+
+
 class _Answered(object):
     """A response object with only what the reachability check touches."""
 

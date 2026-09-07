@@ -285,7 +285,7 @@
                     </control>
                 </setting>
                 <setting id="sources.min_resolution" type="string" label="30028">
-                    <level>1</level><default>480p</default>
+                    <level>0</level><default>720p</default>
                     <constraints>
                         <options>
                             <option>sd</option>

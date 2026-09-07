@@ -58,7 +58,11 @@ DEFAULTS = {
     "sources.results": "6",
     "sources.cached_only": "true",
     "sources.max_resolution": "1080p",
-    "sources.min_resolution": "480p",
+    # 720p rather than 480p. A 480p release on a 1080p panel looks like a
+    # fault rather than a choice, and it is never the thing somebody wanted
+    # when they pressed play - it is what is left when everything better has
+    # been filtered out, which is a different problem and should look like one.
+    "sources.min_resolution": "720p",
     "sources.allow_hevc": "true",
     "sources.allow_av1": "false",
     "sources.allow_hdr": "false",

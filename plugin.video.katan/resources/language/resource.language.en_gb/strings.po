@@ -1363,3 +1363,15 @@ msgstr ""
 msgctxt "#30146"
 msgid "Setup, accounts, kids mode and maintenance."
 msgstr ""
+
+msgctxt "#32471"
+msgid "Back to what's playing"
+msgstr ""
+
+msgctxt "#32472"
+msgid "Exit"
+msgstr ""
+
+msgctxt "#32473"
+msgid "Close Katan and leave Kodi?"
+msgstr ""
