@@ -224,13 +224,21 @@ plugin path runs the plugin exactly as a user would, so a broken route shows up
 as an empty or failed directory rather than as a silent blank screen.
 
 Measured on Kodi 21.3, Windows, September 2026: nine paths opened, none failed,
-no Python errors. Home 108 ms, live TV 118 ms, search 406 ms. Kodi 21 ships
+no Python errors. Home 108 ms, live TV 118 ms, search 406 ms. The two checks
+that fail are facts about this desktop rather than defects: the portable build
+reports no hardware HEVC decode and ships without InputStream Adaptive. Kodi 21 ships
 **Python 3.8**, not 3.11, so `int.bit_count` is unavailable and the popcount
 fallback in `subs/sync.py` is load-bearing.
 
 The device report on the shipped defaults: **about 6 MB of visible artwork**,
-home from cache 1 ms, cache write 0 ms, subtitle alignment 367 ms, cache on
-disk 0.5 MB. The zip is 358 KB against a 600 KB budget.
+home from cache 13 ms, cache write 0 ms, subtitle alignment 378 ms, cache on
+disk 2.1 MB. The zip is 424 KB against a 600 KB budget.
+
+Home from cache used to read 1 ms and now reads 13 ms, and that is the
+report's own variance rather than a change: rows now cache twenty items and
+draw twelve, so the obvious suspect was the larger payload, and measuring it
+directly puts both the twenty-item and the twelve-item version under a tenth
+of a millisecond. The report reads a cold SQLite page cache once per run.
 
 ## Verifying the windows render
 
