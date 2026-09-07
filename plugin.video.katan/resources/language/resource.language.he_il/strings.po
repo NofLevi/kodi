@@ -1408,3 +1408,11 @@ msgstr "חיבור OpenSubtitles (סריקת קוד)"
 msgctxt "#32491"
 msgid "Nothing is ready to stream. %d copies exist but none are on your debrid account yet - start one downloading?"
 msgstr "אין מקור מוכן לצפייה. קיימים %d עותקים אך אף אחד לא בחשבון הדיבריד שלכם - להתחיל להוריד אחד?"
+
+msgctxt "#30148"
+msgid "TorrentsDB"
+msgstr "TorrentsDB"
+
+msgctxt "#30149"
+msgid "TorrentsDB address"
+msgstr "כתובת TorrentsDB"

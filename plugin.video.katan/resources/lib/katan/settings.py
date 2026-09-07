@@ -40,6 +40,7 @@ DEFAULTS = {
     "alldebrid.apikey": "",
     # sources
     "sources.provider.torrentio": "true",
+    "sources.provider.torrentsdb": "true",
     "sources.provider.comet": "false",
     "sources.provider.mediafusion": "false",
     "sources.provider.zilean": "false",
@@ -47,6 +48,7 @@ DEFAULTS = {
     "sources.provider.animetosho": "true",
     "sources.provider.external": "false",
     "sources.torrentio.url": "https://torrentio.strem.fun",
+    "sources.torrentsdb.url": "https://torrentsdb.com",
     "sources.torrentio.options": "",
     "sources.comet.config": "",
     "sources.comet.url": "https://comet.elfhosted.com",

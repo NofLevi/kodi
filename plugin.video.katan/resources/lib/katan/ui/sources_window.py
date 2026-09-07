@@ -135,6 +135,7 @@ def _list_item(source, outlook=None):
 # viewer should read the name the service calls itself.
 PROVIDER_NAMES = {
     "torrentio": "Torrentio",
+    "torrentsdb": "TorrentsDB",
     "comet": "Comet",
     "mediafusion": "MediaFusion",
     "zilean": "Zilean",

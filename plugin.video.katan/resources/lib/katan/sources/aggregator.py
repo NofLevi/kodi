@@ -30,9 +30,10 @@ ANIME_PROVIDERS = ("nyaa", "animetosho")
 def _provider_modules():
     """Import providers lazily, so an unused one costs nothing."""
     from .providers import (animetosho, comet, external, mediafusion, nyaa,
-                            torrentio, zilean)
+                            torrentio, torrentsdb, zilean)
     return {
         "torrentio": torrentio,
+        "torrentsdb": torrentsdb,
         "comet": comet,
         "mediafusion": mediafusion,
         "zilean": zilean,
