@@ -140,7 +140,10 @@ class HomeWindow(xbmcgui.WindowXML):
         # empty - a TMDB outage now paints this screen rather than a stale one.
         kodi.log("home: no row has anything in it, focusing the top bar")
         self.setFocusId(BUTTON_SEARCH)
-        self.setProperty("katan.hero.title", kodi.localize(32256))
+        # Not "set up Katan": _require_setup has already run and returned
+        # True, so there *is* a TMDB key and setup is not the problem. Saying
+        # so would send the viewer to a wizard that has nothing to fix.
+        self.setProperty("katan.hero.title", kodi.localize(32414))
 
     def _require_setup(self):
         """Offer the wizard when there is no TMDB key, and close.

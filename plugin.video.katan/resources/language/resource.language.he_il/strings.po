@@ -1104,3 +1104,7 @@ msgstr "עשיר יותר  -  פוסטרים %s, %d בשורה, בערך %d MB"
 msgctxt "#32413"
 msgid "This device looks like: %s"
 msgstr "המכשיר הזה נראה כמו: %s"
+
+msgctxt "#32414"
+msgid "Nothing to show right now"
+msgstr "אין מה להציג כרגע"
