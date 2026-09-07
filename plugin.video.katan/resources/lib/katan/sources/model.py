@@ -126,16 +126,123 @@ def magnet_for(source, trackers=()):
 
 
 def dedupe(sources):
-    """Collapse repeats by infohash, keeping the most informative copy.
+    """Collapse repeats, keeping the most informative copy.
 
-    Different providers return the same torrent with different metadata, so
-    merging beats discarding: one may know the size, another the seeders, and
-    a third may already know it is cached.
+    Two different things are collapsed here and it is worth keeping them
+    apart.
+
+    **The same torrent**, reported by several providers with different
+    metadata. Merging beats discarding: one may know the size, another the
+    seeders, and a third may already know it is cached. Matched by infohash,
+    so it is exact.
+
+    **The same file in different torrents**, which the infohash cannot see and
+    which is what the viewer is actually looking at. The same release gets
+    re-uploaded, and each upload is a different torrent of byte-identical
+    content - so the picker showed `The.Matrix.1999.1080p.BrRip.x264.YIFY.mp4`
+    twice, one above the other, at the same 1.86 GB. Measured on a real
+    search, Silo S01E01 had **one file occupying positions 1 to 8**: the
+    picker shows six rows, so the viewer was offered one option six times and
+    told it was six.
+
+    Matched on the release name and the size to the megabyte together, which
+    is deliberately strict. The name alone would collapse a 1080p and a 720p
+    encode that happen to be named alike; the size alone would collapse two
+    unrelated films. Both agreeing means the same file, and the copies are
+    merged rather than dropped so the survivor keeps every provider that had
+    it and the best seeder count anyone reported.
     """
+    by_hash = _collapse(sources, _hash_key)
+    adopted = _adoptable_groups(by_hash)
+    return _collapse(by_hash, lambda s: _file_key(s, adopted))
+
+
+def _hash_key(source):
+    """The same torrent: exact, and the only certain answer."""
+    return source.get("hash") or ("t:" + (source.get("title") or "").lower())
+
+
+def _shape(source):
+    """Size to the megabyte, resolution and codec: what an encode weighs."""
+    size = source.get("size") or 0
+    if not size:
+        return None
+    return (int(round(size / float(1024 ** 2))),
+            source.get("quality") or "", source.get("codec") or "")
+
+
+def _adoptable_groups(sources):
+    """Shapes where exactly one named group exists, so an unnamed one belongs.
+
+    The case this is for: a re-upload whose name has been mangled past the
+    point where the group can be read - "...H264-Ralf-PSOTNIK HT.mkv" beside
+    "...H264-Ralf.mkv" at the same 4.80 GB. The unnamed one is the named one.
+
+    Restricted to *exactly one* named group, and that restriction is the whole
+    safety of it. Measured on a real search, six different releases of one
+    Silo episode share 4977 MB - LostFilm, EniaHD, an Italian one, a Spanish
+    one, BlackBit - and an unnamed source at that size could belong to any of
+    them. Collapsing there would hide every non-English version behind one
+    row, which is the opposite of showing a viewer their options.
+    """
+    seen = {}
+    for source in sources:
+        group = (source.get("group") or "").lower()
+        shape = _shape(source)
+        if not group or shape is None:
+            continue
+        seen.setdefault(shape, set()).add(group)
+    return {shape: next(iter(groups))
+            for shape, groups in seen.items() if len(groups) == 1}
+
+
+def _file_key(source, adopted=None):
+    """The same file, under two different names.
+
+    Everything in one of these lists is already the answer to a search for
+    one film or one episode, which is what makes this safe to do at all: the
+    question is never "are these the same film" but only "are these the same
+    encode of it".
+
+    Two rules, and both need the size, rounded to the megabyte because one
+    provider counts the torrent where another counts the file inside it.
+
+    With a **release group**, the group and the size together are the answer,
+    confirmed by the resolution and the codec. That is what catches a
+    re-upload renamed on the way - "silo.s01e01.1080p.web.h264-ggwp.mkv" and
+    "silo.s01e01.1080p.web.h264-ggwp[eztv.re].mkv" at the same 4.55 GB, or
+    the same release with an "8" stuck on the front of the show name. Both
+    were sitting one above the other in the picker.
+
+    Without one, the **name** and the size. Strict, because there is nothing
+    else to confirm it with.
+
+    A source with no size at all is left alone. Collapsing on a name by
+    itself is how a 720p encode gets eaten by a 1080p one that shares it.
+    """
+    shape = _shape(source)
+    if shape is None:
+        return _hash_key(source)
+
+    group = (source.get("group") or "").lower()
+    if not group:
+        group = (adopted or {}).get(shape, "")
+    if group:
+        return "g:%s:%d:%s:%s" % ((group,) + shape)
+
+    name = release.normalise(release.strip_subtitle_tags(
+        release.strip_site_tags(
+            (source.get("title") or "").rsplit("/", 1)[-1])))
+    if not name:
+        return _hash_key(source)
+    return "f:%s:%d" % (name, shape[0])
+
+
+def _collapse(sources, key_of):
     merged = {}
     order = []
     for source in sources:
-        key = source.get("hash") or ("t:" + (source.get("title") or "").lower())
+        key = key_of(source)
         if not key or key == "t:":
             continue
         if key not in merged:
