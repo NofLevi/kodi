@@ -20,6 +20,46 @@ TorBox and TMDB are both connected and working. Films and episodes play.
 
 ---
 
+## The night in one screen
+
+If you read nothing else, read this.
+
+**The add-on now does the thing it was built for.** Before tonight not one film
+or episode had ever played. Three films, two episodes and a 73-file season pack
+have now played in a real Kodi 21 with the player reporting `speed=1`, and a
+Hebrew subtitle was found, downloaded and applied to one of them automatically.
+
+**Five things were broken in ways no test could have found**, and all five are
+fixed and photographed:
+
+1. **The source picker crashed for everyone who opened it** — one `.strip()`
+   bound to a tuple instead of a string, inside `onInit`, where an exception
+   just silently abandons the rest of the method.
+2. **The subtitle chooser had never once been reachable.** Kodi runs the plugin
+   source for a subtitle module belonging to a video add-on, so `subtitles.py`
+   has never executed and `action=search` was landing in the video search
+   window.
+3. **"Show all" in the picker showed the same eight rows** it was toggling away
+   from. It shows 48 now.
+4. **Every button in every window was white text on a near-white focus
+   texture** — the one control whose label mattered was the one you could not
+   read.
+5. **DEFAULTS had drifted into being `balanced`**, so an add-on written for a
+   projector with a gigabyte of RAM shipped w342 posters and four workers.
+
+**It is lightweight by default now**, which is what you asked for: the shipped
+settings *are* the low-memory profile, key for key, with a test saying so.
+About **6 MB of visible artwork**, measured on the device report. The visual
+polish is one switch that can only ever raise what a profile chose.
+
+**And it is faster.** The plugin's own work between pressing play and handing
+Kodi a URL went from 5–8 seconds to **1.0–2.3**, by not downloading the entire
+TorBox account (466 KB, 58 torrents) to look up one hash.
+
+Tests went from 559 to **733**. Everything is committed and pushed.
+
+---
+
 ## Confirmation matrix
 
 How each feature was checked, and what the check actually showed. Nothing is
