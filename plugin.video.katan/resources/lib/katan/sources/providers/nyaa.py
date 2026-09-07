@@ -8,6 +8,7 @@ import re
 
 from ... import http, kodi
 from ...sources import model
+from ...utils import release
 
 NAME = "nyaa"
 BASE = "https://nyaa.si"
@@ -30,13 +31,24 @@ def search(meta):
 
 
 def _query_for(meta):
-    title = meta.get("original_title") or meta.get("title") or ""
+    """The name and number this index is actually going to match on.
+
+    `search_title` is the English one, set for anime by play.build_meta,
+    because the original title is Japanese and this searches release names as
+    text: the Japanese title returns zero results, every time, for every
+    anime tried.
+
+    `absolute` is the episode counted from the first rather than from the
+    season, because fansub groups number that way. Both fall back to what was
+    used before when they are absent, so nothing else changes.
+    """
+    title = (meta.get("search_title") or meta.get("original_title")
+             or meta.get("title") or "")
     if not title:
         return ""
     if meta.get("type") == "episode":
-        # Fansub groups number anime episodes absolutely far more often than
-        # by season, so the episode number alone is the better query.
-        return "%s %02d" % (title, int(meta.get("episode") or 1))
+        number = int(meta.get("absolute") or meta.get("episode") or 1)
+        return "%s %02d" % (title, number)
     return title
 
 
@@ -57,11 +69,14 @@ def _parse_rss(text, meta):
         return []
 
     namespace = {"nyaa": "https://nyaa.si/xmlns/nyaa"}
+    wanted = _episode_filter(meta)
     sources = []
     for item in root.iter("item"):
         title = _text(item, "title")
         info_hash = _text(item, "nyaa:infoHash", namespace)
         if not title or not info_hash:
+            continue
+        if wanted and not wanted(title):
             continue
         sources.append(model.from_release_name(
             title, provider=NAME,
@@ -69,6 +84,39 @@ def _parse_rss(text, meta):
             seeders=_int(_text(item, "nyaa:seeders", namespace)),
             info_hash=info_hash))
     return sources
+
+
+def _episode_filter(meta):
+    """Refuse the episodes this is not, because Nyaa will offer them.
+
+    Nyaa searches the release name as text and matches loosely, so asking for
+    episode 14 returns forty-five results for episode *149*. Every other
+    provider is asked by IMDb id and is right by construction; this one has to
+    check, and until now it did not - so a search that found nothing was the
+    better outcome, and a search that found something offered a different
+    episode of the right show with every appearance of confidence.
+
+    A release whose name carries no number at all is kept. Fansub batches are
+    routinely named "Complete Series" with the range only in the file list,
+    and the debrid layer picks the right file out of a pack anyway - so an
+    unnumbered name is an unknown rather than a wrong answer, and refusing it
+    would throw away the packs that are often all anybody is seeding.
+    """
+    if (meta or {}).get("type") != "episode":
+        return None
+    season = int(meta.get("season") or 1)
+    episode = int(meta.get("episode") or 0)
+    absolute = int(meta.get("absolute") or 0) or episode
+    if not episode:
+        return None
+
+    def keep(name):
+        parsed = release.parse(name)
+        if not (parsed["season"] or parsed["episode"] or parsed["absolute"]
+                or parsed.get("episode_range")):
+            return True                     # says nothing; let it through
+        return release.matches_episode(parsed, season, episode, absolute)
+    return keep
 
 
 def _text(item, tag, namespace=None):

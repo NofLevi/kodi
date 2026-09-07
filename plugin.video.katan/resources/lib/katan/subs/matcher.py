@@ -95,7 +95,8 @@ def score_candidate(candidate, target, video_hash=""):
         season = int(target.get("season") or 0)
         episode = int(target.get("episode") or 0)
         if parsed["season"] or parsed["episode"] or parsed["absolute"]:
-            if release.matches_episode(parsed, season, episode):
+            if release.matches_episode(parsed, season, episode,
+                                       target.get("absolute")):
                 total += WEIGHT_EPISODE
             else:
                 total += PENALTY_WRONG_EPISODE
@@ -163,6 +164,7 @@ def target_from(meta, source=None):
         "type": meta.get("type"),
         "season": meta.get("season"),
         "episode": meta.get("episode"),
+        "absolute": meta.get("absolute"),
     }
 
 

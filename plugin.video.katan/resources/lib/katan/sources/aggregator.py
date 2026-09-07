@@ -253,6 +253,9 @@ def _apply_meta(sources, meta):
         "type": meta.get("type"),
         "season": meta.get("season"),
         "episode": meta.get("episode"),
+        # A fansub batch names its files absolutely, so picking the right one
+        # out of a pack needs the absolute number as well as the pair.
+        "absolute": meta.get("absolute"),
         "title": meta.get("title"),
     }
     for source in sources:

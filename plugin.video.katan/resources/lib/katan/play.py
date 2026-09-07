@@ -60,7 +60,43 @@ def build_meta(request):
 
     if request.get("imdb") and not meta["ids"].get("imdb"):
         meta["ids"]["imdb"] = request["imdb"]
+
+    _name_it_the_way_the_indexes_do(meta, tmdb_id)
     return meta
+
+
+def _name_it_the_way_the_indexes_do(meta, tmdb_id):
+    """For anime, work out the name and the number the trackers actually use.
+
+    Every other provider is asked by IMDb id and does not care what anything
+    is called. The two anime ones are asked by name and by episode number,
+    and both of those were wrong for anime specifically:
+
+    * the name was `original_title`, which for anime is Japanese in Japanese
+      script, and Nyaa searches the release name as text - so it returned
+      nothing at all for Doraemon, Reborn, Frieren and Madoka alike
+    * the number was the season-relative one, so "season 8 episode 14" of
+      Reborn searched for 14 and matched episode 149
+
+    Only computed for anime, so it costs nothing for anything else, and both
+    lookups are cached.
+    """
+    from .meta import tmdb
+
+    if not (meta.get("extra") or {}).get("anime"):
+        return
+    try:
+        english = tmdb.english_title(meta.get("type"), tmdb_id)
+    except Exception:
+        english = ""
+    meta["search_title"] = (english or meta.get("original_title")
+                            or meta.get("title") or "")
+    if meta.get("type") == "episode":
+        try:
+            meta["absolute"] = tmdb.absolute_episode(
+                tmdb_id, meta.get("season"), meta.get("episode"))
+        except Exception:
+            meta["absolute"] = int(meta.get("episode") or 0)
 
 
 def play(handle, request, force_picker=False):
