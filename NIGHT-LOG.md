@@ -393,10 +393,15 @@ nothing ever called it — but a box with room to spare is *told* so, not
 quietly switched. That is deliberate: it is memory being spent on somebody
 else's hardware.
 
-**Worth knowing:** Kodi writes every declared setting into its own file the
-first time it loads an add-on, so an install that already exists keeps the
-values it has. This changes what a *fresh* install gets. Tools → Performance
-profile applies the lean set to an existing one.
+**Worth knowing:** an install that already exists keeps the values it has, so
+this changes what a *fresh* install gets. Tools → Performance profile applies
+the lean set to an existing one.
+
+*(Corrected at 12:20. I wrote here that Kodi writes every declared setting into
+its own file the first time it loads an add-on. It does not: a fresh install
+has no settings file at all until something is changed, and `DEFAULTS` is what
+the add-on runs on until then. Which is better for this change, not worse —
+a new install gets the lean settings without Kodi having to write anything.)*
 
 Photographed at w185 in a real Kodi. It does not look cheap: sharp posters,
 the hero backdrop, Hebrew headings, two full rows.

@@ -139,13 +139,32 @@ def mdblist_list(params):
 
 
 def _require_tmdb(handle):
-    """Stop with a clear message rather than an empty screen when unconfigured."""
+    """Offer setup rather than an empty screen, but not *only* setup.
+
+    Everything TMDB feeds needs a key. Israeli live television and the
+    on-demand catalogue need nothing at all - they are bundled data and the
+    broadcasters' own streams - and hiding them behind a gate for a key they
+    do not use meant a fresh install showed exactly one line, "set up Katan",
+    with forty-three working channels behind it.
+
+    So the gate still leads with setup, and then offers the half that already
+    works.
+    """
     from ..meta import tmdb
     if tmdb.has_key():
         return True
     listing.add_directory(handle, kodi.localize(32256),
                           router.url_for("setup"),
                           art={"icon": "DefaultAddonService.png"})
+    listing.add_directory(handle, kodi.localize(32217),
+                          router.url_for("live_tv"),
+                          art={"icon": "DefaultTVShows.png"})
+    listing.add_directory(handle, kodi.localize(32218),
+                          router.url_for("vod"),
+                          art={"icon": "DefaultMovies.png"})
+    listing.add_directory(handle, kodi.localize(32255),
+                          router.url_for("tools"),
+                          art={"icon": "DefaultAddonProgram.png"})
     listing.end(handle, content="videos", cache_to_disc=False)
     return False
 
