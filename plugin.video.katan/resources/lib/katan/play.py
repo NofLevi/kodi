@@ -61,6 +61,13 @@ def play(handle, request, force_picker=False):
     """Route entry point for playing a movie or an episode."""
     meta = build_meta(request)
     if not meta.get("title"):
+        # The one failure with no explanation anywhere. An episode reached
+        # this line and left "action episode took 1401 ms" in the log and
+        # nothing else - no source search, no attempt, no reason. TMDB is the
+        # only thing that supplies a title, so this is a TMDB id it does not
+        # know, or a TMDB that did not answer, and either is worth saying.
+        kodi.log("no title for %s tmdb=%s, so there is nothing to search for"
+                 % (request.get("type"), request.get("tmdb")), kodi.LOG_INFO)
         kodi.notify(kodi.localize(32280))
         listing.resolve_failed(handle)
         return
@@ -73,12 +80,21 @@ def play(handle, request, force_picker=False):
         return
 
     if not settings.configured_debrid():
+        kodi.log("no debrid service is configured, so nothing can be played",
+                 kodi.LOG_INFO)
         kodi.ok_dialog(kodi.localize(32282))
         listing.resolve_failed(handle)
         return
 
     sources = aggregator.find(meta)
     if not sources:
+        # Worth a line even though there is a notification, because the
+        # notification says the same thing whether the search just ran and
+        # found nothing or a remembered empty answer was handed back. Those
+        # want different responses - wait, or clear the cache - and only the
+        # log can tell them apart, because a cached answer logs no search.
+        kodi.log("no sources for %s (%s)"
+                 % (meta.get("title", ""), _describe(meta)), kodi.LOG_INFO)
         kodi.notify(kodi.localize(32283))
         listing.resolve_failed(handle)
         return
@@ -97,6 +113,13 @@ def play(handle, request, force_picker=False):
 
     chosen, url = _resolve_any(chosen, sources, force_picker)
     if not url:
+        # The last exit with nothing behind it. Between them, the five exits
+        # in this function had four different silences, and an episode that
+        # would not play left one line in the log saying how long it had
+        # taken to not play. Every one of them says why now.
+        kodi.log("could not open any of %d sources for %s %s"
+                 % (len(sources), meta.get("title", ""), _describe(meta)),
+                 kodi.LOG_INFO)
         kodi.notify(kodi.localize(32284))
         listing.resolve_failed(handle)
         return
@@ -129,6 +152,14 @@ RESOLVE_ATTEMPTS = 3
 RESOLVE_ATTEMPTS_CACHED = 6
 
 
+def _describe(meta):
+    """"Silo S01E01" or "a film", for a log line."""
+    if meta.get("type") == "episode":
+        return "S%02dE%02d" % (int(meta.get("season") or 0),
+                               int(meta.get("episode") or 0))
+    return str(meta.get("year") or "")
+
+
 def _resolve_any(chosen, sources, force_picker):
     """Resolve the chosen source, falling through to the next ones.
 
@@ -143,7 +174,9 @@ def _resolve_any(chosen, sources, force_picker):
     different release would be worse than saying so.
     """
     url = _resolve(chosen)
-    if url or force_picker:
+    if force_picker:
+        return chosen, url
+    if url and _reachable(url):
         return chosen, url
 
     limit = RESOLVE_ATTEMPTS if _uncached_allowed() else RESOLVE_ATTEMPTS_CACHED
@@ -158,9 +191,87 @@ def _resolve_any(chosen, sources, force_picker):
         kodi.log("falling through to the next source: %s"
                  % (candidate.get("title", "")[:70]))
         url = _resolve(candidate)
-        if url:
+        if url and _reachable(url):
             return candidate, url
     return chosen, ""
+
+
+# How long to wait for the first byte of a stream before deciding the link is
+# not going to open. Generous, because this is a wireless projector and a slow
+# answer is still an answer; short enough that a dead link does not look like
+# a frozen add-on.
+REACHABLE_TIMEOUT = 8
+
+# How long a CDN host that would not answer is left alone. Short, because a
+# node coming back is normal and being wrong here costs a playback; long
+# enough to cover one viewer working through one film's sources.
+DEAD_HOST_TTL = 300
+
+
+def _dead_host_key(url):
+    """The cache key for "this CDN node is not answering".
+
+    Whole hosts fail rather than individual links: one evening's log had
+    three sources for the same episode resolve to store-028, store-045 and
+    store-028 again, and every one of them timed out at eight seconds. That
+    is twenty-four seconds of waiting, sixteen of it spent finding out the
+    same thing twice. A debrid service hands out links round-robin across its
+    nodes, so remembering the node rather than the link is what makes the
+    difference.
+    """
+    try:
+        from urllib.parse import urlparse
+    except ImportError:
+        from urlparse import urlparse       # Python 2, which Kodi 21 is not
+    host = urlparse(url).netloc
+    return ("debrid|deadhost|%s" % host) if host else ""
+
+
+def _reachable(url):
+    """Does this URL actually give us a byte?
+
+    A debrid service can hand back a link its own CDN will not serve. That is
+    not theoretical: TorBox returned perfectly good links to
+    store-028.wnam.tb-cdn.io and store-033.wnam.tb-cdn.io on the same evening,
+    both of which accepted a TCP connection on 443 and then never answered -
+    twenty-five seconds to nothing, from Kodi and from a browser alike. Kodi's
+    only symptom was a black screen: the plugin had done its job, handed over
+    a URL, and there was nothing in any log to say the link was dead.
+
+    So the link is opened for one byte before it is handed over, and a link
+    that will not give up a byte is treated like any other source that will
+    not play - the next one is tried. One ranged request costs a few hundred
+    milliseconds against a playback that would otherwise not have happened.
+
+    Only a connection failure counts against it. An HTTP status does not: some
+    CDNs answer a range request with 403 and the full file with 200, and
+    refusing those would be worse than the problem being solved.
+    """
+    from . import cache, http
+
+    key = _dead_host_key(url)
+    if key and cache.get(key):
+        kodi.log("skipping %s, it was not answering a moment ago"
+                 % url.split("/")[2])
+        return False
+
+    response = http.get(url, headers={"Range": "bytes=0-0"},
+                        timeout=REACHABLE_TIMEOUT, retries=0, stream=True)
+    if response is None:
+        kodi.log("the link came back but will not open: %s" % url[:80],
+                 kodi.LOG_INFO)
+        if key:
+            cache.set(key, True, DEAD_HOST_TTL)
+        return False
+    try:
+        response.close()
+    except Exception:
+        pass
+    if key:
+        # A node that answers clears its own black mark, so one slow moment
+        # does not keep a working host out for five minutes.
+        cache.delete(key)
+    return True
 
 
 def _choose(sources, meta, force_picker):
