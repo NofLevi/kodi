@@ -94,7 +94,8 @@ marked confirmed on the strength of a passing unit test alone.
 | "Show all" in the picker | The toggle pressed in Kodi | **Confirmed.** 6 rows become **48**, and the status line goes with it. It used to hand back the same six. |
 | Reaching the picker's buttons | Same run | **Fixed.** They were on Left only, below a list that swallowed Down. I could not find them twice myself — see 10:20. |
 | Home window | Opened in Kodi, and its focus traced through JSON-RPC | **Confirmed, after a serious fix.** Hero backdrop, Hebrew headings, sharp posters - and **down now moves between rows**, which it never did before. See 13:30. |
-| Details window | Opened on a film and a show | **Confirmed.** Poster, title, meta in Hebrew, plot, cast, four legible buttons; Play works on first press on a show. |
+| Details window — a film | Opened in Kodi | **Confirmed.** Poster, title, meta, plot and cast all in Hebrew; four legible buttons. |
+| Details window — a show | Silo, reached the way a viewer does | **Confirmed, after two fixes.** Four seasons with thumbnails and episode counts, then ten episodes with Hebrew titles, air dates and runtimes. Runtimes read "62 min" and a one-episode season read "1 פרקים" — the plural. Both Hebrew now. |
 | Search window | Opened in a Hebrew interface | **Confirmed.** Hebrew keyboard by default, recent searches, results. |
 | Settings dialog | 134 labels as string ids, integrity test, opened in Kodi | **Confirmed.** Every label renders; every declared setting reads back as declared. |
 | Accounts screen | Opened in Kodi | **Confirmed.** TorBox `[OK]` with plan and expiry, TMDB `[OK]`, Trakt `[  ]`. |
@@ -775,3 +776,23 @@ because it *was* right; what was broken was something a picture cannot show. It
 took asking Kodi a question rather than looking at it.
 
 753 tests.
+
+## 13:55 — A show's details, reached for the first time
+
+Fixing the row navigation made this reachable, and it is worth seeing: Silo,
+with poster, Hebrew plot, Hebrew cast, four seasons with their own thumbnails
+and episode counts, and then ten episodes with Hebrew titles, air dates and
+runtimes.
+
+Two things were wrong in it, both small and both Hebrew.
+
+The episode runtimes read **"62 min"**. That is the same defect I fixed in the
+information line at 03:20 and did not notice one function below it, in a window
+that is otherwise entirely Hebrew.
+
+And season four of Silo has a single episode, which read **"1 פרקים"** - the
+plural. Hebrew takes the singular after one.
+
+Both confirmed fixed in Kodi: the list now reads "62 דק'", "52 דק'", "66 דק'".
+
+756 tests.
