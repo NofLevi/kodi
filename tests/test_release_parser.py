@@ -135,3 +135,73 @@ def test_an_unreadable_resolution_is_not_filtered_out():
 
     too_low = dict(unreadable, quality="480p")
     assert scoring.rejection_reason(too_low, Prefs()) ==         "below the resolution limit"
+
+
+# --------------------------------------------------------------------------
+# subtitle file names
+#
+# A subtitle is named after the video and then decorated: the language,
+# sometimes a "forced" or "sdh" flag, and a subtitle extension. All of it
+# lands after the release group, which is the strongest subtitle-matching
+# signal there is - and all of it was hiding it, in exactly the file names
+# where it matters most.
+# --------------------------------------------------------------------------
+
+
+def test_a_language_suffix_is_not_the_release_group():
+    """This one was live: Wizdom returns names like YIFY-heb, which read as a
+    release by a group called "heb"."""
+    assert release.release_group(
+        "The.Film.1994.1080p.x264.YIFY-heb") == "yify"
+
+
+def test_a_subtitle_extension_does_not_hide_the_group():
+    """Only video extensions were stripped, so every .srt lost its group."""
+    assert release.release_group(
+        "The.Film.2024.1080p.BluRay.x264-AMIABLE.srt") == "amiable"
+
+
+def test_stacked_tags_all_come_off():
+    assert release.release_group(
+        "The.Film.2024.1080p.WEB-DL.x264-NTb.forced.heb.srt") == "ntb"
+
+
+def test_the_release_underneath_is_recovered():
+    assert release.strip_subtitle_tags(
+        "The.Film.2024.1080p.BluRay.x264-AMIABLE.heb.srt") == \
+        "The.Film.2024.1080p.BluRay.x264-AMIABLE"
+
+
+def test_a_plain_release_name_is_left_alone():
+    name = "The.Film.2024.1080p.BluRay.x264-AMIABLE"
+    assert release.strip_subtitle_tags(name) == name
+
+
+def test_a_group_is_not_eaten_for_looking_like_a_language():
+    """The tags only come off the end, one separator at a time, so a group
+    that happens to contain one is safe."""
+    assert release.release_group(
+        "The.Film.2024.1080p.BluRay.x264-HEBITS") == "hebits"
+
+
+def test_a_dot_separated_group_is_still_a_group():
+    """Common enough to matter: this is the form Wizdom returns."""
+    assert release.release_group(
+        "The.Film.1994.1080p.x264.YIFY") == "yify"
+
+
+def test_a_plain_title_has_no_group():
+    """Otherwise the last word of every title becomes a release group, and
+    "The.Office" is by a group called Office."""
+    assert release.release_group("The.Office") == ""
+    assert release.release_group("Breaking.Bad") == ""
+
+
+def test_a_quality_token_at_the_end_is_not_a_group():
+    assert release.release_group("The.Film.2024.BluRay.1080p") == ""
+    assert release.release_group("The.Film.2024.1080p.HDR") == ""
+    assert release.release_group("The.Film.2024.WEB.x265") == ""
+
+
+def test_a_year_at_the_end_is_not_a_group():
+    assert release.release_group("The.Film.1080p.BluRay.1994") == ""

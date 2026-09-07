@@ -140,7 +140,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-993 tests, all running against Kodi stubs, so no Kodi install is needed:
+1011 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -159,12 +159,12 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_aggregator.py` | 23 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |
 | `test_providers.py` | 17 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
-| `test_release_parser.py` | 29 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
+| `test_release_parser.py` | 39 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
 | `test_sources.py` | 21 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 23 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
-| `test_subtitle_matching.py` | 14 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
+| `test_subtitle_matching.py` | 22 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
@@ -441,6 +441,25 @@ What the viewer sees when they open the subtitle list, in order:
                      confirmed by hash. No qualifier, because none is needed.
     82% estimate     everything else, shown as an estimate so a guess reads
                      as a guess rather than a promise.
+
+The percentage is a probability that this subtitle fits this file, and it is
+calibrated rather than a sum of whatever weights looked plausible:
+
+    100   the same file by hash, or the same release name
+     85   the same group, source and codec
+     70   the right title, same source and resolution, a different group
+     55   the right title and the same source
+     40   the right title and nothing else
+      0   demonstrably the wrong episode
+
+That ladder is checked against live Wizdom results, not only fixtures. It used
+to top out at **33** for a subtitle agreeing on source, resolution *and*
+codec, because the largest piece of evidence was scored as nothing: every
+candidate is the answer to a search for one specific title, and knowing that
+was worth zero. So nothing a Hebrew provider returned could ever clear the
+70% threshold, every film fell through to "below threshold, used anyway", and
+a viewer reading 33 next to the best Hebrew subtitle in existence concluded
+the add-on could not find subtitles - correctly, from what they were shown.
     AI translation   last, and not a subtitle anyone has - an offer to make
                      one. It is shown whether or not the list above it is
                      empty, because nothing here can tell a good Hebrew

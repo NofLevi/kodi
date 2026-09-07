@@ -1179,3 +1179,63 @@ found: Anime"**. String 32302 is the heading of the anime row on the home
 screen, and it had been passed as the description of what had just happened.
 
 993 tests, zip 421 KB.
+
+## "52 percent is not good enough" was right, and the subtitle was fine
+
+The complaint was about a number, and the number was wrong. Wizdom is
+answering perfectly well - 32 Hebrew subtitles for Shawshank, 2 for a Silo
+episode - and the *order* it put them in was correct the whole time. What was
+broken was the scale.
+
+The best score reachable from a Hebrew provider was **33**. Source, resolution
+and codec all agreeing on the right film came to 15 + 12 + 6, against a
+threshold of 70. So nothing Wizdom ever returned could be accepted, every film
+fell through to "below threshold, used anyway", and every subtitle in the
+picker was labelled as a weak guess. A viewer reading 33 next to the best
+Hebrew subtitle that exists for a film concludes the add-on cannot find
+subtitles, and from what they were shown that is the right conclusion.
+
+The missing piece was the largest one. Every candidate in that list is the
+answer to a search for **one specific film**, by IMDb id - and that was worth
+nothing in the sum. Three weak signals were being added up and the strong one
+was being ignored. The scale is now a calibrated probability:
+
+    100   the same file by hash, or the same release name
+     85   the same group, source and codec
+     70   the right title, same source and resolution, a different group
+     55   the right title and the same source
+     40   the right title and nothing else
+      0   demonstrably the wrong episode
+
+Measured against live Wizdom results, the same 32 candidates in the same
+order: 100 for an identical name, 85 group+source+codec, 80 group+source, 70
+source+resolution+codec, 55 source, 40 title only. Eight tests pin it, because
+the old scale was wrong in a way no ordering test could ever have caught.
+
+### Three real bugs found underneath it
+
+**Two unknown resolutions counted as an agreement.** `source` and `codec` both
+guard against "unknown"; `resolution` did not, so two names that fail to state
+a resolution were credited 12 points for agreeing about nothing. It got worse
+last night, when the parser started returning "unknown" rather than assuming
+"sd".
+
+**Every `.srt` lost its release group.** The group parser stripped video
+extensions only, so `X.1080p.BluRay.x264-AMIABLE.srt` had no group at all -
+in the one file type where the group matters most. The group is the strongest
+signal there is: groups mux their own timings, so a subtitle made for a group
+release fits it.
+
+**A language suffix was read as the group.** Wizdom returns names like
+`The.Shawshank.Redemption.1994.1080p.x264.YIFY-heb`, which parsed as a release
+by a group called "heb". Subtitle decoration - language, `forced`, `sdh`, the
+extension - now comes off before the group is looked for, repeatedly, because
+it stacks: `...-GROUP.forced.heb.srt`.
+
+Fixing that last one exposed a fourth: with `-heb` gone, `...x264.YIFY` has a
+**dot-separated** group, which the parser did not recognise at all. It does
+now, but only on a name that already carries a resolution, source or codec
+token - otherwise the last word of every title becomes a release group and
+"The.Office" is by a group called Office.
+
+1011 tests, zip 423 KB.

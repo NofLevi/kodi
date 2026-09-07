@@ -163,6 +163,10 @@ def find_and_prepare(meta, languages, player=None):
                                     video_hash, languages)
 
     winner = winners.get(wanted)
+    if winner:
+        kodi.log("best %s subtitle: %s %r"
+                 % (wanted, matcher.explain(winner),
+                    (winner.get("release") or "")[:60]))
     if winner and winner.get("accepted"):
         cues = download_candidate(winner, expect_language=wanted)
         if cues:

@@ -15,15 +15,37 @@ Nothing here touches the network.
 """
 from ..utils import release
 
-# Weights sum to 100 so the threshold setting reads as a percentage.
+# The scale is a probability that this subtitle fits this file, and the
+# weights are chosen so the arithmetic lands where a person would:
+#
+#     100   the same file by hash, or the same release name. Certain.
+#      95   the same group as well as the same source and resolution. Groups
+#           mux their own timings, so a subtitle made for a group release
+#           fits it.
+#      70   the right title, the same source and the same resolution, a
+#           different group. Likely: retail subtitles for a BluRay generally
+#           fit every BluRay rip of the same cut.
+#      55   the right title and the same source, nothing else known.
+#      40   the right title and nothing else.
+#       0   demonstrably the wrong episode.
+#
+# WEIGHT_TITLE is the piece that was missing, and it was the largest one. Every
+# candidate in this list is the answer to a search for one specific film or
+# show - by IMDb id, for the providers that take one - so knowing it is for
+# the right title is evidence, and it was being scored as though it were
+# worth nothing. That is why a subtitle agreeing on source, resolution *and*
+# codec came out at 33%: three weak signals and no credit for the strong one.
+# A viewer reading 33 next to the best Hebrew subtitle in existence for a film
+# concludes the add-on cannot find subtitles, and they are right to.
 WEIGHT_HASH = 100
-WEIGHT_GROUP = 45
+WEIGHT_TITLE = 40
+WEIGHT_GROUP = 25
 WEIGHT_SOURCE = 15
-WEIGHT_RESOLUTION = 12
-WEIGHT_CODEC = 6
-WEIGHT_PROVIDER_SYNC = 22
-WEIGHT_EXACT_NAME = 60
-WEIGHT_EPISODE = 10
+WEIGHT_RESOLUTION = 10
+WEIGHT_CODEC = 5
+WEIGHT_PROVIDER_SYNC = 15
+WEIGHT_EXACT_NAME = 100
+WEIGHT_EPISODE = 12
 
 # Applied when a candidate is clearly for something else.
 PENALTY_WRONG_EPISODE = -100
@@ -39,7 +61,7 @@ def score_candidate(candidate, target, video_hash=""):
 
     name = candidate.get("release") or candidate.get("name") or ""
     parsed = release.parse(name)
-    total = 0
+    total = WEIGHT_TITLE
     reasons = []
 
     if name and target.get("release"):
@@ -56,7 +78,12 @@ def score_candidate(candidate, target, video_hash=""):
         total += WEIGHT_SOURCE
         reasons.append("source")
 
-    if parsed["resolution"] == target.get("resolution"):
+    # The "unknown" guard matters as much here as it does for source and
+    # codec, and was missing: two names that both fail to state a resolution
+    # were being credited for agreeing about nothing. It got worse when the
+    # parser started returning "unknown" rather than assuming "sd".
+    if (parsed["resolution"] != "unknown"
+            and parsed["resolution"] == target.get("resolution")):
         total += WEIGHT_RESOLUTION
         reasons.append("resolution")
 
@@ -92,16 +119,25 @@ def score_candidate(candidate, target, video_hash=""):
     return total
 
 
+def explain(candidate):
+    """The evidence behind a score, for a log or a tooltip."""
+    return "%d%% (%s)" % (candidate.get("score", 0),
+                          candidate.get("reason") or "title only")
+
+
 def _same_name(left, right):
     return release.normalise(_stem(left)) == release.normalise(_stem(right))
 
 
 def _stem(name):
-    stem = name.rsplit("/", 1)[-1]
-    for extension in (".srt", ".sub", ".ass", ".ssa", ".mkv", ".mp4", ".avi"):
-        if stem.lower().endswith(extension):
-            stem = stem[:-len(extension)]
-    return stem
+    """The release name a subtitle file was made for.
+
+    Uses the same stripping as the group parser, so "X-AMIABLE.heb.srt" and
+    "X-AMIABLE" are recognised as the same release. They are - one is the
+    subtitle for the other - and this is the strongest match there is, so
+    failing to see it cost a certain 100% and settled for a guess.
+    """
+    return release.strip_subtitle_tags(name.rsplit("/", 1)[-1])
 
 
 def target_from(meta, source=None):
