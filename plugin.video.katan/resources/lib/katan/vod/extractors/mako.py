@@ -38,7 +38,7 @@ def episodes(ref, mode=""):
         # episode lives under its programme; the menu does not.
         if not page.is_descendant(link, url):
             continue
-        title = _text(inner)
+        title = page.plain_text(inner)
         if not title:
             continue
         seen.add(link)
@@ -63,14 +63,9 @@ def episodes(ref, mode=""):
     return found
 
 
-def _text(html):
-    text = re.sub(r"<[^>]+>", " ", html or "")
-    return re.sub(r"\s+", " ", text).strip()[:120]
-
-
 def _page_title(html):
     match = re.search(r"<title>(.*?)</title>", html or "", re.S | re.I)
-    return _text(match.group(1)) if match else ""
+    return page.plain_text(match.group(1)) if match else ""
 
 
 def stream(ref, mode=""):

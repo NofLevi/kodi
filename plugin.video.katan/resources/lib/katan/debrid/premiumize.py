@@ -7,7 +7,6 @@ links without ever storing anything in the account.
 Authentication accepts either an API key sent as a Bearer token, or the OAuth
 device flow for people who would rather not copy a key onto a TV box.
 """
-import time
 
 from .. import http, kodi, settings
 from . import base

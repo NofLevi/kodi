@@ -141,12 +141,7 @@ def _for_one(meta, source, candidates):
     })
     best = 0
     for candidate in candidates:
-        # score_candidate writes the score onto the candidate, so it is
-        # scored against a copy - the same candidate is used for every source
-        # and must not carry the last one's answer into the next.
-        scratch = dict(candidate)
-        matcher.score_candidate(scratch, target)
-        best = max(best, int(scratch.get("score") or 0))
+        best = max(best, matcher.rate(candidate, target)[0])
     if best <= 0:
         return {"kind": NONE, "score": 0}
     return {"kind": EXTERNAL, "score": _as_percent(best)}

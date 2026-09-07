@@ -4,7 +4,6 @@ Kodi calls this when the viewer opens the subtitle list during playback. It is
 the manual counterpart to auto.py: the same candidates, the same scoring, but
 shown as a list with the match score visible so the viewer can decide.
 """
-import os
 import time
 
 try:

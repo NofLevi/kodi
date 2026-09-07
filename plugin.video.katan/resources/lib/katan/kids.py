@@ -22,7 +22,6 @@ the digits, not because this resists a determined adult with the settings file
 open, but because a PIN reused from a phone should not sit in plain text.
 """
 import hashlib
-import os
 
 from . import kodi, settings
 

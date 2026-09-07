@@ -53,7 +53,7 @@ def episodes(ref, mode=""):
         if not link or link in seen:
             continue
         seen.add(link)
-        found.append(_to_item(link, _text(label)))
+        found.append(_to_item(link, page.plain_text(label)))
 
     # The page lists oldest first; a listener wants the most recent broadcast.
     found.reverse()
@@ -75,10 +75,6 @@ def _date_of(link):
     """The archive path carries the broadcast date, so the list can be dated."""
     match = re.search(r"/(\d{4}-\d{2}-\d{2})/", link or "")
     return match.group(1) if match else ""
-
-
-def _text(html):
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or "")).strip()[:120]
 
 
 def stream(ref, mode=""):

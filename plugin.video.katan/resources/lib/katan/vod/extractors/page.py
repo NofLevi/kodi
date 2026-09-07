@@ -138,6 +138,17 @@ def extract_stream(html, page_url=""):
     return "", False, ""
 
 
+def plain_text(html, limit=120):
+    """Strip tags and collapse whitespace out of a fragment of markup.
+
+    Every broadcaster that scrapes a page wants this and each had written it
+    again - three copies, differing only in whether the truncation was on the
+    same line.
+    """
+    text = re.sub(r"<[^>]+>", " ", html or "")
+    return re.sub(r"\s+", " ", text).strip()[:limit]
+
+
 def is_descendant(link, programme):
     """Is this link below the programme page it was found on?
 

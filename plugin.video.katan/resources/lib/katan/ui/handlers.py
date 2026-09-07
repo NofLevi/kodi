@@ -4,10 +4,8 @@ Every route is small and delegates the real work. Kodi creates a fresh Python
 interpreter for each plugin call, so the cheapest thing a handler can do is
 import little and return quickly.
 """
-import xbmcplugin
 
 from .. import catalog, kodi, router, settings
-from ..meta import items as meta_items
 from . import listing
 
 
