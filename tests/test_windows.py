@@ -454,3 +454,29 @@ def test_every_charset_fills_the_grid(settings_module):
 
     for charset in search_window.CHARSETS:
         assert len(charset) == search_window.KEY_COUNT
+
+
+def test_a_home_with_nothing_in_it_is_still_navigable(monkeypatch,
+                                                      settings_module):
+    """Every row hidden means row zero is not there to focus either.
+
+    The screen would be black with no way off it but the back button. The top
+    bar is always visible, so search, tools and the settings that will fix it
+    stay reachable. This became easier to reach once an empty row started
+    being remembered as empty.
+    """
+    from katan import catalog
+    from katan.meta import tmdb
+    from katan.ui import home_window
+
+    monkeypatch.setattr(tmdb, "has_key", lambda: True)
+    monkeypatch.setattr(catalog, "peek", lambda row_id: [])
+    monkeypatch.setattr(catalog, "load", lambda row_id: [])
+
+    window = home_window.HomeWindow()
+    window.prepare()
+    window.onInit()
+
+    assert window.getFocusId() == home_window.BUTTON_SEARCH
+    assert window.getProperty("katan.hero.title"), \
+        "and it should say something rather than sit blank"
