@@ -1143,3 +1143,7 @@ msgstr ""
 msgctxt "#32413"
 msgid "This device looks like: %s"
 msgstr ""
+
+msgctxt "#32414"
+msgid "Nothing to show right now"
+msgstr ""
