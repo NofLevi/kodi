@@ -555,3 +555,44 @@ down "the toggle is broken" when what had happened was that I pressed the
 other button.
 
 716 tests.
+
+## 10:45 — The plain home screen listed things twice, and things that were not there
+
+Two defects found by reading what Kodi actually returns for the home path
+rather than by any test.
+
+**"שידורים חיים" and "VOD ישראלי" each appeared twice**, one directly above the
+other. They are catalogue rows *and* sections, under the same two string ids,
+and the listing offered both. In the custom window they are horizontal rows of
+artwork and the sections are not drawn at all, so the duplication only ever
+showed on the plain screen. The folder is the better of the two there.
+
+**Rows that lead to an empty screen are gone too**, which needed a smaller fix
+underneath. `catalog.load` never cached an empty answer, so `peek` could not
+tell "never warmed" from "warmed and came back empty" — and that distinction is
+exactly what the listing needs. An empty answer is now remembered for ten
+minutes: short enough that a service which comes back is not hidden for a day,
+and never longer than the row's own TTL. A test caught the second half of that:
+continue-watching refreshes every five minutes, so remembering "nothing here"
+for ten would have made it slower to notice an empty row than a full one.
+
+Seventeen entries become twelve. Gone are the anime row, which AniList cannot
+answer, and the two Trakt charts, which have nobody signed in. **Every
+remaining entry opens something.**
+
+## 11:00 — And an empty home screen you can leave
+
+Every row hidden means row zero is not there to take focus either, so the
+custom window painted black with no way off it but the back button — no search,
+no tools, no settings, and nothing on screen saying why.
+
+That state has always been possible. It became easier to reach with the change
+above, which is the right trade but makes the dead end worth closing. Focus
+falls back to the top bar, and the hero says "אין מה להציג כרגע".
+
+Not "set up Katan", which is what I wrote first and had to correct: by the time
+that line runs, `_require_setup` has already returned True, so there *is* a
+TMDB key and setup is not the problem. It would have sent you to a wizard with
+nothing to fix.
+
+721 tests. The zip is 366 KB against a 600 KB budget.
