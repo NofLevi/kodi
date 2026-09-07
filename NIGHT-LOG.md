@@ -1540,3 +1540,80 @@ season structure for anime often is not how it was released, and no amount of
 counting fixes that.
 
 1075 tests, zip 431 KB.
+
+## Size baseline, taken before the ponytail refactor
+
+Pinned to commit **2f5db2d**, 7 September 2026, so the after can be compared
+against it directly rather than against a memory of it.
+
+### Python
+
+                          files   lines    blank  comment     code
+    ------------------------------------------------------------------
+    add-on python            92   19246     3441     1147    10317
+    add-on entry points       3      58       12        0       29
+    tests                    48   12141     3178      478     6582
+    tools                     6    1710      297       58     1069
+    ------------------------------------------------------------------
+    all python              149   33155     6928     1683    17997
+
+Two numbers per area, and the distinction matters more than usual here.
+**Physical lines** counts everything; **code** counts logical statements, from
+the tokenizer, so it ignores blank lines, comments and docstrings entirely.
+
+This codebase carries a lot of deliberate explanation - 6,928 blank and 1,683
+comment-only lines, plus docstrings that are often longer than the function
+under them, because the reasons behind a decision have repeatedly turned out
+to be the expensive thing to rediscover. **Deleting prose is not the same as
+removing complexity**, and a refactor that reports a large line reduction while
+the statement count holds steady has mostly deleted the record of why the code
+is the way it is. The statement column is the one to judge a simplification by.
+
+### Everything else that ships
+
+    skins (window XML)            5 files    3377 lines
+    language (en_GB and he_IL)    2 files    2923 lines
+    bundled data (channels, VOD)  2 files    1070 lines
+    settings.xml                  1 file      875 lines
+    addon.xml                     1 file       34 lines
+
+    all tracked files           tracked by git, 46445 lines
+
+### The numbers a refactor must not move
+
+    1075 tests, all passing
+    zip 430 KB against a 600 KB budget
+    about 6 MB of visible artwork on the shipped defaults
+    home from cache 13 ms, subtitle alignment 378 ms
+
+### The twelve largest modules, by statements
+
+    579 code    973 lines  tests/test_windows.py
+    475 code    818 lines  ui/home_window.py
+    440 code    753 lines  tools/survey_sources.py
+    400 code    715 lines  ui/handlers.py
+    389 code    710 lines  tests/test_addon_integrity.py
+    374 code   1135 lines  catalog.py
+    372 code    618 lines  qr.py
+    323 code    599 lines  tests/test_play.py
+    308 code    549 lines  subs/auto.py
+    295 code    503 lines  meta/trakt.py
+    264 code    485 lines  tests/test_kids.py
+    251 code    509 lines  tests/test_sources.py
+
+`catalog.py` is the widest gap between the two measures - 374 statements
+across 1,135 lines - and that is the row table plus the reasoning behind the
+section ordering, the cross-row de-duplication and the empty-row TTL, all of
+which were expensive to work out. `qr.py` is the opposite: 372 statements in
+618 lines, because a QR encoder is arithmetic and there is not much to say
+about it beyond the specification it implements.
+
+### How to take the measurement again
+
+Nothing to install; both are one command.
+
+    git ls-files -z | xargs -0 wc -l | tail -1        every tracked line
+    git ls-files -z tests | xargs -0 wc -l | tail -1  one area
+
+For the statement counts, the tokenizer counts NEWLINE tokens per file - which
+is the measure above, and the one worth quoting after a refactor.
