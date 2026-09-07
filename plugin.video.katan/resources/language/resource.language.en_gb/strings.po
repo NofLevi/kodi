@@ -1387,3 +1387,51 @@ msgstr ""
 msgctxt "#32476"
 msgid "No Hebrew found"
 msgstr ""
+
+msgctxt "#32477"
+msgid "Minimise, keep it running"
+msgstr ""
+
+msgctxt "#32478"
+msgid "Close Kodi completely"
+msgstr ""
+
+msgctxt "#32480"
+msgid "camera recordings"
+msgstr ""
+
+msgctxt "#32481"
+msgid "HEVC switched off"
+msgstr ""
+
+msgctxt "#32482"
+msgid "AV1 switched off"
+msgstr ""
+
+msgctxt "#32483"
+msgid "HDR switched off"
+msgstr ""
+
+msgctxt "#32484"
+msgid "above the resolution limit"
+msgstr ""
+
+msgctxt "#32485"
+msgid "below the resolution limit"
+msgstr ""
+
+msgctxt "#32486"
+msgid "over the size limit"
+msgstr ""
+
+msgctxt "#32487"
+msgid "too small for the quality claimed"
+msgstr ""
+
+msgctxt "#32488"
+msgid "implausibly large"
+msgstr ""
+
+msgctxt "#32489"
+msgid "not in the debrid cache"
+msgstr ""

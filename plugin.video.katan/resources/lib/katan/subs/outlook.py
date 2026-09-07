@@ -59,41 +59,72 @@ def cache_key(meta):
                           meta.get("season"), meta.get("episode"))
 
 
-def for_sources(meta, sources, refresh=False):
-    """Map each source's infohash to what its subtitles are likely to be.
+def candidates(meta, refresh=False):
+    """Every Hebrew subtitle any provider has for this title.
 
-    Never raises and never blocks for long: a subtitle search that fails
-    leaves every source unannotated, which is exactly how the picker looked
-    before any of this existed.
+    Deliberately independent of the source list: it needs only the title, so
+    it can be asked at the same time as the source providers rather than
+    after them. That is what makes this free - it finishes while Torrentio is
+    still answering, and nothing waits for it.
     """
-    if not sources:
-        return {}
     key = cache_key(meta)
     if not refresh:
         hit = cache.get(key)
         if hit is not None:
             return hit
-
     try:
         from . import auto
         wanted = _hebrew_code()
-        candidates = [c for c in auto.search_candidates(meta, [wanted])
-                      if c.get("language") == wanted]
+        found = [c for c in auto.search_candidates(meta, [wanted])
+                 if c.get("language") == wanted]
     except Exception:
-        kodi.log_exception("could not look up subtitles for the picker")
-        candidates = []
+        kodi.log_exception("could not look up subtitles")
+        found = []
+    cache.set(key, found, TTL)
+    return found
 
-    out = {}
+
+def annotate(meta, sources, found=None):
+    """Write the subtitle outlook onto each source, in place.
+
+    Ranking reads it, and so does the picker, which is the point of putting
+    it on the source rather than in a table beside it: one lookup, one
+    answer, and the order the viewer sees is built from the same numbers the
+    badge shows them.
+    """
+    if not sources:
+        return sources
+    if found is None:
+        found = candidates(meta)
     for source in sources:
-        info_hash = source.get("hash") or source.get("title") or ""
-        if not info_hash:
-            continue
-        out[info_hash] = _for_one(meta, source, candidates)
-
-    cache.set(key, out, TTL)
+        entry = _for_one(meta, source, found)
+        source["subs_kind"] = entry["kind"]
+        source["subs_score"] = entry["score"]
     kodi.log("subtitle outlook: %d candidates over %d sources"
-             % (len(candidates), len(out)))
-    return out
+             % (len(found), len(sources)))
+    return sources
+
+
+def for_sources(meta, sources, refresh=False):
+    """The outlook keyed by infohash, for callers that want a table."""
+    if not sources:
+        return {}
+    annotate(meta, sources, candidates(meta, refresh=refresh))
+    return {(s.get("hash") or s.get("title") or ""):
+            {"kind": s.get("subs_kind"), "score": s.get("subs_score")}
+            for s in sources if (s.get("hash") or s.get("title"))}
+
+
+def ranking_score(source):
+    """One number for sorting: an embedded claim counts as a perfect match.
+
+    A release that carries Hebrew needs no external subtitle at all, so for
+    the purpose of ordering it is the best possible outcome rather than an
+    unscored one.
+    """
+    if source.get("subs_kind") == EMBEDDED:
+        return 100
+    return int(source.get("subs_score") or 0)
 
 
 def _for_one(meta, source, candidates):

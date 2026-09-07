@@ -59,7 +59,7 @@
                 <control type="label">
                     <left>16</left>
                     <top>6</top>
-                    <width>1400</width>
+                    <width>1170</width>
                     <height>36</height>
                     <font>font13</font>
                     <textcolor>white</textcolor>
@@ -68,21 +68,31 @@
                 <control type="label">
                     <left>16</left>
                     <top>42</top>
-                    <width>1400</width>
+                    <width>1170</width>
                     <height>30</height>
                     <font>font12</font>
                     <textcolor>grey</textcolor>
                     <label>$INFO[ListItem.Label2]</label>
                 </control>
                 <control type="label">
-                    <left>1440</left>
-                    <top>22</top>
-                    <width>284</width>
-                    <height>36</height>
+                    <left>1200</left>
+                    <top>6</top>
+                    <width>524</width>
+                    <height>34</height>
                     <font>font12</font>
                     <align>right</align>
                     <textcolor>white</textcolor>
                     <label>$INFO[ListItem.Property(badge)]</label>
+                </control>
+                <control type="label">
+                    <left>1200</left>
+                    <top>42</top>
+                    <width>524</width>
+                    <height>30</height>
+                    <font>font12</font>
+                    <align>right</align>
+                    <textcolor>grey</textcolor>
+                    <label>$INFO[ListItem.Property(subs)]</label>
                 </control>
             </itemlayout>
             <focusedlayout width="1740" height="78">
@@ -97,7 +107,7 @@
                 <control type="label">
                     <left>16</left>
                     <top>6</top>
-                    <width>1400</width>
+                    <width>1170</width>
                     <height>36</height>
                     <font>font13</font>
                     <textcolor>white</textcolor>
@@ -106,21 +116,31 @@
                 <control type="label">
                     <left>16</left>
                     <top>42</top>
-                    <width>1400</width>
+                    <width>1170</width>
                     <height>30</height>
                     <font>font12</font>
                     <textcolor>grey</textcolor>
                     <label>$INFO[ListItem.Label2]</label>
                 </control>
                 <control type="label">
-                    <left>1440</left>
-                    <top>22</top>
-                    <width>284</width>
-                    <height>36</height>
+                    <left>1200</left>
+                    <top>6</top>
+                    <width>524</width>
+                    <height>34</height>
                     <font>font12</font>
                     <align>right</align>
                     <textcolor>white</textcolor>
                     <label>$INFO[ListItem.Property(badge)]</label>
+                </control>
+                <control type="label">
+                    <left>1200</left>
+                    <top>42</top>
+                    <width>524</width>
+                    <height>30</height>
+                    <font>font12</font>
+                    <align>right</align>
+                    <textcolor>grey</textcolor>
+                    <label>$INFO[ListItem.Property(subs)]</label>
                 </control>
             </focusedlayout>
         </control>

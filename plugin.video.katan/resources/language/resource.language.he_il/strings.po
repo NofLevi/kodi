@@ -1348,3 +1348,51 @@ msgstr "כתוביות %d%%"
 msgctxt "#32476"
 msgid "No Hebrew found"
 msgstr "לא נמצאו כתוביות"
+
+msgctxt "#32477"
+msgid "Minimise, keep it running"
+msgstr "מזעור, להשאיר פועל"
+
+msgctxt "#32478"
+msgid "Close Kodi completely"
+msgstr "סגירה מלאה של Kodi"
+
+msgctxt "#32480"
+msgid "camera recordings"
+msgstr "הקלטות מהקולנוע"
+
+msgctxt "#32481"
+msgid "HEVC switched off"
+msgstr "HEVC כבוי"
+
+msgctxt "#32482"
+msgid "AV1 switched off"
+msgstr "AV1 כבוי"
+
+msgctxt "#32483"
+msgid "HDR switched off"
+msgstr "HDR כבוי"
+
+msgctxt "#32484"
+msgid "above the resolution limit"
+msgstr "מעל מגבלת הרזולוציה"
+
+msgctxt "#32485"
+msgid "below the resolution limit"
+msgstr "מתחת למגבלת הרזולוציה"
+
+msgctxt "#32486"
+msgid "over the size limit"
+msgstr "מעל מגבלת הגודל"
+
+msgctxt "#32487"
+msgid "too small for the quality claimed"
+msgstr "קטן מדי לאיכות המוצהרת"
+
+msgctxt "#32488"
+msgid "implausibly large"
+msgstr "גדול באופן לא סביר"
+
+msgctxt "#32489"
+msgid "not in the debrid cache"
+msgstr "לא במטמון"
