@@ -57,6 +57,11 @@ class SourcesWindow(xbmcgui.WindowXML):
             self.close()
 
     def onClick(self, control_id):
+        # Logged because the window has three ways out and, from a screenshot
+        # alone, a picker that closed tells you nothing about which one was
+        # taken. This is the difference between "the toggle is broken" and
+        # "you pressed the other button".
+        kodi.log("sources picker: control %s clicked" % control_id)
         if control_id == LIST_SOURCES:
             self._choose()
         elif control_id == BUTTON_TOGGLE:
