@@ -120,6 +120,10 @@ DEFAULTS = {
     "ui.rich_visuals": "false",
     "ui.window_home": "true",
     "ui.window_search": "true",
+    # Go straight into Katan when Kodi starts. Off, because taking over
+    # somebody's home screen without being asked is rude; on a box that exists
+    # to run this add-on it is the obvious thing to switch on.
+    "ui.start_on_boot": "false",
     "device.profile": "low_memory",
     # advanced
     "service.warm": "true",
