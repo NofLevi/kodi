@@ -182,3 +182,85 @@ def test_an_episode_file_scores_above_the_pack_it_came_in():
         "against the episode file: %d against %d"
         % (against_episode, against_pack))
     assert against_episode == 100, "identical release name is a certainty"
+
+
+# --------------------------------------------------------------------------
+# what the number means
+#
+# Pinned deliberately, because the old scale was wrong in a way no ordering
+# test could see. Every candidate is the answer to a search for one specific
+# title, and that - the strongest evidence there is - was worth nothing in
+# the sum, so a subtitle agreeing on source, resolution *and* codec came out
+# at 33%. The order was right the whole time; the number was not, and the
+# number is what a viewer reads before deciding the add-on cannot find
+# subtitles.
+# --------------------------------------------------------------------------
+
+CALIBRATION_TARGET = {
+    "release": "The.Film.2024.1080p.BluRay.x264-AMIABLE",
+    "group": "amiable", "source": "bluray", "resolution": "1080p",
+    "codec": "h264", "type": "movie",
+}
+
+
+def scored(name, **extra):
+    candidate = {"provider": "wizdom", "language": "he", "release": name}
+    candidate.update(extra)
+    matcher.score_candidate(candidate, CALIBRATION_TARGET)
+    return candidate["score"]
+
+
+def test_the_same_release_name_is_certain():
+    assert scored("The.Film.2024.1080p.BluRay.x264-AMIABLE") == 100
+
+
+def test_the_same_group_is_nearly_certain():
+    """Groups mux their own timings, so a subtitle made for a group release
+    fits that release."""
+    assert scored("The.Film.2024.1080p.BluRay.x264-AMIABLE.HEB") >= 90
+
+
+def test_source_resolution_and_codec_together_are_a_good_match():
+    """The case that used to read 33%. It is the best a Hebrew provider can
+    normally offer, because Hebrew subtitles are rarely made per group."""
+    assert scored("The.Film.2024.1080p.BluRay.x264-OTHER") == 70
+
+
+def test_the_same_source_alone_is_a_maybe():
+    assert scored("The.Film.2024.BRRip.XviD-OTHER") == 55
+
+
+def test_the_right_title_and_nothing_else_is_still_worth_something():
+    """It is not nothing: this candidate was returned by a search for this
+    film, which is more than can be said for a random subtitle."""
+    assert scored("The Film") == 40
+
+
+def test_two_unknown_resolutions_are_not_an_agreement():
+    """They agree about nothing. This was worth 12 points until it was found,
+    and the parser returning "unknown" rather than assuming "sd" made it fire
+    far more often."""
+    blind = dict(CALIBRATION_TARGET, resolution="unknown")
+    candidate = {"release": "The.Film.2024.BluRay.x264-OTHER", "language": "he"}
+    matcher.score_candidate(candidate, blind)
+    assert "resolution" not in candidate["reason"]
+
+
+def test_the_wrong_episode_stays_at_the_bottom():
+    """The base credit for being the right *title* must not rescue a
+    candidate that is demonstrably the wrong episode of it."""
+    target = dict(CALIBRATION_TARGET, type="episode", season=1, episode=4,
+                  release="Show.S01E04.1080p.BluRay.x264-AMIABLE")
+    candidate = {"release": "Show.S01E09.1080p.BluRay.x264-AMIABLE",
+                 "language": "he"}
+    matcher.score_candidate(candidate, target)
+    assert candidate["score"] == 0
+
+
+def test_a_good_match_actually_clears_the_default_threshold():
+    """The point of the recalibration. Under the old scale nothing a Hebrew
+    provider returned could ever be accepted, so every film fell through to
+    "below threshold, used anyway" and every subtitle was shown as a guess."""
+    from katan import settings
+    assert scored("The.Film.2024.1080p.BluRay.x264-OTHER") >= \
+        settings.get_int("subs.threshold", 70)

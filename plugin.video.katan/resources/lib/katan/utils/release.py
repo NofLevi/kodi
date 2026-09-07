@@ -61,6 +61,21 @@ LANGUAGE_PATTERNS = {
 # "+" is deliberately NOT stripped: HDR10+ and DD+ depend on it.
 _JUNK = re.compile(r"[\[\]\(\)\{\}_.]+")
 _GROUP_TAIL = re.compile(r"-([A-Za-z0-9]{2,20})$")
+_GROUP_DOT_TAIL = re.compile(r"\.([A-Za-z][A-Za-z0-9]{1,19})$")
+
+# Everything a dot-separated tail could be other than a release group. The
+# dash form needs no such list because a dash is already the scene's own
+# marker for "what follows is the group"; a dot separates every token in the
+# name, so the last one has to be identified rather than assumed.
+_NOT_A_GROUP = frozenset((
+    "1080p", "1080i", "720p", "2160p", "480p", "576p", "4k", "uhd", "hd", "sd",
+    "x264", "x265", "h264", "h265", "avc", "hevc", "av1", "xvid", "divx",
+    "web", "webrip", "webdl", "bluray", "bdrip", "brrip", "remux", "hdtv",
+    "dvdrip", "dvd", "cam", "hdrip", "proper", "repack", "extended", "unrated",
+    "internal", "limited", "complete", "multi", "dual", "subs", "sub",
+    "aac", "ac3", "eac3", "ddp", "dts", "dtshd", "truehd", "atmos", "flac",
+    "mp3", "opus", "10bit", "8bit", "hdr", "hdr10", "dv", "sdr", "imax",
+))
 _GROUP_BRACKET = re.compile(r"^\[([^\]]{2,20})\]")
 _SEASON_EPISODE = re.compile(
     r"\bs(\d{1,2})[\s._-]?e(\d{1,3})\b|\b(\d{1,2})x(\d{1,3})\b", re.I)
@@ -129,6 +144,43 @@ def parse(name, size=0):
     }
 
 
+# What a subtitle file is decorated with, after the release name it was made
+# for: the language it is in, sometimes a "forced" or "sdh" flag, and a
+# subtitle extension. All of it lands after the release group.
+_SUBTITLE_TAGS = ("heb", "hebrew", "he", "eng", "english", "en", "ara",
+                  "arabic", "spa", "spanish", "rus", "russian", "fre",
+                  "french", "ger", "german", "forced", "sdh", "hi", "cc",
+                  "default", "und")
+_SUBTITLE_EXTENSIONS = ("srt", "sub", "ass", "ssa", "vtt", "idx", "smi", "txt")
+_VIDEO_EXTENSIONS = ("mkv", "mp4", "avi", "m4v", "ts")
+
+_TRAILING_TAG = re.compile(
+    r"[.\-_ ](%s)$" % "|".join(_SUBTITLE_TAGS + _SUBTITLE_EXTENSIONS
+                               + _VIDEO_EXTENSIONS), re.I)
+
+
+def strip_subtitle_tags(name):
+    """Take the decoration off a subtitle file name, leaving the release.
+
+    This is worth more than it looks. The release group is the strongest
+    subtitle-matching signal there is - groups mux their own timings, so a
+    subtitle made for a group release fits that release and usually only that
+    one - and the decoration was hiding it in exactly the file names where it
+    matters most. "X.1080p.BluRay.x264-AMIABLE.heb.srt" was reading as a
+    release by a group called "heb", and "X.1080p.BluRay.x264-AMIABLE.srt" as
+    having no group at all, because only video extensions were being stripped.
+
+    Repeated rather than done once, because the tags stack: a file is
+    routinely "...-GROUP.forced.heb.srt".
+    """
+    stem = str(name or "").strip()
+    while True:
+        shorter = _TRAILING_TAG.sub("", stem)
+        if shorter == stem:
+            return stem
+        stem = shorter
+
+
 def release_group(name):
     """The scene or p2p group, which is the strongest subtitle-match signal."""
     raw = str(name or "").strip()
@@ -137,14 +189,36 @@ def release_group(name):
     bracket = _GROUP_BRACKET.match(raw)
     if bracket:
         return bracket.group(1).lower()
-    stem = re.sub(r"\.(mkv|mp4|avi|m4v|ts)$", "", raw, flags=re.I).strip()
+    stem = strip_subtitle_tags(raw)
     tail = _GROUP_TAIL.search(stem)
     if tail:
         candidate = tail.group(1).lower()
         # "the-office" style titles end in a word, not a group
-        if candidate not in ("1080p", "720p", "2160p", "x264", "x265"):
+        if candidate not in _NOT_A_GROUP:
             return candidate
+
+    # A dot-separated group, which is common enough to matter: Wizdom returns
+    # "The.Film.1994.1080p.x264.YIFY" and the group is the strongest signal
+    # this has. Only attempted on something that already looks like a release
+    # name, because otherwise the last word of any title would be read as a
+    # group - "The.Office" would be by a group called Office.
+    if _looks_like_a_release(stem):
+        dotted = _GROUP_DOT_TAIL.search(stem)
+        if dotted:
+            candidate = dotted.group(1).lower()
+            if candidate not in _NOT_A_GROUP:
+                return candidate
     return ""
+
+
+def _looks_like_a_release(text):
+    """Does this name carry the marks of a release rather than a plain title?"""
+    lowered = text.lower()
+    for table in (RESOLUTIONS, SOURCES, CODECS):
+        for _name, pattern in table:
+            if re.search(pattern, lowered):
+                return True
+    return False
 
 
 def _year(text):
