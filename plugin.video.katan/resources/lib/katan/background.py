@@ -21,10 +21,18 @@ SYNC_INTERVAL = 15 * 60
 PRUNE_INTERVAL = 24 * 3600
 STARTUP_DELAY = 20        # let Kodi finish booting before touching the network
 
-# Long enough for the skin to have drawn its home screen, short enough that it
-# does not look like the box forgot. Opening sooner races Kodi's own start-up
-# and the window can be dismissed by whatever finishes loading after it.
-OPEN_DELAY = 8
+# Opening on start-up waits for Kodi to be ready rather than for a clock. The
+# first version slept eight seconds because eight looked safe, and eight
+# seconds of staring at Kodi's home screen is exactly the wasted step this is
+# supposed to remove.
+#
+# What it actually has to wait for is the skin's home window being on screen;
+# before that, whatever finishes loading afterwards can dismiss ours. So it
+# polls for that and adds a short settle, and only falls back to a deadline if
+# the home window never appears at all - a skin that starts somewhere else.
+OPEN_SETTLE = 0.75        # after Kodi's home is up, before we take over
+OPEN_DEADLINE = 25        # give up waiting for a home screen and just open
+OPEN_TICK = 0.2           # how often to look, while we are still looking
 
 
 class Service(xbmc.Monitor):
@@ -35,7 +43,8 @@ class Service(xbmc.Monitor):
         self.next_warm = now + STARTUP_DELAY
         self.next_sync = now + STARTUP_DELAY + 10
         self.next_prune = now + 300
-        self.next_open = now + OPEN_DELAY
+        self.open_deadline = now + OPEN_DEADLINE
+        self.home_seen_at = 0.0
         self.opened = False
         self.player = None
 
@@ -82,7 +91,7 @@ class Service(xbmc.Monitor):
         except Exception:
             kodi.log_exception("Trakt sync failed")
 
-    def open_on_boot(self):
+    def open_on_boot(self, now=None):
         """Go straight into Katan when Kodi starts, if the viewer asked for it.
 
         Off by default, and deliberately: taking over somebody's home screen
@@ -91,17 +100,35 @@ class Service(xbmc.Monitor):
         exists to run this add-on - a projector in a living room - stopping at
         Kodi's home screen every time is a wasted step.
 
-        Once per session, never again, so that backing out of Katan leaves you
-        in Kodi rather than bouncing straight back in.
+        Returns True once it has decided, so the loop stops asking. Deciding
+        includes deciding not to: the setting being off, or something already
+        playing, are both final answers.
+
+        Waits for the skin's home window rather than for a clock. A fixed
+        eight second sleep worked and felt like the box had forgotten; what
+        this actually has to wait for is Kodi being ready to be taken over.
         """
-        self.opened = True
         if not settings.get_bool("ui.start_on_boot", False):
-            return
+            return True
         if xbmc.getCondVisibility("Player.HasMedia"):
-            return          # something is already playing; leave it alone
+            return True     # something is already playing; leave it alone
+
+        now = time.time() if now is None else now
+        if xbmc.getCondVisibility("Window.IsActive(home)"):
+            if not self.home_seen_at:
+                self.home_seen_at = now
+            # A short settle after the home screen appears, because whatever
+            # Kodi finishes loading next can dismiss a window opened into the
+            # middle of its start-up.
+            if now - self.home_seen_at < OPEN_SETTLE:
+                return False
+        elif now < self.open_deadline:
+            return False    # not up yet, and there is still time to wait
+
         kodi.log("opening Katan on start-up", kodi.LOG_INFO)
         kodi.run_builtin(
             "ActivateWindow(Videos,plugin://plugin.video.katan/,return)")
+        return True
 
     def prune_cache(self):
         try:
@@ -120,13 +147,18 @@ class Service(xbmc.Monitor):
             kodi.log_exception("player monitor could not start")
 
         while not self.abortRequested():
-            if self.waitForAbort(1):
+            # A fifth of a second only while we are still deciding whether to
+            # open on start-up, because a one second tick is a second of
+            # staring at Kodi's home screen. Back to one second the moment
+            # that is settled, which is within the first few seconds of a
+            # session and never again.
+            if self.waitForAbort(OPEN_TICK if not self.opened else 1):
                 break
             if self.player is not None and self.player.isPlaying():
                 self.player.tick()
             now = time.time()
-            if not self.opened and now >= self.next_open:
-                self.open_on_boot()
+            if not self.opened:
+                self.opened = self.open_on_boot(now)
             if now >= self.next_warm:
                 self.next_warm = now + WARM_INTERVAL
                 self.warm_rows()
