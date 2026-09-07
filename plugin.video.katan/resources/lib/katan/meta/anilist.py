@@ -164,7 +164,7 @@ def _convert(nodes, limit):
     return out
 
 
-def trending(limit=20, page=1):
+def trending(limit=20, page=1):  # noqa: D401 - page is used below
     data = _query(_TRENDING_QUERY, {"page": page, "perPage": limit}, TTL_LIST)
     return _convert(_page_media(data), limit)
 

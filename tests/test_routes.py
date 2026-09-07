@@ -57,6 +57,56 @@ def test_navigation_routes_complete_without_error(action, params):
     assert xbmcplugin.ENDED, "%s never closed its directory" % action
 
 
+def test_a_row_listing_offers_the_next_page(monkeypatch):
+    """A Kodi directory is a fixed list with no scroll event to hang a fetch
+    off, so the plain listing pages the way Kodi's own skins expect."""
+    from katan import catalog
+
+    monkeypatch.setattr(catalog, "load",
+                        lambda row_id, page=1, **kw: [
+                            {"type": "movie", "title": "Film %d" % page,
+                             "ids": {"tmdb": page}, "art": {}}])
+    dispatch("row", id="trending_movies")
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    assert any("action=row" in u and "page=2" in u for u in urls), \
+        "the row listing should end with a way to the next page"
+
+
+def test_a_row_that_cannot_page_is_not_given_a_next_page(monkeypatch):
+    """The live channels are a whole list, not the first twenty of one."""
+    from katan import catalog
+
+    monkeypatch.setattr(catalog, "load",
+                        lambda row_id, page=1, **kw: [
+                            {"type": "movie", "title": "Film", "ids": {},
+                             "art": {}}])
+    dispatch("row", id="israel_live")
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    assert not any("page=2" in u for u in urls)
+
+
+def test_an_empty_page_ends_rather_than_offering_another(monkeypatch):
+    """Past the last page TMDB answers with an empty list, not an error."""
+    from katan import catalog
+
+    monkeypatch.setattr(catalog, "load", lambda row_id, page=1, **kw: [])
+    dispatch("row", id="trending_movies", page="9")
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    assert not any("page=10" in u for u in urls)
+
+
+def test_a_nonsense_page_number_is_treated_as_the_first(monkeypatch):
+    """A url is something a viewer can bookmark, edit and get wrong."""
+    from katan import catalog
+
+    seen = []
+    monkeypatch.setattr(catalog, "load",
+                        lambda row_id, page=1, **kw: seen.append(page) or [])
+    dispatch("row", id="trending_movies", page="banana")
+    dispatch("row", id="trending_movies", page="-4")
+    assert seen == [1, 1]
+
+
 def test_home_lists_live_tv_and_vod_as_separate_entries():
     dispatch("home")
     urls = [url for url, _item, _folder in xbmcplugin.ITEMS]

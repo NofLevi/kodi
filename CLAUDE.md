@@ -120,7 +120,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-744 tests, all running against Kodi stubs, so no Kodi install is needed:
+783 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -133,9 +133,9 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | File | Tests | What it protects |
 |---|---|---|
 | `test_imports.py` | 91 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences, stray control characters, and `"%s" % (a, b).strip()` - where the method binds to the tuple, not the string, which has shipped twice and once took the whole source picker down. |
-| `test_addon_integrity.py` | 21 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, the TMDb Helper player file naming only registered actions, and the four things a real Kodi taught us - settings labels being string ids, empty string defaults declaring allowempty, every setting the code uses being declared, and the row area holding a whole number of rows. It also fails on **a public function nothing calls**, which found twelve, two of which were checks somebody meant to make: "verbose logging" that did nothing, and a Hebrew-detector that never ran. |
+| `test_addon_integrity.py` | 24 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, the TMDb Helper player file naming only registered actions, and the four things a real Kodi taught us - settings labels being string ids, empty string defaults declaring allowempty, every setting the code uses being declared, and the row area holding a whole number of rows. It also fails on **a public function nothing calls**, which found twelve, two of which were checks somebody meant to make: "verbose logging" that did nothing, and a Hebrew-detector that never ran. And on **the home screen having fewer row controls than it has rows switched on**, which is how the Israeli live channels came to be enabled, warmed, cached and never once drawn. |
 | `test_core.py` | 14 | The SQLite cache and the router: TTLs, compression, LRU eviction under the size cap, and url_for round-tripping through parse_params. |
-| `test_routes.py` | 31 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen, and stops a row that is known to be empty being offered as a menu entry that leads nowhere. |
+| `test_routes.py` | 35 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen, stops a row that is known to be empty being offered as a menu entry that leads nowhere, and covers the paging a plain directory has to do with a "next page" entry because it has no scroll event to hang a fetch off. |
 | `test_aggregator.py` | 23 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |
 | `test_providers.py` | 17 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
@@ -159,7 +159,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_extractors_israeli.py` | 23 | Now 14, Sport 1 and 891FM, plus the check that every broadcaster in the catalogue has an extractor behind it. |
 | `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
 | `test_kids.py` | 33 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. |
-| `test_windows.py` | 31 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Katan window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. |
+| `test_windows.py` | 51 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Katan window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
 | `test_details_window.py` | 13 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. |
 | `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
 | `test_play.py` | 24 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, and whether a download may be started. |
@@ -257,10 +257,34 @@ A later pass found three more, none of which any test could have shown:
 * The search window opened on the **Latin** keyboard in a Hebrew interface,
   for a catalogue titled entirely in Hebrew.
 
+A later pass added two more, both about lists rather than layout:
+
+* **`ControlList.addItems` and `selectItem` post thread messages; they do not
+  act on the control.** So `getSelectedPosition()` called just after an append
+  reads the state from *before* it. A row that grew while it was being
+  scrolled therefore threw the viewer back to the start - measured at cursor
+  56 to 0 on one append - and the obvious fix, "put the position back if it
+  moved", never ran, because it asked a question whose answer had not arrived
+  yet. Removing the condition fixes it: the messages are processed in the
+  order they were posted, so Kodi's rebind lands first and the restore lands
+  on top. The stub is synchronous, so it cannot show any of this.
+* **`ACTION_MOUSE_MOVE` arrives while the pointer is merely resting**, and
+  Kodi moves the selection on hover. A pointer left near the end of a row
+  paged through the catalogue on its own: 94 items during a start-up with no
+  input at all.
+
 The lesson worth keeping: the stubs can only be as right as our belief about
-Kodi, and three of these were the stubs being more generous than the real
-thing. Anything about how Kodi *renders* or *validates* has to be checked in
-Kodi.
+Kodi, and five of these were the stubs being more generous, or more
+synchronous, than the real thing. Anything about how Kodi *renders*,
+*validates* or *schedules* has to be checked in Kodi.
+
+And one thing no screenshot could show. `catalog.enabled_rows()` returned more
+rows than the home window had controls to draw, and both `prepare()` and
+`onInit` silently sliced the list to fit. The Israeli live channels were past
+the cut: enabled, warmed by the service, correct in the cache, listed by every
+tool that asks the catalog, and never on the screen. The window now logs every
+row it could not draw, and `test_addon_integrity` checks the constant against
+the skin and against the rows that ship switched on.
 
 And one about the checking itself. **Kodi renders lazily when idle** - FPS
 drops to 2-5 - so a screenshot taken while nothing is moving returns the
