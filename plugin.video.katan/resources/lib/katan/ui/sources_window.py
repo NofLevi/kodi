@@ -28,6 +28,7 @@ class SourcesWindow(xbmcgui.WindowXML):
         self.chosen = None
         self.refresh_requested = False
         self.ready = False
+        self.outlook = {}         # infohash -> what its subtitles look like
 
     def prepare(self):
         """Set what the window needs before it is shown.
@@ -51,8 +52,43 @@ class SourcesWindow(xbmcgui.WindowXML):
         self.prepare()
         self._render()
         self.setFocusId(LIST_SOURCES)
+        self._look_up_subtitles()
+
+    def _look_up_subtitles(self):
+        """Find out what each source's subtitles look like, on a worker.
+
+        On the GUI thread this would hold the picker closed for as long as
+        the subtitle providers take, which is the wrong trade: the list is
+        useful immediately and the subtitle column is an extra. It arrives a
+        moment later and the rows are drawn again, which is safe here in a
+        way it was not for the home rows - this list is rebuilt wholesale
+        rather than appended to, and it has no cursor worth keeping because
+        nobody has had time to move it yet.
+        """
+        import threading
+
+        def worker():
+            try:
+                from ..subs import outlook
+                found = outlook.for_sources(self.meta, self.full or self.short)
+            except Exception:
+                kodi.log_exception("subtitle outlook failed")
+                return
+            if not found:
+                return
+            self.outlook = found
+            self.pending_redraw = True
+
+        thread = threading.Thread(target=worker)
+        thread.daemon = True
+        thread.start()
 
     def onAction(self, action):
+        if getattr(self, "pending_redraw", False):
+            # Same rule as the home rows: a list is only ever changed on the
+            # GUI thread, which is here.
+            self.pending_redraw = False
+            self._render()
         if action.getId() in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
             self.close()
 
@@ -93,7 +129,11 @@ class SourcesWindow(xbmcgui.WindowXML):
             # onInit only ever landed the first row on screen even though the
             # status line correctly counted eight; the home and search windows
             # both batch and both render fully.
-            control.addItems([_list_item(source) for source in entries])
+            position = control.getSelectedPosition()
+            control.addItems([_list_item(source, self.outlook)
+                              for source in entries])
+            if position > 0:
+                control.selectItem(position)
             kodi.log("sources picker: rendered %d of %d rows"
                      % (control.size(), len(entries)))
         except Exception:
@@ -114,10 +154,10 @@ class SourcesWindow(xbmcgui.WindowXML):
             self.close()
 
 
-def _list_item(source):
+def _list_item(source, outlook=None):
     label = source.get("title") or "?"
     li = xbmcgui.ListItem(label=label, label2=_detail(source), offscreen=True)
-    li.setProperty("badge", _badge(source))
+    li.setProperty("badge", _badge(source, outlook))
     return li
 
 
@@ -166,9 +206,36 @@ def _detail(source):
     return "  \u2022  ".join(b for b in bits if b)
 
 
-def _badge(source):
+def _subtitle_badge(source, outlook):
+    """What the words are likely to be, which for a Hebrew household is at
+    least as decisive as the picture.
+
+    Two different claims, deliberately worded differently. "Hebrew inside"
+    is what the release name says, so it gets no percentage - it is somebody
+    else's promise. A percentage is our own estimate of how well the best
+    available subtitle matches *this* release, and it is the same number the
+    subtitle chooser will show once the film is playing.
+    """
+    if not outlook:
+        return ""
+    from ..subs import outlook as module
+
+    entry = outlook.get(source.get("hash") or source.get("title") or "")
+    if not entry:
+        return ""
+    if entry.get("kind") == module.EMBEDDED:
+        return kodi.localize(32474)
+    if entry.get("kind") == module.EXTERNAL:
+        return kodi.localize(32475, entry.get("score") or 0)
+    return kodi.localize(32476)
+
+
+def _badge(source, outlook=None):
     """The right-hand column: cached status and quality, the two that decide."""
     bits = []
+    subtitles = _subtitle_badge(source, outlook)
+    if subtitles:
+        bits.append(subtitles)
     if source.get("cached"):
         # The brackets used to be missing here, so .strip() bound to the tuple
         # rather than to the formatted string. Every cached source raised, and

@@ -1375,3 +1375,15 @@ msgstr ""
 msgctxt "#32473"
 msgid "Close Katan and leave Kodi?"
 msgstr ""
+
+msgctxt "#32474"
+msgid "Hebrew inside"
+msgstr ""
+
+msgctxt "#32475"
+msgid "Subtitles %d%%"
+msgstr ""
+
+msgctxt "#32476"
+msgid "No Hebrew found"
+msgstr ""

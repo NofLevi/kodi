@@ -55,6 +55,69 @@ def test_the_list_actually_fills(picker):
     assert control.size() == 2, "the picker rendered nothing at all before"
 
 
+# --------------------------------------------------------------------------
+# what the badge says about subtitles
+# --------------------------------------------------------------------------
+
+
+def test_a_release_carrying_hebrew_says_so():
+    from katan.subs import outlook
+
+    badge = sources_window._badge(
+        CACHED, {"a" * 40: {"kind": outlook.EMBEDDED, "score": 0}})
+    assert kodi.localize(32474) in badge
+    assert "%" not in badge, \
+        "a claim from the release name does not get a percentage of ours"
+
+
+def test_an_external_subtitle_shows_how_well_it_matches():
+    from katan.subs import outlook
+
+    badge = sources_window._badge(
+        CACHED, {"a" * 40: {"kind": outlook.EXTERNAL, "score": 82}})
+    assert "82" in badge
+
+
+def test_nothing_found_says_nothing_found():
+    from katan.subs import outlook
+
+    badge = sources_window._badge(
+        CACHED, {"a" * 40: {"kind": outlook.NONE, "score": 0}})
+    assert kodi.localize(32476) in badge
+
+
+def test_the_badge_still_works_before_the_lookup_finishes():
+    """The list is useful immediately; the subtitle column arrives after. It
+    must never be the reason a row does not draw."""
+    assert sources_window._badge(CACHED, None)
+    assert sources_window._badge(CACHED, {})
+    assert "1080P" in sources_window._badge(CACHED, {})
+
+
+def test_the_lookup_does_not_touch_the_list_from_its_own_thread(picker,
+                                                                monkeypatch):
+    """Same rule as the home rows: a list is only ever changed on the GUI
+    thread. The worker sets a flag and the next keypress redraws."""
+    from katan.subs import outlook
+
+    monkeypatch.setattr(
+        outlook, "for_sources",
+        lambda meta, sources, **kw: {"a" * 40: {"kind": outlook.EXTERNAL,
+                                                "score": 91}})
+    picker.outlook = {}
+    picker._look_up_subtitles()
+
+    import time
+    for _ in range(50):
+        if getattr(picker, "pending_redraw", False):
+            break
+        time.sleep(0.05)
+
+    assert picker.outlook, "the worker should have fetched something"
+    assert getattr(picker, "pending_redraw", False), \
+        "and asked the GUI thread to redraw rather than doing it itself"
+
+
 def test_every_source_renders_even_the_awkward_ones():
     """One bad row used to abandon the whole list."""
     awkward = [

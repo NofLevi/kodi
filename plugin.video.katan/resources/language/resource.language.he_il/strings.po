@@ -1336,3 +1336,15 @@ msgstr "יציאה"
 msgctxt "#32473"
 msgid "Close Katan and leave Kodi?"
 msgstr "לסגור את קטן ולצאת מ-Kodi?"
+
+msgctxt "#32474"
+msgid "Hebrew inside"
+msgstr "עברית מוטמעת"
+
+msgctxt "#32475"
+msgid "Subtitles %d%%"
+msgstr "כתוביות %d%%"
+
+msgctxt "#32476"
+msgid "No Hebrew found"
+msgstr "לא נמצאו כתוביות"
