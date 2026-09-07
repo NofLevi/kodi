@@ -230,3 +230,31 @@ def test_the_sections_still_point_at_the_section_routes():
     assert any("action=vod" in u for u in urls)
     assert not any("id=israel_live" in u for u in urls)
     assert not any("id=israel_vod" in u for u in urls)
+
+
+def test_a_fresh_install_still_offers_what_needs_no_key(settings_module):
+    """Israeli live TV and the on-demand catalogue need nothing at all.
+
+    A fresh install showed exactly one line - "set up Katan" - with
+    forty-three working channels behind a gate for a key they do not use.
+    """
+    from katan import kodi as katan_kodi
+
+    settings_module.set("tmdb.apikey", "")
+    dispatch("home")
+
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    assert any("action=setup" in u for u in urls), "setup still comes first"
+    assert any("action=live_tv" in u for u in urls)
+    assert any("action=vod" in u for u in urls)
+    assert any("action=tools" in u for u in urls)
+    labels = [item.getLabel() for _url, item, _folder in xbmcplugin.ITEMS]
+    assert labels[0] == katan_kodi.localize(32256)
+
+
+def test_a_fresh_install_does_not_offer_rows_that_need_a_key(settings_module):
+    settings_module.set("tmdb.apikey", "")
+    dispatch("home")
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    assert not any("action=row" in u for u in urls), \
+        "every catalogue row needs TMDB"

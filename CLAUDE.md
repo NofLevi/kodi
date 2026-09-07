@@ -332,8 +332,13 @@ Nothing is raised for you on better hardware. `recommend()` reads the device
 and the wizard shows its opinion, but spending the memory stays a choice
 somebody makes.
 
-Note that Kodi writes every declared setting into its own file the first time
-it loads an add-on, so changing a default only affects a **fresh** install.
+A note on when a default actually applies, measured rather than assumed. Kodi
+does **not** write a settings file until something is changed: a fresh install
+has no `userdata/addon_data/plugin.video.katan/settings.xml` at all, and
+`settings.DEFAULTS` is what the add-on runs on. Once a value has been written,
+that file wins. So changing a default here reaches a new install immediately
+and an existing one not at all — Tools → Performance profile applies the lean
+set to an existing one.
 
 ## Working on this
 
