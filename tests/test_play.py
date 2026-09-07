@@ -259,3 +259,59 @@ def test_a_film_has_no_next_episode(monkeypatch, film):
                         lambda meta, **kw: asked.append(meta) or [])
     play.prefetch_next_episode({"type": "movie"})
     assert not asked
+
+
+# --------------------------------------------------------------------------
+# falling through to the next source
+# --------------------------------------------------------------------------
+
+
+def test_a_source_that_will_not_resolve_falls_through_to_the_next(film,
+                                                                  monkeypatch):
+    """A source can be flagged cached by the indexer and not be on the debrid
+    service at all. Giving up there told the viewer "could not play" while the
+    second source would have played immediately."""
+    tried = []
+
+    def fake_resolve(source):
+        tried.append(source["title"])
+        return "https://cdn/ok.mkv" if source["title"] == "Worse 720p" else ""
+
+    monkeypatch.setattr(play, "_resolve", fake_resolve)
+    chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
+
+    assert url == "https://cdn/ok.mkv"
+    assert chosen["title"] == "Worse 720p"
+    assert tried == ["Best 1080p", "Worse 720p"]
+
+
+def test_the_first_source_is_used_when_it_works(film, monkeypatch):
+    tried = []
+    monkeypatch.setattr(play, "_resolve",
+                        lambda s: tried.append(s["title"]) or "https://cdn/a")
+    chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
+    assert url == "https://cdn/a"
+    assert tried == ["Best 1080p"], "no reason to try any others"
+
+
+def test_a_source_the_viewer_picked_is_not_quietly_swapped(film, monkeypatch):
+    """They asked for that release. Playing a different one would be worse
+    than saying it could not be played."""
+    tried = []
+    monkeypatch.setattr(play, "_resolve",
+                        lambda s: tried.append(s["title"]) or "")
+    chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=True)
+    assert url == ""
+    assert tried == ["Best 1080p"]
+
+
+def test_it_gives_up_rather_than_working_through_every_source(film,
+                                                              monkeypatch):
+    """Each attempt is a round trip, and on TorBox it can spend one of sixty
+    uncached adds an hour."""
+    many = [dict(SOURCES[0], title="source %d" % n) for n in range(20)]
+    tried = []
+    monkeypatch.setattr(play, "_resolve",
+                        lambda s: tried.append(s["title"]) or "")
+    play._resolve_any(many[0], many, force_picker=False)
+    assert len(tried) == play.RESOLVE_ATTEMPTS
