@@ -116,9 +116,38 @@ def _ranked(meta, prefetch=False, force=False):
     kodi.log("sources: %d found, %d kept, showing %d%s"
              % (len(merged), len(kept), len(_top(kept)),
                 _rejection_summary(rejected)))
+    _remember_filtering(meta, len(merged), rejected)
 
     cache.set(key, kept, TTL_RESULTS if kept else TTL_EMPTY)
     return kept
+
+
+def filter_key(meta):
+    return cache_key(meta) + "|why"
+
+
+def _remember_filtering(meta, found, rejected):
+    """Keep why sources were dropped, for the picker to show.
+
+    Until now this only went to the log, and only when the search actually
+    ran. So a viewer looking at eight results for a film with sixty-four
+    releases had no way at all to know that forty of them were camera
+    recordings - the picker simply looked broken, and was reported as such.
+    """
+    cache.set(filter_key(meta),
+              {"found": found,
+               "reasons": sorted((rejected or {}).items(),
+                                 key=lambda kv: -kv[1])},
+              TTL_RESULTS)
+
+
+def filter_report(meta):
+    """How many were found and why most of them are not on the screen.
+
+    Returns None when nothing is remembered, which is not the same as
+    "nothing was dropped" and must not be shown as though it were.
+    """
+    return cache.get(filter_key(meta))
 
 
 def _top(sources):

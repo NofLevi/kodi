@@ -34,6 +34,13 @@
             </group>
 
             <group id="2" label="30006">
+                <setting id="action.connect.trakt" type="action" label="30141">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=trakt)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="trakt.client_id" type="string" label="30007">
                     <default/>
                     <constraints>
@@ -68,6 +75,13 @@
             </group>
 
             <group id="3" label="30010">
+                <setting id="action.connect.debrid" type="action" label="30142">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=debrid)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="realdebrid.token" type="string" label="30011">
                     <default/>
                     <constraints>
@@ -225,15 +239,15 @@
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.comet" type="boolean" label="30019">
+                <setting id="sources.provider.comet" type="boolean" label="30019" help="30143">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.mediafusion" type="boolean" label="30020">
+                <setting id="sources.provider.mediafusion" type="boolean" label="30020" help="30143">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.zilean" type="boolean" label="30021">
+                <setting id="sources.provider.zilean" type="boolean" label="30021" help="30144">
                     <level>1</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
@@ -711,6 +725,67 @@
                     </constraints>
                     <level>0</level>                    <control type="edit" format="string">
                         <heading>30089</heading>
+                    </control>
+                </setting>
+            </group>
+        </category>
+
+        <category id="tools" label="30145" help="30146">
+            <group id="1" label="30145">
+                <setting id="action.setup" type="action" label="32260">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=setup)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.accounts" type="action" label="32396">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=accounts)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.kids" type="action" label="32226">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=kids_toggle)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.profile" type="action" label="32384">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=profile)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.rebuild" type="action" label="32264">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=rebuild_rows)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.clearcache" type="action" label="32262">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=clear_cache)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.cacheinfo" type="action" label="32263">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=cache_info)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.diagnostics" type="action" label="32370">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=diagnostics)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
                     </control>
                 </setting>
             </group>

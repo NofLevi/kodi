@@ -297,6 +297,46 @@ def test_the_section_rail_matches_the_catalog():
                 section["id"], section["title_id"])
 
 
+def test_the_rail_is_tall_enough_for_every_entry():
+    """A grouplist that is short scrolls rather than crops.
+
+    The row area was caught by that once - sixty pixels short, and it slid
+    the whole column up and took a heading off the top of the screen. The
+    rail is the other vertical grouplist in this window and it was sized to
+    the pixel, so the same arithmetic is checked here before it has a chance
+    to go wrong. The settings entry is the last one, and it is the only way
+    into the settings from an interface somebody has locked down.
+    """
+    from katan import catalog
+    from katan.ui import home_window
+
+    tree = ET.parse(os.path.join(SKIN_DIR, "katan-home.xml"))
+    rail = None
+    for control in tree.getroot().iter("control"):
+        if control.get("id") == str(home_window.RAIL):
+            rail = control
+            break
+    assert rail is not None, "the rail should have id %d" % home_window.RAIL
+
+    def value(node, tag, default=0):
+        found = node.find(tag)
+        return int(found.text) if found is not None and found.text else default
+
+    buttons = [c for c in rail.findall("control") if c.get("type") == "button"]
+    expected = len(catalog.SECTIONS) + 1        # the sections, plus settings
+    assert len(buttons) == expected, (
+        "the rail has %d buttons but there are %d sections plus settings"
+        % (len(buttons), len(catalog.SECTIONS)))
+
+    gap = value(rail, "itemgap")
+    needed = sum(value(b, "height") for b in buttons) + gap * len(buttons)
+    assert value(rail, "height") >= needed, (
+        "the rail is %d px tall and needs at least %d, so Kodi will refuse "
+        "focus to the last entry" % (value(rail, "height"), needed))
+    assert value(rail, "top") + value(rail, "height") <= 1080, \
+        "the rail runs off the bottom of a 1080 screen"
+
+
 def test_the_israeli_rows_are_near_the_top_of_the_home_screen():
     """The two rows this add-on exists for should not be below the fold.
 
@@ -349,14 +389,52 @@ def test_the_tmdb_helper_player_points_at_real_routes():
     assert checked >= 4, "expected play and search entries for films and episodes"
 
 
+def _value_settings(root):
+    """Settings that hold a value.
+
+    An `action` setting is a button - it runs a builtin and stores nothing -
+    so asking what its default is, or who reads it, is asking the wrong
+    question about the wrong kind of thing.
+    """
+    return [node for node in root.iter("setting")
+            if node.get("id") and node.get("type") != "action"]
+
+
 def test_every_settings_id_has_a_default():
     """settings.xml and settings.DEFAULTS drift apart silently otherwise."""
     from katan import settings
 
     root = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml")).getroot()
-    declared = {s.get("id") for s in root.iter("setting") if s.get("id")}
+    declared = {s.get("id") for s in _value_settings(root)}
     missing = sorted(declared - set(settings.DEFAULTS))
     assert not missing, "settings.xml ids with no default: %s" % missing
+
+
+def test_every_action_setting_runs_a_route_that_exists():
+    """A button in the settings dialog is a promise like any other.
+
+    These carry a builtin rather than a value, so the default and read-by
+    checks skip them - which would leave a button naming a route that does
+    not exist as the one kind of settings entry nothing checked.
+    """
+    from katan import router
+    router._load_handlers()
+
+    root = ET.parse(os.path.join(ADDON_DIR, "resources",
+                                 "settings.xml")).getroot()
+    actions = [n for n in root.iter("setting") if n.get("type") == "action"]
+    assert actions, "expected the connect buttons"
+
+    for node in actions:
+        data = node.find("data")
+        assert data is not None and data.text, \
+            "%s is a button that does nothing" % node.get("id")
+        found = re.search(r"action=(\w+)", data.text)
+        assert found, "%s runs %r, which names no action" % (node.get("id"),
+                                                             data.text)
+        assert found.group(1) in router._ROUTES, \
+            "%s runs action=%s, which is not a route" % (node.get("id"),
+                                                         found.group(1))
 
 
 def test_settings_xml_defaults_match_the_python_defaults():
@@ -603,9 +681,9 @@ def test_every_declared_setting_is_read_by_something():
     """
     import io
 
-    with io.open(os.path.join(ADDON_DIR, "resources", "settings.xml"),
-                 encoding="utf-8") as handle:
-        declared = re.findall(r'<setting id="([^"]+)"', handle.read())
+    root = ET.parse(os.path.join(ADDON_DIR, "resources",
+                                 "settings.xml")).getroot()
+    declared = [node.get("id") for node in _value_settings(root)]
     assert declared, "expected some settings"
 
     source = []

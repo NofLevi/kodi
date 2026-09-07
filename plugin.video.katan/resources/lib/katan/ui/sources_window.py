@@ -40,7 +40,7 @@ class SourcesWindow(xbmcgui.WindowXML):
         """
         self.setProperty("katan.sources.title", _heading(self.meta))
         self.setProperty("katan.sources.status",
-                         _status(self._visible(), self.showing_all))
+                         _status(self._visible(), self.showing_all, self.meta))
         self.setProperty("katan.sources.toggle",
                          kodi.localize(32342 if self.showing_all else 32341))
 
@@ -99,7 +99,7 @@ class SourcesWindow(xbmcgui.WindowXML):
         except Exception:
             kodi.log_exception("could not render the source list")
 
-        self.setProperty("katan.sources.status", _status(entries, self.showing_all))
+        self.setProperty("katan.sources.status", _status(entries, self.showing_all, self.meta))
         self.setProperty("katan.sources.toggle",
                          kodi.localize(32342 if self.showing_all else 32341))
 
@@ -198,12 +198,43 @@ def _heading(meta):
     return "%s (%d)" % (title, year) if year else title
 
 
-def _status(entries, showing_all):
+def _status(entries, showing_all, meta=None):
+    """The line under the title: how many, how many cached, and what was cut.
+
+    The last part is the one that was missing. "8 sources" for a film with
+    sixty-four releases reads as a broken picker; "8 of 64, 40 camera
+    recordings hidden" reads as the filters doing their job, which is what
+    was happening. The reason is only shown while everything is on screen -
+    with the short list up, the number that is missing is mostly the short
+    list's own doing and saying otherwise would be misleading.
+    """
     if not entries:
         return kodi.localize(32283)
     cached = sum(1 for s in entries if s.get("cached"))
-    return "%s   %s" % (kodi.localize(32332, len(entries)),
-                        kodi.localize(32345, cached))
+    parts = [kodi.localize(32332, len(entries)),
+             kodi.localize(32345, cached)]
+    if showing_all and meta:
+        note = _why_hidden(entries, meta)
+        if note:
+            parts.append(note)
+    return "   ".join(parts)
+
+
+def _why_hidden(entries, meta):
+    """"of 64, 40 cam releases hidden", or "" when there is nothing to say."""
+    from ..sources import aggregator
+
+    report = aggregator.filter_report(meta)
+    if not report:
+        return ""
+    found = int(report.get("found") or 0)
+    hidden = found - len(entries)
+    if hidden <= 0:
+        return ""
+    reasons = report.get("reasons") or []
+    biggest = ", ".join("%d %s" % (count, reason)
+                        for reason, count in reasons[:2])
+    return kodi.localize(32470, found, hidden, biggest)
 
 
 def pick_source(sources, meta, all_sources=None):

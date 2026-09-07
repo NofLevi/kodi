@@ -1296,3 +1296,31 @@ msgstr "חיבור חשבון"
 msgctxt "#32469"
 msgid "Sign out of %s"
 msgstr "התנתקות מ-%s"
+
+msgctxt "#30141"
+msgid "Connect Trakt (scan a code)"
+msgstr "חיבור Trakt (סריקת קוד)"
+
+msgctxt "#30142"
+msgid "Connect a debrid service (scan a code)"
+msgstr "חיבור שירות דיבריד (סריקת קוד)"
+
+msgctxt "#30143"
+msgid "Needs a configuration from the provider's own website. Without one it answers nothing, which is why it ships switched off."
+msgstr "דורש הגדרה מהאתר של הספק. בלעדיה הוא לא מחזיר דבר, ולכן הוא כבוי כברירת מחדל."
+
+msgctxt "#30144"
+msgid "The public instance is not responding. Point this at a working one, or leave it off."
+msgstr "המופע הציבורי אינו מגיב. הפנו לכתובת פעילה, או השאירו כבוי."
+
+msgctxt "#32470"
+msgid "of %d, %d hidden (%s)"
+msgstr "מתוך %d, %d מוסתרים (%s)"
+
+msgctxt "#30145"
+msgid "Tools"
+msgstr "כלים"
+
+msgctxt "#30146"
+msgid "Setup, accounts, kids mode and maintenance."
+msgstr "התקנה, חשבונות, מצב ילדים ותחזוקה."

@@ -1335,3 +1335,31 @@ msgstr ""
 msgctxt "#32469"
 msgid "Sign out of %s"
 msgstr ""
+
+msgctxt "#30141"
+msgid "Connect Trakt (scan a code)"
+msgstr ""
+
+msgctxt "#30142"
+msgid "Connect a debrid service (scan a code)"
+msgstr ""
+
+msgctxt "#30143"
+msgid "Needs a configuration from the provider's own website. Without one it answers nothing, which is why it ships switched off."
+msgstr ""
+
+msgctxt "#30144"
+msgid "The public instance is not responding. Point this at a working one, or leave it off."
+msgstr ""
+
+msgctxt "#32470"
+msgid "of %d, %d hidden (%s)"
+msgstr ""
+
+msgctxt "#30145"
+msgid "Tools"
+msgstr ""
+
+msgctxt "#30146"
+msgid "Setup, accounts, kids mode and maintenance."
+msgstr ""

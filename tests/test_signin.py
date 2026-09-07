@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """The one sign-in screen every service shares.
 
 Signing in is the flow with the least margin for error in the whole add-on:

@@ -34,6 +34,12 @@ OPEN_SETTLE = 0.75        # after Kodi's home is up, before we take over
 OPEN_DEADLINE = 25        # give up waiting for a home screen and just open
 OPEN_TICK = 0.2           # how often to look, while we are still looking
 
+# How long Kodi's home screen has to be the thing on screen before "stay in
+# Katan" treats it as having been left rather than passed through. Kodi shows
+# its home for a frame or two between windows, and reopening on that would
+# fight every single navigation.
+LEFT_SETTLE = 1.5
+
 
 class Service(xbmc.Monitor):
     def __init__(self):
@@ -45,6 +51,7 @@ class Service(xbmc.Monitor):
         self.next_prune = now + 300
         self.open_deadline = now + OPEN_DEADLINE
         self.home_seen_at = 0.0
+        self.left_at = 0.0
         self.opened = False
         self.player = None
 
@@ -138,6 +145,45 @@ class Service(xbmc.Monitor):
 
     # -- main loop ---------------------------------------------------------
 
+    def keep_katan_open(self):
+        """Bring Katan back if the viewer ends up on Kodi's own home screen.
+
+        "Stay in Katan" only ever held the *home window's* back button, and
+        that is not where the doors are. Almost everything outside the four
+        custom windows is a plain Kodi directory - the settings dialog, a VOD
+        folder, a search result - and from a Kodi directory two presses of
+        back land on Kodi's home screen, which is the interface this add-on
+        exists to replace. Someone doing that on purpose has a way home; a
+        family member who pressed back twice does not, and now does not need
+        one.
+
+        Deliberately narrow. It watches for exactly one window, Kodi's home,
+        and does nothing while anything is playing or a dialog is up - so
+        going into settings, browsing a folder or picking a source is
+        untouched. Only landing on the screen that means "you have left"
+        brings it back.
+        """
+        if not settings.get_bool("ui.stay_in_katan", False):
+            return
+        if xbmc.getCondVisibility("Player.HasMedia"):
+            return
+        if not xbmc.getCondVisibility("Window.IsActive(home)"):
+            self.left_at = 0.0
+            return
+        # A moment's grace, because Kodi's home flickers into view between
+        # windows and reopening on that would fight every navigation.
+        now = time.time()
+        if not self.left_at:
+            self.left_at = now
+            return
+        if now - self.left_at < LEFT_SETTLE:
+            return
+        self.left_at = 0.0
+        kodi.log("back on Kodi's home screen, returning to Katan",
+                 kodi.LOG_INFO)
+        kodi.run_builtin(
+            "ActivateWindow(Videos,plugin://plugin.video.katan/,return)")
+
     def run(self):
         kodi.log("service started, version %s" % kodi.addon_version(), kodi.LOG_INFO)
         try:
@@ -159,6 +205,8 @@ class Service(xbmc.Monitor):
             now = time.time()
             if not self.opened:
                 self.opened = self.open_on_boot(now)
+            else:
+                self.keep_katan_open()
             if now >= self.next_warm:
                 self.next_warm = now + WARM_INTERVAL
                 self.warm_rows()
