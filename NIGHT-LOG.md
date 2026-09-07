@@ -35,7 +35,7 @@ marked confirmed on the strength of a passing unit test alone.
 | VOD catalogue browsing | Route sweep + screenshots | **Confirmed.** Kan shows 11 Hebrew categories with counts; Keshet 671 programmes. |
 | Debrid playback — films | Shawshank, Dark Knight, Inception through the real route | **Confirmed.** 3 of 3, full runtime, re-confirmed at 09:05 on the lean defaults. |
 | Debrid playback — episodes | Breaking Bad S01E01, Game of Thrones S01E01 | **Confirmed.** Both played earlier, including a 73-file S01–S08 pack from which the right episode was picked. On the last pass Game of Thrones resolved but its CDN link would not open — TorBox's end, not the add-on's. |
-| Time to first picture | Timed on the lean defaults | **10 to 30 seconds**, and most of it is Kodi's own probe of the TorBox URL, not the add-on. The plugin's own work is 2–8 seconds. |
+| Time to first picture | Timed on the lean defaults | **5 to 15 seconds**, and nearly all of it is Kodi's own probe of the TorBox URL, not the add-on. The plugin's own work — find, rank, resolve — is now **1.0 to 2.3 seconds**, down from 5 to 8: see 11:30. |
 | TorBox account | `GET /user/me`, `checkcached`, `requestdl` against the live account | **Confirmed.** Plan Essential, premium to 2026-10-23. Both undocumented response shapes now measured and tested. |
 | Source ranking and the picker | Opened the way a viewer does — home, film, "choose a source" | **Confirmed.** Six ranked rows with release name, provider, size, seeders and "TorBox 1080P במטמון". It was crashing this morning. |
 | "Show all" in the picker | The toggle pressed in Kodi | **Confirmed.** 6 rows become **48**, and the status line goes with it. It used to hand back the same six. |
@@ -596,3 +596,47 @@ TMDB key and setup is not the problem. It would have sent you to a wizard with
 nothing to fix.
 
 721 tests. The zip is 366 KB against a 600 KB budget.
+
+## 11:30 — Downloading the whole TorBox account to play one film
+
+A note I left at 00:50 said `_existing()` "re-fetches that whole list on every
+single resolve, which will only get slower". Measured properly today, against
+the real account:
+
+    _existing   2.0 - 3.5 s, 466 KB of JSON, 58 torrents
+    _create     0.46 s, and it answers "Found Cached Torrent. Using Cached
+                Torrent." with the same torrent_id when the torrent is already
+                there
+
+So adding a torrent you already have is not a mistake TorBox charges you for;
+it is the cheap way to ask "do I have this, and if not, take it". That is the
+first call now, with the account list kept as the fallback for a torrent that
+finished downloading but is no longer cached. The order flips when uncached
+adds are allowed, because then adding is not free — it spends one of sixty an
+hour — so it looks before leaping.
+
+**Resolve went from 5.8 seconds to 1.1**, and it no longer gets slower every
+time you play something. In Kodi the whole plugin call is now **1.0 to 2.3
+seconds** against 5 to 8.
+
+Two things that turned up on the way, neither caused by the change:
+
+* An indexer can flag a source cached and TorBox will accept the magnet and
+  still not have it — state "downloading", cached false, no file list. The
+  message for that was "TorBox torrent has no usable video file", which says
+  the wrong thing about why. It now says what actually happened, and does not
+  spend three seconds waiting for a file list that is not coming.
+* **When a source will not resolve, playback falls through to the next one.**
+  It used to say "could not play" while the second source in the list would
+  have played immediately, which is exactly what happened to The Dark Knight
+  earlier tonight. Three attempts, and never when you chose the source
+  yourself — you asked for that release.
+
+One honest note on the numbers above. Films still occasionally fail to start,
+and when they do the log now shows the add-on handing Kodi a URL in about a
+second and **Kodi then spending twenty-one seconds failing to open it**. That is
+TorBox's CDN — one edge host, `store-033`, was slow or refusing all night.
+Nothing in the add-on can fix it, and the runs where it behaves play 4 or 5 of
+5.
+
+732 tests.
