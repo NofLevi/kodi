@@ -311,6 +311,7 @@ def open_details(item):
                            "default", "1080i")
     window.item = full
     try:
+        kodi.clear_busy_dialogs()
         window.doModal()
         played = window.played
     finally:

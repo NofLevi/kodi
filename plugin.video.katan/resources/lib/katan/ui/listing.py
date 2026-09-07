@@ -307,10 +307,33 @@ def resolve(handle, url, item=None):
                                         or position + 1))
         kodi.log("resuming at %d:%02d" % (position // 60, position % 60))
 
-    xbmcplugin.setResolvedUrl(handle, True, li)
+    _hand_over(handle, url, li)
+
+
+def _hand_over(handle, url, listitem):
+    """Give Kodi the stream, whichever way it is expecting to be given it.
+
+    There are two, and they are not interchangeable. When Kodi is opening a
+    playable item it passes a real handle and waits for `setResolvedUrl`.
+    When the plugin is run from a context menu - `RunPlugin` - it is a
+    script, the handle is -1, and nothing is waiting: `setResolvedUrl(-1)`
+    is silently discarded.
+
+    That is why "choose a source" found sources, resolved one, and then
+    played nothing at all, while pressing play on the same title worked.
+    The picker did its whole job and handed the URL to nobody.
+    """
+    if handle >= 0:
+        xbmcplugin.setResolvedUrl(handle, True, listitem)
+        return
+    import xbmc
+    kodi.log("no handle to resolve to, starting playback directly")
+    xbmc.Player().play(url, listitem)
 
 
 def resolve_failed(handle):
+    if handle < 0:
+        return          # nothing is waiting for an answer
     xbmcplugin.setResolvedUrl(handle, False, xbmcgui.ListItem(offscreen=True))
 
 

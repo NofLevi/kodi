@@ -89,8 +89,13 @@ class Player(object):
     def getTotalTime(self):
         return 0.0
 
+    # What Player.play was asked to open. A plugin run from a context menu
+    # has no handle to resolve to and has to start playback itself, and
+    # there is no other way to see that it did.
+    PLAYED = []
+
     def play(self, *args, **kwargs):
-        pass
+        Player.PLAYED.append((args, kwargs))
 
     def stop(self):
         pass

@@ -811,6 +811,7 @@ def open_home():
         # The headings are set before the window is shown so its row groups are
         # already visible on the first render and can take focus.
         window.prepare()
+        kodi.clear_busy_dialogs()
         window.doModal()
     finally:
         del window

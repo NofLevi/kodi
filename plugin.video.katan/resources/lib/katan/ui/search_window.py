@@ -332,6 +332,7 @@ def open_search(modal_result=False):
         # home window sets its headings early: a control Kodi has not yet
         # decided is visible cannot take focus.
         window.prepare()
+        kodi.clear_busy_dialogs()
         window.doModal()
         query = window.submitted
     finally:
