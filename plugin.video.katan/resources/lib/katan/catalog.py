@@ -214,10 +214,6 @@ def enabled_rows():
     return out
 
 
-def set_row_order(row_ids):
-    settings.set("ui.rows", ",".join(row_ids))
-
-
 # --------------------------------------------------------------------------
 # loading, always through the cache
 # --------------------------------------------------------------------------

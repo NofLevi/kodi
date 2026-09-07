@@ -132,7 +132,3 @@ def select(index):
         return False
     kodi.log("selected embedded subtitle track %s" % index)
     return True
-
-
-def has_language(language):
-    return any(stream["language"] == language for stream in streams())

@@ -57,15 +57,6 @@ def fetch(url, referer="", timeout=(6, 15)):
         return ""
 
 
-def fetch_json(url, referer="", timeout=(6, 15), params=None):
-    headers = dict(BROWSER_HEADERS)
-    headers["Accept"] = "application/json, text/plain, */*"
-    if referer:
-        headers["Referer"] = referer
-    return http.get_json(url, headers=headers, params=params,
-                         timeout=timeout, default=None)
-
-
 def _host(url):
     try:
         return url.split("/")[2]

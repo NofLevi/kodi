@@ -188,13 +188,6 @@ def get_int(key, default=None):
             return 0
 
 
-def get_float(key, default=0.0):
-    try:
-        return float(get(key))
-    except (TypeError, ValueError):
-        return default
-
-
 def get_list(key, separator=","):
     """Split a comma separated setting into a list of trimmed, non-empty parts."""
     return [part.strip() for part in get(key).split(separator) if part.strip()]
@@ -230,7 +223,12 @@ def subtitle_languages():
 
 
 def debug_enabled():
-    return get_bool("log.debug")
+    """Whether this add-on writes its own messages where you can see them.
+
+    Read through kodi.verbose(), which remembers the answer for the process
+    because log() asks on every line.
+    """
+    return get_bool("log.debug", False)
 
 
 def enabled_source_providers():

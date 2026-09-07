@@ -37,13 +37,15 @@ def pipeline(monkeypatch, settings_module):
         "subs.provider.subsource": "false",
     })
 
-    state = {"candidates": [], "downloads": {}, "downloaded": []}
+    state = {"candidates": [], "downloads": {}, "downloaded": [],
+             "expected": []}
 
     def fake_search(meta, languages, video_hash=""):
         return list(state["candidates"])
 
-    def fake_download(candidate):
+    def fake_download(candidate, expect_language=None):
         state["downloaded"].append(candidate.get("release"))
+        state["expected"].append(expect_language)
         key = candidate.get("download") or candidate.get("release")
         data = state["downloads"].get(key) or state["downloads"].get(
             candidate.get("release"), b"")
@@ -305,3 +307,54 @@ def test_a_forced_embedded_track_is_not_used_automatically(monkeypatch,
         assert auto.use_embedded(None, "he") is False
     finally:
         xbmc.JSONRPC_RESULTS.clear()
+
+
+# --------------------------------------------------------------------------
+# a subtitle that is not in the language it claims
+# --------------------------------------------------------------------------
+
+
+def test_the_automatic_path_asks_for_the_language_to_be_checked(pipeline):
+    """A subtitle listed as Hebrew and written in English is a mislabelled
+    upload, not a rarity, and applying it silently gives the viewer the wrong
+    language with no clue why."""
+    name = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    pipeline["candidates"] = [candidate(name)]
+    pipeline["downloads"][name] = srt_bytes()
+
+    auto.find_and_prepare(MOVIE, ["he", "en"])
+    assert pipeline["expected"], "something should have been downloaded"
+    assert pipeline["expected"][0] == "he"
+
+
+def test_the_chooser_does_not_second_guess_the_viewer(monkeypatch):
+    """They picked that entry. Refusing it would be worse than honouring a
+    bad choice they can see and change."""
+    from katan.subs import service
+
+    seen = []
+    monkeypatch.setattr(auto, "download_candidate",
+                        lambda cand, expect_language=None:
+                        seen.append(expect_language) or [])
+    monkeypatch.setattr(service, "_current_meta", lambda: dict(MOVIE))
+    service.dispatch(["plugin://plugin.video.katan/", "1",
+                      "?action=download&provider=wizdom&id=x&language=he"])
+    assert seen == [None]
+
+
+def test_an_english_file_labelled_hebrew_is_refused(monkeypatch,
+                                                    settings_module):
+    """The whole point of the check, at the level it actually runs."""
+    from katan.subs import auto as real
+
+    english = (b"1\r\n00:00:01,000 --> 00:00:03,000\r\n"
+               b"Hello there, how are you today?\r\n\r\n")
+    monkeypatch.setattr(real, "_modules",
+                        lambda: {"wizdom": type("M", (), {
+                            "download": staticmethod(lambda c: english)})})
+
+    entry = {"provider": "wizdom", "language": "he", "release": "x",
+             "download": "x"}
+    assert real.download_candidate(entry) != [], \
+        "without a language to check it is taken as given"
+    assert real.download_candidate(entry, expect_language="he") == []
