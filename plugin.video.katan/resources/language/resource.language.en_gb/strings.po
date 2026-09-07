@@ -1435,3 +1435,11 @@ msgstr ""
 msgctxt "#32489"
 msgid "not in the debrid cache"
 msgstr ""
+
+msgctxt "#32490"
+msgid "OpenSubtitles (subtitle accuracy)"
+msgstr ""
+
+msgctxt "#30147"
+msgid "Connect OpenSubtitles (scan a code)"
+msgstr ""

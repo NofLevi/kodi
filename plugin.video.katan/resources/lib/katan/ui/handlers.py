@@ -674,6 +674,8 @@ def connect(params):
         wizard.step_tmdb()
     elif service == "debrid":
         wizard.step_debrid()
+    elif service == "opensubtitles":
+        wizard.step_opensubtitles()
     else:
         from ..debrid import registry
         client = registry.get(service)

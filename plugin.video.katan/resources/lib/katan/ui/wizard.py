@@ -9,6 +9,7 @@ from .. import kodi, settings
 TMDB_SIGNUP = "https://www.themoviedb.org/settings/api"
 GEMINI_SIGNUP = "https://aistudio.google.com/apikey"
 TRAKT_APPS = "https://trakt.tv/oauth/applications"
+OPENSUBTITLES_KEYS = "https://www.opensubtitles.com/en/consumers"
 
 
 def run(open_home_after=True):
@@ -16,6 +17,8 @@ def run(open_home_after=True):
         (kodi.localize(32310), step_tmdb, lambda: bool(settings.get("tmdb.apikey"))),
         (kodi.localize(32311), step_debrid, lambda: bool(settings.configured_debrid())),
         (kodi.localize(32312), step_trakt, lambda: bool(settings.get("trakt.access_token"))),
+        (kodi.localize(32490), step_opensubtitles,
+         lambda: bool(settings.get("subs.opensubtitles.apikey"))),
         (kodi.localize(32313), step_ai, lambda: bool(settings.get("subs.ai.gemini_key"))),
         # Not an account, and the only step that is already answered when the
         # wizard opens. It is here rather than buried in the settings because
@@ -217,6 +220,39 @@ def step_visuals():
     if choice < 0:
         return
     profiles.set_rich_visuals(choice == 1)
+
+
+def step_opensubtitles():
+    """The single biggest thing that can be done about subtitle accuracy.
+
+    It is the only provider that matches on the *file hash* - not the
+    release name, the actual bytes - which is a certainty rather than an
+    estimate, and it is the largest catalogue by a wide margin. Everything
+    for it is already built and it has been contributing nothing at all,
+    because without a key the provider answers with an empty list.
+
+    The key is free and lives behind one page, so this offers to put that
+    page on a phone rather than describing where to look.
+    """
+    from .. import settings as _settings
+    from . import signin
+
+    entered = signin.ask_for_key(kodi.localize(32490),
+                                 _settings.get("subs.opensubtitles.apikey"),
+                                 help_url=OPENSUBTITLES_KEYS)
+    if entered is None:
+        return
+    _settings.set("subs.opensubtitles.apikey", entered)
+    if not entered:
+        return
+    try:
+        from ..subs.providers import opensubtitles
+    except ImportError:
+        return
+    if opensubtitles.configured():
+        kodi.notify(kodi.localize(32318))
+    else:
+        kodi.notify(kodi.localize(32319))
 
 
 def step_ai():
