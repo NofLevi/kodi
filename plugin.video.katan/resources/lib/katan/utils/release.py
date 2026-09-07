@@ -106,7 +106,13 @@ def parse(name, size=0):
     return {
         "raw": raw,
         "normalised": text,
-        "resolution": _first_match(text, RESOLUTIONS, "sd"),
+        # "unknown", not "sd". A release name that does not say its
+        # resolution has not told us it is standard definition - it has told
+        # us nothing - and calling that SD is a claim rather than a reading.
+        # Fansub names very often omit it, so the minimum-resolution filter
+        # was throwing away 1080p anime releases as though they were SD:
+        # thirteen of the forty-four copies of one Bleach episode.
+        "resolution": _first_match(text, RESOLUTIONS, "unknown"),
         "source": _first_match(text, SOURCES, "unknown"),
         "codec": _first_match(text, CODECS, "unknown"),
         "audio": _first_match(text, AUDIO, "unknown"),

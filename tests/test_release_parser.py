@@ -9,7 +9,11 @@ from katan.utils import release
     ("Dune.Part.Two.2024.1080p.WEB-DL.DDP5.1.Atmos.H.264-FLUX", "1080p"),
     ("Some.Show.S01E02.720p.HDTV.x264-KILLERS", "720p"),
     ("Old.Movie.1975.480p.DVDRip.XviD-GROUP", "480p"),
-    ("Random release without markers", "sd"),
+    # Not "sd". A name that does not say its resolution has told us nothing,
+    # and calling that standard definition is a claim - one that had the
+    # minimum-resolution filter throwing away 1080p anime releases, whose
+    # names conventionally omit it.
+    ("Random release without markers", "unknown"),
 ])
 def test_resolution_detection(name, expected):
     assert release.parse(name)["resolution"] == expected
@@ -105,4 +109,29 @@ def test_size_label_is_human_readable():
 def test_parse_never_raises_on_junk():
     for junk in (None, "", "   ", 12345, u"\u05e2\u05d1\u05e8\u05d9\u05ea", "-" * 200):
         parsed = release.parse(junk)
-        assert parsed["resolution"] in ("sd", "480p", "720p", "1080p", "2160p")
+        assert parsed["resolution"] in ("unknown", "sd", "480p", "720p",
+                                        "1080p", "2160p")
+
+
+def test_an_unreadable_resolution_is_not_filtered_out():
+    """A release that does not name its resolution must not be refused for
+    being below a minimum it never claimed to be under.
+
+    Fansub names routinely omit it: thirteen of the forty-four copies of one
+    Bleach episode were thrown away this way, several of them 1080p.
+    """
+    from katan.sources import scoring
+
+    class Prefs(object):
+        allow_cam = allow_hevc = allow_av1 = allow_hdr = True
+        cached_only = False
+        max_size = 0
+        max_rank = 2      # 720p ceiling
+        min_rank = 2      # 720p floor
+
+    unreadable = {"title": "[Late] Bleach TYBW 46 v2 (Web, x264, 10b. EAC3)",
+                  "quality": "unknown", "codec": "h264", "hdr": [], "size": 0}
+    assert scoring.rejection_reason(unreadable, Prefs()) == ""
+
+    too_low = dict(unreadable, quality="480p")
+    assert scoring.rejection_reason(too_low, Prefs()) ==         "below the resolution limit"

@@ -1443,3 +1443,7 @@ msgstr ""
 msgctxt "#30147"
 msgid "Connect OpenSubtitles (scan a code)"
 msgstr ""
+
+msgctxt "#32491"
+msgid "Nothing is ready to stream. %d copies exist but none are on your debrid account yet - start one downloading?"
+msgstr ""

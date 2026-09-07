@@ -1404,3 +1404,7 @@ msgstr "OpenSubtitles (דיוק כתוביות)"
 msgctxt "#30147"
 msgid "Connect OpenSubtitles (scan a code)"
 msgstr "חיבור OpenSubtitles (סריקת קוד)"
+
+msgctxt "#32491"
+msgid "Nothing is ready to stream. %d copies exist but none are on your debrid account yet - start one downloading?"
+msgstr "אין מקור מוכן לצפייה. קיימים %d עותקים אך אף אחד לא בחשבון הדיבריד שלכם - להתחיל להוריד אחד?"
