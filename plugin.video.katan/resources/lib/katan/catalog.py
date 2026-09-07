@@ -50,6 +50,9 @@ S = {
 TTL_SHORT = 3 * 3600
 TTL_MEDIUM = 6 * 3600
 TTL_LONG = 24 * 3600
+# How long a row that came back empty is remembered as empty. Short on
+# purpose: see the note in load().
+TTL_EMPTY = 10 * 60
 
 
 def _tmdb():
@@ -271,6 +274,19 @@ def load(row_id, refresh=False):
     result = items.dedupe(result)[:row_limit()]
     if result:
         cache.set(key, result, row["ttl"])
+    else:
+        # An empty answer is remembered briefly, and briefly is the whole
+        # point. Not remembering it at all left peek() unable to tell "never
+        # warmed" from "warmed and empty", which is the distinction the home
+        # listing needs to stop offering a row that opens an empty screen -
+        # the anime row has been in that state for as long as AniList has been
+        # refusing requests. Remembering it for the row's full TTL would be
+        # worse: a service that came back in five minutes would stay hidden
+        # for a day. Ten minutes is short enough to be a hiccup and long
+        # enough to be useful - and never longer than the row's own TTL, or a
+        # fast-moving row like continue-watching would remember "nothing here"
+        # for longer than it would have remembered something.
+        cache.set(key, [], min(TTL_EMPTY, row["ttl"]))
     # Applied after the cache, not before, so turning kids mode on takes effect
     # on rows that were warmed while it was off.
     from . import kids

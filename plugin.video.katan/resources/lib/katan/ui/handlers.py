@@ -15,6 +15,11 @@ def _handle():
     return kodi.plugin_handle()
 
 
+# Rows that the plain listing offers as sections instead, because they are the
+# same two things under the same headings and listing both showed each twice.
+SECTION_ROWS = ("israel_live", "israel_vod")
+
+
 # --------------------------------------------------------------------------
 # home
 # --------------------------------------------------------------------------
@@ -51,12 +56,19 @@ def home(params):
         return
 
     for row in catalog.enabled_rows():
+        # The Israeli rows are the same two things the sections below are, with
+        # the same headings - 32217 and 32218 - so listing both put "שידורים
+        # חיים" and "VOD ישראלי" on this screen twice each, one above the
+        # other. In the custom window they are horizontal rows of artwork and
+        # the sections are not there at all, so the duplication is only here.
+        # The folder is the better of the two in a plain list.
+        if row["id"] in SECTION_ROWS:
+            continue
         # A row that has been warmed and came back empty is not offered. The
         # custom window already hides those; the plain listing was still
-        # showing them, so a Trakt chart with no account signed in, or the
-        # anime row while AniList is refusing requests, was a menu entry that
-        # opens an empty screen. peek() returning None means "not warmed yet",
-        # which is not the same thing and must still be offered.
+        # showing them, so a Trakt chart with no account signed in was a menu
+        # entry that opens an empty screen. peek() returning None means "not
+        # warmed yet", which is not the same thing and must still be offered.
         warmed = catalog.peek(row["id"])
         if warmed is not None and not warmed:
             continue

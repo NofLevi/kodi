@@ -203,3 +203,30 @@ def test_a_subtitle_search_reaches_the_subtitle_service(monkeypatch):
     monkeypatch.setattr(service, "dispatch", lambda argv: seen.append(argv))
     dispatch("search", languages="English", preferredlanguage="English")
     assert seen, "the subtitle service should have been called"
+
+
+def test_the_israeli_sections_are_listed_once_each():
+    """They were rows and sections at the same time, under the same headings.
+
+    "שידורים חיים" and "VOD ישראלי" each appeared twice on the plain home
+    screen, one directly above the other. In the custom window they are
+    horizontal rows of artwork and the sections are not drawn at all, so the
+    duplication only ever showed here.
+    """
+    from katan import kodi as katan_kodi
+
+    dispatch("home")
+    labels = [item.getLabel() for _url, item, _folder in xbmcplugin.ITEMS]
+    for string_id in (32217, 32218):
+        heading = katan_kodi.localize(string_id)
+        assert labels.count(heading) == 1, "%r appears %d times" % (
+            heading, labels.count(heading))
+
+
+def test_the_sections_still_point_at_the_section_routes():
+    dispatch("home")
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    assert any("action=live_tv" in u for u in urls)
+    assert any("action=vod" in u for u in urls)
+    assert not any("id=israel_live" in u for u in urls)
+    assert not any("id=israel_vod" in u for u in urls)
