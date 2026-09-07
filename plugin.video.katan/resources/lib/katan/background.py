@@ -46,7 +46,16 @@ class Service(xbmc.Monitor):
         if not settings.get_bool("service.warm", True):
             return
         try:
-            updated = catalog.warm(force=True)
+            # Not forced. Every row already carries a TTL chosen for how fast
+            # it actually changes - three hours for what is trending, a day
+            # for a top-rated chart - and forcing threw all of that away: it
+            # re-fetched all thirteen rows every six hours whether or not any
+            # of them had gone stale, including ones a viewer had refreshed
+            # five minutes earlier. On a device with a few hundred megabytes
+            # for Kodi, thirteen unnecessary fetches is a burst worth not
+            # having. `onSettingsChanged` still invalidates first, so a
+            # settings change refills everything as it did before.
+            updated = catalog.warm()
             if updated:
                 kodi.log("warmed %d home rows" % updated)
             from .search import unified

@@ -295,3 +295,39 @@ def test_an_empty_row_is_forgotten_again_quickly(monkeypatch):
 
     fast = min(row["ttl"] for row in catalog.rows())
     assert any(ttl == min(catalog.TTL_EMPTY, fast) for _key, ttl in written)
+
+
+def test_the_service_does_not_refetch_rows_that_are_still_fresh(monkeypatch):
+    """Every row carries a TTL chosen for how fast it actually changes.
+
+    The service used to force a refresh, which threw all of that away: all
+    thirteen rows re-fetched every six hours whether or not any had gone
+    stale. On a device with a few hundred megabytes for Kodi that is a burst
+    worth not having.
+    """
+    from katan import background, catalog
+
+    calls = []
+    monkeypatch.setattr(catalog, "warm",
+                        lambda *a, **kw: calls.append((a, kw)) or 0)
+    background.Service().warm_rows()
+
+    assert calls, "it should still warm"
+    args, kwargs = calls[0]
+    assert not args and not kwargs.get("force"), \
+        "a fresh row must not be re-fetched"
+
+
+def test_a_settings_change_still_refills_everything(monkeypatch):
+    """invalidate() empties the cache, so the unforced warm refills it."""
+    from katan import background, catalog
+
+    cleared = []
+    monkeypatch.setattr(catalog, "invalidate",
+                        lambda *a: cleared.append(a or ("all",)))
+    service = background.Service()
+    service.onSettingsChanged()
+
+    assert cleared, "the warmed copies should be dropped"
+    assert service.next_warm <= __import__("time").time() + 5, \
+        "and re-warmed almost immediately"
