@@ -247,3 +247,51 @@ def test_the_row_stays_within_its_limit():
     from katan import catalog
 
     assert len(catalog._kids_israel()) <= catalog.ROW_LIMIT
+
+
+# --------------------------------------------------------------------------
+# a row that came back empty
+# --------------------------------------------------------------------------
+
+
+def test_an_empty_row_is_remembered_as_empty_not_as_unknown(monkeypatch):
+    """peek() has to tell "never warmed" from "warmed and empty".
+
+    Not caching an empty answer at all left the two indistinguishable, so the
+    home listing kept offering a row that opens an empty screen - the anime
+    row, for as long as AniList has been refusing requests.
+    """
+    from katan import catalog
+
+    row_id = catalog.enabled_row_ids()[0]
+    monkeypatch.setitem(catalog.by_id(row_id), "loader", lambda: [])
+
+    assert catalog.peek(row_id) is None, "cold to begin with"
+    assert catalog.load(row_id) == []
+    assert catalog.peek(row_id) == [], "now known to be empty"
+
+
+def test_an_empty_row_is_forgotten_again_quickly(monkeypatch):
+    """A service that comes back in five minutes must not stay hidden for a
+    day, so the empty answer has its own short TTL rather than the row's.
+
+    And never longer than the row's own: continue-watching refreshes every
+    five minutes, so remembering "nothing here" for ten would have made it
+    slower to notice an empty row than a full one.
+    """
+    from katan import cache, catalog
+
+    assert catalog.TTL_EMPTY <= 15 * 60
+
+    written = []
+    monkeypatch.setattr(cache, "set",
+                        lambda key, value, ttl: written.append((key, ttl)))
+    for row in catalog.rows():
+        monkeypatch.setitem(row, "loader", lambda: [])
+        catalog.load(row["id"], refresh=True)
+    for key, ttl in written:
+        assert ttl <= catalog.TTL_EMPTY, key
+    assert written, "expected every row to record an empty answer"
+
+    fast = min(row["ttl"] for row in catalog.rows())
+    assert any(ttl == min(catalog.TTL_EMPTY, fast) for _key, ttl in written)
