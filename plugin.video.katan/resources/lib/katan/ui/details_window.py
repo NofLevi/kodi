@@ -16,6 +16,7 @@ from . import listing
 
 ACTION_PREVIOUS_MENU = 10
 ACTION_NAV_BACK = 92
+ACTION_CONTEXT_MENU = 117
 
 LIST_CONTENT = 5300
 BUTTON_PLAY = 9100
@@ -43,6 +44,9 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.setFocusId(BUTTON_PLAY)
 
     def onAction(self, action):
+        if action.getId() == ACTION_CONTEXT_MENU:
+            self._choose_source(self._selected_episode())
+            return
         if action.getId() not in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
             return
         # Back steps out of the episode list before it leaves the window.
@@ -58,7 +62,7 @@ class DetailsWindow(xbmcgui.WindowXML):
         if control_id == BUTTON_PLAY:
             self._play_best()
         elif control_id == BUTTON_SOURCES:
-            self._play_best(force_picker=True)
+            self._choose_source()
         elif control_id == BUTTON_TRAILER:
             trailer = (self.item.get("extra") or {}).get("trailer")
             if trailer:
@@ -140,6 +144,39 @@ class DetailsWindow(xbmcgui.WindowXML):
             self._play(entry)
 
     # -- playback ----------------------------------------------------------
+
+    def _selected_episode(self):
+        """The episode the viewer is looking at, when they are looking at one.
+
+        Only while the list is showing episodes. On the season list there is
+        a selection too, and it is a season, which is not something a source
+        can be chosen for.
+        """
+        if self.season is None:
+            return None
+        try:
+            position = self.getControl(LIST_CONTENT).getSelectedPosition()
+        except Exception:
+            return None
+        if not (0 <= position < len(self.entries)):
+            return None
+        entry = self.entries[position]
+        return entry if entry.get("type") == "episode" else None
+
+    def _choose_source(self, entry=None):
+        """Open the picker for one episode, or for whatever Play would start.
+
+        A film has one thing to choose a source for and a show has forty, so
+        "choose a source" on a series has to mean *this* episode. It meant the
+        next unwatched one, which is what Play starts - so having highlighted
+        episode nine and found its only source unwatchable, there was no way
+        to ask for another. Pressing it played episode three instead.
+        """
+        entry = entry or self._selected_episode()
+        if entry is not None:
+            self._play(entry, force_picker=True)
+            return
+        self._play_best(force_picker=True)
 
     def _play_best(self, force_picker=False):
         if self.item.get("type") == "show":

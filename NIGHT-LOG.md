@@ -1721,3 +1721,58 @@ InputStream Adaptive.
 One thing the run showed that is not ours: TorrentsDB answered **HTTP 429** and
 was retried, so only Torrentio contributed to that search. Worth knowing that
 the second scraper rate-limits under repeated probing.
+
+## Three reported bugs, and the first one had been there since day one
+
+### The search keyboard typed two letters and then ran away
+
+Reported as "the keyboard in the search does not work". It half worked, which
+is worse: the first two letters appeared and the third closed the window and
+searched for the fragment.
+
+    ACTION_ENTER = 7
+
+Kodi calls 7 **ACTION_SELECT_ITEM** - it is the OK button. ACTION_ENTER is
+135. So `onAction` treated every press on the key grid as "submit", *as well
+as* the `onClick` that typed the letter. `_submit` wants two characters before
+it does anything, which is exactly why it looked like a keyboard that types a
+bit and then breaks rather than one that never worked.
+
+Present since the first commit. The suite could not catch it because the
+tests drive `onClick` directly, and nothing had ever sent the window an
+action id of 7 - the number a remote actually sends.
+
+Measured after the fix, in a real Kodi: six presses of one key produce six
+letters and the window is still open.
+
+### English was two presses away and the button never said so
+
+The charsets ran Latin, Hebrew, digits, and the switch names the set it will
+move to. On a Hebrew interface - the one this opens on - that button therefore
+read **123**. Somebody looking for English pressed it once, got the number pad,
+and reasonably concluded there was no English keyboard.
+
+The order is now Hebrew, Latin, digits: the two alphabets adjacent, so moving
+between them is one press. The button reads **ABC** on the Hebrew keyboard,
+which is what was on screen for the fix to be believed.
+
+### "Choose a source" on a series played a different episode
+
+A film has one thing to choose a source for. A show has forty, and the button
+called `_play_best(force_picker=True)` - which for a show means *the next
+unwatched episode*, the same one Play starts. So having opened season two,
+highlighted episode nine and found its only source unwatchable, pressing
+"choose a source" offered sources for episode three.
+
+The picker now follows the highlighted episode, and there is a **context menu**
+on the episode list that does the same thing, which is the idiom a Kodi user
+reaches for first. Two deliberate limits:
+
+* **Play is unchanged.** It still means the next unwatched episode, which is
+  what it has always meant and what its own tests say. Only the source picker
+  follows the highlight, because it is the one that has to name an episode.
+* **A season is not something a source can be chosen for.** On the season list
+  there is a selection too, and it is a season, so the button falls back to
+  what Play would start rather than offering sources for "Season 2".
+
+1085 tests, zip 432 KB.

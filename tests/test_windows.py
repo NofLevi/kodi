@@ -326,9 +326,9 @@ def test_search_starts_with_recent_queries(search):
 def test_the_key_grid_is_labelled_for_the_current_charset(search):
     assert search.getProperty("katan.key0") == "a"
     search.onClick(search_window.BUTTON_CHARSET)
-    assert search.getProperty("katan.key0") == u"\u05d0", "expected Hebrew alef"
-    search.onClick(search_window.BUTTON_CHARSET)
     assert search.getProperty("katan.key0") == "0", "expected digits"
+    search.onClick(search_window.BUTTON_CHARSET)
+    assert search.getProperty("katan.key0") == u"א", "expected Hebrew alef"
 
 
 def test_pressing_a_key_appends_to_the_query(search):
@@ -443,10 +443,37 @@ def test_the_charset_button_still_names_where_it_goes_next(settings_module):
     settings_module.set("ui.language", "he")
     window = search_window.SearchWindow()
     window.prepare()
-    assert window.getProperty("katan.search.charset") == "123"
+    assert window.getProperty("katan.search.charset") == "ABC"
 
     window.onClick(search_window.BUTTON_CHARSET)
-    assert window.getProperty("katan.search.charset") == "ABC"
+    assert window.getProperty("katan.search.charset") == "123"
+
+
+def test_english_is_one_press_away_from_hebrew(settings_module):
+    """The order used to be Latin, Hebrew, digits, so a Hebrew interface -
+    the one this opens on - offered the number pad as its next set and
+    reached English only on the second press. Somebody looking for English
+    pressed once, got digits, and reasonably concluded there was none."""
+    from katan.ui import search_window
+
+    settings_module.set("ui.language", "he")
+    window = search_window.SearchWindow()
+    window.prepare()
+    assert window.charset == search_window.HEBREW
+
+    window.onClick(search_window.BUTTON_CHARSET)
+
+    assert window.charset == search_window.LATIN
+    assert window.getProperty("katan.key0") == "a"
+
+
+def test_the_switch_moves_between_the_alphabets_before_the_digits():
+    from katan.ui import search_window
+
+    order = [search_window.CHARSET_NAMES[i]
+             for i in (search_window.HEBREW, search_window.LATIN,
+                       search_window.DIGITS)]
+    assert order == ["אבג", "ABC", "123"]
 
 
 def test_every_charset_fills_the_grid(settings_module):
@@ -971,3 +998,34 @@ def test_staying_put_does_not_break_the_rest_of_the_window(monkeypatch,
                         lambda *a, **k: opened.append(True))
     window.onClick(home_window.BUTTON_RAIL_SETTINGS)
     assert opened, "the switch that turns this off has to stay reachable"
+
+
+def test_pressing_ok_on_a_key_does_not_run_a_search(search):
+    """ACTION_SELECT_ITEM is 7, and it was named ACTION_ENTER here - so every
+    press on the key grid submitted as well as typing. `_submit` wants two
+    characters, so you could type exactly two and the *third* key closed the
+    window and searched for the fragment. The keyboard looked broken because
+    it was."""
+    for _ in range(4):
+        search.onAction(Kodi21Action(7))            # ACTION_SELECT_ITEM
+        search.onClick(search_window.KEY_BASE)
+
+    assert search.submitted is None, "OK on a letter ran a search"
+    assert search.text == "aaaa"
+
+
+def test_enter_still_submits(search):
+    """135 is Kodi's real ACTION_ENTER, and a physical keyboard sends it."""
+    search.onClick(search_window.KEY_BASE)
+    search.onClick(search_window.KEY_BASE)
+    search.onAction(Kodi21Action(search_window.ACTION_ENTER))
+
+    assert search.submitted == "aa"
+
+
+def test_the_search_button_still_submits(search):
+    search.onClick(search_window.KEY_BASE)
+    search.onClick(search_window.KEY_BASE)
+    search.onClick(search_window.BUTTON_SEARCH)
+
+    assert search.submitted == "aa"
