@@ -1239,3 +1239,21 @@ token - otherwise the last word of every title becomes a release group and
 "The.Office" is by a group called Office.
 
 1011 tests, zip 423 KB.
+
+### Confirmed on a real playback
+
+Shawshank, in a real Kodi 21, with the subtitle cache emptied first so the
+choice was actually made rather than read back:
+
+    playing at speed 1
+    file hash 4a3feee7f28684f4 computed in 950 ms
+    best he subtitle: 100% (identical release name)
+        The.Shawshank.Redemption.1994.1080p.x264.YIFY-heb
+    Kodi: language heb, subtitles on
+
+That 100% is the fix, not a coincidence. The file playing was
+`The.Shawshank.Redemption.1994.1080p.x264.YIFY.mp4` and the subtitle is
+`...x264.YIFY-heb`. Until today the `-heb` meant those two names were not
+equal, so the strongest possible match - the same release - was invisible and
+the subtitle was shown as an estimate. The decoration now comes off before the
+comparison, and a certainty is reported as one.
