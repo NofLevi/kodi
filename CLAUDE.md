@@ -50,6 +50,18 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
 ## How the pieces fit
 
 * `catalog.py` declares the home rows as data. Adding a row is one entry.
+  Inside a **tab**, a row shows only what the rows above it have not already
+  taken. That is not tidiness: the rows ask TMDB overlapping questions and
+  always will - "trending this week" and "popular" are different questions
+  with much the same answer, and measured against the live API they shared
+  six films of twelve, which is what "too many duplications in topics" meant.
+  Renaming rows cannot fix it. The mixed home listing is left alone, because
+  it has no top-to-bottom order to inherit priority from. More is cached than
+  is drawn so a row that loses half its page fills up again from what it
+  already fetched, a row whose every item appears above it is shown as it was
+  rather than emptied, and the claims are built once per tab because eighteen
+  cache reads per row draw is a hundred milliseconds of nothing on a device
+  with slow storage.
   The service warms them, so opening the add-on is a database read. Rows also
   belong to **sections** - Films, Series, Live TV - which are the tabs down the
   left of the home screen, and `SECTION_ORDER` is the running order of each
@@ -140,7 +152,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1011 tests, all running against Kodi stubs, so no Kodi install is needed:
+1020 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -154,6 +166,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 |---|---|---|
 | `test_imports.py` | 91 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences, stray control characters, and `"%s" % (a, b).strip()` - where the method binds to the tuple, not the string, which has shipped twice and once took the whole source picker down. |
 | `test_addon_integrity.py` | 25 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, the TMDb Helper player file naming only registered actions, and the four things a real Kodi taught us - settings labels being string ids, empty string defaults declaring allowempty, every setting the code uses being declared, and the row area holding a whole number of rows. It also fails on **a public function nothing calls**, which found twelve, two of which were checks somebody meant to make: "verbose logging" that did nothing, and a Hebrew-detector that never ran. And on **the home screen having fewer row controls than it has rows switched on**, which is how the Israeli live channels came to be enabled, warmed, cached and never once drawn. |
+| `test_row_overlap.py` | 9 | A tab not showing the same posters three times under three headings. Priority running downwards so the row above keeps everything, a row above that is not warmed yet claiming nothing, a wholly redundant row shown rather than emptied, the plain listing untouched, and the memo being dropped when a row changes - which is the only way this can be wrong, and it shows as one repeated poster until the window is reopened. |
 | `test_core.py` | 14 | The SQLite cache and the router: TTLs, compression, LRU eviction under the size cap, and url_for round-tripping through parse_params. |
 | `test_routes.py` | 35 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen, stops a row that is known to be empty being offered as a menu entry that leads nowhere, and covers the paging a plain directory has to do with a "next page" entry because it has no scroll event to hang a fetch off. |
 | `test_aggregator.py` | 23 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |

@@ -465,9 +465,9 @@ class HomeWindow(xbmcgui.WindowXML):
             self.loading.add(index)
         try:
             row = self.rows[index]
-            entries = catalog.peek(row["id"])
+            entries = catalog.peek(row["id"], section=self.section)
             if entries is None:
-                entries = catalog.load(row["id"])
+                entries = catalog.load(row["id"], section=self.section)
             entries = trakt_state.annotate(entries or [])
             if not entries:
                 self._set_title(index, "")     # hides the whole group
@@ -566,7 +566,8 @@ class HomeWindow(xbmcgui.WindowXML):
         try:
             row = self.rows[index]
             page = self.pages.get(index, 1) + 1
-            entries = catalog.load(row["id"], page=page) or []
+            entries = catalog.load(row["id"], page=page,
+                                   section=self.section) or []
             # A row that gives nothing back has reached its end. TMDB keeps
             # answering past the last page with an empty list rather than an
             # error, so this is the only signal there is, and remembering it

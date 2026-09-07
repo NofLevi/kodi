@@ -1257,3 +1257,59 @@ That 100% is the fix, not a coincidence. The file playing was
 equal, so the strongest possible match - the same release - was invisible and
 the subtitle was shown as an estimate. The decoration now comes off before the
 comparison, and a certainty is reported as one.
+
+## "Too many duplications in topics" was about the films, not the headings
+
+The headings were made distinct a while ago - "סרטים חמים", "חדשים",
+"פופולריים" - and the complaint stayed true anyway, because it was never
+really about the words. Measured against the live API:
+
+    trending_movies   movies_popular    50%   (6 films of 12, identical)
+    top_rated_movies  movies_classics   41%
+    shows_popular     shows_drama       58%
+
+Three rows of the same posters under three different headings. No amount of
+renaming fixes that, because the rows are asking TMDB overlapping questions
+and always will: "trending this week" and "popular" are different questions
+with much the same answer, and "popular series" is mostly drama because most
+television is.
+
+So inside a tab, a row now shows what is left after the rows above it have
+taken theirs. Measured again afterwards, both tabs: **worst overlap 0%**, and
+confirmed by eye in a real Kodi - "סדרות פופולריות" and "הסדרות
+המדורגות ביותר" share not one poster.
+
+Three decisions worth writing down, because each one is a way this could have
+been worse:
+
+**Only in a tab.** The mixed home listing has no top-to-bottom order to
+inherit priority from, so it is left exactly as it was.
+
+**More is cached than is drawn.** The trim to the row length happens after the
+removal, so a row that loses half its page fills up again from what it already
+fetched rather than shrinking on screen. Rows land at 8 to 12 instead of 12,
+and scrolling tops them up.
+
+**A wholly redundant row is shown, not emptied.** A row every one of whose
+items appears above it is genuinely redundant, and half an empty row is a
+worse answer than the row as it was. Whether to have that row at all is a
+decision for whoever chose the rows, not for this code.
+
+### Two things the measurement caught that reasoning did not
+
+The first pass barely helped - the overlap went *up*, to 55% - and the row
+sizes jumped from 12 to 20. Both had the same cause: `load()` returns early on
+a cache hit, so a warmed row came back raw, skipping the removal and the trim
+alike. Which is to say it skipped almost every row a viewer ever sees, since
+the service warms them all. Fixed, and the overlap went to zero.
+
+The second was cost. The removal reads every row above out of the cache, so
+the last row of the Films tab was **5 ms** of SQLite on this desktop - and
+nineteen rows of that, on a projector with much slower storage, is a hundred
+milliseconds of nothing, paid on the GUI thread while a row is being drawn.
+The claims are now built in one pass per tab and reused: **0.00 ms**. The memo
+is dropped whenever a row is fetched afresh and by `invalidate()`, and getting
+that wrong shows as one repeated poster until the window is reopened, which is
+the right way for it to be wrong.
+
+1020 tests, zip 424 KB.
