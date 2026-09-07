@@ -119,12 +119,3 @@ def _discard(response):
         response.close()
     except Exception:
         pass
-
-
-def supports_ranges(url, timeout=(3, 5)):
-    """Does this host allow partial reads at all?"""
-    response = http.request("HEAD", url, retries=0, timeout=timeout,
-                            allow_redirects=True)
-    if response is None:
-        return False
-    return response.headers.get("Accept-Ranges", "").lower() == "bytes"

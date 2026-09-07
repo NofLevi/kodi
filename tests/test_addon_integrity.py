@@ -5,10 +5,11 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from conftest import ADDON_DIR
+from conftest import ADDON_DIR, ROOT, TESTS_DIR
 
 LANG_DIR = os.path.join(ADDON_DIR, "resources", "language")
 SKIN_DIR = os.path.join(ADDON_DIR, "resources", "skins", "default", "1080i")
+PACKAGE_ROOT = os.path.join(ADDON_DIR, "resources", "lib", "katan")
 
 
 def test_addon_xml_is_valid_and_declares_three_extension_points():
@@ -378,3 +379,90 @@ def test_every_window_python_module_has_its_skin_file():
             if not os.path.isfile(os.path.join(SKIN_DIR, xml_name)):
                 missing.append("%s wants %s" % (name, xml_name))
     assert not missing, missing
+
+
+# Kodi calls these itself, or they are entry points rather than helpers.
+_CALLED_BY_KODI = {
+    "onInit", "onClick", "onAction", "onFocus", "onSettingsChanged",
+    "onPlayBackStarted", "onPlayBackStopped", "onPlayBackEnded",
+    "onPlayBackPaused", "onPlayBackResumed", "onPlayBackSeek",
+    "onAVStarted", "onNotification", "run", "dispatch", "main",
+}
+
+
+def test_no_public_function_is_defined_and_never_called():
+    """A function nothing calls is dead weight, or a check somebody meant to
+    make and did not.
+
+    Three defects tonight were exactly this shape, and the third is the reason
+    for the test rather than a tidy-up:
+
+      registry.forget_cache_status  existed, and a torrent that became cached
+                                    still read as uncached for an hour
+      sources_window.quick_pick     a fallback picker nothing could reach
+      upnext.installed              said the right thing and was never asked,
+                                    so every episode spent two TMDB requests
+                                    on a card that was never going to be drawn
+
+    The rule this defends is the project's own: nothing here is a stub
+    pretending to work.
+    """
+    import ast
+    import io
+    import re
+
+    defined = {}
+    for folder, dirs, files in os.walk(PACKAGE_ROOT):
+        if "__pycache__" in folder:
+            continue
+        for name in sorted(files):
+            if not name.endswith(".py"):
+                continue
+            path = os.path.join(folder, name)
+            with io.open(path, encoding="utf-8") as handle:
+                tree = ast.parse(handle.read(), path)
+            # Module level only. A method can be an override a framework
+            # calls by name - urlsession's redirect_request is urllib's own
+            # API - and counting mentions cannot tell that apart from dead
+            # code.
+            for node in tree.body:
+                if not isinstance(node, ast.FunctionDef):
+                    continue
+                if node.name.startswith("_"):
+                    continue
+                # A route handler is called through the decorator's registry,
+                # never by name. test_addon_integrity already checks that
+                # every registered action has a handler and that every
+                # url_for names a real route, so they are covered elsewhere.
+                if any("route" in ast.dump(d) for d in node.decorator_list):
+                    continue
+                # Kodi's own callbacks: onInit, onPlayBackError and friends.
+                if re.match(r"^on[A-Z]", node.name):
+                    continue
+                defined.setdefault(node.name, []).append(
+                    "%s:%d" % (os.path.relpath(path, PACKAGE_ROOT),
+                               node.lineno))
+
+    haystack = []
+    for base in (ADDON_DIR, TESTS_DIR, os.path.join(ROOT, "tools")):
+        for folder, dirs, files in os.walk(base):
+            if "__pycache__" in folder or ".kodi-test" in folder:
+                continue
+            for name in files:
+                if name.endswith((".py", ".xml")):
+                    with io.open(os.path.join(folder, name), encoding="utf-8",
+                                 errors="replace") as handle:
+                        haystack.append(handle.read())
+    blob = "\n".join(haystack)
+
+    orphans = []
+    for name, places in sorted(defined.items()):
+        if name in _CALLED_BY_KODI:
+            continue
+        # The definition itself is one mention; more means somebody calls it.
+        if len(re.findall(r"\b%s\b" % re.escape(name), blob)) <= len(places):
+            orphans.append("%s (%s)" % (name, ", ".join(places)))
+
+    assert not orphans, (
+        "defined and referenced nowhere - wire it up or delete it:\n  "
+        + "\n  ".join(orphans))

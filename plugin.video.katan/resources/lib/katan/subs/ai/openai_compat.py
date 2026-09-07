@@ -61,11 +61,3 @@ def complete(system_prompt, prompt, timeout=DEFAULT_TIMEOUT):
     if not choices:
         raise OpenAIError("the endpoint returned no choices")
     return (choices[0].get("message") or {}).get("content", "")
-
-
-def test_endpoint():
-    try:
-        return bool(complete("You are a test.", "Reply with the word ok.",
-                             timeout=(5, 20)))
-    except Exception:
-        return False

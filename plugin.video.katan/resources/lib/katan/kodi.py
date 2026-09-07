@@ -27,8 +27,9 @@ def addon():
 
 def refresh_addon():
     """Drop the cached Addon object so settings written elsewhere are seen."""
-    global _ADDON
+    global _ADDON, _VERBOSE
     _ADDON = None
+    _VERBOSE = None
 
 
 def addon_path():
@@ -84,14 +85,6 @@ def has_adaptive():
     return has_addon("inputstream.adaptive")
 
 
-def kodi_major():
-    """Kodi major version as an int (21 for Omega)."""
-    try:
-        return int(xbmc.getInfoLabel("System.BuildVersion").split(".")[0])
-    except (ValueError, IndexError):
-        return 0
-
-
 # --------------------------------------------------------------------------
 # logging
 # --------------------------------------------------------------------------
@@ -102,8 +95,43 @@ LOG_WARNING = xbmc.LOGWARNING
 LOG_ERROR = xbmc.LOGERROR
 
 
+_VERBOSE = None
+
+
+def verbose():
+    """Has the viewer asked for this add-on's own messages in the log?
+
+    Remembered for the process, because log() is called often and reading a
+    Kodi setting is not free. refresh_addon() clears it, and the service calls
+    that on every settings change.
+    """
+    global _VERBOSE
+    if _VERBOSE is None:
+        try:
+            from . import settings
+            _VERBOSE = settings.debug_enabled()
+        except Exception:
+            _VERBOSE = False
+    return _VERBOSE
+
+
 def log(message, level=LOG_DEBUG, component=None):
+    """Write one line to the Kodi log.
+
+    Everything here is DEBUG by default, and Kodi throws DEBUG away unless the
+    whole application has debug logging switched on - which is a firehose
+    nobody wants to read to find out why one film would not play. That made
+    the "Verbose logging" setting a promise with nothing behind it:
+    `settings.debug_enabled` existed and was never consulted, so the toggle
+    did nothing at all.
+
+    It now does the one useful thing it can. Switched on, this add-on's own
+    messages are written at INFO, so they survive in an ordinary log without
+    turning on Kodi's. Switched off - the default - nothing changes.
+    """
     prefix = "[Katan]" if not component else "[Katan/%s]" % component
+    if level == LOG_DEBUG and verbose():
+        level = LOG_INFO
     try:
         xbmc.log("%s %s" % (prefix, message), level)
     except Exception:  # pragma: no cover - logging must never raise

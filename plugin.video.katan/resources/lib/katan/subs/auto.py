@@ -76,16 +76,6 @@ def use_embedded(player, language):
     return False
 
 
-def embedded_languages(player=None):
-    """Languages present inside the playing file."""
-    seen = []
-    for stream in embedded.streams():
-        code = stream.get("language")
-        if code and code not in seen:
-            seen.append(code)
-    return seen
-
-
 # --------------------------------------------------------------------------
 # searching
 # --------------------------------------------------------------------------
@@ -159,7 +149,7 @@ def find_and_prepare(meta, languages, player=None):
 
     winner = winners.get(wanted)
     if winner and winner.get("accepted"):
-        cues = download_candidate(winner)
+        cues = download_candidate(winner, expect_language=wanted)
         if cues:
             cues, report = verify_and_sync(cues, winners, languages, report)
             report["reason"] = winner.get("reason", "")
@@ -172,7 +162,7 @@ def find_and_prepare(meta, languages, player=None):
     # Last resort: the best available match, even below the threshold, because
     # an imperfect subtitle beats none and the viewer can still switch it off.
     if winner:
-        cues = download_candidate(winner)
+        cues = download_candidate(winner, expect_language=wanted)
         if cues:
             cues, report = verify_and_sync(cues, winners, languages, report)
             report["reason"] = "below threshold, used anyway"
@@ -196,7 +186,19 @@ def video_hash_for(meta):
     return value
 
 
-def download_candidate(candidate):
+def download_candidate(candidate, expect_language=None):
+    """Fetch one subtitle and turn it into cues.
+
+    `expect_language` is checked only when the add-on chose the file itself.
+    A subtitle listed as Hebrew and written in English is not rare - it is a
+    mislabelled upload - and applying it silently gives the viewer the wrong
+    language with no clue why. srt.looks_hebrew existed for this and was never
+    called.
+
+    The manual chooser deliberately does not pass it. There the viewer picked
+    that entry, and second-guessing them would be worse than honouring a bad
+    choice they can see and change.
+    """
     module = _modules().get(candidate.get("provider"))
     if module is None:
         return []
@@ -208,7 +210,14 @@ def download_candidate(candidate):
     if not data:
         return []
     cues = srt.parse(srt.decode(data))
-    return srt.clean(cues) if cues else []
+    if not cues:
+        return []
+    cues = srt.clean(cues)
+    if expect_language == "he" and cues and not srt.looks_hebrew(cues):
+        kodi.log("%s offered a Hebrew subtitle that is not in Hebrew (%s)"
+                 % (candidate.get("provider"), candidate.get("release", "")[:60]))
+        return []
+    return cues
 
 
 # --------------------------------------------------------------------------

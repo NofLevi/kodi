@@ -144,11 +144,6 @@ def by_original_language(code="he", media_type="movie", page=1):
                     with_original_language=code, sort_by="popularity.desc")
 
 
-def by_genre(genre_id, media_type="movie", page=1):
-    return discover(media_type, page=page,
-                    with_genres=genre_id, sort_by="popularity.desc")
-
-
 def recommendations(media_type, tmdb_id, page=1):
     return _results(_call("/%s/%s/recommendations" % (media_type, tmdb_id),
                           page=page), media_type)

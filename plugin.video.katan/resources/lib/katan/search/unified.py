@@ -162,7 +162,3 @@ def remember(query):
     history = [q for q in recent() if q.lower() != query.lower()]
     history.insert(0, query)
     cache.set(RECENT_KEY, history[:RECENT_MAX], 90 * 24 * 3600)
-
-
-def clear_recent():
-    cache.delete(RECENT_KEY)
