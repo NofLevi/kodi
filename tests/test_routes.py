@@ -73,16 +73,31 @@ def test_a_row_listing_offers_the_next_page(monkeypatch):
 
 
 def test_a_row_that_cannot_page_is_not_given_a_next_page(monkeypatch):
-    """The live channels are a whole list, not the first twenty of one."""
+    """A Trakt list arrives whole, so asking for page two is a wasted call.
+
+    This used to be about the live channels, which were also whole lists -
+    and that was the bug: forty-six channels, twelve shown, and no way to
+    reach the rest. They page now, because paging a list already in memory
+    costs a slice.
+    """
     from katan import catalog
 
     monkeypatch.setattr(catalog, "load",
                         lambda row_id, page=1, **kw: [
                             {"type": "movie", "title": "Film", "ids": {},
                              "art": {}}])
-    dispatch("row", id="israel_live")
+    dispatch("row", id="watchlist")
     urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
     assert not any("page=2" in u for u in urls)
+
+
+def test_the_israeli_rows_can_be_scrolled_past_their_first_page():
+    """Forty-six channels and eight hundred Kan programmes are not twelve."""
+    from katan import catalog
+
+    for row_id in ("israel_live", "israel_vod", "israel_radio"):
+        assert catalog.has_more(row_id), \
+            "%s stops after one page, so most of it is unreachable" % row_id
 
 
 def test_an_empty_page_ends_rather_than_offering_another(monkeypatch):
