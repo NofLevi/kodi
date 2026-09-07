@@ -124,6 +124,19 @@ def play(handle, request, force_picker=False):
         listing.resolve_failed(handle)
         return
 
+    # Where the viewer got to last time, which lives in the Trakt mirror and
+    # has to be put onto the item before Kodi is handed it. The rows already
+    # carry it - that is what draws the progress bar under a poster - but the
+    # item playback builds comes from TMDB and knows nothing about it, so
+    # resuming worked from a plain listing and not from the Katan window.
+    try:
+        from .meta import trakt_state
+        item = meta.get("item")
+        if item:
+            trakt_state.annotate([item])
+    except Exception:
+        kodi.log_exception("could not read the resume point")
+
     from . import player
     meta["source"] = {
         "group": chosen.get("group", ""),

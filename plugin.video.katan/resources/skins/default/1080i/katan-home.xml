@@ -98,6 +98,37 @@
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
+
+            <!-- Only while something is playing. Pressing back during a film
+                 leaves the video running and puts this window in front of it,
+                 which sounds exactly like a film playing in another room and
+                 offers no way back to it. Kodi decides whether this is on
+                 screen, so Python never has to keep it in step. -->
+            <control type="button" id="9013">
+                <width>240</width>
+                <height>44</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <label>$ADDON[plugin.video.katan 32471]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+                <visible>Player.HasMedia</visible>
+            </control>
+
+            <!-- The way out. With back held on the home screen and Kodi's own
+                 home brought back automatically, this is the only one left,
+                 and an interface with no exit at all is its own kind of trap. -->
+            <control type="button" id="9014">
+                <width>150</width>
+                <height>44</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <label>$ADDON[plugin.video.katan 32472]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+            </control>
                     </control>
 
 

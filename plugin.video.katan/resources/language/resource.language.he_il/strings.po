@@ -1324,3 +1324,15 @@ msgstr "כלים"
 msgctxt "#30146"
 msgid "Setup, accounts, kids mode and maintenance."
 msgstr "התקנה, חשבונות, מצב ילדים ותחזוקה."
+
+msgctxt "#32471"
+msgid "Back to what's playing"
+msgstr "חזרה לצפייה"
+
+msgctxt "#32472"
+msgid "Exit"
+msgstr "יציאה"
+
+msgctxt "#32473"
+msgid "Close Katan and leave Kodi?"
+msgstr "לסגור את קטן ולצאת מ-Kodi?"

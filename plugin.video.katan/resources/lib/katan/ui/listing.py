@@ -287,9 +287,26 @@ def end(handle, content=None, sort_methods=None, cache_to_disc=True, succeeded=T
 
 
 def resolve(handle, url, item=None):
-    """Hand a playable URL back to Kodi."""
+    """Hand a playable URL back to Kodi, resuming where the viewer left off.
+
+    `ResumeTime` and `TotalTime` are what make Kodi start at an offset
+    *without* asking. A resume point alone makes it ask - "resume from 34
+    minutes, or play from the beginning" - which is a question nobody wants
+    on the way into something they were already watching. Starting again is
+    still one press of rewind or a seek; being asked every single time is
+    not something you can undo.
+    """
     li = make_list_item(item) if item else xbmcgui.ListItem(offscreen=True)
     li.setPath(url)
+
+    resume = (item or {}).get("resume") or {}
+    position = float(resume.get("position") or 0)
+    if position > 0:
+        li.setProperty("ResumeTime", str(position))
+        li.setProperty("TotalTime", str(float(resume.get("total") or 0)
+                                        or position + 1))
+        kodi.log("resuming at %d:%02d" % (position // 60, position % 60))
+
     xbmcplugin.setResolvedUrl(handle, True, li)
 
 

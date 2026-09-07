@@ -49,6 +49,8 @@ LIST_BASE = 5000
 # from Kodi's own home screen, and a door out of the interface for somebody
 # who did not mean to open one. It is all in the settings dialog now.
 BUTTON_SEARCH = 9010
+BUTTON_NOW_PLAYING = 9013     # only on screen while something is playing
+BUTTON_EXIT = 9014
 
 # The section rail down the left-hand side. The ids run in the same order as
 # catalog.SECTIONS, and an integrity test holds them to that. Settings is the
@@ -234,6 +236,22 @@ class HomeWindow(xbmcgui.WindowXML):
         elif code == ACTION_CONTEXT_MENU:
             self._context_menu()
 
+    def _quit(self):
+        """Leave. Asks first, because a family should not do this by accident.
+
+        Kodi's own Quit, which is the right thing on the hardware this runs
+        on: on Android it drops to the launcher and the system keeps the
+        process warm, so coming back is instant - the "close it but keep it
+        in the background" behaviour, without having to build it. On a desktop
+        it simply closes.
+        """
+        if not kodi.yes_no(kodi.localize(32473), kodi.localize(32472)):
+            return
+        kodi.log("leaving at the viewer's request", kodi.LOG_INFO)
+        self._cleanup()
+        self.close()
+        kodi.run_builtin("Quit()")
+
     def _stay_put(self):
         """Should back keep us here rather than drop out to Kodi?
 
@@ -252,6 +270,16 @@ class HomeWindow(xbmcgui.WindowXML):
         solves.
         """
         from .. import settings
+
+        # If something is playing, back means "take me back to it". That is
+        # the gesture anyone would try, and without it a film left running
+        # behind this window can only be heard, never returned to.
+        import xbmc
+        if xbmc.getCondVisibility("Player.HasMedia"):
+            kodi.log("back with something playing, returning to it")
+            kodi.run_builtin("ActivateWindow(FullScreenVideo)")
+            return True
+
         if not settings.get_bool("ui.stay_in_katan", False):
             return False
         kodi.log("back on the home screen, staying in Katan")
@@ -390,6 +418,12 @@ class HomeWindow(xbmcgui.WindowXML):
         if control_id == BUTTON_RAIL_SETTINGS:
             from .. import settings
             settings.open_settings()
+            return
+        if control_id == BUTTON_NOW_PLAYING:
+            kodi.run_builtin("ActivateWindow(FullScreenVideo)")
+            return
+        if control_id == BUTTON_EXIT:
+            self._quit()
             return
         if control_id == BUTTON_SEARCH:
             self._open_search()
