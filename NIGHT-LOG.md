@@ -37,8 +37,9 @@ marked confirmed on the strength of a passing unit test alone.
 | Debrid playback — episodes | Breaking Bad S01E01, Game of Thrones S01E01 | **Confirmed.** Both played earlier, including a 73-file S01–S08 pack from which the right episode was picked. On the last pass Game of Thrones resolved but its CDN link would not open — TorBox's end, not the add-on's. |
 | Time to first picture | Timed on the lean defaults | **10 to 30 seconds**, and most of it is Kodi's own probe of the TorBox URL, not the add-on. The plugin's own work is 2–8 seconds. |
 | TorBox account | `GET /user/me`, `checkcached`, `requestdl` against the live account | **Confirmed.** Plan Essential, premium to 2026-10-23. Both undocumented response shapes now measured and tested. |
-| Source ranking and the picker | Opened with real data, all eight rows, screenshotted | **Confirmed.** It was crashing this morning; fixed and seen working. |
-| "Show all" in the picker | New test, plus the cache path it reads | **Confirmed fixed.** It was returning the same eight rows it was toggling away from. |
+| Source ranking and the picker | Opened the way a viewer does — home, film, "choose a source" | **Confirmed.** Six ranked rows with release name, provider, size, seeders and "TorBox 1080P במטמון". It was crashing this morning. |
+| "Show all" in the picker | The toggle pressed in Kodi | **Confirmed.** 6 rows become **48**, and the status line goes with it. It used to hand back the same six. |
+| Reaching the picker's buttons | Same run | **Fixed.** They were on Left only, below a list that swallowed Down. I could not find them twice myself — see 10:20. |
 | Home window | Opened in Kodi at the lean default and photographed | **Confirmed.** Hero backdrop, Hebrew headings, two full rows of sharp posters. |
 | Details window | Opened on a film and a show | **Confirmed.** Poster, title, meta in Hebrew, plot, cast, four legible buttons; Play works on first press on a show. |
 | Search window | Opened in a Hebrew interface | **Confirmed.** Hebrew keyboard by default, recent searches, results. |
@@ -510,3 +511,47 @@ release and why it scored what it did. The automatic path had already found,
 downloaded and applied a Hebrew subtitle before the dialog was even opened.
 
 715 tests.
+
+## 10:05 — SubSource cannot answer any more
+
+I went to check whether the lean profile was wrong to switch SubSource off.
+Disabling a Hebrew subtitle source to save one HTTP request looked like a bad
+trade in an add-on whose point is Hebrew subtitles. The profile was not the
+problem.
+
+Measured today: the whole `POST /api/...` surface this module was written
+against answers 404, and the `/v1` REST API that replaced it answers **401
+"Not authenticated"**. There is no anonymous search route left. Enabled or
+disabled, SubSource returns nothing.
+
+So it is off in **every** profile now, not only the lean one, and switching it
+on says what happened in the log rather than contributing nothing in silence.
+That leaves **Wizdom as the one working Hebrew source** — OpenSubtitles needs a
+key, Ktuvit needs an account. Wizdom answered with 32 Hebrew candidates in
+0.4 seconds, so the chooser is not short of material, but it is one provider
+and worth your knowing.
+
+## 10:20 — I could not find the picker's own buttons
+
+I set out to confirm the "show all" fix in Kodi rather than leave it resting on
+tests. It took four attempts, and the reason is the more interesting result.
+
+**The picker's two buttons were reachable on Left only.** They are drawn below
+the list, and the obvious way to reach something below a list is to press down
+— which the list swallowed, because its `ondown` pointed back at itself. I
+failed to find them twice while testing this window. Down reaches them now.
+
+With that: the toggle takes the picker from **6 rows to 48**, and the status
+line goes with it. Before the aggregator fix it would have re-ranked the same
+six and handed them back.
+
+Three smaller things from those runs. The picker had the home window's
+`defaultcontrol` focus bug and now names a button instead of the list. The
+toggle's label is longer coming back than going out — "show only the best"
+against "show all sources" — and was clipped. And `onClick` logs which control
+was pressed, because a picker that closed tells you nothing from a screenshot
+about which of its three exits was taken; that line is what stopped me writing
+down "the toggle is broken" when what had happened was that I pressed the
+other button.
+
+716 tests.
