@@ -1396,3 +1396,11 @@ msgstr "גדול באופן לא סביר"
 msgctxt "#32489"
 msgid "not in the debrid cache"
 msgstr "לא במטמון"
+
+msgctxt "#32490"
+msgid "OpenSubtitles (subtitle accuracy)"
+msgstr "OpenSubtitles (דיוק כתוביות)"
+
+msgctxt "#30147"
+msgid "Connect OpenSubtitles (scan a code)"
+msgstr "חיבור OpenSubtitles (סריקת קוד)"

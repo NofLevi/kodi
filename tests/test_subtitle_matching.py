@@ -127,3 +127,58 @@ def test_hash_of_a_missing_file_is_empty():
 def test_hash_stream_refuses_a_non_http_path(no_network):
     assert hasher.hash_stream("") == ("", 0)
     assert hasher.hash_stream("/local/path.mkv") == ("", 0)
+
+
+# --------------------------------------------------------------------------
+# what we are trying to match
+# --------------------------------------------------------------------------
+
+
+def test_the_file_that_is_playing_beats_the_torrent_it_came_in():
+    """For a season pack these are different strings, and only one of them
+    names the episode.
+
+    A pack is "Silo.S01.COMPLETE.1080p.WEB-DL-GRP" and carries no episode
+    number at all, so matching against it threw away the strongest signal
+    there is - and every episode of that pack was matched against the same
+    text, so one subtitle looked equally good for all ten.
+    """
+    target = matcher.target_from(
+        {"type": "episode", "season": 1, "episode": 3},
+        {"release": "Silo.S01.COMPLETE.1080p.WEB-DL-GRP",
+         "file_name": "Silo.S01E03.Machines.1080p.WEB-DL-GRP.mkv",
+         "group": "GRP", "quality": "1080p"})
+    assert "S01E03" in target["release"]
+
+
+def test_the_torrent_name_is_used_when_the_file_is_not_known():
+    """Not every service tells us which file it opened."""
+    target = matcher.target_from(
+        {"type": "movie"},
+        {"release": "A.Film.2020.1080p.WEB-DL-GRP", "file_name": "",
+         "group": "GRP", "quality": "1080p"})
+    assert target["release"] == "A.Film.2020.1080p.WEB-DL-GRP"
+
+
+def test_an_episode_file_scores_above_the_pack_it_came_in():
+    """End to end: the subtitle written for episode three should win."""
+    pack = matcher.target_from(
+        {"type": "episode", "season": 1, "episode": 3},
+        {"release": "Silo.S01.COMPLETE.1080p.WEB-DL-GRP", "file_name": "",
+         "group": "GRP", "quality": "1080p"})
+    episode = matcher.target_from(
+        {"type": "episode", "season": 1, "episode": 3},
+        {"release": "Silo.S01.COMPLETE.1080p.WEB-DL-GRP",
+         "file_name": "Silo.S01E03.Machines.1080p.WEB-DL-GRP.mkv",
+         "group": "GRP", "quality": "1080p"})
+
+    candidate = {"release": "Silo.S01E03.Machines.1080p.WEB-DL-GRP",
+                 "language": "he"}
+    against_pack = matcher.score_candidate(dict(candidate), pack)
+    against_episode = matcher.score_candidate(dict(candidate), episode)
+
+    assert against_episode > against_pack, (
+        "the subtitle written for this exact episode should score higher "
+        "against the episode file: %d against %d"
+        % (against_episode, against_pack))
+    assert against_episode == 100, "identical release name is a certainty"

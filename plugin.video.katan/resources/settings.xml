@@ -550,6 +550,13 @@
                         <dependency type="visible" setting="subs.provider.ktuvit" operator="is">true</dependency>
                     </dependencies>
                 </setting>
+                <setting id="action.connect.opensubtitles" type="action" label="30147">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=opensubtitles)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="subs.opensubtitles.apikey" type="string" label="30067">
                     <default/>
                     <constraints>

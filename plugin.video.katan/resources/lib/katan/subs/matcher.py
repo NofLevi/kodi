@@ -105,9 +105,18 @@ def _stem(name):
 
 
 def target_from(meta, source=None):
-    """What we are trying to match: the release the user is actually playing."""
+    """What we are trying to match: the release the user is actually playing.
+
+    The file name first, because for a season pack it is a different string
+    from the torrent name and it is the one that matters. A pack called
+    "Silo.S01.COMPLETE.1080p.WEB-DL-GRP" carries no episode number at all, so
+    matching against it threw away the strongest signal there is - and every
+    episode of that pack was matched against the same text, which is why one
+    subtitle could look equally good for all ten.
+    """
     source = source or meta.get("source") or {}
-    release_name = source.get("release") or meta.get("file_name") or ""
+    release_name = (source.get("file_name") or source.get("release")
+                    or meta.get("file_name") or "")
     parsed = release.parse(release_name)
     return {
         "release": release_name,

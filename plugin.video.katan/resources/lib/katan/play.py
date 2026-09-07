@@ -143,6 +143,13 @@ def play(handle, request, force_picker=False):
         "provider": chosen.get("provider", ""),
         "quality": chosen.get("quality", ""),
         "release": chosen.get("title", ""),
+        # The file the debrid service actually opened, which the client
+        # records while picking it out of the torrent. For a season pack
+        # these are different things and the difference is the whole ball
+        # game: the torrent is "Silo.S01.COMPLETE.1080p.WEB-DL-GRP" and the
+        # file is "Silo.S01E01.Freedom.Day.1080p.WEB-DL-GRP", and it is the
+        # second one that subtitle sites index against.
+        "file_name": chosen.get("file_name", ""),
     }
     meta["stream_url"] = url
     player.set_now_playing(meta)
