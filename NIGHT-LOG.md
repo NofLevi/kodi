@@ -56,7 +56,15 @@ polish is one switch that can only ever raise what a profile chose.
 Kodi a URL went from 5–8 seconds to **1.0–2.3**, by not downloading the entire
 TorBox account (466 KB, 58 torrents) to look up one hash.
 
-Tests went from 559 to **733**. Everything is committed and pushed.
+Tests went from 559 to **735**. Everything is committed and pushed.
+
+**On the keys, since you asked twice.** Checked properly, not just glanced at:
+neither the TorBox key nor the TMDB key appears in any tracked file *or in any
+commit in the entire history* — `git log --all -S` on each, zero hits. The only
+`settings.xml` in the repository is the add-on's own declaration file, and all
+seventeen of its credential settings ship empty. The real keys live only in
+`.kodi-test/portable_data/userdata/...`, which `.gitignore` catches twice over,
+and a scanner runs before every push.
 
 ---
 
