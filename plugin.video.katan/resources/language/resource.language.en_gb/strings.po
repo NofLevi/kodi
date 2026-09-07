@@ -1455,3 +1455,27 @@ msgstr ""
 msgctxt "#30149"
 msgid "TorrentsDB address"
 msgstr ""
+
+msgctxt "#32492"
+msgid "will translate from %s"
+msgstr ""
+
+msgctxt "#32493"
+msgid "will translate whatever it can find"
+msgstr ""
+
+msgctxt "#32494"
+msgid "AI translation"
+msgstr ""
+
+msgctxt "#32495"
+msgid "A translation is already running"
+msgstr ""
+
+msgctxt "#32496"
+msgid "Translating. It will appear as it is ready."
+msgstr ""
+
+msgctxt "#32497"
+msgid "needs an AI key - press to set one up"
+msgstr ""

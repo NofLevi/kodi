@@ -12,6 +12,7 @@ trustworthy; a bare "82%" says plainly that it is a guess.
 import pytest
 
 import xbmc
+from katan import kodi
 from katan.subs import embedded, service
 
 
@@ -141,6 +142,10 @@ def chooser(monkeypatch, settings_module, player_with_tracks):
     from katan.subs import auto
 
     settings_module.set("subs.languages", "he,en")
+    # Off, so these tests keep describing the hierarchy of subtitles that
+    # exist. The AI row is not one of those - it is an offer to make one - and
+    # it has its own tests below and in test_subtitle_ai_ondemand.py.
+    settings_module.set("subs.ai.enabled", "false")
 
     state = {"found": []}
     monkeypatch.setattr(auto, "video_hash_for", lambda meta: "")
@@ -304,3 +309,36 @@ def test_a_language_is_not_asked_for_twice(settings_module):
     languages = service._search_languages({"languages": "Hebrew,English"})
     assert len(languages) == len(set(languages))
     assert sorted(languages) == ["en", "he"]
+
+
+def test_the_ai_row_comes_last(chooser, settings_module):
+    """A real subtitle in the right language is usually the better answer and
+    takes seconds rather than minutes, so the offer to make one sits under
+    every subtitle that already exists."""
+    settings_module.set("subs.ai.enabled", "true")
+    labels = chooser(
+        [{"index": 0, "language": "heb", "name": "Hebrew"}],
+        [downloadable("X.2024.1080p.WEB-DL-FLUX")])
+
+    assert len(labels) == 3
+    assert "embedded" in labels[0]
+    assert labels[1].startswith("100%")
+    assert labels[2] == "%s  %s" % (kodi.localize(32494), kodi.localize(32497))
+
+
+def test_a_film_with_nothing_is_still_offered_a_translation(chooser,
+                                                            settings_module):
+    """The case the viewer asked about: a film where the list is empty.
+
+    "No subtitles found" is the end of the conversation. One row saying a
+    translation can be made is not.
+    """
+    import xbmcgui
+    settings_module.set("subs.ai.enabled", "true")
+    del xbmcgui.NOTIFICATIONS[:]
+
+    labels = chooser([], [])
+
+    assert len(labels) == 1
+    assert kodi.localize(32494) in labels[0]
+    assert not xbmcgui.NOTIFICATIONS, "there was something to offer"

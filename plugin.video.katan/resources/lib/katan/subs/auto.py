@@ -20,6 +20,16 @@ from . import embedded, hasher, matcher, srt, sync
 
 CACHE_DIR = "subtitles"
 
+# Marks a subtitle this add-on wrote rather than downloaded.
+VARIANT_AI = "ai"
+
+# Languages worth translating *out of* when the wanted one cannot be found.
+# Ordered by how much the subtitle catalogues actually hold, and asking for
+# them costs nothing extra - it is one more value in the same request, and the
+# only provider that reads it is OpenSubtitles. Wizdom and Ktuvit are Hebrew
+# sites and ignore it.
+WIDE_LANGUAGES = ("en", "es", "ar", "pt", "fr", "ru", "de", "it", "tr", "pl")
+
 
 
 def on_playback_started(player, meta):
@@ -48,7 +58,7 @@ def on_playback_started(player, meta):
 
     apply_subtitle(player, path)
     if report.get("translated"):
-        kodi.notify(kodi.localize(32334, kodi.localize(32302)))
+        kodi.notify(kodi.localize(32334, kodi.localize(32494)))
     elif report.get("synchronised"):
         kodi.notify(kodi.localize(32351))
 
@@ -139,8 +149,13 @@ def find_and_prepare(meta, languages, player=None):
     video_hash = video_hash_for(meta)
     candidates = search_candidates(meta, languages, video_hash)
     if not candidates:
-        report["reason"] = "no candidates"
-        return "", report
+        # Nothing in either configured language is not the same as nothing at
+        # all. Before reporting a film as having no subtitles, ask the whole
+        # catalogue and translate whatever it does have - which for anything
+        # outside the mainstream is the difference between watching it and
+        # not.
+        return _last_resort(meta, languages, report, player, video_hash,
+                            "no candidates")
 
     target = matcher.target_from(meta)
     threshold = settings.get_int("subs.threshold", 70)
@@ -168,7 +183,24 @@ def find_and_prepare(meta, languages, player=None):
             report["reason"] = "below threshold, used anyway"
             return store(meta, wanted, cues), report
 
-    report["reason"] = "nothing usable"
+    return _last_resort(meta, languages, report, player, video_hash,
+                        "nothing usable")
+
+
+def _last_resort(meta, languages, report, player, video_hash, reason):
+    """Translate out of any language at all, having found nothing to show.
+
+    Separate from `translate_fallback` because the two answer different
+    questions. That one asks "is there a better route than this mediocre
+    Hebrew match", and quite reasonably wants a source that matches well. This
+    one is asked when there is no route at all, so it takes what it can get.
+    """
+    path = translate_now(meta, languages[0], player, video_hash=video_hash)
+    if path:
+        report["translated"] = True
+        report["reason"] = "translated, nothing was available to download"
+        return path, report
+    report["reason"] = reason
     return "", report
 
 
@@ -297,7 +329,88 @@ def translate_fallback(meta, winners, languages, report, player=None):
     return store(meta, languages[0], translated), report
 
 
-def _translate_progressively(cues, meta, language, player):
+def wide_languages(target):
+    """Every language we would accept as a translation source, target first.
+
+    Deliberately wider than the automatic path asks for. That path is looking
+    for something to *show*, so it asks for the two languages the viewer
+    configured. This is looking for something to *translate*, and any language
+    will do - a film with neither Hebrew nor English usually has a Spanish or
+    an Arabic subtitle, and translating from one of those is a far better
+    answer than "no subtitles found".
+    """
+    languages = [target]
+    for code in list(settings.subtitle_languages()) + list(WIDE_LANGUAGES):
+        if code and code not in languages:
+            languages.append(code)
+    return languages
+
+
+def translation_sources(meta, target, video_hash="", candidates=None):
+    """What could be translated into `target`, best source first.
+
+    `candidates` lets a caller that has already searched hand its results in
+    rather than paying for a second search.
+    """
+    from .ai import context as translation_context
+
+    languages = wide_languages(target)
+    if candidates is None:
+        candidates = search_candidates(meta, languages, video_hash)
+    if not candidates:
+        return []
+    winners, _ranked = matcher.best(candidates, matcher.target_from(meta),
+                                    settings.get_int("subs.threshold", 70),
+                                    video_hash, languages)
+    return translation_context.rank_translation_sources(winners, [target])
+
+
+def translate_now(meta, target, player=None, candidates=None, video_hash=None):
+    """Translate the best subtitle we can find into `target`, and return its path.
+
+    This is the viewer saying "what I have is not good enough" - or that there
+    is nothing at all - so it ignores the acceptance threshold entirely and
+    does not care whether a subtitle already exists in the target language.
+    Its whole job is to produce one.
+
+    Timings come from the source subtitle and are never touched, so the result
+    fits exactly as well as the file it was translated from. Each finished
+    chunk goes on screen as it arrives, because a feature film is minutes of
+    translation and nobody should watch a progress bar for it.
+
+    A source that turns out to be undownloadable does not end the attempt; the
+    next best language is tried, which matters most in exactly the case this
+    exists for - the obscure title where the one English subtitle listed is a
+    dead link.
+    """
+    from .ai import translator
+
+    if not translator.available():
+        kodi.log("AI translation was asked for but no engine is configured")
+        return ""
+
+    if video_hash is None:
+        video_hash = video_hash_for(meta)
+    sources = translation_sources(meta, target, video_hash, candidates)
+    if not sources:
+        kodi.log("found nothing at all to translate into %s" % target)
+        return ""
+
+    for language, candidate in sources:
+        cues = download_candidate(candidate)
+        if not cues:
+            continue
+        kodi.log("translating the %s subtitle %r into %s"
+                 % (language, (candidate.get("release") or "")[:60], target))
+        translated = _translate_progressively(cues, meta, target, player,
+                                              variant=VARIANT_AI)
+        if translated:
+            return store(meta, target, translated, variant=VARIANT_AI)
+    kodi.log("every translation source failed to download")
+    return ""
+
+
+def _translate_progressively(cues, meta, language, player, variant=""):
     """Translate, showing each finished chunk as it arrives.
 
     A feature-length film is several minutes of translation. Waiting for all of
@@ -314,7 +427,7 @@ def _translate_progressively(cues, meta, language, player):
 
     progress = xbmcgui.DialogProgressBG()
     progress.create("Katan", kodi.localize(32335))
-    slots = _partial_slots(meta, language)
+    slots = _partial_slots(meta, language, variant)
     state = {"slot": 0, "shown": 0}
 
     def on_progress(done, total, partial=None):
@@ -343,9 +456,9 @@ def _translate_progressively(cues, meta, language, player):
         _clean_partials(slots)
 
 
-def _partial_slots(meta, language):
+def _partial_slots(meta, language, variant=""):
     """Two file names to alternate between while translating."""
-    base = name_for(meta, language)[:-4]
+    base = name_for(meta, language, variant)[:-4]
     directory = subtitle_dir()
     return [os.path.join(directory, "%s.part%s.srt" % (base, suffix))
             for suffix in ("a", "b")]
@@ -369,26 +482,36 @@ def subtitle_dir():
     return kodi.subdir(CACHE_DIR)
 
 
-def name_for(meta, language):
+def name_for(meta, language, variant=""):
+    """The name a prepared subtitle is stored under.
+
+    `variant` marks a subtitle that was made rather than found - an AI
+    translation - so it never overwrites a downloaded one and both can sit in
+    the folder together. It goes *before* the language, because Kodi reads a
+    subtitle's language from the last part before ``.srt`` and would otherwise
+    decide the file was written in a language called "ai".
+    """
     ids = meta.get("ids") or {}
     key = str(ids.get("imdb") or ids.get("tmdb") or (meta.get("title") or "x"))
     key = "".join(c for c in key if c.isalnum() or c in "-_")[:40] or "x"
+    mark = ".%s" % variant if variant else ""
     if meta.get("type") == "episode":
-        return "%s.s%02de%02d.%s.srt" % (key, int(meta.get("season") or 0),
-                                         int(meta.get("episode") or 0), language)
-    return "%s.%s.srt" % (key, language)
+        return "%s.s%02de%02d%s.%s.srt" % (key, int(meta.get("season") or 0),
+                                           int(meta.get("episode") or 0),
+                                           mark, language)
+    return "%s%s.%s.srt" % (key, mark, language)
 
 
-def cached_subtitle(meta, language):
+def cached_subtitle(meta, language, variant=""):
     """A subtitle prepared earlier for this exact item."""
-    path = os.path.join(subtitle_dir(), name_for(meta, language))
+    path = os.path.join(subtitle_dir(), name_for(meta, language, variant))
     return path if os.path.isfile(path) else ""
 
 
-def store(meta, language, cues):
+def store(meta, language, cues, variant=""):
     if not cues:
         return ""
-    path = os.path.join(subtitle_dir(), name_for(meta, language))
+    path = os.path.join(subtitle_dir(), name_for(meta, language, variant))
     srt.write(path, cues)
     prune_cache()
     return path
