@@ -78,7 +78,7 @@ def home(monkeypatch, configured):
              "ttl": 60, "needs": [], "default": True} for n in range(4)]
     monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
-    monkeypatch.setattr(catalog, "peek", lambda row_id: make_items(5, row_id))
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: make_items(5, row_id))
     monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
 
     window = home_window.HomeWindow()
@@ -101,7 +101,7 @@ def test_the_real_flow_fills_the_rows(monkeypatch, configured):
              "ttl": 60, "needs": [], "default": True} for n in range(3)]
     monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
-    monkeypatch.setattr(catalog, "peek", lambda row_id: make_items(5, row_id))
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: make_items(5, row_id))
     monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
 
     window = home_window.HomeWindow()
@@ -239,7 +239,7 @@ def test_home_preloads_past_rows_that_come_back_empty(monkeypatch, configured):
     monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
     monkeypatch.setattr(catalog, "peek",
-                        lambda row_id: [] if row_id in empty
+                        lambda row_id, section=None: [] if row_id in empty
                         else make_items(5, row_id))
     monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
 
@@ -282,8 +282,10 @@ def test_an_empty_row_hides_itself(monkeypatch):
              "ttl": 60, "needs": [], "default": True}]
     monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Empty")
-    monkeypatch.setattr(catalog, "peek", lambda row_id: [])
-    monkeypatch.setattr(catalog, "load", lambda row_id: [])
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: [])
+    monkeypatch.setattr(catalog, "load",
+                        lambda row_id, refresh=False, page=1,
+                        section=None: [])
     monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
 
     window = home_window.HomeWindow()
@@ -470,8 +472,10 @@ def test_a_home_with_nothing_in_it_is_still_navigable(monkeypatch,
     from katan.ui import home_window
 
     monkeypatch.setattr(tmdb, "has_key", lambda: True)
-    monkeypatch.setattr(catalog, "peek", lambda row_id: [])
-    monkeypatch.setattr(catalog, "load", lambda row_id: [])
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: [])
+    monkeypatch.setattr(catalog, "load",
+                        lambda row_id, refresh=False, page=1,
+                        section=None: [])
 
     window = home_window.HomeWindow()
     window.prepare()
@@ -585,7 +589,7 @@ def _scrollable_home(monkeypatch, pages, paged=True):
     monkeypatch.setattr(tmdb, "has_key", lambda: True)
     monkeypatch.setattr(catalog, "has_more", lambda row_id: paged)
     monkeypatch.setattr(catalog, "row_title", lambda row: "Row")
-    monkeypatch.setattr(catalog, "peek", lambda row_id: list(pages.get(1, [])))
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: list(pages.get(1, [])))
     monkeypatch.setattr(catalog, "enabled_rows",
                         lambda section=None: [
                             {"id": "r0", "title_id": 0, "loader": None,

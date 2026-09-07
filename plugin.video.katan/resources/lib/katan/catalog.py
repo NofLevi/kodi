@@ -713,7 +713,7 @@ def cache_key(row_id, page=1):
     return cache.make_key(*parts)
 
 
-def peek(row_id):
+def peek(row_id, section=None):
     """Return a warmed row without ever hitting the network.
 
     None means "not warmed yet" and is the signal the home window uses to fall
@@ -725,7 +725,91 @@ def peek(row_id):
     cached = cache.get(cache_key(row_id))
     if cached is None:
         return None
-    return kids.filter_items(cached)
+    return kids.filter_items(_presentable(row_id, cached, section))
+
+
+# One entry per tab: {row_id: what every row above it holds}. Built in a
+# single pass and reused, because the alternative is quadratic in the number
+# of rows and it is paid on the GUI thread while a row is being drawn.
+# Measured on this desktop, the last row of the Films tab cost 5 ms of cache
+# reads on its own; nineteen rows of that is a hundred milliseconds of
+# nothing, and the device this is written for has much slower storage than
+# this desktop does.
+_CLAIMED = {}
+
+
+def _claimed_above(row_id, section):
+    """What the rows above this one in this tab are already showing.
+
+    Read out of the cache and never fetched, so it can never turn drawing a
+    row into a network call. A row above that has not been warmed yet claims
+    nothing, which is the right way round: it keeps its own items when it
+    does arrive, because it is the one above.
+    """
+    if not section:
+        return set()
+    table = _CLAIMED.get(section)
+    if table is None:
+        table = _build_claims(section)
+        _CLAIMED[section] = table
+    return table.get(row_id, set())
+
+
+def _build_claims(section):
+    """Every row in a tab and what the rows above it hold, in one pass."""
+    from .meta import items as meta_items
+
+    table = {}
+    running = set()
+    for row in enabled_rows(section):
+        table[row["id"]] = set(running)
+        for item in cache.get(cache_key(row["id"])) or []:
+            running.add(meta_items.unique_key(item))
+    return table
+
+
+def forget_claims(section=None):
+    """Drop the memo, because what a row holds has changed.
+
+    Called whenever a row is fetched afresh and by invalidate(). Getting this
+    wrong shows as a row repeating one item from the row above it until the
+    window is reopened, which is the right way for it to be wrong.
+    """
+    if section is None:
+        _CLAIMED.clear()
+    else:
+        _CLAIMED.pop(section, None)
+
+
+def _presentable(row_id, entries, section):
+    """One row as it should be shown: nothing a row above it already has.
+
+    The rows in a tab ask TMDB overlapping questions and always will -
+    "trending this week" and "popular" are different questions with much the
+    same answer, and measured live they shared six films of twelve. Three
+    rows of the same posters under three different headings is what "too many
+    duplications in topics" meant, and no amount of renaming fixes it.
+
+    So a row shows what is left after the rows above it have taken theirs.
+    That is why more is cached than is drawn: the trim to the row length
+    happens here, after the removal, so a row that loses half its page fills
+    up again from what it already fetched rather than shrinking on screen.
+
+    Only ever applied to a tab. The mixed home listing has no top-to-bottom
+    order to inherit priority from, so it is left exactly as it was.
+    """
+    if not section:
+        return entries[:row_limit()]
+    claimed = _claimed_above(row_id, section)
+    if not claimed:
+        return entries[:row_limit()]
+    from .meta import items as meta_items
+    kept = [item for item in entries
+            if meta_items.unique_key(item) not in claimed]
+    # Never leave a row empty on account of tidiness. A row whose every item
+    # appears above it is genuinely redundant, and showing it half-empty is a
+    # worse answer than showing it as it was.
+    return (kept or entries)[:row_limit()]
 
 
 def has_more(row_id):
@@ -739,7 +823,7 @@ def has_more(row_id):
     return bool(row and row.get("paged"))
 
 
-def load(row_id, refresh=False, page=1):
+def load(row_id, refresh=False, page=1, section=None):
     """Return one page of a row, fetching only when the cache is cold.
 
     Page one is what everything has always asked for and behaves exactly as it
@@ -756,18 +840,24 @@ def load(row_id, refresh=False, page=1):
     if not refresh:
         hit = cache.get(key)
         if hit is not None:
-            return hit
+            # Through _presentable like every other path. Returning the cached
+            # list raw skipped both the trim to the row length and the
+            # cross-row removal, so a warmed row - which is to say almost
+            # every row a viewer ever sees - came back untouched.
+            from . import kids
+            return kids.filter_items(_presentable(row_id, hit, section))
     try:
         with kodi.Timer("row %s page %d" % (row_id, page), threshold_ms=800):
             result = row["loader"](page) or []
     except Exception:
         kodi.log_exception("row %s page %d failed to load" % (row_id, page))
         return cache.get(key) or []
+    # Cached whole and trimmed on the way out, because the cross-row removal
+    # in _presentable needs something to fill the gaps with.
     result = items.dedupe(result)
-    if page == 1:
-        result = result[:row_limit()]
     if result:
         cache.set(key, result, row["ttl"])
+        forget_claims()
     else:
         # An empty answer is remembered briefly, and briefly is the whole
         # point. Not remembering it at all left peek() unable to tell "never
@@ -782,9 +872,11 @@ def load(row_id, refresh=False, page=1):
         # for longer than it would have remembered something.
         cache.set(key, [], min(TTL_EMPTY, row["ttl"]))
     # Applied after the cache, not before, so turning kids mode on takes effect
-    # on rows that were warmed while it was off.
+    # on rows that were warmed while it was off - and so the cross-row removal
+    # sees the rows above as they are now rather than as they were when this
+    # one was warmed.
     from . import kids
-    return kids.filter_items(result)
+    return kids.filter_items(_presentable(row_id, result, section))
 
 
 def warm(row_ids=None, force=False):
@@ -808,6 +900,7 @@ def invalidate(row_id=None):
         cache.delete(cache_key(row_id))
     else:
         cache.delete_prefix("row|")
+    forget_claims()
 
 
 # --------------------------------------------------------------------------
