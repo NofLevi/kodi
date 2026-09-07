@@ -283,12 +283,21 @@ def _row_label(entry):
 def _row_subtitle(entry):
     if entry.get("type") == "season":
         count = (entry.get("extra") or {}).get("episode_count") or 0
-        return kodi.localize(32395, count) if count else ""
+        if not count:
+            return ""
+        # Hebrew takes the singular after one. A season with a single episode
+        # read "1 \u05e4\u05e8\u05e7\u05d9\u05dd", which is the plural, and Silo has exactly such a
+        # season.
+        return kodi.localize(32415) if count == 1 else kodi.localize(32395,
+                                                                    count)
     bits = []
     if entry.get("premiered"):
         bits.append(entry["premiered"])
     if entry.get("duration"):
-        bits.append("%d min" % (entry["duration"] // 60))
+        # Localised, like the information line above it. This was the last
+        # "min" left in a window that is otherwise entirely Hebrew - the meta
+        # line was fixed earlier tonight and the episode rows were missed.
+        bits.append(kodi.localize(32234, entry["duration"] // 60))
     return "  \u2022  ".join(bits)
 
 
