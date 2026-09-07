@@ -1,4 +1,4 @@
-# Katan
+﻿# Katan
 
 A lightweight Netflix-style Kodi 21 add-on, built for weak hardware
 (BYINTEK LOVE U4 projector, Mi Box), with Hebrew and English throughout.
@@ -46,7 +46,23 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
 ## How the pieces fit
 
 * `catalog.py` declares the home rows as data. Adding a row is one entry.
-  The service warms them, so opening the add-on is a database read.
+  The service warms them, so opening the add-on is a database read. Rows also
+  belong to **sections** - Films, Series, Live TV - which are the tabs down the
+  left of the home screen, and `SECTION_ORDER` is the running order of each
+  one. That order is an editorial decision and is written out rather than
+  implied by declaration order: a tab should open on what is new and popular,
+  not on whatever was defined first. There is deliberately no "Home" tab; the
+  `HOME` section id survives as "every row that is switched on", which is what
+  the plain listing and the background service want and is a different
+  question from "which tab am I looking at".
+* `qr.py` is a QR encoder and a PNG writer in the standard library alone,
+  used by the sign-in screen. It is here rather than fetched because an online
+  QR service would be handed the authorisation URL, which is a live credential
+  while it lasts, and `qrcode` needs Pillow.
+* `ui/signin.py` is the one sign-in flow every service shares: scan a code,
+  open a link, or type a key, offering only what the service actually has.
+  Each debrid client declares `methods` and `key_url`; nothing else about
+  signing in lives in the clients any more.
 * `sources/aggregator.py` runs providers, merges by infohash, asks each debrid
   service once in batches which hashes are cached, then ranks.
 * `debrid/` has one class per service behind a common interface. The API
@@ -120,7 +136,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-783 tests, all running against Kodi stubs, so no Kodi install is needed:
+910 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -133,7 +149,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | File | Tests | What it protects |
 |---|---|---|
 | `test_imports.py` | 91 | Imports every module. Kodi reports an import error as a blank screen, so this is the cheapest bug-catcher in the suite. Also fails on invalid escape sequences, stray control characters, and `"%s" % (a, b).strip()` - where the method binds to the tuple, not the string, which has shipped twice and once took the whole source picker down. |
-| `test_addon_integrity.py` | 24 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, the TMDb Helper player file naming only registered actions, and the four things a real Kodi taught us - settings labels being string ids, empty string defaults declaring allowempty, every setting the code uses being declared, and the row area holding a whole number of rows. It also fails on **a public function nothing calls**, which found twelve, two of which were checks somebody meant to make: "verbose logging" that did nothing, and a Hebrew-detector that never ran. And on **the home screen having fewer row controls than it has rows switched on**, which is how the Israeli live channels came to be enabled, warmed, cached and never once drawn. |
+| `test_addon_integrity.py` | 25 | What is invisible until Kodi loads the add-on: addon.xml validity, entry points and assets existing, every settings id having a default and matching it, skin XML parsing, textures existing, string files well formed, every localize id having a string, every provider setting having a module, every url_for naming a real route, every window class having its XML, the TMDb Helper player file naming only registered actions, and the four things a real Kodi taught us - settings labels being string ids, empty string defaults declaring allowempty, every setting the code uses being declared, and the row area holding a whole number of rows. It also fails on **a public function nothing calls**, which found twelve, two of which were checks somebody meant to make: "verbose logging" that did nothing, and a Hebrew-detector that never ran. And on **the home screen having fewer row controls than it has rows switched on**, which is how the Israeli live channels came to be enabled, warmed, cached and never once drawn. |
 | `test_core.py` | 14 | The SQLite cache and the router: TTLs, compression, LRU eviction under the size cap, and url_for round-tripping through parse_params. |
 | `test_routes.py` | 35 | Dispatches every route the way Kodi does, network blocked. Catches wiring mistakes that would otherwise show as an empty screen, stops a row that is known to be empty being offered as a menu entry that leads nowhere, and covers the paging a plain directory has to do with a "next page" entry because it has no scroll event to hang a fetch off. |
 | `test_aggregator.py` | 23 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |
@@ -158,11 +174,13 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_sport5.py` | 22 | Six megabytes of broadcaster JSON reduced before it is cached, a season's clips gathered into its programme, the manifest lifted out of the player URL, and the byte order mark that made the whole document unparseable. |
 | `test_extractors_israeli.py` | 23 | Now 14, Sport 1 and 891FM, plus the check that every broadcaster in the catalogue has an extractor behind it. |
 | `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
-| `test_kids.py` | 33 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. |
+| `test_kids.py` | 39 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. |
 | `test_windows.py` | 51 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Katan window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
 | `test_details_window.py` | 13 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. |
 | `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
-| `test_play.py` | 24 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, and whether a download may be started. |
+| `test_play.py` | 33 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. |
+| `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
+| `test_signin.py` | 18 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
 | `test_profiles.py` | 26 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, **the shipped defaults being the lean profile key for key**, and the visual-polish switch raising artwork without ever lowering a richer profile. |
 | `test_wizard.py` | 7 | The one setup step that is not an account: light against richer artwork, with what each costs, and a device that is told it has room rather than quietly switched. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
@@ -285,6 +303,17 @@ the cut: enabled, warmed by the service, correct in the cache, listed by every
 tool that asks the catalog, and never on the screen. The window now logs every
 row it could not draw, and `test_addon_integrity` checks the constant against
 the skin and against the rows that ship switched on.
+
+And a whole class of bug that no log of ours would ever have shown. An episode
+resolved perfectly, handed Kodi a well formed TorBox URL, and finished with
+`action episode took 1366 ms` - success, as far as this add-on could tell.
+Kodi's own log had the rest: `CCurlFile::Stat ... Timeout was reached`, and a
+browser agreed. The CDN node accepted a TCP connection on 443 and then never
+answered. **When something does not play, read Kodi's log and not only ours**:
+the add-on's job ends at `setResolvedUrl`, and everything after that is
+invisible from inside it. `play._reachable` now opens the link for one byte
+before handing it over, so a dead node falls through to the next source
+instead of producing a black screen.
 
 And one about the checking itself. **Kodi renders lazily when idle** - FPS
 drops to 2-5 - so a screenshot taken while nothing is moving returns the

@@ -917,3 +917,150 @@ from the repository, and that is their call rather than mine - it is one
 switch in Settings -> Interface.
 
 774 tests, zip 376 KB.
+
+## 11:20 - A rail down the left, because "all in one" was the problem
+
+"You know what i want left tool bar that let you choose between
+series/movies/live tv instead all in one. and each section should have more",
+then "i meant more topics like new,popular, classics, etcc", then "I also dont
+understand the 'home' 'בית' button".
+
+So: three tabs, not four. The Home tab was the first thing built and the first
+thing to go - a button called Home beside Films, Series and Live TV does not
+say what it would show, and the viewer said so within a minute of seeing it.
+`HOME` survives inside the catalog as "every row that is switched on", which
+is what the plain listing and the background service want and is a different
+question from which tab is on screen. The window opens on Films.
+
+Each tab is topics first, then genres:
+
+    Films    trending, new, in cinemas, popular, popular this week,
+             top rated, classics, hidden gems, biggest hits, Israeli,
+             coming soon, the nineties, the eighties, then eight genres
+    Series   trending, new, airing today, popular, popular this week,
+             top rated, classics, hidden gems, returning, Israeli, anime,
+             then six genres
+    Live TV  channels, radio, new episodes, then one row per broadcaster
+
+The vote-count floors are the part that matters and the part that is easy to
+leave out. Without them "top rated" is a film four people have seen and scored
+ten, and "classics" is an obscure 1974 short rather than anything anybody
+would call a classic. A classic needs 800 votes; a hidden gem needs at least
+80 and fewer than 900, and the upper bound is what makes it a gem.
+
+The broadcaster rows are built from the bundled catalogue rather than listed,
+so adding a broadcaster to the data needs no code change here, and their names
+are already Hebrew in the file. They are appended separately from the rest of
+the row table and retried until they arrive: folding them into the one-time
+build meant a single early failure - the service starting before the profile
+did - would remove the whole Live tab for the life of the process, silently
+and permanently.
+
+Continue watching is the first row and recommended is the second, wherever
+they apply. Both need Trakt and both hide themselves without it, so an install
+with no account simply starts at what is trending rather than showing two gaps.
+
+**Two things a real Kodi had to teach, again.** A grouplist will not walk
+between entries that are each wrapped in a group: the rail's first draft
+wrapped every button with its accent bar, and pressing down did nothing at all
+- every section below the first unreachable with a remote, no error anywhere.
+The buttons sit directly in the grouplist now and the accent bars are drawn
+behind it, at the y each button will occupy. And left out of a row only
+reaches the rail from the *first* item, because that is when Kodi fires
+onleft; that is what a viewer expects and is left alone, but it looked like a
+bug twice before it was written down.
+
+Confirmed by asking Kodi what was on the screen rather than looking at it: all
+three tabs, 21 rows on Films, 16 on Series, 10 on Live TV including every one
+of the seven broadcasters.
+
+Row slots 16 -> 24. Settings moved out of the top bar to the bottom of the
+rail, which is where somebody looks for it.
+
+## 12:15 - Signing in without typing
+
+"we need to support all the possibilities of integration of the debrids and
+trakt etc.. as QR, api key, link", and then "all the options but make it
+logically and simple".
+
+One screen now, offering whatever the service actually has, in order of how
+little work it is: scan a code with your phone, open a link and type a short
+code, or type the key here. Before this, four services asked four different
+ways for the same thing.
+
+Nothing pretends. A service with no device flow does not get a "scan a code"
+that opens a page and then asks you to type the key anyway - `methods` on each
+client is what decides, and a test fails if a client offers a typed key with
+nowhere to find it.
+
+**The QR encoder is written here**, in the standard library alone. Every
+online QR service would be handed the authorisation URL, which is a live
+credential for the few minutes it lasts, and `qrcode` needs Pillow, which is
+not going on a projector with a gigabyte of RAM. Byte mode, versions one to
+ten, and a PNG writer on top of zlib and struct.
+
+It is tested against the specification rather than against itself, because a
+QR code that is wrong looks exactly like a QR code and the only symptom is a
+phone that will not scan it - not something anybody debugs from a photograph
+of a television:
+
+* the block table has to add up to each version's codeword count
+* all thirty-two format strings have to match the published list
+* the Reed-Solomon coder has to reproduce the worked example in the standard
+* and the strongest one: every symbol is taken apart the way a scanner would,
+  undoing the mask, the zigzag and the interleaving, and has to come back as
+  what went in.
+
+Confirmed in a real Kodi with a live device code from Real-Debrid's API: the
+code on screen, the link and the six characters beside it, Hebrew throughout.
+
+Two things that were plainly wrong turned up on the way. The accounts screen
+listed only debrid services already signed in and hid the "connect a debrid
+service" entry as soon as one was, so somebody with TorBox could not reach
+Real-Debrid from that screen at all. And a connected service offered only
+"connect again" - the one thing somebody looking at a working account does not
+want. Signing out is offered now, and clears every credential the service
+names rather than guessing: Real-Debrid holds five, and clearing only the
+token leaves an account that reads as disconnected and still holds
+credentials.
+
+## 12:40 - The failure that looked exactly like success
+
+An episode would not play. The add-on's log said:
+
+    action episode took 1366 ms
+
+and nothing else, ever. I spent three rounds adding log lines to every exit in
+`play()` - no title, no debrid service, no sources, nothing chosen, nothing
+that would open - and every run came back with the same single line, which
+should have been the clue much earlier: the function was not failing. It was
+succeeding.
+
+Kodi's own log had the rest of it. `CCurlFile::Stat ... Timeout was
+reached(28)`, twenty-five seconds to nothing, and a browser agreed: the CDN
+node accepted a TCP connection on 443 and then never answered. Three of
+TorBox's north-west-america nodes were doing it on the same evening; a
+european one was fine.
+
+So a resolved link is opened for one byte before it is used, and a link that
+will not give up a byte falls through to the next source like any other. Only
+a connection failure counts against it - an HTTP status does not, because some
+CDNs answer a range request with 403 and the whole file with 200.
+
+Dead nodes are remembered for five minutes, because a debrid service hands out
+links round-robin and the same dead node comes back for source after source.
+The first run of the fix fell over store-028, store-045 and store-028 again,
+paying a full eight second timeout for the same host twice. Measured, with and
+then without that memory:
+
+    without   30.7 s   store-028, store-045, store-028, then a working node
+    with      22.1 s   the second store-028 skipped instantly
+
+Both episodes play. On a healthy CDN the check costs a few hundred
+milliseconds.
+
+**The lesson, and it is a new one.** This add-on's job ends at
+`setResolvedUrl`. Everything after that happens inside Kodi and is invisible
+from in here, so when something does not play, our log is not the log to read.
+
+910 tests, zip 400 KB.
