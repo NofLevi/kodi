@@ -1313,3 +1313,56 @@ that wrong shows as one repeated poster until the window is reopened, which is
 the right way for it to be wrong.
 
 1020 tests, zip 424 KB.
+
+## Two things that looked like bugs and are not, with the numbers
+
+Both came out of reading a real "show all" list, and both are written down
+because the next person to look at that list will wonder the same thing and
+should not have to measure it again.
+
+### A foreign dub cannot reach the shortlist
+
+"Show all" on The Matrix contains `Matrix 1 Dublado Pt Br`, `Матрица.avi` and
+a dozen Italian and Hindi versions. Autoplay takes source zero with no
+interface at all, so a dub ranking first means a family sits down to The
+Matrix in Russian - a total failure rather than a degradation, and the sort of
+thing this add-on exists to prevent.
+
+Measured across three titles, counting anything with a dub marker or a
+non-Latin script in its name:
+
+    The Matrix     94 sources, 28 flagged, earliest at #10
+    Shawshank      95 sources, 15 flagged, earliest at #16
+    Silo S01E01   116 sources, 18 flagged, earliest at #20
+
+None in the six the picker shows, and nothing remotely near the top. So
+nothing was built. The parser only knows one language - Hebrew - and the
+providers do not report an audio language at all, so any rule here would be a
+guess made from release names, and a guess that demotes `Russian Ark` or a
+group called ITA is worse than the problem it fixes. The margin is four
+places; if a wrong-language film is ever reported, this is the measurement to
+start from.
+
+### The unknown-resolution exemption is not letting junk through
+
+Last night an unknown resolution stopped being treated as SD, because that was
+refusing every anime release on no evidence. The obvious worry is what else it
+lets past a 720p minimum, and the answer is: plenty, and all of it at the
+bottom.
+
+    The Matrix     29 of 94 state no resolution, first at #66
+    Shawshank      22 of 95, first at #74
+    Silo S01E01    34 of 116, first at #83
+
+An unknown resolution ranks below every known one - `resolution_rank` returns
+-1 and the sort key negates it - so these are kept, which is what fixes anime,
+and sorted last, which keeps them out of the way. None reaches the picker.
+They are real sources and being able to find them under "show all" is the
+point of that button.
+
+### And the channels have not drifted
+
+`check_channels.py`, run again today: **46 of 49 television channels stream**,
+and the three that do not are the same three that were already gone - the
+Keshet closed-captions feed and two Big Brother feeds that no longer resolve
+in DNS.
