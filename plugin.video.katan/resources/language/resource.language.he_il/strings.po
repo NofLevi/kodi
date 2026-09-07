@@ -1256,3 +1256,43 @@ msgstr "סדרות קלאסיות"
 msgctxt "#32450"
 msgid "Hidden gem series"
 msgstr "סדרות שלא הכרתם"
+
+msgctxt "#32460"
+msgid "Scan a code with your phone"
+msgstr "סריקת קוד עם הטלפון"
+
+msgctxt "#32461"
+msgid "Open a link and type a code"
+msgstr "פתיחת קישור והזנת קוד"
+
+msgctxt "#32462"
+msgid "Type the key here"
+msgstr "הזנת מפתח כאן"
+
+msgctxt "#32463"
+msgid "Scan this to open the page on your phone, then come back and type the key."
+msgstr "סרקו כדי לפתוח את הדף בטלפון, ואז חזרו לכאן והזינו את המפתח."
+
+msgctxt "#32464"
+msgid "Scan the code, or open the address and enter the code below."
+msgstr "סרקו את הקוד, או פתחו את הכתובת והזינו את הקוד שלמטה."
+
+msgctxt "#32465"
+msgid "Close"
+msgstr "סגירה"
+
+msgctxt "#32466"
+msgid "Signed in"
+msgstr "מחובר"
+
+msgctxt "#32467"
+msgid "Not signed in"
+msgstr "לא מחובר"
+
+msgctxt "#32468"
+msgid "Connect an account"
+msgstr "חיבור חשבון"
+
+msgctxt "#32469"
+msgid "Sign out of %s"
+msgstr "התנתקות מ-%s"

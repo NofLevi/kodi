@@ -34,22 +34,30 @@ class Premiumize(base.DebridService):
 
     # -- authorisation -----------------------------------------------------
 
-    def authorize(self):
-        choice = kodi.select(["Enter an API key", "Sign in on another device"],
-                             "Premiumize")
-        if choice == 0:
-            entered = kodi.keyboard(settings.get("premiumize.apikey"),
-                                    "Premiumize API key")
+    methods = ("scan", "link", "key")
+    key_url = "https://www.premiumize.me/account"
+
+    def credential_settings(self):
+        return ["premiumize.apikey", "premiumize.token"]
+
+    def authorize(self, method=None):
+        from ..ui import signin
+
+        if method == "key":
+            previous = settings.get("premiumize.apikey")
+            entered = signin.ask_for_key("%s API key" % self.label, previous,
+                                         help_url=self.key_url)
             if entered is None:
                 return False
-            settings.set("premiumize.apikey", entered.strip())
-            return bool(self.account_info())
-        if choice == 1:
-            return self._device_flow()
-        return False
+            settings.set("premiumize.apikey", entered)
+            if self.account_info():
+                return True
+            settings.set("premiumize.apikey", previous)
+            return False
+        return self._device_flow(scan=(method != "link"))
 
-    def _device_flow(self):
-        import xbmcgui
+    def _device_flow(self, scan=True):
+        from ..ui import signin
 
         client_id = settings.get("premiumize.client_id")
         if not client_id:
@@ -65,37 +73,35 @@ class Premiumize(base.DebridService):
         if not start:
             return False
 
-        interval = max(5, int(start.get("interval") or 5))
-        lifetime = float(start.get("expires_in") or 600)
-        deadline = time.time() + lifetime
+        # Premiumize asks to be polled more slowly when it says so, so the
+        # interval has to be able to grow while the window is up.
+        pace = {"interval": max(5, int(start.get("interval") or 5))}
 
-        progress = xbmcgui.DialogProgress()
-        progress.create("Premiumize",
-                        kodi.localize(32324, start.get("verification_uri", ""),
-                                      start.get("user_code", "")))
-        try:
-            while time.time() < deadline and not progress.iscanceled():
-                progress.update(int(100 - ((deadline - time.time()) / lifetime) * 100))
-                time.sleep(interval)
-                payload = http.post_json(TOKEN_URL, data={
-                    "client_id": client_id,
-                    "code": start.get("device_code"),
-                    "grant_type": "device_code",
-                }, default=None)
-                if not payload:
-                    continue
-                if payload.get("access_token"):
-                    settings.set("premiumize.token", payload["access_token"])
-                    return True
-                error = payload.get("error")
-                if error == "slow_down":
-                    interval += 1
-                elif error and error != "authorization_pending":
-                    kodi.log("Premiumize device flow stopped: %s" % error)
-                    return False
-        finally:
-            progress.close()
-        return False
+        def poll():
+            payload = http.post_json(TOKEN_URL, data={
+                "client_id": client_id,
+                "code": start.get("device_code"),
+                "grant_type": "device_code",
+            }, default=None)
+            if not payload:
+                return False
+            if payload.get("access_token"):
+                settings.set("premiumize.token", payload["access_token"])
+                return True
+            error = payload.get("error")
+            if error == "slow_down":
+                pace["interval"] += 1
+                return False
+            if error and error != "authorization_pending":
+                kodi.log("Premiumize device flow stopped: %s" % error)
+                return None
+            return False
+
+        return signin.run_device(self.label,
+                                 start.get("verification_uri", ""),
+                                 start.get("user_code", ""), poll,
+                                 lifetime=start.get("expires_in"),
+                                 interval=pace["interval"], scan=scan)
 
     def account_info(self):
         if not self.configured():

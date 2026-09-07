@@ -95,39 +95,36 @@ def device_code():
     return response.json()
 
 
-def poll_device_token(device, on_tick=None):
-    """Poll until the user approves, expires, or cancels.
+def exchange_device_token(device):
+    """One attempt at swapping the device code for a token.
 
-    on_tick(seconds_left) is called each interval so the UI can show progress
-    and let the user back out.
+    Three answers, not two, and the third one matters. The token means the
+    viewer has finished on their phone; False means they have not yet; None
+    means this attempt is over for good - expired, denied, or already used -
+    and the screen should say so rather than sit there for ten minutes
+    waiting for something that is never going to arrive.
+
+    One attempt rather than a loop because the sign-in window owns the
+    waiting: it has a code on it that the viewer is looking at, and a
+    function that blocks for ten minutes cannot draw one.
     """
-    interval = max(1, int(device.get("interval") or 5))
-    deadline = time.time() + int(device.get("expires_in") or 600)
-    payload = {
+    if kodi.abort_requested():
+        return None
+    response = http.post("%s/oauth/device/token" % API_BASE, json={
         "code": device.get("device_code"),
         "client_id": client_id(),
         "client_secret": client_secret(),
-    }
-    while time.time() < deadline:
-        if on_tick is not None and on_tick(int(deadline - time.time())) is False:
-            return None
-        if kodi.abort_requested():
-            return None
-        time.sleep(interval)
-        response = http.post("%s/oauth/device/token" % API_BASE, json=payload,
-                             headers={"Content-Type": "application/json"})
-        if response is None:
-            continue
-        if response.status_code == 200:
-            return _store_token(response.json())
-        if response.status_code == 400:
-            continue                      # still pending, keep waiting
-        if response.status_code == 429:
-            interval += 1                 # slow down, per the docs
-            continue
-        # 404 invalid, 409 already used, 410 expired, 418 denied
-        kodi.log("device auth stopped with HTTP %s" % response.status_code)
-        return None
+    }, headers={"Content-Type": "application/json"})
+    if response is None:
+        return False                      # a blip, not an answer
+    if response.status_code == 200:
+        return _store_token(response.json())
+    if response.status_code in (400, 429):
+        # 400 is "still pending"; 429 is "slow down", and the window's own
+        # interval is what paces this, so both mean keep waiting.
+        return False
+    # 404 invalid, 409 already used, 410 expired, 418 denied
+    kodi.log("device auth stopped with HTTP %s" % response.status_code)
     return None
 
 
