@@ -100,3 +100,4 @@ shots/
 *.log
 kodi.log
 crashlog*.txt
+commitmsg.txt
