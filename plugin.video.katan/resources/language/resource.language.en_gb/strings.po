@@ -1151,3 +1151,11 @@ msgstr ""
 msgctxt "#32415"
 msgid "1 episode"
 msgstr ""
+
+msgctxt "#30136"
+msgid "Open Katan when Kodi starts"
+msgstr ""
+
+msgctxt "#30137"
+msgid "Go straight in instead of stopping at the Kodi home screen. Back still leaves Katan normally."
+msgstr ""

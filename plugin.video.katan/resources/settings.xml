@@ -722,6 +722,11 @@
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="ui.start_on_boot" type="boolean" label="30136"
+                         help="30137">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="ui.rich_visuals" type="boolean" label="30134"
                          help="30135">
                     <level>0</level><default>false</default>

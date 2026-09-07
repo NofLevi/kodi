@@ -331,3 +331,61 @@ def test_a_settings_change_still_refills_everything(monkeypatch):
     assert cleared, "the warmed copies should be dropped"
     assert service.next_warm <= __import__("time").time() + 5, \
         "and re-warmed almost immediately"
+
+
+# --------------------------------------------------------------------------
+# opening Katan when Kodi starts
+# --------------------------------------------------------------------------
+
+
+def test_kodi_is_not_taken_over_unless_asked(monkeypatch, settings_module):
+    """Off by default. Somebody else's home screen is not ours to claim."""
+    from katan import background, kodi
+
+    assert settings_module.get_bool("ui.start_on_boot") is False
+    ran = []
+    monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
+    background.Service().open_on_boot()
+    assert not ran
+
+
+def test_it_opens_katan_when_asked(monkeypatch, settings_module):
+    from katan import background, kodi
+
+    settings_module.set("ui.start_on_boot", "true")
+    ran = []
+    monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
+    background.Service().open_on_boot()
+
+    assert len(ran) == 1
+    assert "plugin://plugin.video.katan/" in ran[0]
+    assert "return" in ran[0], "back should leave Katan, not the window stack"
+
+
+def test_it_does_not_interrupt_something_already_playing(monkeypatch,
+                                                         settings_module):
+    import xbmc
+    from katan import background, kodi
+
+    settings_module.set("ui.start_on_boot", "true")
+    monkeypatch.setattr(xbmc, "getCondVisibility",
+                        lambda condition: condition == "Player.HasMedia")
+    ran = []
+    monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
+    background.Service().open_on_boot()
+    assert not ran
+
+
+def test_it_happens_once_a_session(monkeypatch, settings_module):
+    """Backing out of Katan must leave you in Kodi, not bounce you back in."""
+    from katan import background, kodi
+
+    settings_module.set("ui.start_on_boot", "true")
+    ran = []
+    monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
+
+    service = background.Service()
+    assert service.opened is False
+    service.open_on_boot()
+    assert service.opened is True, "the loop must not call it again"
+    assert len(ran) == 1

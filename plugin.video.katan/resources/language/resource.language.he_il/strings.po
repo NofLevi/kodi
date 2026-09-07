@@ -1112,3 +1112,11 @@ msgstr "אין מה להציג כרגע"
 msgctxt "#32415"
 msgid "1 episode"
 msgstr "פרק אחד"
+
+msgctxt "#30136"
+msgid "Open Katan when Kodi starts"
+msgstr "פתח את קטן עם הפעלת Kodi"
+
+msgctxt "#30137"
+msgid "Go straight in instead of stopping at the Kodi home screen. Back still leaves Katan normally."
+msgstr "כניסה ישירה במקום עצירה במסך הבית של Kodi. לחיצה על חזרה עדיין יוצאת מקטן כרגיל."

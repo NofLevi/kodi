@@ -21,6 +21,11 @@ SYNC_INTERVAL = 15 * 60
 PRUNE_INTERVAL = 24 * 3600
 STARTUP_DELAY = 20        # let Kodi finish booting before touching the network
 
+# Long enough for the skin to have drawn its home screen, short enough that it
+# does not look like the box forgot. Opening sooner races Kodi's own start-up
+# and the window can be dismissed by whatever finishes loading after it.
+OPEN_DELAY = 8
+
 
 class Service(xbmc.Monitor):
     def __init__(self):
@@ -30,6 +35,8 @@ class Service(xbmc.Monitor):
         self.next_warm = now + STARTUP_DELAY
         self.next_sync = now + STARTUP_DELAY + 10
         self.next_prune = now + 300
+        self.next_open = now + OPEN_DELAY
+        self.opened = False
         self.player = None
 
     # -- Kodi callbacks ----------------------------------------------------
@@ -75,6 +82,27 @@ class Service(xbmc.Monitor):
         except Exception:
             kodi.log_exception("Trakt sync failed")
 
+    def open_on_boot(self):
+        """Go straight into Katan when Kodi starts, if the viewer asked for it.
+
+        Off by default, and deliberately: taking over somebody's home screen
+        without being asked is rude, and Kodi's own Settings -> Interface ->
+        Startup deliberately offers only its own windows. But on a box that
+        exists to run this add-on - a projector in a living room - stopping at
+        Kodi's home screen every time is a wasted step.
+
+        Once per session, never again, so that backing out of Katan leaves you
+        in Kodi rather than bouncing straight back in.
+        """
+        self.opened = True
+        if not settings.get_bool("ui.start_on_boot", False):
+            return
+        if xbmc.getCondVisibility("Player.HasMedia"):
+            return          # something is already playing; leave it alone
+        kodi.log("opening Katan on start-up", kodi.LOG_INFO)
+        kodi.run_builtin(
+            "ActivateWindow(Videos,plugin://plugin.video.katan/,return)")
+
     def prune_cache(self):
         try:
             cache.maybe_prune(force=True)
@@ -97,6 +125,8 @@ class Service(xbmc.Monitor):
             if self.player is not None and self.player.isPlaying():
                 self.player.tick()
             now = time.time()
+            if not self.opened and now >= self.next_open:
+                self.open_on_boot()
             if now >= self.next_warm:
                 self.next_warm = now + WARM_INTERVAL
                 self.warm_rows()
