@@ -60,62 +60,57 @@ def test_the_list_actually_fills(picker):
 # --------------------------------------------------------------------------
 
 
+def _subs_line(entry):
+    """The subtitle line a row would show.
+
+    Its own property, because squeezed onto the badge the whole right-hand
+    column was cut off. Read straight off the source, because the aggregator
+    works it out before ranking - the badge and the order the rows are in
+    come from the same numbers and cannot disagree.
+    """
+    row = dict(CACHED, subs_kind=entry["kind"], subs_score=entry["score"])
+    return sources_window._list_item(row).getProperty("subs")
+
+
 def test_a_release_carrying_hebrew_says_so():
     from katan.subs import outlook
 
-    badge = sources_window._badge(
-        CACHED, {"a" * 40: {"kind": outlook.EMBEDDED, "score": 0}})
-    assert kodi.localize(32474) in badge
-    assert "%" not in badge, \
+    line = _subs_line({"kind": outlook.EMBEDDED, "score": 0})
+    assert kodi.localize(32474) in line
+    assert "%" not in line, \
         "a claim from the release name does not get a percentage of ours"
 
 
 def test_an_external_subtitle_shows_how_well_it_matches():
     from katan.subs import outlook
 
-    badge = sources_window._badge(
-        CACHED, {"a" * 40: {"kind": outlook.EXTERNAL, "score": 82}})
-    assert "82" in badge
+    assert "82" in _subs_line({"kind": outlook.EXTERNAL, "score": 82})
 
 
 def test_nothing_found_says_nothing_found():
     from katan.subs import outlook
 
-    badge = sources_window._badge(
-        CACHED, {"a" * 40: {"kind": outlook.NONE, "score": 0}})
-    assert kodi.localize(32476) in badge
+    assert kodi.localize(32476) in _subs_line({"kind": outlook.NONE,
+                                               "score": 0})
 
 
-def test_the_badge_still_works_before_the_lookup_finishes():
-    """The list is useful immediately; the subtitle column arrives after. It
-    must never be the reason a row does not draw."""
-    assert sources_window._badge(CACHED, None)
-    assert sources_window._badge(CACHED, {})
-    assert "1080P" in sources_window._badge(CACHED, {})
-
-
-def test_the_lookup_does_not_touch_the_list_from_its_own_thread(picker,
-                                                                monkeypatch):
-    """Same rule as the home rows: a list is only ever changed on the GUI
-    thread. The worker sets a flag and the next keypress redraws."""
+def test_the_subtitle_line_is_separate_from_the_badge():
+    """They are on different rows of the layout, and the badge must not grow
+    to include the subtitle text - that is what cut it off."""
     from katan.subs import outlook
 
-    monkeypatch.setattr(
-        outlook, "for_sources",
-        lambda meta, sources, **kw: {"a" * 40: {"kind": outlook.EXTERNAL,
-                                                "score": 91}})
-    picker.outlook = {}
-    picker._look_up_subtitles()
+    item = sources_window._list_item(
+        dict(CACHED, subs_kind=outlook.EXTERNAL, subs_score=82))
+    assert "82" not in item.getProperty("badge")
+    assert "1080P" in item.getProperty("badge")
+    assert "82" in item.getProperty("subs")
 
-    import time
-    for _ in range(50):
-        if getattr(picker, "pending_redraw", False):
-            break
-        time.sleep(0.05)
 
-    assert picker.outlook, "the worker should have fetched something"
-    assert getattr(picker, "pending_redraw", False), \
-        "and asked the GUI thread to redraw rather than doing it itself"
+def test_a_source_nobody_looked_up_draws_without_a_subtitle_line():
+    """The lookup can fail or be skipped, and a row must still draw."""
+    assert sources_window._badge(CACHED)
+    assert "1080P" in sources_window._badge(CACHED)
+    assert sources_window._list_item(CACHED).getProperty("subs") == ""
 
 
 def test_every_source_renders_even_the_awkward_ones():

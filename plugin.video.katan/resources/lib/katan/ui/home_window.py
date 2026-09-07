@@ -237,20 +237,27 @@ class HomeWindow(xbmcgui.WindowXML):
             self._context_menu()
 
     def _quit(self):
-        """Leave. Asks first, because a family should not do this by accident.
+        """Leave, one way or the other. Asks first, and offers both.
 
-        Kodi's own Quit, which is the right thing on the hardware this runs
-        on: on Android it drops to the launcher and the system keeps the
-        process warm, so coming back is instant - the "close it but keep it
-        in the background" behaviour, without having to build it. On a desktop
-        it simply closes.
+        The two are genuinely different and the difference is worth a menu
+        rather than a guess. Minimise leaves Kodi running and drops to
+        whatever is behind it - the Android launcher, the desktop - so coming
+        back is immediate and nothing is reloaded. Close ends Kodi, which
+        frees the memory: on a box with a gigabyte of it shared with Android,
+        that is not a detail.
         """
-        if not kodi.yes_no(kodi.localize(32473), kodi.localize(32472)):
+        options = [kodi.localize(32477), kodi.localize(32478)]
+        choice = kodi.select(options, kodi.localize(32473))
+        if choice < 0:
             return
-        kodi.log("leaving at the viewer's request", kodi.LOG_INFO)
         self._cleanup()
         self.close()
-        kodi.run_builtin("Quit()")
+        if choice == 0:
+            kodi.log("minimising at the viewer's request", kodi.LOG_INFO)
+            kodi.run_builtin("Minimize()")
+        else:
+            kodi.log("closing at the viewer's request", kodi.LOG_INFO)
+            kodi.run_builtin("Quit()")
 
     def _stay_put(self):
         """Should back keep us here rather than drop out to Kodi?

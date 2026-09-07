@@ -52,43 +52,8 @@ class SourcesWindow(xbmcgui.WindowXML):
         self.prepare()
         self._render()
         self.setFocusId(LIST_SOURCES)
-        self._look_up_subtitles()
-
-    def _look_up_subtitles(self):
-        """Find out what each source's subtitles look like, on a worker.
-
-        On the GUI thread this would hold the picker closed for as long as
-        the subtitle providers take, which is the wrong trade: the list is
-        useful immediately and the subtitle column is an extra. It arrives a
-        moment later and the rows are drawn again, which is safe here in a
-        way it was not for the home rows - this list is rebuilt wholesale
-        rather than appended to, and it has no cursor worth keeping because
-        nobody has had time to move it yet.
-        """
-        import threading
-
-        def worker():
-            try:
-                from ..subs import outlook
-                found = outlook.for_sources(self.meta, self.full or self.short)
-            except Exception:
-                kodi.log_exception("subtitle outlook failed")
-                return
-            if not found:
-                return
-            self.outlook = found
-            self.pending_redraw = True
-
-        thread = threading.Thread(target=worker)
-        thread.daemon = True
-        thread.start()
 
     def onAction(self, action):
-        if getattr(self, "pending_redraw", False):
-            # Same rule as the home rows: a list is only ever changed on the
-            # GUI thread, which is here.
-            self.pending_redraw = False
-            self._render()
         if action.getId() in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
             self.close()
 
@@ -157,7 +122,12 @@ class SourcesWindow(xbmcgui.WindowXML):
 def _list_item(source, outlook=None):
     label = source.get("title") or "?"
     li = xbmcgui.ListItem(label=label, label2=_detail(source), offscreen=True)
-    li.setProperty("badge", _badge(source, outlook))
+    li.setProperty("badge", _badge(source))
+    # Its own line rather than more text on the badge. Squeezed onto one line
+    # the whole right-hand column was cut off - the screen read "...במטמון"
+    # and the subtitle information, which is the reason any of it is there,
+    # was the part that fell off the end.
+    li.setProperty("subs", _subtitle_badge(source, outlook))
     return li
 
 
@@ -206,36 +176,43 @@ def _detail(source):
     return "  \u2022  ".join(b for b in bits if b)
 
 
-def _subtitle_badge(source, outlook):
+def _subtitle_badge(source, outlook=None):
     """What the words are likely to be, which for a Hebrew household is at
     least as decisive as the picture.
 
-    Two different claims, deliberately worded differently. "Hebrew inside"
-    is what the release name says, so it gets no percentage - it is somebody
-    else's promise. A percentage is our own estimate of how well the best
-    available subtitle matches *this* release, and it is the same number the
-    subtitle chooser will show once the film is playing.
+    Read straight off the source, because the aggregator has already worked
+    it out - the same numbers that decided the order these rows are in. The
+    picker used to fetch this itself on a worker thread and redraw; doing it
+    once, upstream, means the badge and the ranking can never disagree.
+
+    Two claims, deliberately worded differently. "Hebrew inside" is what the
+    release name says, so it gets no percentage - it is somebody else's
+    promise. A percentage is our own estimate of how well the best available
+    subtitle matches *this* release, and it is the same number the subtitle
+    chooser will show once the film is playing.
     """
-    if not outlook:
-        return ""
+    del outlook               # kept so older callers are not an error
     from ..subs import outlook as module
 
-    entry = outlook.get(source.get("hash") or source.get("title") or "")
-    if not entry:
+    kind = source.get("subs_kind")
+    if not kind:
         return ""
-    if entry.get("kind") == module.EMBEDDED:
+    if kind == module.EMBEDDED:
         return kodi.localize(32474)
-    if entry.get("kind") == module.EXTERNAL:
-        return kodi.localize(32475, entry.get("score") or 0)
+    if kind == module.EXTERNAL:
+        return kodi.localize(32475, source.get("subs_score") or 0)
     return kodi.localize(32476)
 
 
 def _badge(source, outlook=None):
-    """The right-hand column: cached status and quality, the two that decide."""
+    """The right-hand column: cached status and quality, the two that decide.
+
+    `outlook` is accepted and ignored. The subtitle line is its own property
+    now - see `_list_item` - and the argument stays so that a caller passing
+    it is not an error while the tests and the window agree on one signature.
+    """
+    del outlook
     bits = []
-    subtitles = _subtitle_badge(source, outlook)
-    if subtitles:
-        bits.append(subtitles)
     if source.get("cached"):
         # The brackets used to be missing here, so .strip() bound to the tuple
         # rather than to the formatted string. Every cached source raised, and
@@ -287,6 +264,33 @@ def _status(entries, showing_all, meta=None):
     return "   ".join(parts)
 
 
+# `scoring.rejection_reason` answers in English, which is right for the log
+# and wrong on the screen: the status line read "118 מוסתרים (32 below the
+# resolution limit)", half a sentence in each language. The reasons stay
+# English where they are produced - they are compared in tests and read in
+# logs - and are translated here, where they are shown.
+REASON_STRINGS = {
+    "cam release": 32480,
+    "HEVC is switched off": 32481,
+    "AV1 is switched off": 32482,
+    "HDR is switched off": 32483,
+    "above the resolution limit": 32484,
+    "below the resolution limit": 32485,
+    "larger than the size limit": 32486,
+    "far too small for its claimed quality": 32487,
+    "implausibly large": 32488,
+    "not cached": 32489,
+}
+
+
+def _reason_label(reason):
+    string_id = REASON_STRINGS.get(reason)
+    if not string_id:
+        return reason           # a reason nobody has translated yet
+    text = kodi.localize(string_id)
+    return text if text and text != str(string_id) else reason
+
+
 def _why_hidden(entries, meta):
     """"of 64, 40 cam releases hidden", or "" when there is nothing to say."""
     from ..sources import aggregator
@@ -299,7 +303,7 @@ def _why_hidden(entries, meta):
     if hidden <= 0:
         return ""
     reasons = report.get("reasons") or []
-    biggest = ", ".join("%d %s" % (count, reason)
+    biggest = ", ".join("%d %s" % (count, _reason_label(reason))
                         for reason, count in reasons[:2])
     return kodi.localize(32470, found, hidden, biggest)
 

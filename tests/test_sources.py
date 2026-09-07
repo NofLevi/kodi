@@ -206,6 +206,97 @@ def test_rank_reports_why_things_were_dropped(settings_module):
     assert rejected.get("cam release") == 1
 
 
+# --------------------------------------------------------------------------
+# the order the viewer asked for: resolution, then subtitles, then size
+# --------------------------------------------------------------------------
+
+
+def test_resolution_decides_before_anything_else(settings_module):
+    """The best picture that is allowed, first."""
+    settings_module.set_many({"sources.max_resolution": "2160p",
+                              "sources.min_resolution": "720p",
+                              "sources.max_size_gb": "80"})
+    small720 = make("Movie.2024.720p.WEB-DL-A", size=1 * 1024 ** 3)
+    big1080 = make("Movie.2024.1080p.WEB-DL-B", size=9 * 1024 ** 3)
+    ranked, _ = scoring.rank([small720, big1080])
+    assert ranked[0] is big1080, \
+        "a smaller file must not beat a better picture"
+
+
+def test_the_resolution_ceiling_is_what_highest_means(settings_module):
+    """"Highest" means highest allowed. That is what the setting is for."""
+    settings_module.set_many({"sources.max_resolution": "1080p",
+                              "sources.min_resolution": "720p",
+                              "sources.max_size_gb": "80"})
+    ranked, rejected = scoring.rank([
+        make("Movie.2024.2160p.WEB-DL-A", size=20 * 1024 ** 3),
+        make("Movie.2024.1080p.WEB-DL-B", size=9 * 1024 ** 3)])
+    assert len(ranked) == 1 and "1080p" in ranked[0]["title"]
+    assert "above the resolution limit" in rejected
+
+
+def test_subtitles_decide_between_equal_pictures(settings_module):
+    """Same resolution, so the one with subtitles that fit wins - which for
+    a Hebrew-speaking household is what makes it watchable at all."""
+    settings_module.set_many({"sources.max_size_gb": "80",
+                              "sources.min_resolution": "720p"})
+    poor = make("Movie.2024.1080p.WEB-DL-A", size=2 * 1024 ** 3)
+    good = make("Movie.2024.1080p.WEB-DL-B", size=8 * 1024 ** 3)
+    poor["subs_kind"], poor["subs_score"] = "external", 20
+    good["subs_kind"], good["subs_score"] = "external", 95
+
+    ranked, _ = scoring.rank([poor, good])
+    assert ranked[0] is good, \
+        "better subtitles must win even though the file is larger"
+
+
+def test_a_release_carrying_hebrew_counts_as_a_perfect_match(settings_module):
+    settings_module.set_many({"sources.max_size_gb": "80",
+                              "sources.min_resolution": "720p"})
+    embedded = make("Movie.2024.1080p.HebSub-A", size=8 * 1024 ** 3)
+    external = make("Movie.2024.1080p.WEB-DL-B", size=2 * 1024 ** 3)
+    embedded["subs_kind"], embedded["subs_score"] = "embedded", 0
+    external["subs_kind"], external["subs_score"] = "external", 90
+
+    ranked, _ = scoring.rank([embedded, external])
+    assert ranked[0] is embedded, \
+        "a release that needs no external subtitle is the best outcome"
+
+
+def test_the_smallest_file_breaks_the_tie(settings_module):
+    """Equal picture, equal subtitles: the one that starts soonest and takes
+    least of a small device's cache."""
+    settings_module.set_many({"sources.size_preference": "smallest",
+                              "sources.min_resolution": "720p",
+                              "sources.max_size_gb": "80"})
+    light = make("Movie.2024.1080p.WEB-DL-A", size=2 * 1024 ** 3)
+    heavy = make("Movie.2024.1080p.WEB-DL-B", size=18 * 1024 ** 3)
+    for entry in (light, heavy):
+        entry["subs_kind"], entry["subs_score"] = "external", 90
+
+    ranked, _ = scoring.rank([heavy, light])
+    assert ranked[0] is light
+
+
+def test_a_cached_source_still_wins_everything(settings_module):
+    """On a device that cannot wait for a download, an uncached source is
+    not a slightly worse option - it is a different thing."""
+    settings_module.set_many({"sources.cached_only": "false",
+                              "sources.min_resolution": "720p",
+                              "sources.max_resolution": "2160p",
+                              "sources.max_size_gb": "80"})
+    uncached = make("Movie.2024.2160p.WEB-DL-A", size=20 * 1024 ** 3)
+    cached = make("Movie.2024.720p.WEB-DL-B", size=1 * 1024 ** 3)
+    # `make` funnels anything it does not recognise into `extra`, so these
+    # have to be set on the source itself rather than passed in.
+    cached["cached"] = True
+    uncached["cached"] = False
+    uncached["subs_kind"], uncached["subs_score"] = "external", 100
+
+    ranked, _ = scoring.rank([uncached, cached])
+    assert ranked[0] is cached
+
+
 def test_balanced_size_preference_avoids_the_extremes(settings_module):
     """A moderate bitrate streams better than a remux on weak wifi."""
     settings_module.set_many({"sources.size_preference": "balanced",

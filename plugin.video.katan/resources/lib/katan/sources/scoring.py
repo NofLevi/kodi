@@ -234,10 +234,57 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
                                 preferred)
         kept.append(source)
 
-    kept.sort(key=lambda s: s["score"], reverse=True)
+    kept.sort(key=lambda s: sort_key(s, prefs))
     if limit is None:
         limit = prefs.results
     return kept[:limit] if limit else kept, rejected
+
+
+def sort_key(source, prefs=None):
+    """The order the viewer asked for, in as many words.
+
+        the best picture I can get, with subtitles that fit,
+        in the smallest file that delivers both
+
+    So: resolution first, then how well its Hebrew subtitles match, then
+    size - and only then the weighted score, which decides between two
+    releases equal on all three. The filters have already removed anything
+    above the configured maximum, so "highest resolution" means highest
+    *allowed*, which is why the ceiling is a setting.
+
+    Cached comes before all of it and is not negotiable. On a device that
+    cannot afford to wait for a download, an uncached source is not a
+    slightly worse option but a different thing entirely - and with "cached
+    only" on, which is the default, every source here is cached and this
+    term changes nothing.
+
+    The size term follows `sources.size_preference` rather than always
+    preferring the smallest, and that is not hedging. "Smallest" is the lean
+    profile's setting and gives exactly what was asked for. "Balanced" exists
+    because a 1080p film in 900 MB is usually a bad encode rather than a
+    clever one, and somebody who chose that setting has said they would
+    rather have the moderate bitrate than the smallest file - so there the
+    existing size-fit score decides, and "smallest" would quietly override a
+    choice they made on purpose.
+    """
+    from ..subs import outlook
+
+    size = source.get("size") or 0
+    preference = getattr(prefs, "size_preference", "smallest")
+    if preference == "largest":
+        size_term = -size
+    elif preference == "balanced":
+        size_term = 0            # leave it to the weighted score below
+    else:
+        size_term = size
+
+    return (
+        0 if source.get("cached") else 1,
+        -settings.resolution_rank(source.get("quality")),
+        -outlook.ranking_score(source),
+        size_term,
+        -(source.get("score") or 0.0),
+    )
 
 
 def rank_all(sources, meta=None, runtime_hours=2.0):

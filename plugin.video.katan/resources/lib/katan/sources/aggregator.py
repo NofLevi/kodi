@@ -107,6 +107,7 @@ def _ranked(meta, prefetch=False, force=False):
     merged = model.dedupe(raw)
     _apply_meta(merged, meta)
     _check_debrid_cache(merged)
+    _apply_subtitles(merged, meta)
 
     kept, rejected = scoring.rank_all(merged, meta, _runtime_hours(meta))
     # Both numbers, because they are different things and the log is read by
@@ -191,6 +192,26 @@ def _guarded(module, meta):
     def call():
         return module.search(meta) or []
     return call
+
+
+def _apply_subtitles(sources, meta):
+    """Note what each source's Hebrew subtitles are likely to be.
+
+    Ranking needs this, not only the picker: a release with a subtitle
+    written for it is a better answer than a slightly larger one without,
+    and autoplay should be making that choice too rather than leaving it to
+    whoever happens to open the picker.
+
+    The lookup only needs the title, so its one network call has already been
+    warmed by the time the providers finish - and it is cached per title, so
+    the second source search for the same film pays nothing at all. A failure
+    leaves the sources unannotated, which ranks them as before.
+    """
+    try:
+        from ..subs import outlook
+        outlook.annotate(meta, sources)
+    except Exception:
+        kodi.log_exception("could not work out the subtitle outlook")
 
 
 def _apply_meta(sources, meta):
@@ -288,8 +309,21 @@ def _rejection_summary(rejected):
 
 
 def all_sources(meta):
-    """Everything that passed the filters, for the "show all" action."""
-    return _ranked(meta)
+    """Everything that passed the filters, for the "show all" action.
+
+    Deliberately without the debrid re-check. This is called the moment the
+    picker opens, which is seconds after the search that set those flags, and
+    re-asking the service about every source is not free: on a film with a
+    hundred sources it held the picker on a spinner for twenty-six seconds
+    while it confirmed what it had just been told.
+
+    The re-check exists so a flag can come *down* between a cached search
+    result and playback, and it still runs where that matters - on the way
+    into `find`, which is what playback uses. Being a few seconds stale in a
+    list somebody is reading is not the same risk as being stale in the
+    source about to be opened.
+    """
+    return _ranked(meta, prefetch=True)
 
 
 def invalidate(meta=None):
