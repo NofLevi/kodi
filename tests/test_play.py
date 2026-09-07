@@ -266,6 +266,22 @@ def test_a_film_has_no_next_episode(monkeypatch, film):
 # --------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def links_open(monkeypatch):
+    """Every resolved link opens, unless a test says otherwise.
+
+    Playback now checks that a link actually gives up a byte before it is
+    handed to Kodi, and the suite has no network, so without this every
+    fall-through test would see every link as dead.
+
+    Yields the real function, for the tests that are about the check itself
+    rather than about what happens around it.
+    """
+    original = play._reachable
+    monkeypatch.setattr(play, "_reachable", lambda url: True)
+    return original
+
+
 def test_a_source_that_will_not_resolve_falls_through_to_the_next(film,
                                                                   monkeypatch):
     """A source can be flagged cached by the indexer and not be on the debrid
@@ -292,6 +308,135 @@ def test_the_first_source_is_used_when_it_works(film, monkeypatch):
     chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
     assert url == "https://cdn/a"
     assert tried == ["Best 1080p"], "no reason to try any others"
+
+
+def test_a_link_that_will_not_open_falls_through_to_the_next(film,
+                                                             monkeypatch):
+    """A debrid service can hand back a link its own CDN will not serve.
+
+    Not theoretical: TorBox returned good-looking links to two different
+    store hosts on one evening, both of which accepted a TCP connection and
+    then never answered. Kodi's only symptom was a black screen, because as
+    far as the add-on was concerned it had succeeded.
+    """
+    monkeypatch.setattr(play, "_resolve",
+                        lambda s: "https://dead/%s" % s["title"][:4]
+                        if s["title"] == "Best 1080p" else "https://cdn/ok")
+    monkeypatch.setattr(play, "_reachable",
+                        lambda url: not url.startswith("https://dead/"))
+
+    chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
+    assert url == "https://cdn/ok"
+    assert chosen["title"] != "Best 1080p", "the dead link must not be used"
+
+
+def test_a_link_the_viewer_picked_is_handed_over_without_a_probe(film,
+                                                                 monkeypatch):
+    """They asked for that release, and there is nothing to fall through to,
+    so spending a round trip to confirm what cannot be acted on is waste."""
+    probed = []
+    monkeypatch.setattr(play, "_resolve", lambda s: "https://cdn/a")
+    monkeypatch.setattr(play, "_reachable",
+                        lambda url: probed.append(url) or True)
+
+    _chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=True)
+    assert url == "https://cdn/a"
+    assert probed == []
+
+
+class _Answered(object):
+    """A response object with only what the reachability check touches."""
+
+    def __init__(self, status_code=206):
+        self.status_code = status_code
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_a_link_that_answers_at_all_is_good_enough(links_open, monkeypatch):
+    """Only a connection failure counts against a link. Some CDNs answer a
+    range request with 403 and the whole file with 200, and refusing those
+    would be worse than the problem this solves."""
+    from katan import http
+    monkeypatch.setattr(http, "get", lambda url, **kwargs: _Answered(403))
+    assert links_open("https://cdn/whatever") is True
+
+
+def test_a_link_that_never_answers_is_refused(links_open, monkeypatch):
+    from katan import http
+    monkeypatch.setattr(http, "get", lambda url, **kwargs: None)
+    assert links_open("https://cdn/whatever") is False
+
+
+def test_the_probe_asks_for_one_byte_and_does_not_retry(links_open,
+                                                        monkeypatch):
+    """A dead host must cost one timeout, not three."""
+    seen = {}
+    answered = _Answered()
+
+    from katan import http
+
+    def fake_get(url, **kwargs):
+        seen.update(kwargs)
+        return answered
+
+    monkeypatch.setattr(http, "get", fake_get)
+    assert links_open("https://cdn/whatever") is True
+    assert seen["headers"]["Range"] == "bytes=0-0"
+    assert seen["retries"] == 0
+    assert seen["timeout"] == play.REACHABLE_TIMEOUT
+    assert answered.closed, "the probe must not leave the connection open"
+
+
+def test_a_host_that_would_not_answer_is_not_asked_twice(links_open,
+                                                         monkeypatch):
+    """A debrid service hands out links round-robin across its nodes, so the
+    same dead node comes back for source after source. One evening's log had
+    store-028, store-045 and store-028 again, each costing a full timeout."""
+    from katan import http
+
+    attempts = []
+    monkeypatch.setattr(http, "get",
+                        lambda url, **kwargs: attempts.append(url) or None)
+
+    assert links_open("https://store-028.example/dld/one") is False
+    assert links_open("https://store-028.example/dld/two") is False
+    assert len(attempts) == 1, "the second link on a dead host is free"
+
+    # A different node is still asked.
+    assert links_open("https://store-029.example/dld/three") is False
+    assert len(attempts) == 2
+
+
+def test_a_host_is_only_written_off_for_a_few_minutes(links_open, monkeypatch):
+    """Being wrong here costs a playback, so the memory is deliberately
+    short: a node coming back is normal, and once it is written off it is
+    not asked again until the note expires."""
+    from katan import cache, http
+
+    monkeypatch.setattr(http, "get", lambda url, **kwargs: None)
+    assert links_open("https://store-030.example/dld/one") is False
+
+    key = play._dead_host_key("https://store-030.example/dld/one")
+    assert cache.get(key), "the node should be remembered as unreachable"
+    assert play.DEAD_HOST_TTL <= 600, \
+        "a node written off for longer than this is a node nobody retries"
+
+    # Once the note has gone, the node gets another chance.
+    cache.delete(key)
+    monkeypatch.setattr(http, "get", lambda url, **kwargs: _Answered())
+    assert links_open("https://store-030.example/dld/two") is True
+
+
+def test_the_key_is_the_host_not_the_link(links_open):
+    """Links differ every time; the node is what fails."""
+    first = play._dead_host_key("https://store-031.example/dld/aaaa?token=1")
+    second = play._dead_host_key("https://store-031.example/dld/bbbb?token=2")
+    other = play._dead_host_key("https://store-032.example/dld/aaaa?token=1")
+    assert first == second and first != other
+    assert play._dead_host_key("not a url at all") == ""
 
 
 def test_a_source_the_viewer_picked_is_not_quietly_swapped(film, monkeypatch):
