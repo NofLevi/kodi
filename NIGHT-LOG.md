@@ -30,9 +30,14 @@ episodes and a 73-file season pack — in a real Kodi 21 with the player
 reporting `speed=1`, and a Hebrew subtitle was found, downloaded and applied to
 one of them automatically.
 
-**Five things were broken in ways no test could have found**, and all five are
-fixed and photographed:
+**Six things were broken in ways no test could have found**, and all six are
+fixed and confirmed:
 
+0. **Down never left the first row of the home screen.** The main screen. Six
+   presses and the focused control never changed — everything below row one was
+   drawn, looked right in every screenshot taken all night, and could not be
+   reached with a remote. Found by asking Kodi which control it thought was
+   focused instead of inferring it from pixels.
 1. **The source picker crashed for everyone who opened it** — one `.strip()`
    bound to a tuple instead of a string, inside `onInit`, where an exception
    just silently abandons the rest of the method.
@@ -57,7 +62,7 @@ polish is one switch that can only ever raise what a profile chose.
 Kodi a URL went from 5–8 seconds to **1.4–3.9**, by not downloading the entire
 TorBox account (466 KB, 58 torrents) to look up one hash.
 
-Tests went from 559 to **744**. Everything is committed and pushed.
+Tests went from 559 to **753**. Everything is committed and pushed.
 
 **On the keys, since you asked twice.** Checked properly, not just glanced at:
 neither the TorBox key nor the TMDB key appears in any tracked file *or in any
@@ -88,7 +93,7 @@ marked confirmed on the strength of a passing unit test alone.
 | Source ranking and the picker | Opened the way a viewer does — home, film, "choose a source" | **Confirmed.** Six ranked rows with release name, provider, size, seeders and "TorBox 1080P במטמון". It was crashing this morning. |
 | "Show all" in the picker | The toggle pressed in Kodi | **Confirmed.** 6 rows become **48**, and the status line goes with it. It used to hand back the same six. |
 | Reaching the picker's buttons | Same run | **Fixed.** They were on Left only, below a list that swallowed Down. I could not find them twice myself — see 10:20. |
-| Home window | Opened in Kodi at the lean default and photographed | **Confirmed.** Hero backdrop, Hebrew headings, two full rows of sharp posters. |
+| Home window | Opened in Kodi, and its focus traced through JSON-RPC | **Confirmed, after a serious fix.** Hero backdrop, Hebrew headings, sharp posters - and **down now moves between rows**, which it never did before. See 13:30. |
 | Details window | Opened on a film and a show | **Confirmed.** Poster, title, meta in Hebrew, plot, cast, four legible buttons; Play works on first press on a show. |
 | Search window | Opened in a Hebrew interface | **Confirmed.** Hebrew keyboard by default, recent searches, results. |
 | Settings dialog | 134 labels as string ids, integrity test, opened in Kodi | **Confirmed.** Every label renders; every declared setting reads back as declared. |
@@ -742,3 +747,31 @@ Every plugin call between pressing play and Kodi having a URL: **1.4 to 3.9
 seconds**. First picture: 5 to 10.
 
 744 tests.
+
+## 13:30 — Down never left the first row of the home screen
+
+The main screen of the add-on, and the worst defect of the night.
+
+Six presses of down, and the focused control never changed. I stopped inferring
+it from screenshots and asked Kodi directly, which answered "Mayday (2026)"
+seven times in a row. Everything below the first row was drawn, looked correct
+in every screenshot taken all night, and **could not be reached with a remote**.
+
+The row lists wire left and right — so a horizontal list wraps within itself —
+and say nothing about up and down. Kodi's geometric fallback does not find its
+way out of the nested groups, so up and down went nowhere.
+
+Fixed in Python rather than in the skin, because only Python knows which rows
+came back empty. Those have had their heading cleared and are hidden, and an
+explicit `<ondown>` pointing at a hidden row would simply fail. Down moves to
+the next row that has something in it, up moves back, and up from the first row
+reaches the top bar.
+
+Confirmed the way it was found: down now walks Mayday, Silo, במרוץ נגד הזמן,
+ספיידרמן, הלביאות, אנטארקטיקה — seven rows — and up walks back.
+
+**The lesson, again.** Every screenshot of this screen all night looked right,
+because it *was* right; what was broken was something a picture cannot show. It
+took asking Kodi a question rather than looking at it.
+
+753 tests.
