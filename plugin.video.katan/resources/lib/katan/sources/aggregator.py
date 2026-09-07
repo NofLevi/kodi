@@ -109,8 +109,13 @@ def _ranked(meta, prefetch=False, force=False):
     _check_debrid_cache(merged)
 
     kept, rejected = scoring.rank_all(merged, meta, _runtime_hours(meta))
-    kodi.log("sources: %d found, %d after ranking%s"
-             % (len(merged), len(kept), _rejection_summary(rejected)))
+    # Both numbers, because they are different things and the log is read by
+    # somebody wondering why the picker shows six rows. "66 after ranking"
+    # next to a six-row picker reads as a contradiction; "66 kept, showing 6"
+    # is the actual arrangement.
+    kodi.log("sources: %d found, %d kept, showing %d%s"
+             % (len(merged), len(kept), len(_top(kept)),
+                _rejection_summary(rejected)))
 
     cache.set(key, kept, TTL_RESULTS if kept else TTL_EMPTY)
     return kept
@@ -225,6 +230,12 @@ def _recheck_cached(sources, meta):
         return sources
     if [bool(s.get("cached")) for s in sources] == before:
         return sources
+    # Deliberately not written back to the cache. Re-ranking drops whatever
+    # is no longer playable, and with `cached_only` on that is most of the
+    # list; storing the shorter version would mean a source that became
+    # cached again could not come back until the whole entry expired. The
+    # stored list stays the full one and this correction is redone each time,
+    # which the debrid client's own memo makes cheap.
     kept, _ = scoring.rank_all(sources, meta, _runtime_hours(meta))
     return kept
 

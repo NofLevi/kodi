@@ -356,3 +356,28 @@ def test_invalidating_forgets_one_title_or_all_of_them(twenty_sources):
     aggregator.invalidate()
     aggregator.find(META)
     assert twenty_sources.calls == 3
+
+
+def test_a_correction_is_not_written_back_over_the_full_list(two_sources,
+                                                             registry,
+                                                             settings_module):
+    """Re-ranking drops what is no longer playable, and with cached_only on
+    that can be most of the list. Storing the shorter version would mean a
+    source that became cached again could not come back until the whole entry
+    expired."""
+    from katan import cache
+    from katan.sources import aggregator as agg
+
+    settings_module.set("sources.cached_only", "true")
+    fake = registry({"a" * 40, "b" * 40})
+    assert len(agg.find(META)) == 2, "both were cached when the search ran"
+
+    fake.cached.clear()                       # the service evicted both
+    assert agg.find(META) == [], "nothing is playable right now"
+
+    stored = cache.get(agg.cache_key(META))
+    assert len(stored) == 2, \
+        "the stored list should still hold both, not the filtered version"
+
+    fake.cached = {"a" * 40, "b" * 40}        # and they come back
+    assert len(agg.find(META)) == 2
