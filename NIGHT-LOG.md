@@ -1064,3 +1064,48 @@ milliseconds.
 from in here, so when something does not play, our log is not the log to read.
 
 910 tests, zip 400 KB.
+
+## Are there more scrapers worth having? One, and it is a good one
+
+The question was whether the source list is as wide as it can be. It was
+worth asking, because "four aggregators are enabled" was never true: three of
+the four ship off, so **for films and series there was exactly one scraper
+answering** - Torrentio - and every source the picker has ever shown came
+from it. A single upstream is also a single point of failure, which is what
+an evening spent on a Bleach episode that Torrentio has no copy of looked
+like from the inside.
+
+So every candidate was tried against the live service rather than read about:
+
+    torrentio      63 streams for a film, 0 for the Bleach episode
+    torrentsdb     90 streams for the same film, 50 for a Silo episode
+    comet          403 without a config; with one, a single notice stream
+    mediafusion    200 OK, zero streams
+    zilean         404 on every path, its own healthcheck included
+    stremthru      404
+
+**TorrentsDB is added.** It speaks the same Stremio protocol the adapter
+already handles, needs no configuration, and every stream carries an
+infohash, so the aggregator merges it with Torrentio for free. What it is
+worth, measured after the merge rather than by counting its own results:
+
+    The Matrix    torrentio 211, torrentsdb 90  ->  235 unique
+                  27 torrents nobody else had
+    Silo S01E01   torrentio 171, torrentsdb 50  ->  185 unique
+                  14 torrents nobody else had
+
+It is asked anonymously. Torrentio is sent the debrid key so it can say what
+is already cached; TorrentsDB is not, because the cache question is answered
+in one batch by our own debrid clients anyway and there is no reason to hand
+a second stranger an account token for an answer we do not need from it.
+
+**Comet and MediaFusion stay off, and the reason is not laziness.** Both now
+require a configuration blob minted by their own web UI. Comet's format has
+changed since this add-on was written: a hand-built blob is answered with
+`OBSOLETE CONFIGURATION, PLEASE RE-CONFIGURE`, and without one the service
+answers 403. They can be switched on by anyone who pastes a config from the
+site, and the settings field for it is still there - but shipping them on
+would be shipping a provider that contributes nothing, which is the thing
+this project keeps saying it does not do.
+
+968 tests, zip 416 KB.

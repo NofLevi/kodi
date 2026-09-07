@@ -1447,3 +1447,11 @@ msgstr ""
 msgctxt "#32491"
 msgid "Nothing is ready to stream. %d copies exist but none are on your debrid account yet - start one downloading?"
 msgstr ""
+
+msgctxt "#30148"
+msgid "TorrentsDB"
+msgstr ""
+
+msgctxt "#30149"
+msgid "TorrentsDB address"
+msgstr ""

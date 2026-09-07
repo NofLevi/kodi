@@ -28,9 +28,13 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
 1. **One bounded worker pool.** All parallel work goes through
    `http.run_parallel`, capped at four workers with a wall-clock deadline.
    Never create a thread per provider.
-2. **Server-side aggregators first.** Torrentio, Comet, MediaFusion and Zilean
-   crawl on their own servers. One request returns dozens of parsed results.
-   Local scrapers run only when they are relevant.
+2. **Server-side aggregators first.** Torrentio, TorrentsDB, Comet,
+   MediaFusion and Zilean crawl on their own servers. One request returns
+   dozens of parsed results. Local scrapers run only when they are relevant.
+   Two of them ship on - Torrentio and TorrentsDB, which need no account and
+   no configuration - and between them they find about a quarter more than
+   either does alone. The rest need a config blob from their own web UI, so
+   they are off rather than enabled and silently empty.
 3. **Top-K only.** The picker shows the best eight. Everything else is behind
    "show all".
 4. **One subtitle download, not fifty.** Candidates are scored before anything

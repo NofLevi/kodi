@@ -239,6 +239,10 @@
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="sources.provider.torrentsdb" type="boolean" label="30148">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="sources.provider.comet" type="boolean" label="30019" help="30143">
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
@@ -351,6 +355,13 @@
                     </constraints>
                     <control type="edit" format="string">
                         <heading>30117</heading>
+                    </control>
+                </setting>
+                <setting id="sources.torrentsdb.url" type="string" label="30149">
+                    <default>https://torrentsdb.com</default>
+                    <level>2</level>
+                    <control type="edit" format="string">
+                        <heading>30149</heading>
                     </control>
                 </setting>
                 <setting id="sources.comet.url" type="string" label="30118">
