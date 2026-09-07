@@ -338,6 +338,66 @@ def test_a_settings_change_still_refills_everything(monkeypatch):
 # --------------------------------------------------------------------------
 
 
+def _kiosk(monkeypatch, settings_module, on_kodi_home=True, playing=False):
+    """A service with "stay in Katan" on and Kodi's state under control."""
+    import xbmc
+    from katan import background, kodi
+
+    settings_module.set("ui.stay_in_katan", "true")
+    monkeypatch.setattr(xbmc, "getCondVisibility", lambda condition:
+                        (playing if condition == "Player.HasMedia"
+                         else on_kodi_home))
+    ran = []
+    monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
+    return background.Service(), ran
+
+
+def test_landing_on_kodis_home_screen_brings_katan_back(monkeypatch,
+                                                        settings_module):
+    """"Stay in Katan" only ever held the home window's back button, and that
+    is not where the doors are: almost everything else is a plain Kodi
+    directory, and two presses of back from one lands on Kodi's home."""
+    import time
+    service, ran = _kiosk(monkeypatch, settings_module)
+
+    service.keep_katan_open()
+    assert not ran, "not on the first sighting - Kodi's home flickers"
+
+    service.left_at = time.time() - 10      # it has been there a while
+    service.keep_katan_open()
+    assert ran and "plugin.video.katan" in ran[0]
+
+
+def test_it_does_nothing_when_the_switch_is_off(monkeypatch, settings_module):
+    """Nobody's Kodi is taken over unless they asked for it."""
+    import time
+    service, ran = _kiosk(monkeypatch, settings_module)
+    settings_module.set("ui.stay_in_katan", "false")
+    service.left_at = time.time() - 10
+    service.keep_katan_open()
+    assert not ran
+
+
+def test_it_does_not_interrupt_something_playing(monkeypatch,
+                                                 settings_module):
+    import time
+    service, ran = _kiosk(monkeypatch, settings_module, playing=True)
+    service.left_at = time.time() - 10
+    service.keep_katan_open()
+    assert not ran
+
+
+def test_being_anywhere_else_is_left_alone(monkeypatch, settings_module):
+    """Settings, a VOD folder, the source picker - all fine. Only Kodi's own
+    home screen means "you have left"."""
+    import time
+    service, ran = _kiosk(monkeypatch, settings_module, on_kodi_home=False)
+    service.left_at = time.time() - 10
+    service.keep_katan_open()
+    assert not ran
+    assert service.left_at == 0.0, "the timer resets on the way past"
+
+
 def test_kodi_is_not_taken_over_unless_asked(monkeypatch, settings_module):
     """Off by default. Somebody else's home screen is not ours to claim."""
     from katan import background, kodi

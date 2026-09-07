@@ -44,8 +44,11 @@ MOVE_ACTIONS = (ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT, ACTION_MOVE_UP,
 # this number against the skin and against the largest section.
 ROW_SLOTS = 24
 LIST_BASE = 5000
+# Search is the only thing on the top bar. Tools used to sit beside it, and
+# every entry behind it opened a plain Kodi directory - which is two presses
+# from Kodi's own home screen, and a door out of the interface for somebody
+# who did not mean to open one. It is all in the settings dialog now.
 BUTTON_SEARCH = 9010
-BUTTON_TOOLS = 9011
 
 # The section rail down the left-hand side. The ids run in the same order as
 # catalog.SECTIONS, and an integrity test holds them to that. Settings is the
@@ -391,9 +394,6 @@ class HomeWindow(xbmcgui.WindowXML):
         if control_id == BUTTON_SEARCH:
             self._open_search()
             return
-        if control_id == BUTTON_TOOLS:
-            self._run("tools")
-            return
         if LIST_BASE <= control_id < LIST_BASE + ROW_SLOTS:
             self._open_selected(control_id - LIST_BASE)
 
@@ -686,11 +686,6 @@ class HomeWindow(xbmcgui.WindowXML):
             self._cleanup()
             self.close()
             kodi.activate_window(router.url_for("search_query", q=query))
-
-    def _run(self, action, **params):
-        self._cleanup()
-        self.close()
-        kodi.activate_window(router.url_for(action, **params))
 
     def _cleanup(self):
         for index in range(ROW_SLOTS):

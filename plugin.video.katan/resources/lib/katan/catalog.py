@@ -124,10 +124,10 @@ DEFAULT_SECTION = MOVIES
 SECTION_ORDER = {
     MOVIES: [
         "continue", "because_you_watched",
-        "trending_movies", "movies_new", "in_cinemas", "movies_popular",
-        "popular_week_movies", "top_rated_movies", "movies_classics",
-        "movies_gems", "movies_blockbusters", "israeli_movies",
-        "coming_soon", "movies_nineties", "movies_eighties",
+        "trending_movies", "movies_new", "movies_popular",
+        "top_rated_movies", "movies_classics", "movies_gems",
+        "movies_blockbusters", "israeli_movies", "coming_soon",
+        "movies_nineties", "movies_eighties",
         "movies_action", "movies_comedy", "movies_drama", "movies_thriller",
         "movies_scifi", "movies_horror", "movies_animation",
         "movies_documentary",
@@ -135,8 +135,8 @@ SECTION_ORDER = {
     SHOWS: [
         "continue", "because_you_watched",
         "trending_shows", "shows_new", "airing_today", "shows_popular",
-        "popular_week_shows", "top_rated_shows", "shows_classics",
-        "shows_gems", "returning", "israeli_shows", "anime_trending",
+        "top_rated_shows", "shows_classics", "shows_gems", "returning",
+        "israeli_shows", "anime_trending",
         "shows_drama", "shows_comedy", "shows_crime", "shows_scifi",
         "shows_documentary", "shows_reality",
     ],
@@ -202,12 +202,28 @@ VOTES_GEM_MAX = 900         # ...and not already famous
 CLASSIC_BEFORE = "1996-01-01"
 
 
+# How long after release a film is likely to exist as something other than a
+# camera recording. Not a guess: the picker's own log for a film still in
+# cinemas read "64 found, 8 kept, dropped 40 cam release" - two thirds of
+# everything on offer was somebody's phone pointed at a screen. A "new films"
+# row full of titles whose only sources are cams is worse than no row.
+DIGITAL_WINDOW_DAYS = 45
+
+
 def _newest(media_type, page):
-    """Released recently, and seen by enough people to not be noise."""
+    """Recently out, and out for long enough to be worth opening.
+
+    For film this deliberately excludes what is still in cinemas. That is also
+    what stops it being a copy of the "in cinemas" row, which is the other
+    half of the same complaint: sorting every film by release date and
+    sorting the ones currently in cinemas gives two rows of the same titles.
+    """
     field = _DATE_FIELD[media_type]
+    newest_allowed = _days_ago(DIGITAL_WINDOW_DAYS
+                               if media_type == "movie" else 0)
     return _tmdb().discover(
         media_type, page=page, sort_by="%s.desc" % field,
-        **{"%s.lte" % field: _today(), "vote_count.gte": 20})
+        **{"%s.lte" % field: newest_allowed, "vote_count.gte": 20})
 
 
 def _popular(media_type, page):
@@ -248,6 +264,12 @@ def _decade(media_type, first_year, page):
 def _today():
     import time
     return time.strftime("%Y-%m-%d")
+
+
+def _days_ago(days):
+    import time
+    return time.strftime("%Y-%m-%d", time.localtime(time.time()
+                                                    - days * 86400))
 
 TTL_SHORT = 3 * 3600
 TTL_MEDIUM = 6 * 3600
@@ -335,16 +357,23 @@ def _build_rows():
              lambda page: _tmdb().by_original_language("he", "tv", page),
              TTL_LONG, sections=(HOME, SHOWS)),
 
+        # "Trending this week" and "Popular" are the same films in a slightly
+        # different order, and having both on one tab reads as a mistake -
+        # which is what it was. They stay on the mixed home view, where the
+        # tab's own "popular" row is not next to them.
         _row("popular_week_movies", S["popular_week_movies"],
              lambda page: _tmdb().trending("movie", "week", page), TTL_MEDIUM,
-             sections=(HOME, MOVIES)),
+             sections=(HOME,)),
         _row("popular_week_shows", S["popular_week_shows"],
              lambda page: _tmdb().trending("tv", "week", page), TTL_MEDIUM,
-             sections=(HOME, SHOWS)),
+             sections=(HOME,)),
 
+        # Home only. On the Films tab it sat beside "new releases" showing
+        # much the same titles, and it is the row most likely to lead to a
+        # film whose only sources are camera recordings.
         _row("in_cinemas", S["in_cinemas"],
              lambda page: _tmdb().now_playing(page), TTL_LONG,
-             sections=(HOME, MOVIES)),
+             sections=(HOME,)),
         _row("coming_soon", S["coming_soon"],
              lambda page: _tmdb().upcoming(page), TTL_LONG, default=False,
              sections=(MOVIES,)),
@@ -656,11 +685,18 @@ def enabled_rows(section=HOME):
 # --------------------------------------------------------------------------
 
 def row_limit():
-    """How many items to keep per row.
+    """How many items a row starts with.
 
     Fewer items means fewer list entries and fewer artwork requests, which is
-    what a small device notices. More than about twenty never gets scrolled to
-    anyway.
+    what a small device notices, so a row nobody scrolls stays small.
+
+    **The first page only.** This used to trim every page, which was right
+    when a row was one fixed list and wrong the moment rows began to grow:
+    TMDB sends twenty items and the lean profile kept twelve, so eight were
+    thrown away and the next page had to be fetched forty per cent sooner
+    than it needed to be. Holding a few more items costs almost nothing -
+    Kodi decodes artwork for the handful actually on screen, not for the
+    list - and the round trip it saves is the thing the viewer feels.
     """
     return max(6, settings.get_int("ui.row_items", 20))
 
@@ -728,7 +764,9 @@ def load(row_id, refresh=False, page=1):
     except Exception:
         kodi.log_exception("row %s page %d failed to load" % (row_id, page))
         return cache.get(key) or []
-    result = items.dedupe(result)[:row_limit()]
+    result = items.dedupe(result)
+    if page == 1:
+        result = result[:row_limit()]
     if result:
         cache.set(key, result, row["ttl"])
     else:

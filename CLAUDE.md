@@ -1,4 +1,4 @@
-﻿# Katan
+# Katan
 
 A lightweight Netflix-style Kodi 21 add-on, built for weak hardware
 (BYINTEK LOVE U4 projector, Mi Box), with Hebrew and English throughout.

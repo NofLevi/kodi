@@ -1,4 +1,4 @@
-﻿"""The custom home and search windows.
+"""The custom home and search windows.
 
 These are the main interface, so an error in them is a black screen. The stub
 WindowXML records controls and properties, which is enough to check that rows
