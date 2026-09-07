@@ -131,20 +131,7 @@ class HomeWindow(xbmcgui.WindowXML):
             return
         self.setProperty("katan.section", self.section)
         self._label_rail()
-        for index in range(len(self.rows)):
-            self._set_title(index, catalog.row_title(self.rows[index]))
-
-        # Preload until three rows actually have something in them rather than
-        # the first three in the list. A row that is enabled but empty - a
-        # Trakt chart with no account, an anime row the service has not warmed -
-        # would otherwise use up every visible slot.
-        filled = 0
-        for index in range(len(self.rows)):
-            if filled >= PRELOAD_ROWS:
-                break
-            self._fill(index)
-            if self.data.get(index):
-                filled += 1
+        self._lay_out_rows()
 
         self._focus_first_row()
         # Seed the hero from the first item rather than waiting for a focus
@@ -171,6 +158,28 @@ class HomeWindow(xbmcgui.WindowXML):
         for index in range(len(self.rows)):
             self._set_title(index, catalog.row_title(self.rows[index]))
         return bool(self.rows)
+
+    def _lay_out_rows(self):
+        """Title every row, then fill until three of them have something in.
+
+        Preloading the *first* three would spend every visible slot on rows
+        that are enabled but empty - a Trakt chart with no account, an anime
+        row the service has not warmed - so it counts the ones that actually
+        came back with items.
+
+        Both the first paint and a change of tab do exactly this, and did it
+        in two copies.
+        """
+        for index in range(len(self.rows)):
+            self._set_title(index, catalog.row_title(self.rows[index]))
+
+        filled = 0
+        for index in range(len(self.rows)):
+            if filled >= PRELOAD_ROWS:
+                break
+            self._fill(index)
+            if self.data.get(index):
+                filled += 1
 
     def _focus_first_row(self):
         """Focus the first row that actually has something in it.
@@ -393,16 +402,7 @@ class HomeWindow(xbmcgui.WindowXML):
         self.barren.clear()
 
         self.rows = _pick_rows(section)
-        for index in range(len(self.rows)):
-            self._set_title(index, catalog.row_title(self.rows[index]))
-
-        filled = 0
-        for index in range(len(self.rows)):
-            if filled >= PRELOAD_ROWS:
-                break
-            self._fill(index)
-            if self.data.get(index):
-                filled += 1
+        self._lay_out_rows()
 
         if not self._focus_first_row():
             # Nothing in this section yet. Leave focus on the rail rather than

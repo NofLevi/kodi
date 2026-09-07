@@ -7,7 +7,7 @@ releases before watching something.
 """
 import xbmcgui
 
-from .. import kodi, settings
+from .. import kodi
 from ..utils import release
 
 ACTION_PREVIOUS_MENU = 10

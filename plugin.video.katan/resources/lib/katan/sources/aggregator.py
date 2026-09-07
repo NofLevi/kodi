@@ -17,7 +17,6 @@ next-episode prefetch costs nothing when the user gets there.
 import time
 
 from .. import cache, http, kodi, settings
-from ..meta import items as meta_items
 from . import model, scoring
 
 TTL_RESULTS = 20 * 60          # a source list stays useful for a short while

@@ -13,19 +13,16 @@ Connections are reused per host, which is the one genuinely useful thing
 requests gives that plain urlopen does not.
 """
 import gzip
-import io
 import json as jsonlib
 import os
 import ssl
 import threading
 import zlib
 
-try:
-    from urllib.parse import urlencode, urlsplit
-    from urllib.request import Request, build_opener, HTTPSHandler, HTTPRedirectHandler
-    from urllib.error import HTTPError, URLError
-except ImportError:      # pragma: no cover
-    raise
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import (HTTPRedirectHandler, HTTPSHandler, Request,
+                            build_opener)
 
 _lock = threading.Lock()
 _context = [None]

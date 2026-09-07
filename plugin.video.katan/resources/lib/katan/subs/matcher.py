@@ -52,12 +52,25 @@ PENALTY_WRONG_EPISODE = -100
 
 
 def score_candidate(candidate, target, video_hash=""):
-    """Score one candidate in roughly 0..100."""
+    """Score one candidate in roughly 0..100, writing the answer onto it."""
+    score, reason = rate(candidate, target, video_hash)
+    candidate["score"] = score
+    candidate["reason"] = reason
+    return score
+
+
+def rate(candidate, target, video_hash=""):
+    """The same judgement as a (score, reason) pair, touching nothing.
+
+    Split out because the source picker weighs *every* subtitle against
+    *every* release - 240 sources against 32 candidates on a real search -
+    and the only reason it was copying a dictionary 7,680 times was to keep
+    `score_candidate` from writing its answer into a candidate that the next
+    source would reuse. A function that returns its answer needs no copy.
+    """
     if candidate.get("hash_match") or (
             video_hash and candidate.get("moviehash") == video_hash):
-        candidate["score"] = 100
-        candidate["reason"] = "hash"
-        return 100
+        return 100, "hash"
 
     name = candidate.get("release") or candidate.get("name") or ""
     parsed = release.parse(name)
@@ -66,9 +79,7 @@ def score_candidate(candidate, target, video_hash=""):
 
     if name and target.get("release"):
         if _same_name(name, target["release"]):
-            candidate["score"] = 100
-            candidate["reason"] = "identical release name"
-            return 100
+            return 100, "identical release name"
 
     if parsed["group"] and parsed["group"] == target.get("group"):
         total += WEIGHT_GROUP
@@ -114,10 +125,7 @@ def score_candidate(candidate, target, video_hash=""):
         # Popularity is weak evidence, worth a nudge and no more.
         total += min(6, int(candidate["downloads"]) // 500)
 
-    total = max(0, min(100, total))
-    candidate["score"] = total
-    candidate["reason"] = ", ".join(reasons) or "title only"
-    return total
+    return max(0, min(100, total)), ", ".join(reasons) or "title only"
 
 
 def explain(candidate):

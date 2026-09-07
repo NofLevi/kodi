@@ -58,7 +58,7 @@ def episodes(ref, mode=""):
 
 
 def _episode_item(link, inner_html):
-    title = _text(inner_html) or link.rstrip("/").rsplit("/", 1)[-1]
+    title = page.plain_text(inner_html) or link.rstrip("/").rsplit("/", 1)[-1]
     image = _IMAGE.search(inner_html)
     return items.new_item(
         "vod",
@@ -75,7 +75,7 @@ def _direct_item(url, html):
     title = ""
     match = re.search(r"<title>(.*?)</title>", html, re.S | re.I)
     if match:
-        title = _text(match.group(1))
+        title = page.plain_text(match.group(1))
     return items.new_item(
         "vod",
         ids={"vod": url},
@@ -83,13 +83,6 @@ def _direct_item(url, html):
         extra={"url": router.url_for("play_vod", module="kan", ref=url),
                "module": "kan", "ref": url},
     )
-
-
-def _text(html):
-    """Strip tags and collapse whitespace out of a link body."""
-    text = re.sub(r"<[^>]+>", " ", html or "")
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()[:120]
 
 
 def stream(ref, mode=""):

@@ -8,6 +8,7 @@ Two very different features depend on this one parser:
 
 It is pure string work with no Kodi imports, so it is cheap and easy to test.
 """
+import functools
 import re
 
 RESOLUTIONS = [
@@ -76,25 +77,6 @@ _TRAILING_BRACKET = re.compile(r"(?:\s*[\[(][^\[\]()]{1,30}[\])])+$")
 _SITE_BRACKET = re.compile(r"\.|www|torrent|\.com|\.net|\.org", re.I)
 
 
-def _is_a_site(text):
-    return bool(_SITE_BRACKET.search(text or ""))
-
-
-def strip_site_tags(name):
-    """Take the torrent site's stamp off a file name, leaving the release.
-
-    A site brands what it re-hosts - "[ OxTorrent.com ] Les evades (1994) -
-    1080p ..." is the same file as "Les evades (1994) - 1080p ...", and both
-    were sitting in the picker. Only a leading bracket that looks like a
-    domain is removed, so an anime group in the same position survives.
-    """
-    stem = str(name or "").strip()
-    while True:
-        bracket = _GROUP_BRACKET.match(stem)
-        if not bracket or not _is_a_site(bracket.group(1)):
-            break
-        stem = stem[bracket.end():].strip()
-    return _TRAILING_BRACKET.sub("", stem).strip()
 _GROUP_DOT_TAIL = re.compile(r"\.([A-Za-z][A-Za-z0-9]{1,19})$")
 
 # Everything a dot-separated tail could be other than a release group. The
@@ -148,20 +130,53 @@ _NAMED_EPISODE = re.compile(r"\bep(?:isode)?\s*(\d{1,4})\b", re.I)
 _EPISODE_RANGE = re.compile(r"\b(\d{1,4})\s*-\s*(\d{1,4})\b")
 
 
-def _is_a_year(number):
-    return 1900 <= number <= 2099
 _YEAR = re.compile(r"\b(19\d{2}|20\d{2})\b")
 _PROPER = re.compile(r"\b(proper|repack|rerip|fixed)\b", re.I)
 _3D = re.compile(r"\b(3d|sbs|hsbs|half-?ou)\b", re.I)
 
 
-def normalise(name):
-    """Lower-case a release name and flatten its separators to spaces."""
-    if not name:
-        return ""
-    text = _JUNK.sub(" ", str(name))
+@functools.lru_cache(maxsize=1024)
+def _normalised(name):
+    text = _JUNK.sub(" ", name)
     text = re.sub(r"\s+", " ", text)
     return text.strip().lower()
+
+
+def _is_a_site(text):
+    return bool(_SITE_BRACKET.search(text or ""))
+
+
+def strip_site_tags(name):
+    """Take the torrent site's stamp off a file name, leaving the release.
+
+    A site brands what it re-hosts - "[ OxTorrent.com ] Les evades (1994) -
+    1080p ..." is the same file as "Les evades (1994) - 1080p ...", and both
+    were sitting in the picker. Only a leading bracket that looks like a
+    domain is removed, so an anime group in the same position survives.
+    """
+    stem = str(name or "").strip()
+    while True:
+        bracket = _GROUP_BRACKET.match(stem)
+        if not bracket or not _is_a_site(bracket.group(1)):
+            break
+        stem = stem[bracket.end():].strip()
+    return _TRAILING_BRACKET.sub("", stem).strip()
+
+
+def _is_a_year(number):
+    return 1900 <= number <= 2099
+
+
+def normalise(name):
+    """Lower-case a release name and flatten its separators to spaces.
+
+    Memoised for the same reason `parse` is, and it turned out to matter
+    more: comparing one subtitle against one release normalises *both* names,
+    and the picker does that for every subtitle against every release. On a
+    search with 240 sources and 32 Hebrew subtitles that is 7,680 pairs and
+    15,360 normalisations of 272 distinct strings.
+    """
+    return _normalised(str(name)) if name else ""
 
 
 def _first_match(text, table, default=""):
@@ -172,8 +187,31 @@ def _first_match(text, table, default=""):
 
 
 def parse(name, size=0):
-    """Break a release name into the fields ranking and matching need."""
-    raw = str(name or "")
+    """Break a release name into the fields ranking and matching need.
+
+    Memoised, because the same names are parsed over and over and parsing is
+    two dozen regular expressions. Measured on a search returning 240 sources
+    with 32 Hebrew subtitles to weigh against them: the subtitle outlook
+    alone asked for **8,160 parses of 272 distinct names**, because it scores
+    every candidate against every source and each scoring parsed the
+    candidate's name again. Ranking added three more per source - the
+    rejection check, the source-type weight and the proper check each parsed
+    the same title independently.
+
+    A copy is handed out rather than the cached dictionary itself. Nothing
+    writes into a parse result today, and this is what keeps that true
+    cheaply: the copy costs well under a microsecond against sixty-odd for
+    the parse.
+
+    512 entries is comfortably more than one search needs and about a third
+    of a megabyte, which on the device this is written for is worth spending
+    once rather than paying for in regular expressions every time.
+    """
+    return dict(_parse(str(name or ""), size))
+
+
+@functools.lru_cache(maxsize=512)
+def _parse(raw, size=0):
     text = normalise(raw)
 
     hdr = [flag for flag, pattern in HDR_PATTERNS.items()
@@ -229,6 +267,7 @@ _TRAILING_TAG = re.compile(
                                + _VIDEO_EXTENSIONS), re.I)
 
 
+@functools.lru_cache(maxsize=1024)
 def strip_subtitle_tags(name):
     """Take the decoration off a subtitle file name, leaving the release.
 

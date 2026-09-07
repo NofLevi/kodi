@@ -193,7 +193,6 @@ class TorBox(base.DebridService):
         Uncached creates are capped at 60 an hour, and a source search can
         easily consider more than that, so the flag is what protects the quota.
         """
-        from . import registry
         from ..sources import model
 
         magnet = model.magnet_for(source)

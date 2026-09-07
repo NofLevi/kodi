@@ -1617,3 +1617,107 @@ Nothing to install; both are one command.
 
 For the statement counts, the tokenizer counts NEWLINE tokens per file - which
 is the measure above, and the one worth quoting after a refactor.
+
+## The refactor: 92% faster, and almost exactly the same amount of code
+
+Asked to make the code faster and smaller. It got **twelve times faster** and
+**twenty statements smaller**, and the gap between those two numbers is the
+interesting part of this entry.
+
+### Speed
+
+`tools/bench.py` times the paths somebody waits on. Best of seven runs, before
+and after, on the same machine:
+
+                                       before      after    change
+    ------------------------------------------------------------------
+    outlook.annotate, 240x32           702.71      16.95      -98%
+    scoring.rank_all, 240 sources       45.88       0.99      -98%
+    release.parse, 400 names            25.93       0.00     -100%
+    matcher.rank, 256 candidates        20.94       0.00     -100%
+    model.dedupe, 480 sources            2.99       0.97      -68%
+    srt parse+clean, 1400 cues           7.98       7.98        0%
+    sync.synchronise, 1400 cues         36.41      36.93        1%
+    cache set+get, 40 rows               5.99       4.99      -17%
+    ------------------------------------------------------------------
+    total                              848.83      68.81      -92%
+
+**One function was 83% of the total.** `outlook.annotate` weighs every Hebrew
+subtitle against every release so the picker can show an accuracy per row -
+240 sources against 32 candidates is 7,680 pairs - and every pair re-derived
+what it needed from the names each time. Counted: **8,160 parses of 272
+distinct names**, and 15,360 normalisations of the same strings, because
+comparing two release names normalises both.
+
+The fix is three `functools.lru_cache` decorators on `release.parse`,
+`normalise` and `strip_subtitle_tags`. They are pure functions of a string,
+which is exactly what a memo is for.
+
+Ranking benefited without being touched: `rejection_reason`, the source-type
+weight and the proper check each parsed the same title independently, so every
+source was parsed four times over. 46 ms to 1 ms.
+
+### Two measurements that corrected a guess
+
+`parse` hands out a copy of the cached dictionary so a caller cannot poison
+it. That copy looked like the obvious next cost - 7,680 of them - and
+measuring put it at **2 ms of the 164**. The real remaining cost was
+`_same_name`, which normalises both names with regular expressions. Caching
+that took the case from 164 ms to 17 ms. Had the copy been removed on the
+strength of the guess, the result would have been a more fragile cache and no
+speed.
+
+The other correction: `score_candidate` wrote its answer onto the candidate,
+so the picker copied every candidate before scoring it, purely to stop one
+source's answer leaking into the next. That is now a pure `rate()` returning
+`(score, reason)` and `score_candidate` writes what it returns - less code and
+no copies. Worth about 4 ms, which is to say: not the problem either. Kept
+because a function that returns its answer is better than one that does not.
+
+### Size, honestly
+
+    add-on statements   10317  ->  10297     -20
+    add-on lines        19246  ->  19273     +27
+
+**The code did not get smaller, and the honest reason is that it was already
+small.** A token-level duplicate detector over all 92 modules - names,
+comments and layout ignored - found exactly **one** repeated block, and
+`test_addon_integrity` already fails the build on a public function nothing
+calls, so the usual harvest of dead API was gone before this started.
+
+What was actually cut:
+
+* three copies of "strip tags and collapse whitespace" in three broadcaster
+  extractors, now one `page.plain_text`
+* one twelve-line block duplicated between the first paint and a change of
+  tab, now `_lay_out_rows`
+* ten imports nothing used
+* a `try: import ... except ImportError: raise`, which is not error handling
+
+And the lines went *up* by 27 because the memoisation is explained where it
+sits - the counts, the measurement that corrected the guess, and why 512
+entries. That is the trade this project keeps making on purpose, and the
+baseline entry above says why: deleting prose is not the same as removing
+complexity.
+
+The four debrid clients look like duplication and are not - four different
+APIs behind one interface, with the shared part already in `base.py`. Two
+copies of a five-line `_int` were left alone as well: an import across
+packages costs more than the five lines it saves.
+
+### What was verified
+
+    1075 tests            all passing, unchanged
+    tools/build.py        zip 431 KB against the 600 KB budget
+    secret scan           clean
+    tools/drive_kodi.py   9 paths opened, 0 failed, 0 python errors
+    real Kodi             the Silo picker renders the same six releases in the
+                          same order with the same percentages as before
+
+The two failing checks in `drive_kodi` are the same two as always - this
+desktop reports no hardware HEVC decode and the portable build has no
+InputStream Adaptive.
+
+One thing the run showed that is not ours: TorrentsDB answered **HTTP 429** and
+was retried, so only Torrentio contributed to that search. Worth knowing that
+the second scraper rate-limits under repeated probing.

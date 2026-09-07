@@ -107,3 +107,6 @@ survey.jsonl
 .survey/
 .survey2/
 .survey-pilot.jsonl
+
+# benchmark baselines
+.bench-*.json
