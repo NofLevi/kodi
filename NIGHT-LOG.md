@@ -98,6 +98,7 @@ marked confirmed on the strength of a passing unit test alone.
 | Visual-polish switch | Tests plus the wizard step | **Confirmed.** Raises to w342/20 (~22 MB), never lowers a richer profile. |
 | Every route opens | `drive_kodi.py`, 9 paths | **Confirmed.** 0 failed, 0 Python errors. Home 126 ms, search 128 ms. |
 | A brand new install | Kodi run against a cleared add-on profile | **Confirmed, after a fix.** Setup, live TV, VOD and tools — 43 channels and 7 broadcasters that need no key. It used to show setup and nothing else. Zero window problems, no credentials written. |
+| The setup wizard | Driven end to end from that fresh profile | **Confirmed.** Six Hebrew steps; choosing TMDB shows where to get a key, the keyboard takes it, it is stored correctly, and the home screen fills with twelve rows immediately after. |
 | Subtitles — the automatic path | A real playback of a real film | **Confirmed.** A Hebrew subtitle was found, downloaded and applied; the player reports it as a `heb` track. File hash computed in 1.9s. |
 | Subtitles — the manual chooser | Opened on that playback | **Confirmed, after a fix.** 33 subtitles, the applied track first at "100% מובנה" with Kodi's SYNC badge, then honest estimates. **It had never once been reachable** — see 09:40. |
 | Subtitles — sync and translation | 57 tests against fixtures | **Confirmed by test only.** Translation needs a Gemini key. |
