@@ -190,7 +190,38 @@ def movie(tmdb_id):
         _attach_credits(item, payload)
         item["mpaa"] = _movie_certification(payload)
         item["extra"]["trailer"] = _trailer(payload)
+        item["extra"]["anime"] = is_anime(payload)
     return item
+
+
+# TMDB's genre id for animation, and what makes animation *anime*: made in
+# Japan. Matching on the genre name would work in English and nowhere else -
+# TMDB returns genre names in the requested language, so a Hebrew interface
+# sees "אנימציה" and an id-based test sees the same 16 everywhere.
+GENRE_ANIMATION = 16
+
+
+def is_anime(payload):
+    """Is this TMDB payload an anime?
+
+    This decides whether the anime source providers are asked at all, and
+    they were never being asked: the only signals `_is_anime` had were an
+    AniList or Kitsu id, and nothing that comes from TMDB carries either. So
+    a series browsed from any TMDB row - which is every row that works,
+    AniList having been down for months - could not reach nyaa, AnimeTosho
+    or SeaDex. Bleach episode 46 found nothing, and nyaa had forty-four
+    copies of it.
+    """
+    if not payload:
+        return False
+    genres = payload.get("genres") or []
+    ids = {genre.get("id") for genre in genres if isinstance(genre, dict)}
+    ids.update(payload.get("genre_ids") or [])
+    if GENRE_ANIMATION not in ids:
+        return False
+    if (payload.get("original_language") or "") == "ja":
+        return True
+    return "JP" in (payload.get("origin_country") or [])
 
 
 def show(tmdb_id):
@@ -205,6 +236,7 @@ def show(tmdb_id):
             s.get("season_number") for s in payload.get("seasons") or []
             if s.get("season_number") is not None
         ]
+        item["extra"]["anime"] = is_anime(payload)
     return item
 
 

@@ -119,7 +119,39 @@ def _ranked(meta, prefetch=False, force=False):
                 _rejection_summary(rejected)))
     _remember_filtering(meta, len(merged), rejected)
 
+    # Everything that was found, before the filters had their say. It is kept
+    # so that "nothing survived" can be answered with something better than
+    # "nothing found" - see `uncached`, below - without searching again.
+    cache.set(unfiltered_key(meta), merged, TTL_RESULTS if merged else TTL_EMPTY)
     cache.set(key, kept, TTL_RESULTS if kept else TTL_EMPTY)
+    return kept
+
+
+def unfiltered_key(meta):
+    return cache_key(meta) + "|raw"
+
+
+def uncached(meta):
+    """What there would be if "cached only" were off, ranked as usual.
+
+    For a film that has been out a while this is empty or close to it -
+    everything worth having is in somebody's debrid cache. For an episode
+    that aired last week it is the whole answer: forty-four copies of a
+    Bleach episode existed, every one of them found, and not one of them was
+    on the account yet. Saying "no sources" to that is untrue and unhelpful.
+    """
+    found = cache.get(unfiltered_key(meta))
+    if not found:
+        return []
+    prefs = scoring.Preferences()
+    prefs.cached_only = False
+    kept = []
+    for source in found:
+        if scoring.rejection_reason(source, prefs, _runtime_hours(meta)):
+            continue
+        source["score"] = scoring.score(source, prefs, _runtime_hours(meta))
+        kept.append(source)
+    kept.sort(key=lambda s: scoring.sort_key(s, prefs))
     return kept
 
 

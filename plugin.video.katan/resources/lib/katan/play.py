@@ -29,6 +29,7 @@ def build_meta(request):
     if item_type == "movie":
         detail = tmdb.movie(tmdb_id) if tmdb_id else None
         if detail:
+            meta["extra"] = {"anime": (detail.get("extra") or {}).get("anime")}
             meta["ids"] = detail["ids"]
             meta["title"] = detail["title"]
             meta["original_title"] = detail.get("original_title", "")
@@ -38,6 +39,11 @@ def build_meta(request):
     else:
         show = tmdb.show(tmdb_id) if tmdb_id else None
         if show:
+            # An episode's own item says nothing about the series it belongs
+            # to, and being anime is a property of the series. Without this
+            # the source search could not tell that an episode of Bleach was
+            # anime, and never asked the providers that had it.
+            meta["extra"] = {"anime": (show.get("extra") or {}).get("anime")}
             meta["ids"] = show["ids"]
             meta["title"] = show["title"]
             meta["original_title"] = show.get("original_title", "")
@@ -95,9 +101,11 @@ def play(handle, request, force_picker=False):
         # log can tell them apart, because a cached answer logs no search.
         kodi.log("no sources for %s (%s)"
                  % (meta.get("title", ""), _describe(meta)), kodi.LOG_INFO)
-        kodi.notify(kodi.localize(32283))
-        listing.resolve_failed(handle)
-        return
+        sources = _offer_uncached(meta)
+        if not sources:
+            kodi.notify(kodi.localize(32283))
+            listing.resolve_failed(handle)
+            return
 
     chosen = _choose(sources, meta, force_picker)
     if not chosen:
@@ -170,6 +178,38 @@ def play(handle, request, force_picker=False):
 # the small number stands.
 RESOLVE_ATTEMPTS = 3
 RESOLVE_ATTEMPTS_CACHED = 6
+
+
+def _offer_uncached(meta):
+    """Nothing is ready to stream - but is anything there at all?
+
+    "Cached only" is the right default: on a weak box, waiting for a
+    download is the difference between watching something and giving up. It
+    is the wrong answer for an episode that aired last week, where nothing
+    is cached yet and the honest report is not "no sources found" but "these
+    exist, none of them are ready, do you want to wait?".
+
+    Asking is the whole point. Starting a download unasked would spend one
+    of TorBox's sixty an hour on something nobody chose.
+    """
+    from .sources import aggregator
+
+    try:
+        waiting = aggregator.uncached(meta)
+    except Exception:
+        kodi.log_exception("could not look for uncached sources")
+        return []
+    if not waiting:
+        return []
+
+    kodi.log("nothing cached, but %d sources exist" % len(waiting),
+             kodi.LOG_INFO)
+    if not kodi.yes_no(kodi.localize(32491, len(waiting)),
+                       kodi.localize(32283)):
+        return []
+    # For this playback only, and only because it was asked for.
+    settings.set("sources.cached_only", "false")
+    return waiting
 
 
 def _describe(meta):

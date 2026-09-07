@@ -381,3 +381,68 @@ def test_a_correction_is_not_written_back_over_the_full_list(two_sources,
 
     fake.cached = {"a" * 40, "b" * 40}        # and they come back
     assert len(agg.find(META)) == 2
+
+
+# --------------------------------------------------------------------------
+# when nothing is cached, but plenty exists
+# --------------------------------------------------------------------------
+
+
+def test_uncached_sources_are_still_there_when_nothing_is_cached(
+        settings_module, monkeypatch):
+    """"Cached only" is right for a film and wrong for last week's episode.
+
+    Forty-four copies of one Bleach episode were found, every one of them
+    real, and not one was on the debrid account yet - so the viewer was told
+    "no sources found", which was untrue.
+    """
+    from katan.sources import aggregator
+
+    settings_module.set_many({"sources.cached_only": "true",
+                              "sources.min_resolution": "720p",
+                              "sources.max_size_gb": "80"})
+    meta = {"type": "episode", "title": "Bleach", "season": 2, "episode": 46,
+            "ids": {"imdb": "tt0434665"}}
+
+    fresh = [
+        {"title": "Bleach.S02E46.1080p.WEB-DL-A", "hash": "a" * 40,
+         "quality": "1080p", "size": 1024 ** 3, "cached": False,
+         "seeders": 30, "languages": [], "hdr": [], "codec": "h264"},
+        {"title": "Bleach.S02E46.720p.WEB-DL-B", "hash": "b" * 40,
+         "quality": "720p", "size": 700 * 1024 ** 2, "cached": False,
+         "seeders": 12, "languages": [], "hdr": [], "codec": "h264"},
+    ]
+    from katan import cache
+    cache.set(aggregator.unfiltered_key(meta), fresh, 600)
+
+    waiting = aggregator.uncached(meta)
+    assert len(waiting) == 2, "both exist; neither is ready"
+    assert waiting[0]["quality"] == "1080p", "still ranked properly"
+
+
+def test_nothing_at_all_is_still_nothing(settings_module):
+    """The fallback must not invent sources that were never found."""
+    from katan.sources import aggregator
+
+    meta = {"type": "movie", "title": "A Film", "ids": {"imdb": "tt1"}}
+    assert aggregator.uncached(meta) == []
+
+
+def test_the_fallback_still_honours_every_other_filter(settings_module):
+    """Only "not cached" is set aside. A cam is still a cam."""
+    from katan import cache
+    from katan.sources import aggregator
+
+    settings_module.set_many({"sources.cached_only": "true",
+                              "sources.allow_cam": "false",
+                              "sources.min_resolution": "720p",
+                              "sources.max_size_gb": "80"})
+    meta = {"type": "movie", "title": "A Film", "ids": {"imdb": "tt2"}}
+    cache.set(aggregator.unfiltered_key(meta), [
+        {"title": "A.Film.2026.1080p.CAM.x264-RIP", "hash": "c" * 40,
+         "quality": "1080p", "size": 1024 ** 3, "cached": False,
+         "seeders": 5, "languages": [], "hdr": [], "codec": "h264"},
+    ], 600)
+
+    assert aggregator.uncached(meta) == [], \
+        "a camera recording is not rescued by nothing being cached"

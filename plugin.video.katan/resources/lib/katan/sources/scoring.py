@@ -91,12 +91,16 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
         return "HDR is switched off"
 
     rank = settings.resolution_rank(source.get("quality"))
-    if rank < 0:
-        rank = 0
-    if prefs.max_rank >= 0 and rank > prefs.max_rank:
-        return "above the resolution limit"
-    if prefs.min_rank >= 0 and rank < prefs.min_rank:
-        return "below the resolution limit"
+    # An unknown resolution is judged by neither limit. Treating it as the
+    # bottom of the ladder meant every release whose name does not mention
+    # its resolution was refused for being too low, which is a decision made
+    # on no evidence at all - and it hit anime hardest, where the convention
+    # is not to put it in the name.
+    if rank >= 0:
+        if prefs.max_rank >= 0 and rank > prefs.max_rank:
+            return "above the resolution limit"
+        if prefs.min_rank >= 0 and rank < prefs.min_rank:
+            return "below the resolution limit"
 
     size = source.get("size") or 0
     if prefs.max_size and size > prefs.max_size:
