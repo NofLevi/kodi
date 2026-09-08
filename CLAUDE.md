@@ -188,13 +188,21 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   original, six specials and several unrelated shows. And the cours have to
   add up to what TMDB says the season holds, or no address is offered.
 
-  It is asked **as well as**, not instead of. Making it conditional on the
-  first search failing looked cheaper and was wrong: Bleach 2x47 came back
-  with one wrongly matched result from a name index, and that single result
-  was enough to stop the address that actually had the episode being tried.
-  The two name-keyed providers are left out of the second question, because a
-  cour-relative number means nothing as text to an index whose releases are
-  numbered absolutely.
+  For a named arc the id-keyed providers are asked at the Kitsu address
+  **instead of** TMDB's, not as well as. TMDB's is not sometimes-empty there,
+  it is the wrong address - measured, it contributed nothing on either Bleach
+  2x46 or 2x47 - and asking anyway is half again as many requests through a
+  four-worker cap, every one of which the viewer waits through: **4217 ms
+  against 1043 ms for the same three sources**. The two name-keyed providers
+  still get the show's own name and absolute number, which is what they can
+  answer. The plain shape - one TMDB season to one broadcast run - is asked
+  only when the first question found nothing, because there TMDB's address
+  usually works: KonoSuba S03E05 returns the same 39 sources either way.
+
+  The arc address is not conditional on the first search failing, though. That
+  looked cheaper and was wrong: Bleach 2x47 came back with one wrongly matched
+  result from a name index, and that single result was enough to stop the
+  address that actually had the episode being tried.
 * `meta/seadex.py` is the exception to ranking by numbers. For anime the
   release group *is* the quality, and SeaDex publishes which group won. It
   returns infohashes, the aggregator already merges by infohash, so a
@@ -258,7 +266,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1237 tests, all running against Kodi stubs, so no Kodi install is needed:
+1264 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -605,6 +613,16 @@ the same reason, rather than `ActivateWindow(Videos,...)` - the window is not a
 directory, and routing through the video browser left an empty plugin folder in
 the back stack. Measured after: one invocation, no busy dialog, and Quit exits
 in 2.0 seconds.
+
+And one about ids, which cost the source picker on every episode in the
+add-on. **An episode's TMDB id is not its show's** - Silo's first episode is
+2964686 where the series is 125988 - and every route below the context menu is
+keyed on the series. `listing.context_menu` passed the episode's own id, so
+`build_meta` asked TMDB for a show that does not exist, got no title, and gave
+up: the press did nothing whatsoever. On a film the id is the right one, which
+is why it looked like "choosing a source only works on films". The details
+window had known this all along and read `extra["tmdb_show"]`; the context menu
+had not.
 
 The lesson worth keeping: the stubs can only be as right as our belief about
 Kodi, and five of these were the stubs being more generous, or more
