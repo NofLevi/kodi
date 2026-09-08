@@ -266,7 +266,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1264 tests, all running against Kodi stubs, so no Kodi install is needed:
+1265 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -565,15 +565,22 @@ A later pass found three more, none of which any test could have shown:
 * The search window opened on the **Latin** keyboard in a Hebrew interface,
   for a catalogue titled entirely in Hebrew.
 
-A later pass added one that only a remote can find. **The details screen's
-buttons cannot read the episode list's cursor**, and for a reason no amount of
-reading it better can fix: getting from episode nine back up to the button row
-means pressing up nine times, and every one of those presses walks the
-selection up with it. By the time the button has focus the list genuinely is
-on episode one. "Choose a source always plays the first episode" was not a bug
-in how the cursor was read - the cursor was right. So the button asks which
-episode, opening on whatever the list is showing so the obvious way round
-still lands where the viewer expects.
+A later pass added one that only a remote can find, and the fix for it turned
+out to be a navigation change rather than a code one. **The details screen's
+buttons could not read the episode list's cursor**, and not because it was
+read badly: getting from episode nine back up to the button row meant pressing
+Up nine times, and every one of those presses walks the selection up with it.
+By the time a button had focus the list genuinely *was* on episode one. The
+cursor was right; the route was wrong.
+
+So the list now has `onright` and `onleft` pointing at the button. Sideways
+leaves in one press and the cursor stays where the viewer left it, and on a
+vertical list neither key did anything else, so nothing was taken away. With
+the cursor trustworthy the button acts on the highlighted episode - and
+**says so**: its label is a window property rebuilt on every move, reading
+"Choose a source   1x05". A button that acts on something the viewer cannot
+see is one they have to press to understand. Asking which episode survives as
+the fallback for when nothing is highlighted.
 
 A later pass added two more, both about lists rather than layout:
 

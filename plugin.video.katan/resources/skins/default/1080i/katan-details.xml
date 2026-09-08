@@ -94,13 +94,16 @@
                  real Kodi and this window cannot be opened from the outside
                  yet - so this is the measured fix rather than the clever one. -->
             <control type="button" id="9101">
-                <width>360</width>
+                <width>420</width>
                 <height>60</height>
                 <font>font14</font>
                 <textcolor>white</textcolor>
                 <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
-                <label>$ADDON[plugin.video.katan 32250]</label>
+                <!-- Names the episode it will act on, so the viewer can
+                     see it rather than find out by pressing. Set by
+                     _update_action_label on every move; never empty. -->
+                <label>$INFO[Window.Property(katan.detail.sourcelabel)]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
@@ -149,6 +152,17 @@
             <width>1740</width>
             <height>380</height>
             <onup>9100</onup>
+            <!-- Sideways out of the list, and this is the whole reason the
+                 buttons can act on the highlighted episode at all. Reaching
+                 them with Up means pressing it once per row, and every one of
+                 those presses walks the selection up with it - so by the time
+                 a button has focus the list really is back on the first
+                 episode. Either sideways key leaves in one press and the
+                 cursor stays where the viewer left it - and on a vertical
+                 list neither of them does anything else, so nothing is
+                 taken away by using them. -->
+            <onright>9101</onright>
+            <onleft>9101</onleft>
             <orientation>vertical</orientation>
             <scrolltime tween="sine">180</scrolltime>
             <preloaditems>2</preloaditems>

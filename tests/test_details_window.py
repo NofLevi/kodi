@@ -263,38 +263,45 @@ def _into_season_one(window_factory):
     return detail
 
 
-def test_choosing_a_source_asks_which_episode(window, monkeypatch):
-    """Any episode has to be reachable, including one the cursor is not on."""
+def test_the_button_acts_on_the_highlighted_episode(window, monkeypatch):
+    """Which the viewer can see, because the button says so.
+
+    This works because the list can be left sideways in one press. Reaching
+    the buttons with Up meant pressing it once per row, and every one of those
+    presses walked the selection up with it, so the cursor really was back on
+    the first episode by the time a button had focus.
+    """
     detail = _into_season_one(window)
-    asked = {}
-    monkeypatch.setattr(details_window.kodi, "select",
-                        lambda options, heading=None, **kw:
-                        asked.setdefault("options", options) is None or 2)
+    detail.getControl(details_window.LIST_CONTENT).position = 2
+    detail._update_action_label()
+
+    label = detail.getProperty("katan.detail.sourcelabel")
+    assert "1x03" in label, "the button has to name the episode: %r" % label
 
     calls = _picker_calls(monkeypatch)
     detail.onClick(details_window.BUTTON_SOURCES)
 
-    assert len(asked["options"]) == len(detail.entries)
     assert len(calls) == 1
     entry, force_picker = calls[0]
     assert force_picker is True
     assert entry["episode"] == detail.entries[2]["episode"]
 
 
-def test_the_question_opens_on_the_episode_being_looked_at(window, monkeypatch):
-    """So the obvious way round - move down, come back up, press it - works."""
+def test_the_label_is_the_plain_one_while_seasons_are_showing(window):
+    """There is no episode to name yet, and naming one would be a guess."""
+    detail = window(SHOW)
+    assert detail.getProperty("katan.detail.sourcelabel")
+    assert "x" not in detail.getProperty("katan.detail.sourcelabel").split()[-1]
+
+
+def test_the_label_follows_the_cursor(window):
     detail = _into_season_one(window)
-    detail.getControl(details_window.LIST_CONTENT).position = 1
-    seen = {}
-    monkeypatch.setattr(details_window.kodi, "select",
-                        lambda options, heading=None, preselect=-1, **kw:
-                        seen.setdefault("preselect", preselect) is None or -1)
-
-    calls = _picker_calls(monkeypatch)
-    detail.onClick(details_window.BUTTON_SOURCES)
-
-    assert seen["preselect"] == 1
-    assert calls == []              # cancelling the question plays nothing
+    seen = []
+    for position in (0, 1, 2):
+        detail.getControl(details_window.LIST_CONTENT).position = position
+        detail.onAction(FakeAction(4))          # move down
+        seen.append(detail.getProperty("katan.detail.sourcelabel"))
+    assert len({s for s in seen}) == 3, "every episode gets its own label: %s" % seen
 
 
 def test_the_context_menu_opens_the_picker_for_that_episode(window,
