@@ -1184,3 +1184,24 @@ def test_the_shipped_key_actually_reaches_the_catalog(monkeypatch):
 
     for section in catalog.SECTION_ORDER:
         assert catalog.enabled_rows(section), "%s tab is empty" % section
+
+
+def test_the_home_screen_says_which_version_it_is(monkeypatch, settings_module):
+    """Because the first question after any update is whether it took.
+
+    Answering it used to mean opening a settings dialog or reading the log,
+    on a device driven by a remote. Set in prepare() rather than onInit,
+    which is where this window sets every property - a control Kodi has not
+    yet decided is visible cannot be addressed.
+    """
+    from katan import catalog
+    from katan.meta import tmdb
+
+    monkeypatch.setattr(tmdb, "has_key", lambda: True)
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: [])
+    window = home_window.HomeWindow()
+    window.prepare()
+
+    shown = window.getProperty("katan.version")
+    assert shown, "the version has to be on screen"
+    assert home_window.kodi.addon_version() in shown

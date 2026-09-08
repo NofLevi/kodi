@@ -176,6 +176,7 @@ class HomeWindow(xbmcgui.WindowXML):
         """
         self.rows = _pick_rows(self.section)
         self.setProperty("katan.section", self.section)
+        self.setProperty("katan.version", "Katan %s" % kodi.addon_version())
         self._label_rail()
         for index in range(len(self.rows)):
             self._set_title(index, catalog.row_title(self.rows[index]))
