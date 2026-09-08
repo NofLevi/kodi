@@ -77,9 +77,23 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   while it lasts, and `qrcode` needs Pillow.
 * `ui/signin.py` is the one sign-in flow every service shares: scan a code,
   paste from a phone, or type a key, offering only what the service actually
-  has. **All five accounts now sign in by opening a link on a phone** - Trakt,
-  Real-Debrid, AllDebrid and Premiumize always did, and TorBox added a device
-  flow for TV apps. There used to be a fourth entry, "open a link and type a
+  has. **All five accounts sign in by opening a link on a phone**, checked
+  against the live services on 8 September 2026 rather than against our own
+  comments - the comment saying TorBox had no device flow was out of date and
+  had been for a while:
+
+  | Service | Probe | Needs |
+  |---|---|---|
+  | Real-Debrid | 200 | nothing - `X245A4XAIBGVM` is published for open source apps |
+  | AllDebrid | 200 | nothing - an agent name |
+  | TorBox | 200 | nothing - an app name |
+  | Trakt | 401 `invalid_client` | a registered application |
+  | Premiumize | 400 `invalid_client` | a registered application |
+
+  Two of them return a link that carries the code, so scanning it authorises
+  the box with nothing typed at all: AllDebrid's `user_url` and Real-Debrid's
+  `direct_verification_url`. The second one was being ignored in favour of
+  `verification_url`, which is the same page with the work still to do. There used to be a fourth entry, "open a link and type a
   code", and it was not a fourth way in at all: it ran the identical flow with
   the QR code not drawn, and the screen shows the link and the six digits
   either way. So it asked the viewer a question about themselves - do you have
@@ -209,7 +223,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1230 tests, all running against Kodi stubs, so no Kodi install is needed:
+1235 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -256,7 +270,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
 | `test_play.py` | 33 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. |
 | `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
-| `test_signin.py` | 23 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
+| `test_signin.py` | 28 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
 | `test_profiles.py` | 26 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, **the shipped defaults being the lean profile key for key**, and the visual-polish switch raising artwork without ever lowering a richer profile. |
 | `test_wizard.py` | 7 | The one setup step that is not an account: light against richer artwork, with what each costs, and a device that is told it has room rather than quietly switched. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |

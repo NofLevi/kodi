@@ -85,9 +85,16 @@ class RealDebrid(base.DebridService):
                 return True
             return False
 
+        # `direct_verification_url` carries the device id, so scanning it
+        # authorises this box without the eight-character code being typed
+        # anywhere at all. Real-Debrid returns both and we were using the
+        # plain one, which is the same page with the work left to do. The
+        # code still goes on screen beside it, because somebody reading the
+        # short link off the television needs it.
         if not signin.run_device(
                 self.label,
-                payload.get("verification_url", DEVICE_URL),
+                (payload.get("direct_verification_url")
+                 or payload.get("verification_url") or DEVICE_URL),
                 payload.get("user_code", ""),
                 poll,
                 lifetime=payload.get("expires_in"),
