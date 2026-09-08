@@ -383,3 +383,36 @@ def test_a_cleaned_category_is_the_one_you_can_search_for():
 
     for name, _count in lib.categories():
         assert "&#" not in name and "&amp;" not in name, name
+
+
+def test_a_vod_programme_opens_as_a_folder(settings_module, monkeypatch):
+    """It is a programme with episodes, not a stream.
+
+    Marking it playable makes Kodi ask a directory route for a URL to play;
+    the route answers with a directory, and nothing happens at all. It never
+    showed while browsing, because the VOD screens build their own
+    directories - only search sends these through target_url, which is
+    exactly where "the search finds it and it will not open" came from.
+    """
+    from katan.ui import listing
+    from katan.vod import library
+
+    library.refresh()
+    entry = next(e for e in library.load() if e.get("n"))
+    item = library._to_item(entry)
+
+    url, is_folder = listing.target_url(item)
+    assert "action=vod_show" in url
+    assert is_folder is True, "a programme has to open as a folder"
+
+
+def test_a_live_channel_is_still_playable(settings_module):
+    """The two share a type and must not share an answer."""
+    from katan.ui import listing
+    from katan.vod import channels
+
+    channels.refresh()
+    channel = channels.live_channels(limit=1)[0]
+    url, is_folder = listing.target_url(channel)
+    assert "action=play_channel" in url
+    assert is_folder is False, "a channel is a stream, not a folder"

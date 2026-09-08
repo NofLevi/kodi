@@ -379,7 +379,6 @@ def tool_entries(group=""):
             (32370, router.url_for("diagnostics"), False),
         ]
     return [
-        (32260, router.url_for("setup"), False),
         (32396, router.url_for("accounts"), False),
         (32261, router.url_for("open_settings"), False),
         (_kids_label(), router.url_for("kids_toggle"), False),
@@ -709,9 +708,17 @@ def accounts(params):
         router.url_for("connect", service="debrid"),
         art={"icon": "DefaultAddonService.png"}, is_folder=False)
 
+    # Every account the add-on has, so this screen is the whole answer and the
+    # setup wizard is not a second, shorter one. OpenSubtitles and the Gemini
+    # key were only ever reachable through the wizard, which is why removing
+    # it would have quietly removed them.
     for name, label, connected in (
             ("trakt", "Trakt", trakt.authorised()),
-            ("tmdb", "TMDB", tmdb.has_key())):
+            ("tmdb", "TMDB", tmdb.has_key()),
+            ("opensubtitles", "OpenSubtitles",
+             bool(settings.get("subs.opensubtitles.apikey"))),
+            ("ai", kodi.localize(32313),
+             bool(settings.get("subs.ai.gemini_key")))):
         listing.add_directory(
             handle, "%s %s" % (_mark(connected), label),
             router.url_for("connect", service=name),
@@ -738,6 +745,8 @@ def connect(params):
         wizard.step_debrid()
     elif service == "opensubtitles":
         wizard.step_opensubtitles()
+    elif service == "ai":
+        wizard.step_ai()
     else:
         from ..debrid import registry
         client = registry.get(service)
