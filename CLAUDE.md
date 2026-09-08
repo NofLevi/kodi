@@ -377,6 +377,40 @@ parseable `addon.xml`, then swap and keep a backup until the swap succeeds. A
 projector on wifi produces half-downloads, and installing one would leave an
 add-on that cannot start.
 
+## End to end, and what CI actually checks
+
+    python tools/e2e.py             fifteen checks against the live services
+    python tools/e2e.py --offline   only the ones that need no network
+    python tools/e2e.py --json out.json
+
+`tools/e2e.py` is the other half of the test suite. The stubs prove the logic;
+this proves that the services the add-on depends on are still there, still
+shaped the way they were, and still answer the questions we ask. **Every defect
+in this project's history that the unit suite could not have caught was of that
+kind** - AniList going dark, SubSource moving behind a login, TorBox growing a
+device flow it did not have, an anime episode addressed at a season number
+nobody indexes.
+
+**It never stops at the first failure.** A run that dies on check three says
+nothing about checks four to fifteen, and the whole point is to come back with
+the list. Checks are marked required or not: a required failure is a broken
+add-on, an optional one is somebody else's service having a bad day, and only
+the first fails the run - a red build nobody can fix is a red build everybody
+learns to ignore.
+
+Two things it has to do that are easy to get wrong, and both were got wrong
+first. `kodi.addon_path()` has to be pointed at the add-on, or the bundled
+channel and VOD data are simply absent and every check against them passes for
+the wrong reason. And `cached_only` has to be turned off, because it ships on:
+with no debrid account, which is what CI has, every source is filtered away and
+a perfectly healthy search reports "no sources for Fight Club".
+
+`.github/workflows/e2e.yml` runs the unit suite, the packaging check and the
+offline checks on every push, and the live checks on a schedule as well - drift
+is only visible if something looks. Both jobs run on **Python 3.8**, which is
+what Kodi 21 ships, so a walrus or a newer f-string cannot reach a device. The
+live job is `continue-on-error` and writes its findings into the run summary.
+
 ## Integration testing
 
     python tools/drive_kodi.py        start Kodi, open every add-on path via

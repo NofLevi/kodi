@@ -110,3 +110,5 @@ survey.jsonl
 
 # benchmark baselines
 .bench-*.json
+.e2e/
+e2e.json
