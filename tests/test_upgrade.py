@@ -443,3 +443,104 @@ def test_the_addon_path_may_end_in_a_separator(tmp_path, monkeypatch):
     assert not (installed / ".old").exists()
     leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
     assert not leftovers, "left behind %s" % leftovers
+
+
+def test_the_whole_upgrade_runs_over_http(tmp_path, monkeypatch):
+    """Tools -> Check for updates, end to end, over a real socket.
+
+    Every part of this was already covered alone - the index parse, the
+    version compare, the zip sanity check, the folder swap. What was not
+    covered is the join: an index served over HTTP, a zip fetched from the
+    URL *derived* from it, and the add-on that comes out the other side. That
+    join is where the real defects have been, because the download URL is
+    built from the version rather than stored.
+
+    Served locally rather than from the published site, so the test does not
+    depend on the internet or on which release happens to be live.
+    """
+    import shutil
+    import threading
+    import xml.etree.ElementTree as ET
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+    import xbmcaddon
+
+    from katan import kodi, updater
+
+    addons = tmp_path / "addons"
+    addons.mkdir()
+    installed = addons / "plugin.video.katan"
+    profile = tmp_path / "addon_data" / "plugin.video.katan"
+    profile.mkdir(parents=True)
+    shutil.copytree(ADDON_DIR, str(installed))
+    (profile / "settings.xml").write_text(
+        '<settings version="2">\n'
+        '  <setting id="tmdb.apikey">MY-TMDB-KEY</setting>\n'
+        "</settings>\n", encoding="utf-8")
+
+    xbmcaddon.reset(str(profile), str(installed))
+    xbmcaddon.INFO["version"] = "0.0.1"
+    kodi.refresh_addon()
+
+    # A published repository, laid out exactly as build.py writes one.
+    site = tmp_path / "site"
+    (site / "zips" / "plugin.video.katan").mkdir(parents=True)
+    (site / "addons.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '<addons><addon id="plugin.video.katan" version="0.0.2"/></addons>',
+        encoding="utf-8")
+
+    current = ET.parse(os.path.join(ADDON_DIR, "addon.xml")).getroot().get("version")
+    release = str(site / "zips" / "plugin.video.katan"
+                  / "plugin.video.katan-0.0.2.zip")
+    with zipfile.ZipFile(release, "w", zipfile.ZIP_DEFLATED) as archive:
+        for folder, dirs, files in os.walk(ADDON_DIR):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for name in files:
+                full = os.path.join(folder, name)
+                arc = "plugin.video.katan/" + os.path.relpath(
+                    full, ADDON_DIR).replace(os.sep, "/")
+                if arc == "plugin.video.katan/addon.xml":
+                    with io.open(full, encoding="utf-8") as handle:
+                        archive.writestr(arc, handle.read().replace(
+                            'version="%s"' % current, 'version="0.0.2"', 1))
+                else:
+                    archive.write(full, arc)
+
+    class Quiet(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(site), **kwargs)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Quiet)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        base = "http://127.0.0.1:%d" % server.server_address[1]
+        monkeypatch.setattr(updater, "index_url", lambda: base + "/addons.xml")
+
+        # The lookup, over HTTP.
+        found = updater.check()
+        assert found is not None, "an update was published and not offered"
+        latest, zip_url = found
+        assert latest == "0.0.2"
+        assert zip_url == (base + "/zips/plugin.video.katan"
+                           "/plugin.video.katan-0.0.2.zip")
+
+        # The download, over HTTP, including its own sanity check.
+        path = updater.download(zip_url)
+        assert path, "the release did not download"
+        try:
+            assert updater.apply(path) is True
+        finally:
+            updater._remove(path)
+    finally:
+        server.shutdown()
+
+    on_disk = ET.parse(str(installed / "addon.xml")).getroot().get("version")
+    assert on_disk == "0.0.2", "the upgrade did not land"
+    assert "MY-TMDB-KEY" in (profile / "settings.xml").read_text(encoding="utf-8")
+    assert (installed / "resources" / "lib" / "katan" / "updater.py").is_file()
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    assert not leftovers, "left behind %s" % leftovers
