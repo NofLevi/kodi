@@ -618,9 +618,24 @@ settings that promised a provider with no code behind them were removed, and
 
 * **The AniList API is refusing every request** as of 7 September 2026 - 403
   with "The AniList API has been temporarily disabled due to severe stability
-  issues", to any User-Agent including a browser one. The anime row therefore
-  comes back empty and is hidden, and anime search returns nothing. It will fix
-  itself; nothing here needs changing when it does.
+  issues", to any User-Agent including a browser one. Still refusing on
+  8 September.
+
+  This is no longer user-visible. `meta/anime.py` is a facade over two
+  catalogues: AniList while it answers, because it carries the AniList id that
+  SeaDex release rankings are keyed on, and **Kitsu** when it does not. Kitsu
+  needs no key and its ids are the ones Torrentio already uses for anime, so a
+  title found there arrives carrying the id the source layer needs and nothing
+  has to be mapped. Measured with AniList down: the anime row fills with ten
+  titles, search for "frieren" returns four, and the stream id resolves to
+  `kitsu:46474:3`.
+
+  The choice is made at most once every thirty minutes rather than per call,
+  because otherwise every row and every search would pay for a failing request
+  to the dead service first. A catalogue that dies mid-session falls through
+  once and then re-decides. The one thing lost while on Kitsu is SeaDex
+  rankings, which are keyed on AniList ids; that degrades quietly.
+
 * **SubSource has moved behind a login.** The `POST /api/...` surface this
   add-on was written against answers 404, and the `/v1` REST API that replaced
   it answers 401 "Not authenticated" with no anonymous search route left. The
