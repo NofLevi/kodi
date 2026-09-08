@@ -708,3 +708,44 @@ def test_every_declared_setting_is_read_by_something():
     assert not unread, (
         "declared and read by nothing - wire it up or remove it:\n  "
         + "\n  ".join(unread))
+
+
+def test_every_debrid_service_has_its_own_connect_button():
+    """One generic "connect a debrid service" made the viewer pick twice, and
+    hid the fact that the four services sign in differently - Real-Debrid has
+    no key to paste, TorBox has no link to open."""
+    import xml.etree.ElementTree as ET
+
+    from katan.debrid import registry
+
+    root = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml")).getroot()
+    actions = {node.get("id") for node in root.iter("setting")
+               if (node.get("id") or "").startswith("action.connect.")}
+
+    missing = ["action.connect.%s" % name for name in registry.names()
+               if "action.connect.%s" % name not in actions]
+    assert not missing, missing
+
+
+def test_each_connect_button_names_a_service_that_exists():
+    """A button wired to a typo is a button that does nothing."""
+    import re
+    import xml.etree.ElementTree as ET
+
+    from katan.debrid import registry
+    from katan import router
+    router._load_handlers()
+
+    known = set(registry.names()) | {"trakt", "tmdb", "debrid", "opensubtitles",
+                                     "mdblist", "gemini", "ktuvit"}
+    root = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml")).getroot()
+
+    unknown = []
+    for node in root.iter("setting"):
+        data = node.find("data")
+        if data is None or not data.text:
+            continue
+        found = re.search(r"service=([a-z]+)", data.text)
+        if found and found.group(1) not in known:
+            unknown.append((node.get("id"), found.group(1)))
+    assert not unknown, unknown

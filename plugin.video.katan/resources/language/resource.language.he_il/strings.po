@@ -1485,3 +1485,43 @@ msgctxt "#30303"
 msgid "Leave empty to use the built-in address"
 msgstr "השארו ריק כדי להשתמש בכתובת המובנית"
 
+msgctxt "#30310"
+msgid "Real-Debrid"
+msgstr "Real-Debrid"
+
+msgctxt "#30311"
+msgid "Premiumize"
+msgstr "Premiumize"
+
+msgctxt "#30312"
+msgid "TorBox"
+msgstr "TorBox"
+
+msgctxt "#30313"
+msgid "AllDebrid"
+msgstr "AllDebrid"
+
+msgctxt "#30314"
+msgid "Pick a service, then how to sign in"
+msgstr "בחרו שירות, ואז איך להתחבר"
+
+msgctxt "#32510"
+msgid "Send"
+msgstr "שלח"
+
+msgctxt "#32511"
+msgid "Paste the key here and press Send. This page is only on your local network."
+msgstr "הדביקו כאן את המפתח ולחצו שלח. הדף זמין ברשת המקומית בלבד."
+
+msgctxt "#32512"
+msgid "Done - you can close this"
+msgstr "בוצע - אפשר לסגור"
+
+msgctxt "#32513"
+msgid "Paste it from your phone"
+msgstr "הדביקו מהטלפון"
+
+msgctxt "#32514"
+msgid "Open this on your phone and paste the key"
+msgstr "פתחו בטלפון והדביקו את המפתח"
+

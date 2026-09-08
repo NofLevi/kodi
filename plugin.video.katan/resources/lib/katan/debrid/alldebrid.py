@@ -37,6 +37,7 @@ class AllDebrid(base.DebridService):
 
     methods = ("scan", "link", "key")
     key_url = "https://alldebrid.com/apikeys"
+    key_setting = "alldebrid.apikey"
 
     def credential_settings(self):
         return ["alldebrid.apikey"]
