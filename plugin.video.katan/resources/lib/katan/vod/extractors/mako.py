@@ -82,7 +82,49 @@ def episodes(ref, mode=""):
                 "vod", ids={"vod": url}, title=_page_title(html) or "Mako",
                 extra={"url": router.url_for("play_vod", module="keshet", ref=url),
                        "module": "keshet", "ref": url}))
-    return found
+    return _fold_into_seasons(found)
+
+
+def _fold_into_seasons(found):
+    """Drop the episodes a season folder on the same page already holds.
+
+    A Mako programme page lists its seasons *and* its episodes, and "נסלי
+    ויואב" lists all of both: four seasons and a hundred and seventy-two
+    episodes. Showing them together leaves the flat list exactly where it
+    was with four folders on top of it, which is not what opening on seasons
+    means.
+
+    Only episodes belonging to a season that is actually there are removed,
+    so an episode whose season is not listed stays reachable - and if the
+    page offers no seasons at all, nothing is touched.
+    """
+    seasons = {_season_slug(item) for item in found
+               if _is_a_season((item.get("ids") or {}).get("vod", ""))}
+    seasons.discard("")
+    if not seasons:
+        return found
+    kept = []
+    for item in found:
+        link = (item.get("ids") or {}).get("vod", "")
+        if not _is_a_season(link) and _season_slug(item) in seasons:
+            continue
+        kept.append(item)
+    return kept
+
+
+def _season_slug(item):
+    """The programme-and-season part of an address, for both kinds of entry.
+
+    ".../eretz_nehederet-s20" and ".../eretz_nehederet-s20/VOD-5dd3.htm" both
+    answer "eretz_nehederet-s20", which is what makes an episode and its
+    season recognisable as the same thing.
+    """
+    link = ((item.get("ids") or {}).get("vod") or "").rstrip("/")
+    if not link:
+        return ""
+    if not _is_a_season(link):
+        link = link.rsplit("/", 1)[0]
+    return link.rsplit("/", 1)[-1].lower()
 
 
 def _is_a_season(link):
