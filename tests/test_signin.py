@@ -392,3 +392,78 @@ def test_a_bundled_application_is_never_asked_for(monkeypatch):
     assert trakt.configured()
     assert trakt.client_id() == "bundled-id"
     assert trakt.client_secret() == "bundled-secret"
+
+
+# --------------------------------------------------------------------------
+# every account signs in by opening a link on a phone
+#
+# Checked against the live services rather than against our own comments,
+# because the comment in the TorBox client saying it had no device flow was
+# out of date and had been for a while. Probed 2026-09-08:
+#
+#   Real-Debrid   200, anonymously, with the open-source client id
+#   AllDebrid     200, anonymously, agent name only
+#   TorBox        200, anonymously, app name only
+#   Trakt         401 invalid_client - the flow is there, the application is
+#                 not registered yet
+#   Premiumize    400 invalid_client - same
+# --------------------------------------------------------------------------
+
+
+def test_every_account_offers_a_phone_sign_in():
+    """Not one of them should be asking for a key on a remote."""
+    from katan.debrid import registry
+    from katan.meta import trakt
+
+    for name in registry.names():
+        client = registry.get(name)
+        if client is None:
+            continue
+        assert signin.SCAN in client.methods, \
+            "%s has no way in that ends on a phone" % name
+    assert signin.SCAN in trakt.methods
+
+
+def test_a_link_that_carries_the_code_is_preferred(monkeypatch, settings_module):
+    """Real-Debrid returns two URLs and only one of them saves the typing.
+
+    `direct_verification_url` has the device id in it, so scanning it
+    authorises this box with nothing typed. `verification_url` is the same
+    page with the work still to do, and it was the one being used.
+    """
+    from katan.debrid import realdebrid
+
+    monkeypatch.setattr(realdebrid.http, "get_json", lambda url, **kw: {
+        "device_code": "DEVICE", "user_code": "SZUEFDVN", "interval": 5,
+        "expires_in": 900,
+        "verification_url": "https://real-debrid.com/device",
+        "direct_verification_url":
+            "https://real-debrid.com/authorize?client_id=X&device_id=DEVICE",
+    } if "device/code" in url else None)
+
+    seen = {}
+    monkeypatch.setattr(signin, "run_device",
+                        lambda title, url, code, poll, **kw:
+                        seen.update(url=url, code=code) or False)
+    realdebrid.RealDebrid().authorize("scan")
+
+    assert seen["url"].startswith("https://real-debrid.com/authorize?")
+    # Still on screen: somebody reading the link off the television needs it.
+    assert seen["code"] == "SZUEFDVN"
+
+
+def test_the_plain_link_is_used_when_there_is_no_direct_one(monkeypatch,
+                                                            settings_module):
+    from katan.debrid import realdebrid
+
+    monkeypatch.setattr(realdebrid.http, "get_json", lambda url, **kw: {
+        "device_code": "DEVICE", "user_code": "AB12",
+        "verification_url": "https://real-debrid.com/device",
+    } if "device/code" in url else None)
+    seen = {}
+    monkeypatch.setattr(signin, "run_device",
+                        lambda title, url, code, poll, **kw:
+                        seen.update(url=url) or False)
+    realdebrid.RealDebrid().authorize("scan")
+
+    assert seen["url"] == "https://real-debrid.com/device"
