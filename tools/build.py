@@ -20,6 +20,11 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Where the repository is written. Overridable because the packaging test used
+# to run this as-is, which rebuilt the committed `repo/` on every full test
+# run: twelve commits touched it and only two changed a version, every one of
+# those was a Cloudflare deployment that published nothing new, and a zip
+# could be rebuilt from uncommitted source without anybody noticing.
 OUTPUT = os.path.join(ROOT, "repo")
 ADDONS = ["plugin.video.katan", "repository.katan"]
 
@@ -111,6 +116,10 @@ def check():
 
 
 def main():
+    global OUTPUT
+    if "--out" in sys.argv:
+        OUTPUT = os.path.abspath(sys.argv[sys.argv.index("--out") + 1])
+
     problems = check()
     if problems:
         for problem in problems:

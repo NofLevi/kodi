@@ -13,8 +13,14 @@ MAX_ZIP_KB = 600
 
 
 @pytest.fixture(scope="module")
-def built():
-    result = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build.py")],
+def built(tmp_path_factory):
+    # Into a temporary directory, never into the repository's own `repo/`.
+    # Building there meant a full test run rewrote a committed artifact, which
+    # made every push a Cloudflare deployment that published nothing and let a
+    # zip be built from source that was never committed.
+    out = str(tmp_path_factory.mktemp("repo"))
+    result = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build.py"),
+                             "--out", out],
                             cwd=ROOT, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     # Read the version rather than spell it out. Hard-coding 0.1.0 meant the
@@ -23,7 +29,7 @@ def built():
     import xml.etree.ElementTree as ET
     version = ET.parse(os.path.join(ROOT, "plugin.video.katan",
                                     "addon.xml")).getroot().get("version")
-    path = os.path.join(ROOT, "repo", "zips", "plugin.video.katan",
+    path = os.path.join(out, "zips", "plugin.video.katan",
                         "plugin.video.katan-%s.zip" % version)
     assert os.path.isfile(path), result.stdout
     return path
@@ -68,7 +74,11 @@ def test_the_zip_carries_everything_the_addon_needs(built):
 
 
 def test_the_repository_index_lists_both_addons(built):
-    index = os.path.join(ROOT, "repo", "addons.xml")
+    # The freshly built one, not the committed copy: this is checking that
+    # build.py writes a coherent index, and the committed one is checked
+    # against the live site by tools/e2e.py instead.
+    index = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(built))),
+                         "addons.xml")
     text = open(index, encoding="utf-8").read()
     assert 'id="plugin.video.katan"' in text
     assert 'id="repository.katan"' in text
