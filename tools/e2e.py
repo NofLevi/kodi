@@ -436,6 +436,34 @@ def _release_downloadable():
     return "%s, %d KB" % (published, len(head.content) // 1024)
 
 
+@check("a version that does not exist is refused, not invented", "updates")
+def _missing_release_is_a_404():
+    """The check above only means something if a miss can be told apart.
+
+    Cloudflare Pages treats a site with a root index.html and no 404.html as a
+    single-page application and answers every unmatched path with that index,
+    status 200. The per-folder listings that make the site browsable from a
+    television introduced exactly that, and it went unnoticed because every
+    path anybody tested existed. `updater.check` decides on `status_code >=
+    400`, so under that fallback a withdrawn or misnamed release reads as
+    present and fails later, in the download rather than the lookup.
+    """
+    from katan import http, updater
+
+    base = updater.index_url().rsplit("/", 1)[0]
+    url = "%s/zips/%s/%s-99.99.99.zip" % (base, updater.ADDON_ID,
+                                          updater.ADDON_ID)
+    response = http.get(url, timeout=(5, 20))
+    if response is None:
+        raise AssertionError("no answer from %s" % url)
+    if response.status_code != 404:
+        raise AssertionError(
+            "a release that does not exist answered HTTP %s (%d bytes of %s)"
+            % (response.status_code, len(response.content),
+               response.headers.get("Content-Type", "?")))
+    return "HTTP 404, as it should be"
+
+
 @check("a newer version would be offered and an older one refused", "updates",
        network=False)
 def _version_comparison():
