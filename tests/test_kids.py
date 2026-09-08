@@ -514,3 +514,65 @@ def test_the_tools_entry_says_what_pressing_it_will_do(settings_module):
     assert off_label != on_label, \
         "the entry reads the same whether it is on or off"
     assert kodi.localize(off_label) != kodi.localize(on_label)
+
+
+def test_switching_kids_mode_needs_no_pin(settings_module):
+    """Both ways, and even when a PIN has been set.
+
+    The PIN existed so a child could not undo the mode from the menu they
+    found it in. That is a real concern with the wrong owner: this runs on one
+    television in one family, and the cost was that switching a browsing mode
+    - done several times an evening while setting the thing up - wanted a
+    password nobody had set.
+    """
+    from katan import kids
+    from katan.ui import handlers
+
+    kids.set_pin("1234")
+    kids.turn_on()
+    assert kids.enabled()
+
+    assert handlers.toggle_kids() is False, "it did not switch off"
+    assert not kids.enabled()
+    assert handlers.toggle_kids() is True
+    assert kids.enabled()
+
+
+def test_the_pin_still_guards_turn_off_when_it_is_asked_for(settings_module):
+    """Only the menu skips it. The check itself is untouched."""
+    from katan import kids
+
+    kids.set_pin("1234")
+    kids.turn_on()
+
+    assert kids.turn_off("9999") is False
+    assert kids.enabled(), "a wrong PIN must not switch it off"
+    assert kids.turn_off("1234") is True
+    assert not kids.enabled()
+
+
+def test_the_home_screen_redraws_when_kids_mode_changes(monkeypatch,
+                                                        settings_module):
+    """Otherwise every row on screen is from the catalogue that no longer
+    applies, and kodi.refresh_container cannot help - it refreshes a
+    directory, and this is a window."""
+    from katan.ui import handlers, home_window
+
+    window = home_window.HomeWindow()
+    window.rows = [{"id": "r0", "title_id": 0}]
+    reloaded = []
+    monkeypatch.setattr(home_window.HomeWindow, "_reload",
+                        lambda self: reloaded.append(True))
+    monkeypatch.setattr(home_window.kodi, "run_builtin",
+                        lambda command: reloaded.append("ran " + command))
+
+    entries = handlers.tool_entries()
+    kids_at = [n for n, (_s, url, _g) in enumerate(entries)
+               if "kids_toggle" in url][0]
+    monkeypatch.setattr(home_window.kodi, "select",
+                        lambda labels, heading="", **kw: kids_at)
+    monkeypatch.setattr(home_window.kodi, "notify", lambda *a, **k: None)
+
+    window._tools()
+    assert reloaded == [True], \
+        "the window has to redraw itself, not run a plugin: %s" % reloaded
