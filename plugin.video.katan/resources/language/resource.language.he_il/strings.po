@@ -1532,3 +1532,7 @@ msgstr "מומלץ"
 msgctxt "#30315"
 msgid "Check for updates now"
 msgstr "בדוק עדכונים עכשיו"
+
+msgctxt "#32516"
+msgid "Maintenance"
+msgstr "תחזוקה"
