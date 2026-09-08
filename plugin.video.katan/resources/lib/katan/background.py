@@ -6,6 +6,7 @@ HTTP calls. Three jobs, all cheap:
 * warm the enabled home rows, staggered so start-up is not a burst
 * keep the Trakt mirror fresh, but only when last_activities says it changed
 * prune the cache once a day
+* look for a new release once a week, if the viewer asked it to
 
 The loop wakes every second because the player monitor has to react quickly,
 but each job has its own interval and does nothing in between.
@@ -19,6 +20,9 @@ from . import cache, catalog, kodi, settings
 WARM_INTERVAL = 6 * 3600
 SYNC_INTERVAL = 15 * 60
 PRUNE_INTERVAL = 24 * 3600
+# A projector that phones home on every boot is a projector that is
+# slower to open. Once a week is enough to hear about a release.
+UPDATE_INTERVAL = 7 * 24 * 3600
 STARTUP_DELAY = 20        # let Kodi finish booting before touching the network
 
 # Opening on start-up waits for Kodi to be ready rather than for a clock. The
@@ -49,6 +53,7 @@ class Service(xbmc.Monitor):
         self.next_warm = now + STARTUP_DELAY
         self.next_sync = now + STARTUP_DELAY + 10
         self.next_prune = now + 300
+        self.next_update = now + STARTUP_DELAY + 40
         self.open_deadline = now + OPEN_DEADLINE
         self.home_seen_at = 0.0
         self.left_at = 0.0
@@ -165,6 +170,24 @@ class Service(xbmc.Monitor):
         thread.daemon = True
         thread.start()
 
+    def check_for_update(self):
+        """Tell the viewer a release exists; never install one behind them.
+
+        Silent when there is nothing new, because a weekly background check
+        that announces "you are up to date" is a weekly interruption.
+        """
+        if not settings.get_bool("update.check_on_start", False):
+            return
+        try:
+            from . import updater
+            found = updater.check()
+        except Exception:
+            kodi.log_exception("update check failed")
+            return
+        if found:
+            kodi.notify(kodi.localize(32501, updater.installed_version(),
+                                      found[0]))
+
     def prune_cache(self):
         try:
             cache.maybe_prune(force=True)
@@ -245,6 +268,9 @@ class Service(xbmc.Monitor):
             if now >= self.next_prune:
                 self.next_prune = now + PRUNE_INTERVAL
                 self.prune_cache()
+            if now >= self.next_update:
+                self.next_update = now + UPDATE_INTERVAL
+                self.check_for_update()
 
         kodi.log("service stopping", kodi.LOG_INFO)
         self.shutdown()

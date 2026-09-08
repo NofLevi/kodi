@@ -1440,3 +1440,48 @@ msgstr "מתרגם. הכתוביות יופיעו תוך כדי"
 msgctxt "#32497"
 msgid "needs an AI key - press to set one up"
 msgstr "דרוש מפתח AI - לחצו להגדרה"
+
+msgctxt "#32500"
+msgid "Katan %s is up to date"
+msgstr "קטן %s מעודכן"
+
+msgctxt "#32501"
+msgid "Update from %s to %s?"
+msgstr "לעדכן מ-%s ל-%s?"
+
+msgctxt "#32502"
+msgid "Downloading the update..."
+msgstr "מוריד עדכון..."
+
+msgctxt "#32503"
+msgid "The update could not be installed"
+msgstr "לא ניתן להתקין את העדכון"
+
+msgctxt "#32504"
+msgid "Installing..."
+msgstr "מתקין..."
+
+msgctxt "#32505"
+msgid "Updated to %s. Restart Kodi now?"
+msgstr "עודכן ל-%s. להפעיל מחדש את Kodi?"
+
+msgctxt "#32506"
+msgid "Check for updates"
+msgstr "בדוק עדכונים"
+
+msgctxt "#30300"
+msgid "Check for updates on start"
+msgstr "בדוק עדכונים בעלייה"
+
+msgctxt "#30301"
+msgid "At most once a week, in the background"
+msgstr "לכל היותר פעם בשבוע, ברקע"
+
+msgctxt "#30302"
+msgid "Update index URL"
+msgstr "כתובת אינדקס העדכונים"
+
+msgctxt "#30303"
+msgid "Leave empty to use the built-in address"
+msgstr "השארו ריק כדי להשתמש בכתובת המובנית"
+
