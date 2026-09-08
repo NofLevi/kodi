@@ -362,3 +362,58 @@ def test_the_plain_listing_is_used_when_no_row_can_draw(monkeypatch,
     handlers.home({})
     assert not opened
     assert any("action=setup" in url for url, _i, _f in xbmcplugin.ITEMS)
+
+
+def test_the_window_is_never_opened_inside_a_directory_call(monkeypatch,
+                                                            settings_module):
+    """Both orders are wrong, so it does neither.
+
+    Ending the directory first lets Kodi navigate away and tear the window
+    down. Ending it afterwards holds GetDirectory open for the life of the
+    window - measured at twenty-one minutes - so Kodi sits behind a busy
+    dialog, and on exit the stale directory completes, Kodi navigates, and the
+    window reopens. That loop left Kodi stuck.
+    """
+    import xbmcplugin
+    from katan import kodi
+    from katan.ui import handlers
+
+    settings_module.set_many({"ui.window_home": "true", "tmdb.apikey": "k"})
+
+    opened = []
+    ran = []
+    monkeypatch.setattr("katan.ui.home_window.open_home",
+                        lambda: opened.append(True))
+    monkeypatch.setattr(kodi, "run_builtin", lambda command: ran.append(command))
+
+    xbmcplugin.reset()
+    kodi.set_plugin_handle(7)          # a directory call
+    handlers.home({})
+
+    assert not opened, "the window was opened while a directory was still open"
+    assert xbmcplugin.ENDED, "the directory was left hanging"
+    assert any("RunPlugin(" in c for c in ran), \
+        "it should ask Kodi to run the plugin again without a directory"
+
+
+def test_a_runplugin_invocation_opens_the_window_directly(monkeypatch,
+                                                          settings_module):
+    """The second invocation has no handle, so there is nothing to close."""
+    import xbmcplugin
+    from katan import kodi
+    from katan.ui import handlers
+
+    settings_module.set_many({"ui.window_home": "true", "tmdb.apikey": "k"})
+
+    opened = []
+    ran = []
+    monkeypatch.setattr("katan.ui.home_window.open_home",
+                        lambda: opened.append(True))
+    monkeypatch.setattr(kodi, "run_builtin", lambda command: ran.append(command))
+
+    xbmcplugin.reset()
+    kodi.set_plugin_handle(-1)         # RunPlugin
+    handlers.home({})
+
+    assert opened, "the window should just open"
+    assert not ran, "it must not ask for a third invocation"
