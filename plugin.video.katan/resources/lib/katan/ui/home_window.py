@@ -325,7 +325,7 @@ class HomeWindow(xbmcgui.WindowXML):
             kodi.run_builtin("ActivateWindow(FullScreenVideo)")
             return True
 
-        if not settings.get_bool("ui.stay_in_katan", False):
+        if not settings.get_bool("ui.stay_in_katan"):
             return False
         kodi.log("back on the home screen, staying in Katan")
         return True

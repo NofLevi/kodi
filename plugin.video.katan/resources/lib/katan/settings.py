@@ -135,7 +135,11 @@ DEFAULTS = {
     # And once in, stay in: back on the home screen does nothing rather than
     # dropping out to the Kodi interface this add-on replaces. The settings
     # button in the top bar is the way back out.
-    "ui.stay_in_katan": "false",
+    # On, because this add-on is the interface on the box it was written for
+    # and backing out of its home screen lands on the Kodi interface it
+    # replaces - which is nowhere anybody meant to go. Off is still one toggle
+    # away, and the top bar's settings button is the door out.
+    "ui.stay_in_katan": "true",
     "device.profile": "low_memory",
     # advanced
     "service.warm": "true",

@@ -113,6 +113,51 @@ def test_the_suggestion_index_matches_hebrew(settings_module, monkeypatch):
     assert any(title[:5] in item.get("title", "") for item in found)
 
 
+def test_the_israeli_catalogue_is_listed_before_tmdb(settings_module,
+                                                     monkeypatch):
+    """Because for an Israeli programme TMDB's entry is the one that fails.
+
+    Searching a Hebrew title returns two things: the VOD entry, which plays,
+    and TMDB's record of the same show, which has no sources anywhere -
+    Israeli television is not on the trackers. Listed the other way round, the
+    first result is the one that cannot play, which reads to anybody using it
+    as "the search did not find it".
+    """
+    from katan.search import unified
+    from katan.vod import library
+
+    library.refresh()
+    entry = next(e for e in library.load() if len(e.get("n", "")) > 6)
+    title = entry["n"]
+
+    # TMDB answering with a plausible show for the same query, the way it does
+    # for a real Israeli programme.
+    monkeypatch.setattr(unified, "_tmdb_search", lambda query: [
+        {"type": "show", "title": "The English Name", "ids": {"tmdb": 4242}}])
+    monkeypatch.setattr(unified, "_anilist_search", lambda query: [])
+
+    found = unified.search(title)
+    assert found, "the Hebrew title found nothing at all"
+    assert found[0].get("type") == "vod",         "the entry that plays has to be the first one offered"
+    assert title in found[0].get("title", "")
+
+
+def test_a_hebrew_suggestion_offers_the_israeli_entry_first(settings_module,
+                                                            monkeypatch):
+    """The same order, while the viewer is still typing."""
+    from katan.search import unified
+    from katan.vod import library
+
+    library.refresh()
+    unified.invalidate_index()
+    entry = next(e for e in library.load() if len(e.get("n", "")) > 6)
+    monkeypatch.setattr(unified, "_tmdb_search", lambda query: [])
+
+    found = unified.suggest(entry["n"][:6], limit=10)
+    assert found
+    assert found[0].get("type") == "vod"
+
+
 # --------------------------------------------------------------------------
 # mixed scripts, which is what an Israeli release name looks like
 # --------------------------------------------------------------------------

@@ -853,7 +853,7 @@
                 </setting>
                 <setting id="ui.stay_in_katan" type="boolean" label="30138"
                          help="30139">
-                    <level>0</level><default>false</default>
+                    <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="ui.rich_visuals" type="boolean" label="30134"

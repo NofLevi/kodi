@@ -334,7 +334,17 @@ def test_an_empty_row_hides_itself(monkeypatch):
     assert window.getProperty("katan.row0.title") == "", "an empty row should hide"
 
 
-def test_back_closes_the_home_window(home):
+def test_back_does_not_close_the_home_window(home, settings_module):
+    """Escape used to drop the viewer into the Kodi interface this replaces.
+
+    The home screen is the one place back has nowhere good to go. It still
+    works everywhere inside Katan - out of a film, out of the picker, out of
+    a season - because those are places you can be finished with.
+    """
+    home.onAction(FakeAction(home_window.ACTION_NAV_BACK))
+    assert home.closed is False
+
+    settings_module.set("ui.stay_in_katan", "false")
     home.onAction(FakeAction(home_window.ACTION_NAV_BACK))
     assert home.closed is True
 
@@ -993,12 +1003,27 @@ class BackAction(object):
         return home_window.ACTION_NAV_BACK
 
 
-def test_back_leaves_katan_by_default(monkeypatch, settings_module):
-    """Nobody's Kodi is taken over unless they asked for it."""
+def test_back_stays_in_katan_by_default(monkeypatch, settings_module):
+    """Because backing out of the home screen has nowhere good to go.
+
+    This add-on is the interface on the box it was written for, so the thing
+    behind its home screen is the Kodi interface it replaces. Leaving by
+    accident - one press of Escape - put people somewhere nobody meant to be.
+    """
     from katan.ui import home_window
 
     window = _home_with_rows(monkeypatch, [0])
-    assert settings_module.get_bool("ui.stay_in_katan") is False
+    assert settings_module.get_bool("ui.stay_in_katan") is True
+    window.onAction(BackAction())
+    assert window.closed is False
+
+
+def test_back_still_leaves_when_the_switch_is_off(monkeypatch, settings_module):
+    """A door with no handle on the inside is worse than the problem it solves."""
+    from katan.ui import home_window
+
+    settings_module.set("ui.stay_in_katan", "false")
+    window = _home_with_rows(monkeypatch, [0])
     window.onAction(BackAction())
     assert window.closed is True
 
