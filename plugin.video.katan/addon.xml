@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.katan"
        name="Katan"
-       version="0.1.0"
+       version="0.1.1"
        provider-name="katan">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -29,6 +29,14 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>0.1.0 - Initial skeleton.</news>
+        <news>v0.1.1
+- Make an update reachable from the dashboard at all
+- Show which episode the button will act on, and make the cursor reachable
+- Run the checks on both kinds of machine, because that is where they differ
+- Choosing a source for an episode asked TMDB for the wrong thing entirely
+- Make the workflow able to run at all
+- Check the whole thing end to end, and report every problem rather than the first
+- List the Israeli catalogue before TMDB, and stay in Katan on Escape
+- Reach the anime seasons that have no name, and stop paying when it is not needed</news>
     </extension>
 </addon>
