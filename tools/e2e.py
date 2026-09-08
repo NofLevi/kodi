@@ -461,6 +461,40 @@ def _version_comparison():
     return "%d comparisons" % len(cases)
 
 
+@check("the update path works without the requests module", "updates")
+def _stdlib_update_path():
+    """Which is what the projector has.
+
+    `requests` is optional and ships on nothing by default, so on a television
+    box every one of these fetches goes through urlsession.py instead. That is
+    a different HTTP client, a different TLS path and a different User-Agent,
+    against a CDN that does refuse some clients - a bare urllib request to this
+    same index answers 403. Worth proving rather than assuming, because the
+    machine that would notice is the one furthest from here.
+    """
+    from katan import http, updater
+
+    was = http.HAVE_REQUESTS
+    try:
+        http.HAVE_REQUESTS = False
+        http.close_session()
+        http._session = None
+
+        index = http.get(updater.index_url(), timeout=(5, 12))
+        if index is None or index.status_code != 200:
+            raise AssertionError(
+                "the index answered %s without requests"
+                % (index.status_code if index else "nothing"))
+        if b"<addons" not in index.content:
+            raise AssertionError("what came back is not a repository index")
+        backend = type(http.session()).__module__
+    finally:
+        http.HAVE_REQUESTS = was
+        http.close_session()
+        http._session = None
+    return "%s, %d bytes" % (backend.rsplit(".", 1)[-1], len(index.content))
+
+
 @check("every account still offers a phone sign-in", "accounts")
 def _device_flows():
     from katan import http
