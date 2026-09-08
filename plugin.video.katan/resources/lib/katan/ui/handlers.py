@@ -345,34 +345,43 @@ def _render_search(handle, query):
 # --------------------------------------------------------------------------
 
 
-def tool_entries():
-    """Everything Tools offers, as (string id, url).
+def tool_entries(group=""):
+    """Everything Tools offers, as (string id, url, is_group).
 
     One list, because there are two ways in and they must not drift: the
-    directory below, and the dashboard's own rail button, which cannot open a
+    directory below, and the dashboard's rail button, which cannot open a
     directory without leaving the window this add-on exists to keep you in.
+
+    Grouped rather than flat. Ten entries in one list is a wall of text on a
+    television, and the five that are housekeeping - caches, rows, the device
+    report - are things somebody looks for deliberately, not things they
+    should have to read past on the way to Accounts.
     """
+    if group == "maintenance":
+        return [
+            (32262, router.url_for("clear_cache"), False),
+            (32263, router.url_for("cache_info"), False),
+            (32264, router.url_for("rebuild_rows"), False),
+            (32384, router.url_for("profile"), False),
+            (32370, router.url_for("diagnostics"), False),
+        ]
     return [
-        (32260, router.url_for("setup")),
-        (32396, router.url_for("accounts")),
-        (32261, router.url_for("open_settings")),
-        (32262, router.url_for("clear_cache")),
-        (32263, router.url_for("cache_info")),
-        (32264, router.url_for("rebuild_rows")),
-        (32384, router.url_for("profile")),
-        (32226, router.url_for("kids_toggle")),
-        (32506, router.url_for("check_update")),
-        (32370, router.url_for("diagnostics")),
+        (32260, router.url_for("setup"), False),
+        (32396, router.url_for("accounts"), False),
+        (32261, router.url_for("open_settings"), False),
+        (32226, router.url_for("kids_toggle"), False),
+        (32506, router.url_for("check_update"), False),
+        (32516, router.url_for("tools", group="maintenance"), True),
     ]
 
 
 @router.route("tools")
 def tools(params):
     handle = _handle()
-    for string_id, url in tool_entries():
+    for string_id, url, is_group in tool_entries(params.get("group", "")):
         listing.add_directory(handle, kodi.localize(string_id), url,
                               art={"icon": "DefaultAddonProgram.png"},
-                              is_folder=False)
+                              is_folder=is_group)
     listing.end(handle, content="files", cache_to_disc=False)
 
 

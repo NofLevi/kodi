@@ -1093,8 +1093,41 @@ def test_the_rail_button_reaches_everything_tools_offers(monkeypatch,
     window.onClick(home_window.BUTTON_RAIL_SETTINGS)
 
     assert len(offered["labels"]) == len(handlers.tool_entries())
-    urls = [url for _string_id, url in handlers.tool_entries()]
-    assert any("action=check_update" in url for url in urls)
+
+    # Nothing may be stranded: every entry is either something to run or a
+    # group that leads to more, and the maintenance group is the only one.
+    reachable = []
+    for _string_id, url, is_group in handlers.tool_entries():
+        if is_group:
+            reachable.extend(u for _s, u, _g
+                             in handlers.tool_entries(url.rsplit("group=", 1)[-1]))
+        else:
+            reachable.append(url)
+    for action in ("check_update", "accounts", "diagnostics", "clear_cache",
+                   "open_settings", "kids_toggle"):
+        assert any("action=%s" % action in url for url in reachable),             "%s is not reachable from the dashboard" % action
+
+
+def test_a_group_opens_another_list_rather_than_a_directory(monkeypatch,
+                                                            settings_module):
+    """Opening the directory would navigate out of the window."""
+    from katan.ui import handlers
+
+    window = _home_with_rows(monkeypatch, [0])
+    seen = []
+    ran = []
+    # Choose the last entry - the group - then the first thing inside it.
+    monkeypatch.setattr(home_window.kodi, "select",
+                        lambda labels, heading="", **kw:
+                        seen.append(list(labels)) or (len(labels) - 1
+                                                      if len(seen) == 1 else 0))
+    monkeypatch.setattr(home_window.kodi, "run_builtin", ran.append)
+    window.onClick(home_window.BUTTON_RAIL_SETTINGS)
+
+    assert len(seen) == 2, "the group has to open a second list"
+    assert len(seen[1]) == len(handlers.tool_entries("maintenance"))
+    assert ran and "RunPlugin(" in ran[0]
+    assert "action=tools" not in ran[0], "a group must not be run as a directory"
 
 
 def test_pressing_ok_on_a_key_does_not_run_a_search(search):

@@ -759,23 +759,33 @@ class HomeWindow(xbmcgui.WindowXML):
     def _tools(self):
         """The Tools menu, without leaving the window.
 
-        It used to open the settings dialog directly, which meant everything
-        else Tools offers - the setup wizard, the accounts screen, the device
-        report, checking for an update - was reachable only from the plain
-        directory listing, and the dashboard never shows that. Opening the
-        directory instead would navigate out of this window into Kodi's file
-        browser, which is the thing this add-on exists to avoid, so the same
-        entries are offered as a list and the chosen one is run in place.
+        It used to open the settings dialog directly, so everything else Tools
+        offers - the setup wizard, the accounts screen, the device report,
+        checking for an update - was reachable only from the plain directory
+        listing, which the dashboard never shows. They were, in effect, not
+        there. Opening the directory instead would navigate out of this window
+        into Kodi's file browser, which is the thing this add-on exists to
+        avoid, so the entries are offered as a list and the chosen one runs in
+        place. A group opens a second list rather than a directory, for the
+        same reason.
         """
         from .handlers import tool_entries
 
-        entries = tool_entries()
-        choice = kodi.select([kodi.localize(string_id)
-                              for string_id, _url in entries],
-                             kodi.localize(32255))
-        if not (0 <= choice < len(entries)):
-            return
-        kodi.run_builtin("RunPlugin(%s)" % entries[choice][1])
+        group = ""
+        while True:
+            entries = tool_entries(group)
+            choice = kodi.select([kodi.localize(string_id)
+                                  for string_id, _url, _group in entries],
+                                 kodi.localize(32255))
+            if not (0 <= choice < len(entries)):
+                return
+            _string_id, url, is_group = entries[choice]
+            if not is_group:
+                kodi.run_builtin("RunPlugin(%s)" % url)
+                return
+            # A group's url is the same route with a group parameter, which is
+            # what the directory listing follows. Here the name is enough.
+            group = url.rsplit("group=", 1)[-1]
 
     def _context_menu(self):
         item = self._focused_item()
