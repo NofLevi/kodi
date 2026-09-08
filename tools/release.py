@@ -13,6 +13,7 @@ anything new.
 The news field is the changelog Kodi shows in the add-on browser, so it is
 written from the commit subjects rather than by hand.
 """
+import io
 import os
 import re
 import subprocess
@@ -101,6 +102,28 @@ def set_version(addon_id, version, news=None):
     return True
 
 
+def update_readme(repo_version):
+    """Point the README's download links at the release just built.
+
+    The links name a file - Cloudflare Pages serves no directory listing, so
+    ".../repository.katan/" is a 404 and there is nothing stable to link to.
+    That means the version is in the URL, and a version in a URL that nothing
+    updates is a broken link one release later.
+    """
+    path = os.path.join(ROOT, "README.md")
+    if not os.path.isfile(path):
+        return
+    with io.open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    updated = re.sub(r"repository\.katan-\d+\.\d+\.\d+\.zip",
+                     "repository.katan-%s.zip" % repo_version, text)
+    if updated == text:
+        return
+    with io.open(path, "w", encoding="utf-8", newline="") as handle:
+        handle.write(updated)
+    print("README download links -> %s" % repo_version)
+
+
 def tests_pass():
     print("running the suite")
     result = subprocess.run([sys.executable, "-m", "pytest", "tests", "-q"],
@@ -139,7 +162,9 @@ def main():
     set_version(addon_id, new, news)
     # The repository add-on carries its own version; bump it too so a change
     # to its URLs actually reaches devices that already have it.
-    set_version(build.ADDONS[1], bump(current_version(build.ADDONS[1]), "patch"))
+    repo_version = bump(current_version(build.ADDONS[1]), "patch")
+    set_version(build.ADDONS[1], repo_version)
+    update_readme(repo_version)
 
     if build.main() != 0:
         return 1
