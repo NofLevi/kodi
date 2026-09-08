@@ -405,3 +405,92 @@ def test_an_unnamed_season_is_not_guessed_at(bleach_cours):
 def test_an_episode_past_the_end_is_not_forced_into_the_last_cour(bleach_cours):
     assert bleach_cours.episode_address("Bleach", 51,
                                         "Thousand-Year Blood War", 50) is None
+
+
+# --------------------------------------------------------------------------
+# the ordinary shape: one TMDB season is one broadcast run
+#
+# The arc walk above needs the season to have a name, and most anime seasons
+# have none - TMDB calls them "Season 1", "Season 2". Measured across 166
+# anime episodes, that reached a fifth of them. Where the seasons line up
+# one-for-one with Kitsu's entries the season number is the whole address.
+# --------------------------------------------------------------------------
+
+# What kitsu.io returns for "KonoSuba": three broadcast runs, two OVAs, a
+# film, and a spin-off whose season is the same shape as the real ones.
+KONOSUBA = {"data": [
+    {"id": "10941", "attributes": {
+        "canonicalTitle": "Kono Subarashii Sekai ni Shukufuku wo!",
+        "titles": {"en_jp": "Kono Subarashii Sekai ni Shukufuku wo!"},
+        "episodeCount": 10, "startDate": "2016-01-14", "subtype": "TV"}},
+    {"id": "11937", "attributes": {
+        "canonicalTitle": "Kono Subarashii Sekai ni Shukufuku wo! 2",
+        "titles": {"en_jp": "Kono Subarashii Sekai ni Shukufuku wo! 2"},
+        "episodeCount": 10, "startDate": "2017-01-12", "subtype": "TV"}},
+    {"id": "44911", "attributes": {
+        "canonicalTitle": "Kono Subarashii Sekai ni Shukufuku wo! 3",
+        "titles": {"en_jp": "Kono Subarashii Sekai ni Shukufuku wo! 3"},
+        "episodeCount": 11, "startDate": "2024-04-10", "subtype": "TV"}},
+    # The spin-off. Same franchise, same length of season, different show -
+    # and only its name says so.
+    {"id": "46139", "attributes": {
+        "canonicalTitle": "Kono Subarashii Sekai ni Bakuen wo!",
+        "titles": {"en_jp": "Kono Subarashii Sekai ni Bakuen wo!"},
+        "episodeCount": 12, "startDate": "2023-04-05", "subtype": "TV"}},
+    {"id": "11752", "attributes": {
+        "canonicalTitle": "Kono Subarashii Sekai ni Shukufuku wo! OVA",
+        "titles": {}, "episodeCount": 1,
+        "startDate": "2016-06-24", "subtype": "OVA"}},
+    {"id": "41440", "attributes": {
+        "canonicalTitle": "Kono Subarashii Sekai ni Shukufuku wo! Movie",
+        "titles": {}, "episodeCount": 1,
+        "startDate": "2019-08-30", "subtype": "movie"}},
+]}
+
+KONOSUBA_NAMES = ["Kono Subarashii Sekai ni Shukufuku wo!", ""]
+
+
+@pytest.fixture
+def konosuba(monkeypatch):
+    from katan.meta import kitsu
+    monkeypatch.setattr(kitsu, "_get", lambda path, params=None, **kw: KONOSUBA)
+    return kitsu
+
+
+@pytest.mark.parametrize("season,episode,expected", [
+    (1, 1, ("10941", 1)),
+    (2, 10, ("11937", 10)),
+    (3, 5, ("44911", 5)),
+])
+def test_a_season_number_is_the_address(season, episode, expected, konosuba):
+    assert konosuba.season_address(KONOSUBA_NAMES, season, episode,
+                                   [10, 10, 11]) == expected
+
+
+def test_the_spin_off_is_not_counted_as_a_season(konosuba):
+    """It is the same franchise and the same shape, and it is a different show.
+
+    Counting it would put every season after it one place out, which plays a
+    real episode of the wrong series - the failure nothing downstream catches.
+    Only the name separates them.
+    """
+    # Four TV entries would be found if the name were not checked, and the
+    # count list has three, so a version that counted it would refuse here
+    # rather than answer. Asking for the third season proves it did not.
+    assert konosuba.season_address(KONOSUBA_NAMES, 3, 5, [10, 10, 11]) == ("44911", 5)
+
+
+def test_seasons_that_do_not_line_up_are_refused(konosuba):
+    """The correspondence is the check, so no correspondence means no address."""
+    assert konosuba.season_address(KONOSUBA_NAMES, 2, 1, [10, 10]) is None
+    assert konosuba.season_address(KONOSUBA_NAMES, 2, 1, [12, 12, 12]) is None
+    assert konosuba.season_address(KONOSUBA_NAMES, 2, 1, []) is None
+
+
+def test_an_episode_past_the_end_of_its_season_is_refused(konosuba):
+    assert konosuba.season_address(KONOSUBA_NAMES, 1, 11, [10, 10, 11]) is None
+
+
+def test_a_show_we_cannot_name_is_refused(konosuba):
+    assert konosuba.season_address([], 1, 1, [10, 10, 11]) is None
+    assert konosuba.season_address(["", ""], 1, 1, [10, 10, 11]) is None
