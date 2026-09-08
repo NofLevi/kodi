@@ -35,7 +35,7 @@ class AllDebrid(base.DebridService):
 
     # -- authorisation -----------------------------------------------------
 
-    methods = ("scan", "link", "key")
+    methods = ("scan", "key")
     key_url = "https://alldebrid.com/apikeys"
     key_setting = "alldebrid.apikey"
 
@@ -79,8 +79,7 @@ class AllDebrid(base.DebridService):
         # URL, so scanning it skips typing the PIN as well as the address.
         return signin.run_device(self.label, data.get("user_url", ""),
                                  data.get("pin", ""), poll,
-                                 lifetime=data.get("expires_in"), interval=4,
-                                 scan=(method != "link"))
+                                 lifetime=data.get("expires_in"), interval=4)
 
     def account_info(self):
         if not self.configured():

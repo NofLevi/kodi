@@ -96,12 +96,13 @@ class AuthWindow(xbmcgui.WindowXMLDialog):
             self.close()
 
 
-def open_auth(title, url, code="", message="", poll=None, interval=5,
-              scan=True):
+def open_auth(title, url, code="", message="", poll=None, interval=5):
     """Show the sign-in screen. Blocks until it closes.
 
-    `scan` is False for the flows where a code is not wanted - there is no
-    point drawing one for a URL somebody has already been told to open.
+    The QR code is always drawn, because the link and the six-digit code are
+    on screen beside it regardless. Somebody with a phone camera scans it and
+    somebody without one reads the link, and neither has to be asked which
+    they are first.
     """
     from . import signin
 
@@ -112,7 +113,7 @@ def open_auth(title, url, code="", message="", poll=None, interval=5,
     window.message = message or ""
     window.poll = poll
     window.interval = max(1, int(interval))
-    if scan and url:
+    if url:
         window.image = signin.code_image(url)
         if not window.image:
             # No code is not a failure. The link and the code are still on

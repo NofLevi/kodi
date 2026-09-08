@@ -189,7 +189,7 @@ def refresh_token():
 # key to type here, and the id and secret above belong to the application
 # rather than to the viewer.
 label = "Trakt"
-methods = ("scan", "link")
+methods = ("scan",)
 
 
 def authorize(method=None):
@@ -211,8 +211,7 @@ def authorize(method=None):
         label, device.get("verification_url", ""),
         device.get("user_code", ""), poll,
         lifetime=device.get("expires_in"),
-        interval=max(5, int(device.get("interval") or 5)),
-        scan=(method != "link"))
+        interval=max(5, int(device.get("interval") or 5)))
     if not signed_in:
         return False
     sync_state()

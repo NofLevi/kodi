@@ -17,7 +17,7 @@ class FakeClient(object):
 
     name = "fake"
     label = "Fake"
-    methods = ("scan", "link", "key")
+    methods = ("scan", "key")
     key_url = "https://example.test/key"
 
     def __init__(self):
@@ -40,12 +40,12 @@ def test_the_methods_are_offered_best_first(monkeypatch):
     monkeypatch.setattr(signin.kodi, "select",
                         lambda labels, heading="", **kw:
                             shown.setdefault("labels", labels) and 0 or 0)
-    signin.choose_method("Fake", ("key", "link", "scan"))
+    signin.choose_method("Fake", ("key", "scan"))
     labels = shown["labels"]
-    # Paste sits between scan and link: it needs a phone like scan does, but
+    # Paste sits between scan and typing: it needs a phone like scan does, but
     # unlike scan it still involves a copy, and it beats typing outright.
     assert labels == [signin.kodi.localize(32460), signin.kodi.localize(32513),
-                      signin.kodi.localize(32461), signin.kodi.localize(32462)]
+                      signin.kodi.localize(32462)]
 
 
 def test_a_service_with_one_way_in_is_not_asked(monkeypatch):
@@ -83,8 +83,11 @@ def test_a_service_with_no_key_is_not_offered_the_phone(monkeypatch):
                         lambda labels, heading="", **kw:
                             shown.setdefault("labels", labels) and 0 or 0)
 
-    signin.choose_method("Real-Debrid", ("scan", "link"))
-    assert signin.kodi.localize(32513) not in shown["labels"]
+    signin.choose_method("Real-Debrid", ("scan", "key"))
+    assert signin.kodi.localize(32513) in shown["labels"]
+    shown.clear()
+    signin.choose_method("Real-Debrid", ("scan",))
+    assert shown.get("labels") is None, "one way in is not a question"
 
 
 def test_only_the_methods_a_service_has_are_offered(monkeypatch):
@@ -92,10 +95,16 @@ def test_only_the_methods_a_service_has_are_offered(monkeypatch):
     monkeypatch.setattr(signin.kodi, "select",
                         lambda labels, heading="", **kw:
                             shown.setdefault("labels", labels) and 0 or 0)
-    signin.choose_method("Real-Debrid", ("scan", "link"))
-    assert len(shown["labels"]) == 2
-    assert signin.kodi.localize(32462) not in shown["labels"], \
-        "a service with no typed key must not offer one"
+
+    # Real-Debrid mints its credentials through the device flow, so there is
+    # no key anywhere that could be typed or pasted.
+    assert signin.choose_method("Real-Debrid", ("scan",)) == signin.SCAN
+    assert "labels" not in shown, "one way in is not a question worth asking"
+
+    signin.choose_method("TorBox", ("scan", "key"))
+    assert shown["labels"] == [signin.kodi.localize(32460),
+                               signin.kodi.localize(32513),
+                               signin.kodi.localize(32462)]
 
 
 def test_backing_out_of_the_chooser_chooses_nothing(monkeypatch):
@@ -116,10 +125,8 @@ def _capture_window(monkeypatch):
     """Replace the window with something that just drives the poll."""
     seen = {}
 
-    def open_auth(title, url, code="", message="", poll=None, interval=5,
-                  scan=True):
-        seen.update(title=title, url=url, code=code, scan=scan,
-                    message=message)
+    def open_auth(title, url, code="", message="", poll=None, interval=5):
+        seen.update(title=title, url=url, code=code, message=message)
         results = []
         if poll:
             for _ in range(20):
@@ -179,12 +186,19 @@ def test_running_out_of_time_is_not_a_sign_in(monkeypatch):
                              lambda: False, lifetime=0, interval=0) is False
 
 
-def test_asking_for_a_link_does_not_draw_a_code(monkeypatch):
-    """"Open a link" and "scan a code" are different requests."""
+def test_the_link_and_the_code_are_always_on_screen(monkeypatch):
+    """There is no separate "open a link" choice, and there need not be.
+
+    It was the same flow with the QR code not drawn, and the screen shows the
+    link and the six digits either way - which is exactly what somebody with
+    no phone camera needs. Offering it asked the viewer a question about
+    themselves that the screen had already answered.
+    """
     seen = _capture_window(monkeypatch)
     signin.run_device("Fake", "https://example.test", "AB12", lambda: True,
-                      lifetime=600, interval=0, scan=False)
-    assert seen["scan"] is False
+                      lifetime=600, interval=0)
+    assert seen["url"] == "https://example.test"
+    assert seen["code"] == "AB12"
 
 
 # --------------------------------------------------------------------------
@@ -239,7 +253,7 @@ def test_every_service_declares_only_methods_it_handles():
             continue
         assert client.methods, "%s offers no way to sign in" % name
         for method in client.methods:
-            assert method in (signin.SCAN, signin.LINK, signin.KEY), \
+            assert method in (signin.SCAN, signin.KEY), \
                 "%s offers an unknown method %r" % (name, method)
         if signin.KEY in client.methods:
             assert client.key_url, \
