@@ -1584,3 +1584,7 @@ msgstr ""
 msgctxt "#32518"
 msgid "Turn kids mode off"
 msgstr ""
+
+msgctxt "#32519"
+msgid "%d episodes"
+msgstr ""

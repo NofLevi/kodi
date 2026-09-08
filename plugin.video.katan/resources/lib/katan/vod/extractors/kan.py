@@ -57,6 +57,17 @@ def episodes(ref, mode=""):
     return found
 
 
+# Kan puts the season in the address and nowhere else: an episode of "מהצד
+# השני" lives at ".../p-12463/s4/1094610/". Without reading it, a programme
+# that has run for four seasons is one list of six hundred and twelve.
+_SEASON_IN_URL = re.compile(r"/s(\d{1,2})/")
+
+
+def _season_of(link):
+    match = _SEASON_IN_URL.search(link or "")
+    return int(match.group(1)) if match else 0
+
+
 def _episode_item(link, inner_html):
     title = page.plain_text(inner_html) or link.rstrip("/").rsplit("/", 1)[-1]
     image = _IMAGE.search(inner_html)
@@ -64,6 +75,7 @@ def _episode_item(link, inner_html):
         "vod",
         ids={"vod": link},
         title=title,
+        season=_season_of(link),
         art={"poster": page.absolute(image.group(1), BASE) if image else "",
              "thumb": page.absolute(image.group(1), BASE) if image else ""},
         extra={"url": router.url_for("play_vod", module="kan", ref=link),

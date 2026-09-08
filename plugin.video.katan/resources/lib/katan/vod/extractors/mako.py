@@ -18,6 +18,9 @@ _EPISODE_LINK = re.compile(
     re.I)
 _IMAGE = re.compile(r'(?:data-src|src)="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"')
 
+# The last path segment of an episode address, and only of an episode address.
+_EPISODE_DOCUMENT = re.compile(r"VOD-[^/]+\.htm", re.I)
+
 
 def episodes(ref, mode=""):
     url = page.absolute(ref, BASE)
@@ -43,11 +46,30 @@ def episodes(ref, mode=""):
             continue
         seen.add(link)
         image = _IMAGE.search(inner)
+        poster = page.absolute(image.group(1), BASE) if image else ""
+        # Mako lists a long-running programme as its *seasons*, not its
+        # episodes: "ארץ נהדרת" answers with twenty-three entries titled
+        # "עונה 1" to "עונה 23", each of which is another page listing that
+        # season. They were being offered as things to play, so choosing a
+        # season asked the player for a directory and nothing happened at all.
+        # An episode's address ends in its own VOD document; a season's does
+        # not, which is the whole difference.
+        if _is_a_season(link):
+            found.append(items.new_item(
+                "vod",
+                ids={"vod": link},
+                title=title,
+                art={"poster": poster, "thumb": poster},
+                extra={"url": router.url_for("vod_show", module="keshet",
+                                             ref=link),
+                       "module": "keshet", "ref": link},
+            ))
+            continue
         found.append(items.new_item(
             "vod",
             ids={"vod": link},
             title=title,
-            art={"poster": page.absolute(image.group(1), BASE) if image else ""},
+            art={"poster": poster},
             extra={"url": router.url_for("play_vod", module="keshet", ref=link),
                    "module": "keshet", "ref": link},
         ))
@@ -61,6 +83,16 @@ def episodes(ref, mode=""):
                 extra={"url": router.url_for("play_vod", module="keshet", ref=url),
                        "module": "keshet", "ref": url}))
     return found
+
+
+def _is_a_season(link):
+    """Is this another listing page rather than one video?
+
+    Every Mako episode is served from its own document, and the address ends
+    in it: ".../eretz_nehederet-s20/VOD-5dd3698d83a5381026.htm". A season - or
+    any other sub-listing - is a folder address with no document on the end.
+    """
+    return not _EPISODE_DOCUMENT.match((link or "").rsplit("/", 1)[-1])
 
 
 def _page_title(html):
