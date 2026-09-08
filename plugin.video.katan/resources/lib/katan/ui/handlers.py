@@ -330,6 +330,7 @@ def tools(params):
         (32264, router.url_for("rebuild_rows")),
         (32384, router.url_for("profile")),
         (32226, router.url_for("kids_toggle")),
+        (32506, router.url_for("check_update")),
         (32370, router.url_for("diagnostics")),
     ]
     for string_id, url in entries:
@@ -711,3 +712,20 @@ def _connect_or_disconnect(client):
     else:
         kodi.notify(kodi.localize(32322))
     return True
+
+
+@router.route("check_update")
+def check_update(params):
+    """Fetch and install a newer release, keeping every setting.
+
+    Kodi's repository does this on its own schedule. This is the same thing on
+    demand, and the only route available at all when the add-on was installed
+    from a zip rather than from the repository.
+    """
+    from .. import updater
+
+    kodi.busy_dialog(True)
+    try:
+        updater.update_now()
+    finally:
+        kodi.busy_dialog(False)

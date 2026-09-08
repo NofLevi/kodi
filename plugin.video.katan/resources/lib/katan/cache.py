@@ -29,6 +29,13 @@ from . import kodi, settings
 _COMPRESS_OVER = 2048      # bytes; below this, compression costs more than it saves
 _PRUNE_EVERY = 300         # seconds between size checks
 
+# Bump this whenever the columns below change. CREATE TABLE IF NOT EXISTS
+# happily accepts a table of the wrong shape left by an older release, and the
+# cache then swallows every "no such column" on its way past - so the add-on
+# keeps running with a cache that silently stores nothing. There is no symptom
+# except slowness, which is the worst kind of bug to own.
+SCHEMA_VERSION = 1
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS kv (
     key      TEXT PRIMARY KEY,
@@ -56,14 +63,74 @@ def _connect():
     conn = getattr(_local, "conn", None)
     if conn is not None:
         return conn
-    conn = sqlite3.connect(db_path(), timeout=10, isolation_level=None)
-    # WAL keeps readers from blocking the writer, which matters because the
-    # service thread writes while the UI thread reads.
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    conn.executescript(_SCHEMA)
+    try:
+        conn = _open(db_path())
+    except sqlite3.DatabaseError:
+        # Corrupt, truncated, or written by a release with different columns.
+        # It is a cache: throwing it away costs a few HTTP requests and is the
+        # only outcome that leaves a working add-on.
+        kodi.log("rebuilding the cache")
+        conn = _rebuild(db_path())
     _local.conn = conn
     return conn
+
+
+def _rebuild(path):
+    """Start the cache over, whatever state the old one is in.
+
+    Dropping the table is tried before deleting the file, because on Windows a
+    file another thread still has open cannot be removed - and two threads
+    holding a connection each is the normal state here, not an edge case: the
+    service writes while the UI reads.
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(path, timeout=10, isolation_level=None)
+        conn.execute("DROP TABLE IF EXISTS kv")
+    except sqlite3.DatabaseError:
+        pass        # not a database at all; the file itself has to go
+    finally:
+        # Closing in a finally is the point: a connection left open by the
+        # failure above is itself what stops the file being deleted next.
+        if conn is not None:
+            try:
+                conn.close()
+            except sqlite3.Error:
+                pass
+    try:
+        return _open(path)
+    except sqlite3.DatabaseError:
+        _discard(path)
+        return _open(path)
+
+
+def _open(path):
+    """Open the cache, refusing anything that is not this schema."""
+    conn = sqlite3.connect(path, timeout=10, isolation_level=None)
+    try:
+        # WAL keeps readers from blocking the writer, which matters because
+        # the service thread writes while the UI thread reads.
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        found = conn.execute("PRAGMA user_version").fetchone()[0]
+        if found and found != SCHEMA_VERSION:
+            raise sqlite3.DatabaseError(
+                "cache schema %s, expected %s" % (found, SCHEMA_VERSION))
+        conn.executescript(_SCHEMA)
+        conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
+    except Exception:
+        conn.close()
+        raise
+    return conn
+
+
+def _discard(path):
+    """Delete the cache and the files SQLite keeps beside it."""
+    for suffix in ("", "-wal", "-shm"):
+        try:
+            os.remove(path + suffix)
+        except OSError:
+            pass
 
 
 def close():

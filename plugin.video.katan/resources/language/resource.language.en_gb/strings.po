@@ -1479,3 +1479,48 @@ msgstr ""
 msgctxt "#32497"
 msgid "needs an AI key - press to set one up"
 msgstr ""
+
+msgctxt "#32500"
+msgid "Katan %s is up to date"
+msgstr ""
+
+msgctxt "#32501"
+msgid "Update from %s to %s?"
+msgstr ""
+
+msgctxt "#32502"
+msgid "Downloading the update..."
+msgstr ""
+
+msgctxt "#32503"
+msgid "The update could not be installed"
+msgstr ""
+
+msgctxt "#32504"
+msgid "Installing..."
+msgstr ""
+
+msgctxt "#32505"
+msgid "Updated to %s. Restart Kodi now?"
+msgstr ""
+
+msgctxt "#32506"
+msgid "Check for updates"
+msgstr ""
+
+msgctxt "#30300"
+msgid "Check for updates on start"
+msgstr ""
+
+msgctxt "#30301"
+msgid "At most once a week, in the background"
+msgstr ""
+
+msgctxt "#30302"
+msgid "Update index URL"
+msgstr ""
+
+msgctxt "#30303"
+msgid "Leave empty to use the built-in address"
+msgstr ""
+

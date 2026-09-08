@@ -820,6 +820,16 @@
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="update.check_on_start" type="boolean" label="30300"
+                         help="30301">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="update.url" type="string" label="30302" help="30303">
+                    <level>2</level><default/>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="edit" format="string"><heading>30302</heading></control>
+                </setting>
                 <setting id="ui.stay_in_katan" type="boolean" label="30138"
                          help="30139">
                     <level>0</level><default>false</default>
