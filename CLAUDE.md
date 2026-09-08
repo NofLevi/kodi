@@ -210,6 +210,15 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
 * `kids.py` replaces the home rows rather than filtering them. A TMDB list
   result carries no certification at all, so a filter alone would let
   everything through; the kid-safe rows ask TMDB for a ceiling instead.
+  Because it replaces rather than filters, switching it has to **redraw the
+  window** - `kodi.refresh_container` was being called and could never have
+  worked, since it refreshes a directory and the dashboard is a window. The
+  menu entry says what pressing it will *do* ("Turn kids mode off"), because
+  a toggle that only names the topic is one you press to discover the state,
+  and no PIN is asked either way: that guard existed so a child could not undo
+  the mode from the menu they found it in, which is a real concern with the
+  wrong owner on a television used by one family. `kids.check_pin` and its
+  hashed store remain for whenever there is a reason to ask again.
 * `subs/sync.py` is the part that makes a subtitle actually fit. It correlates
   speech activity as big-integer bitmasks, which is fast enough to align a two
   hour film in about 170 ms, and corrects both constant offset and PAL/NTSC
@@ -266,7 +275,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1265 tests, all running against Kodi stubs, so no Kodi install is needed:
+1275 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -665,6 +674,34 @@ up: the press did nothing whatsoever. On a film the id is the right one, which
 is why it looked like "choosing a source only works on films". The details
 window had known this all along and read `extra["tmdb_show"]`; the context menu
 had not.
+
+Two more from the first real installation, and both had passed every test
+here because the stubs are tidier than Kodi is.
+
+* **`kodi.addon_path()` comes back with a trailing separator.** The stub's
+  does not. So `target + ".old"` named a file *inside* the folder being
+  replaced instead of a sibling of it, and `os.path.dirname` of the same path
+  returned the add-on folder itself - meaning the staging directory was
+  unpacked inside the thing it was meant to replace. `OSError: [WinError 87]`,
+  and the first update anyone ever tried failed. `normpath` fixes both, and
+  the test now passes a path shaped like the real one.
+* **A `.po` entry needs a blank line before it.** "Kids mode" sat in the file
+  and every check here found it, because they all look for `msgctxt` with a
+  regex - but a real parser folds an entry written straight after the previous
+  `msgstr` into the one above, so the id never registers and Kodi renders the
+  number. The menu read `32226`, and an unlabelled row in a menu is one
+  somebody presses to find out what it does. This one replaces the entire
+  catalogue with the kid-safe version, which is how kids mode came to be
+  switched on twice in an evening.
+
+And one that only search could reach. **A VOD entry is a programme, not a
+stream.** `listing.target_url` marked every one of them playable, so Kodi
+asked a directory route for something to play, the route answered with a
+directory, and nothing happened - fifty-two episodes of the programme in
+question, none of them reachable. It never showed while browsing because the
+VOD screens build their own directories; only search sends items through
+`target_url`. Channels share the type and genuinely are streams, so the url is
+what tells them apart.
 
 The lesson worth keeping: the stubs can only be as right as our belief about
 Kodi, and five of these were the stubs being more generous, or more
