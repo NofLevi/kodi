@@ -489,6 +489,20 @@ def test_string_files_are_well_formed(language):
                if not (30000 <= int(i) <= 30999 or 32000 <= int(i) <= 32999)]
     assert not outside, "ids outside the add-on ranges: %s" % sorted(outside)[:5]
 
+    # Entries have to be separated by a blank line, and a regex looking for
+    # msgctxt cannot tell. That is not pedantry about the format: an entry
+    # written straight after the previous msgstr is folded into it by a real
+    # .po parser and the id is never registered, so Kodi renders the number.
+    # "Kids mode" sat in this file, findable by every check here, and showed
+    # in the Tools menu as "32226".
+    lines = text.splitlines()
+    joined = [(number + 1, line) for number, line in enumerate(lines)
+              if line.startswith("msgctxt") and number > 0
+              and lines[number - 1].strip() != ""]
+    assert not joined, (
+        "%s: msgctxt with no blank line before it, which a .po parser folds "
+        "into the entry above: %s" % (language, joined[:3]))
+
 
 def test_every_localize_call_has_a_string():
     """kodi.localize(32xxx) with no matching entry renders as a bare number."""

@@ -129,7 +129,14 @@ def apply(zip_path):
     Unpacked beside the add-ons folder first, so a failure half way through
     cannot leave the installed copy deleted and unreplaced.
     """
-    target = kodi.addon_path()
+    # normpath, because real Kodi hands back the add-on path with a trailing
+    # separator and the stub does not. With one, `target + ".old"` names a
+    # file *inside* the folder being replaced rather than a sibling of it, and
+    # os.path.dirname returns the add-on folder itself - so the staging
+    # directory was unpacked inside the thing it was meant to replace, and the
+    # rename failed with WinError 87 on a projector while passing every test
+    # here.
+    target = os.path.normpath(kodi.addon_path())
     addons_dir = os.path.dirname(target)
     staging = tempfile.mkdtemp(prefix="katan-staging-", dir=addons_dir)
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.katan"
        name="Katan"
-       version="0.1.2"
+       version="0.1.4"
        provider-name="katan">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -29,14 +29,14 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>v0.1.2
+        <news>v0.1.4
+- Stop the test suite rebuilding the published repository
+- Prove the update works without the requests module
+- Release 0.1.2, and check the update path end to end
 - Put the version on the home screen
 - Put the update in Tools, and make Tools reachable from the dashboard
 - Release 0.1.1, and point everything at the published repository
 - Make an update reachable from the dashboard at all
-- Show which episode the button will act on, and make the cursor reachable
-- Run the checks on both kinds of machine, because that is where they differ
-- Choosing a source for an episode asked TMDB for the wrong thing entirely
-- Make the workflow able to run at all</news>
+- Show which episode the button will act on, and make the cursor reachable</news>
     </extension>
 </addon>
