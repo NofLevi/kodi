@@ -38,7 +38,7 @@ class Premiumize(base.DebridService):
 
     # -- authorisation -----------------------------------------------------
 
-    methods = ("scan", "link", "key")
+    methods = ("scan", "key")
     key_url = "https://www.premiumize.me/account"
     key_setting = "premiumize.apikey"
 
@@ -59,9 +59,9 @@ class Premiumize(base.DebridService):
                 return True
             settings.set("premiumize.apikey", previous)
             return False
-        return self._device_flow(scan=(method != "link"))
+        return self._device_flow()
 
-    def _device_flow(self, scan=True):
+    def _device_flow(self):
         from ..ui import signin
 
         client_id = (settings.get("premiumize.client_id")
@@ -106,7 +106,7 @@ class Premiumize(base.DebridService):
                                  start.get("verification_uri", ""),
                                  start.get("user_code", ""), poll,
                                  lifetime=start.get("expires_in"),
-                                 interval=pace["interval"], scan=scan)
+                                 interval=pace["interval"])
 
     def account_info(self):
         if not self.configured():

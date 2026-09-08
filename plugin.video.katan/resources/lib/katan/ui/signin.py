@@ -11,12 +11,19 @@ There is one screen now, and it offers whatever the service actually supports,
 in the order of how little work it is:
 
     1. Scan a code with your phone   - nothing to type at all
-    2. Open a link and type a code   - six characters, on the phone
+    2. Paste it from your phone      - for a key, without the remote
     3. Type the key here             - the fallback that always works
 
 An option is only offered when the service has it. Nothing here pretends: a
 service with no device flow does not get a "scan a code" entry that opens a
 page and then asks you to type the key anyway.
+
+There used to be a fourth, "open a link and type a code", and it was the same
+flow as the first one with the QR code switched off - the screen shows the
+link and the code either way, which is exactly what somebody without a camera
+needs. So it was never a different way in, only a worse presentation of the
+same one, and offering it made the viewer answer a question about themselves
+that the screen had already answered.
 """
 import threading
 import time
@@ -29,7 +36,6 @@ POLL_SECONDS = 5
 DEFAULT_LIFETIME = 600
 
 KEY = "key"
-LINK = "link"
 SCAN = "scan"
 PASTE = "paste"
 
@@ -39,7 +45,6 @@ def choose_method(title, methods):
     labels = {
         SCAN: kodi.localize(32460),
         PASTE: kodi.localize(32513),
-        LINK: kodi.localize(32461),
         KEY: kodi.localize(32462),
     }
     # A key that can be typed can be pasted from a phone instead, so PASTE is
@@ -49,7 +54,7 @@ def choose_method(title, methods):
     methods = tuple(methods)
     if KEY in methods and PASTE not in methods:
         methods = methods + (PASTE,)
-    offered = [m for m in (SCAN, PASTE, LINK, KEY) if m in methods]
+    offered = [m for m in (SCAN, PASTE, KEY) if m in methods]
     if not offered:
         return None
     if len(offered) == 1:
@@ -81,8 +86,7 @@ def show_url(title, url, message=""):
     open_auth(title=title, url=url, code="", message=message, poll=None)
 
 
-def run_device(title, url, code, poll, lifetime=None, interval=POLL_SECONDS,
-               scan=True):
+def run_device(title, url, code, poll, lifetime=None, interval=POLL_SECONDS):
     """Show a device flow and wait for it to finish.
 
     `poll` is called every few seconds and returns True when the viewer has
@@ -118,7 +122,7 @@ def run_device(title, url, code, poll, lifetime=None, interval=POLL_SECONDS,
 
     open_auth(title=title, url=url, code=code,
               message=kodi.localize(32464) if code else "",
-              poll=tick, interval=interval, scan=scan)
+              poll=tick, interval=interval)
     return state["done"]
 
 

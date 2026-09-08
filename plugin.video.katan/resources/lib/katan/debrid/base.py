@@ -21,11 +21,12 @@ class DebridService(object):
     label = ""
 
     # How this service can be signed in to, best first: "scan" a code with a
-    # phone, open a "link" and type a short code, or type the "key" here. Each
-    # service declares only what it really has - a service with no device flow
-    # does not get offered a "scan a code" that leads to a page and then asks
-    # for the key anyway. `ui/signin.py` turns this into the one screen every
-    # service shares.
+    # phone, or type the "key" here. Each service declares only what it really
+    # has - a service with no device flow does not get offered a "scan a code"
+    # that leads to a page and then asks for the key anyway. `ui/signin.py`
+    # turns this into the one screen every service shares, and adds "paste it
+    # from your phone" wherever there is a key, since that needs nothing from
+    # the client but the setting it lands in.
     methods = ("key",)
 
     # Where the key lives on the service's website, for the services that use

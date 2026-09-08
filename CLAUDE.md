@@ -76,8 +76,15 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   QR service would be handed the authorisation URL, which is a live credential
   while it lasts, and `qrcode` needs Pillow.
 * `ui/signin.py` is the one sign-in flow every service shares: scan a code,
-  open a link, paste from a phone, or type a key, offering only what the
-  service actually has. Each client declares `methods` and `key_url`; nothing
+  paste from a phone, or type a key, offering only what the service actually
+  has. **All five accounts now sign in by opening a link on a phone** - Trakt,
+  Real-Debrid, AllDebrid and Premiumize always did, and TorBox added a device
+  flow for TV apps. There used to be a fourth entry, "open a link and type a
+  code", and it was not a fourth way in at all: it ran the identical flow with
+  the QR code not drawn, and the screen shows the link and the six digits
+  either way. So it asked the viewer a question about themselves - do you have
+  a phone camera - that the screen had already answered for both answers. It
+  is gone, and the code is always drawn. Each client declares `methods` and `key_url`; nothing
   else about signing in lives in the clients any more. **Trakt goes through it
   too**, by declaring the same `label`, `methods`, `authorize` and `sign_out`
   a debrid client does - it is not a debrid service, but it is signed in to
@@ -104,7 +111,15 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
 * `debrid/` has one class per service behind a common interface. The API
   quirks are documented where they matter: Real-Debrid has no bulk cache check
   any more, TorBox caps uncached adds at 60 an hour, Premiumize answers
-  batches, AllDebrid has no bulk check either.
+  batches, AllDebrid has no bulk check either. TorBox's device flow was found
+  by reading its OpenAPI document rather than its prose docs - `GET
+  /user/auth/device/start` and `POST /user/auth/device/token` - and then
+  called live, because that document publishes **no schema at all** for either
+  success response. The one thing worth knowing before touching it: waiting
+  and expired are *both* HTTP 400 and only the error name separates
+  `DEVICE_CODE_NOT_USED` from `ITEM_NOT_FOUND`, so `post_json` cannot be used
+  there - it turns every 400 into the default, and the body of the 400 is the
+  entire answer.
 * `subs/` picks one subtitle: embedded track, then file hash, then release
   correlation, then AI translation of the best English match. Wizdom and
   SubSource are anonymous; Ktuvit is a members' site, so it is off until an
@@ -194,7 +209,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1223 tests, all running against Kodi stubs, so no Kodi install is needed:
+1230 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -219,7 +234,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_sources.py` | 36 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
-| `test_torbox.py` | 23 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
+| `test_torbox.py` | 30 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
 | `test_subtitle_matching.py` | 22 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
@@ -729,8 +744,7 @@ settings that promised a provider with no code behind them were removed, and
   registers the applications, and until then the flow still asks. An
   application credential in a public repository is worth nothing on its own -
   every token still needs a viewer to approve it on the service's own site.
-* TorBox has no device flow at all, so its "scan" is a link to the settings
-  page holding the key. That is the service, not a gap here.
+
 * Ktuvit is implemented against its documented flow and tested against
   fixtures, but has never signed in to a real account.
 * MDBList is implemented and fixture tested; the live API needs a key.

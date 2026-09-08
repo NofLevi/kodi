@@ -9,12 +9,32 @@ the user explicitly asks for something that is not ready yet.
 TorBox also has no file selection step, because it always downloads every file
 in a torrent. File picking therefore happens on our side, after the fact.
 """
+import calendar
 import time
 
 from .. import http, kodi, settings
 from . import base
 
 API = "https://api.torbox.app/v1/api"
+
+# The device flow TorBox added for TV apps. Measured against the live service
+# rather than taken from the documentation, because the OpenAPI document
+# publishes no schema at all for either success response:
+#
+#   GET  /user/auth/device/start?app=Katan
+#     -> data: device_code, code ("540608"), interval (5), expires_at (ISO
+#        8601 with a Z), verification_url, friendly_verification_url
+#   POST /user/auth/device/token  {"device_code": ...}
+#     -> 200 once approved; 400 with error DEVICE_CODE_NOT_USED while it has
+#        not been, and 400 with ITEM_NOT_FOUND once it is invalid or expired.
+#
+# Both waiting and dead are HTTP 400, so the error name is the only thing that
+# separates "keep the screen up" from "this code will never work" - and that
+# distinction is the whole reason the poll has three answers instead of two.
+DEVICE_START = API + "/user/auth/device/start"
+DEVICE_TOKEN = API + "/user/auth/device/token"
+DEVICE_URL = "https://torbox.app/oauth/device"
+APP_NAME = "Katan"
 
 # The GET form is limited by URL length; the docs put it at roughly 100.
 CHECK_BATCH = 90
@@ -41,9 +61,9 @@ class TorBox(base.DebridService):
 
     # -- account -----------------------------------------------------------
 
-    # TorBox has no device flow at all - the key from its settings page is
-    # the only way in - so "scan" here means scanning a link to that page,
-    # which is honest about what it does and still saves finding it by hand.
+    # TorBox used to be the one service with no device flow, so its "scan"
+    # meant scanning a link to the page where the key lives and then typing
+    # thirty-two characters on a remote anyway. It has a real one now.
     methods = ("scan", "key")
     key_url = "https://torbox.app/settings"
     key_setting = "torbox.apikey"
@@ -52,12 +72,16 @@ class TorBox(base.DebridService):
         return ["torbox.apikey"]
 
     def authorize(self, method=None):
+        if method == "key":
+            return self._authorize_with_typed_key()
+        return self._device_flow()
+
+    def _authorize_with_typed_key(self):
         from ..ui import signin
 
         previous = self.key()
-        entered = signin.ask_for_key(
-            "%s API key" % self.label, previous,
-            help_url=self.key_url if method == "scan" else "")
+        entered = signin.ask_for_key("%s API key" % self.label, previous,
+                                     help_url=self.key_url)
         if entered is None:
             return False
         settings.set("torbox.apikey", entered)
@@ -69,6 +93,76 @@ class TorBox(base.DebridService):
         # signed out because they mistyped a replacement key.
         settings.set("torbox.apikey", previous)
         return False
+
+    def _device_flow(self):
+        from ..ui import signin
+
+        start = http.get_json(DEVICE_START, params={"app": APP_NAME},
+                              timeout=base.timeout_for("auth"), default=None)
+        data = (start or {}).get("data") or {}
+        if not data.get("device_code"):
+            return False
+
+        def poll():
+            # Not post_json: it turns every status past 400 into the default,
+            # and here the body of a 400 is the entire answer.
+            response = http.post(DEVICE_TOKEN,
+                                 json={"device_code": data["device_code"]})
+            if response is None:
+                return False                  # a blip, not an answer
+            if response.status_code == 200:
+                return self._keep_device_token(response)
+            try:
+                error = (response.json() or {}).get("error")
+            except ValueError:
+                return False
+            return False if error == "DEVICE_CODE_NOT_USED" else None
+
+        return signin.run_device(
+            self.label, data.get("verification_url", DEVICE_URL),
+            data.get("code", ""), poll,
+            lifetime=_seconds_until(data.get("expires_at")),
+            interval=max(4, int(data.get("interval") or 5)))
+
+    def _keep_device_token(self, response):
+        """Store whatever the approved token came back as.
+
+        The 200 has no schema in TorBox's own OpenAPI document, and this is
+        the service whose `requestdl` answers with a bare string where
+        everything else answers with an object. So take a string if that is
+        what arrives and otherwise look under each name it could reasonably
+        use, rather than picking one and finding out on somebody's projector.
+
+        Returns True, or None - never False. A token that does not work is
+        the end of this attempt, not a reason to keep the screen up.
+        """
+        try:
+            payload = response.json() or {}
+        except ValueError:
+            return None
+        data = payload.get("data")
+        token = data if isinstance(data, str) else ""
+        if isinstance(data, dict):
+            for name in ("token", "api_key", "apikey", "access_token",
+                         "auth_token", "user_api_key"):
+                if data.get(name):
+                    token = str(data[name])
+                    break
+        token = (token or "").strip()
+        if not token:
+            kodi.log("TorBox approved the device but the token was not where "
+                     "it was looked for: %s"
+                     % (sorted(data) if isinstance(data, dict) else type(data)))
+            return None
+        previous = self.key()
+        settings.set("torbox.apikey", token)
+        info = self.account_info()
+        if info:
+            kodi.log("TorBox plan: %s" % info.get("plan"))
+            return True
+        settings.set("torbox.apikey", previous)
+        kodi.log("TorBox handed back a token its own account call refused")
+        return None
 
     def account_info(self):
         if not self.configured():
@@ -295,3 +389,19 @@ def _cached_hashes(data):
 def _chunks(items, size):
     for start in range(0, len(items), size):
         yield items[start:start + size]
+
+
+def _seconds_until(stamp, fallback=600):
+    """`expires_at` is a moment; the sign-in screen wants a duration.
+
+    Clamped at both ends: a clock that disagrees with TorBox's must not
+    produce a screen that closes at once or one that never closes.
+    """
+    if not stamp:
+        return fallback
+    text = str(stamp).split(".")[0].rstrip("Z") + "Z"
+    try:
+        expires = calendar.timegm(time.strptime(text, "%Y-%m-%dT%H:%M:%SZ"))
+    except ValueError:
+        return fallback
+    return max(60, min(1800, int(expires - time.time())))

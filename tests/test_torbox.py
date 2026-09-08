@@ -364,3 +364,135 @@ def test_a_file_list_that_has_not_arrived_yet_is_waited_for(api, monkeypatch):
 
     assert client().resolve(source_for()) == "https://cdn/file.mp4?token=x"
     assert slept, "it should have waited for the file list"
+
+
+# --------------------------------------------------------------------------
+# the device flow
+#
+# TorBox added one for TV apps, and it is the reason this service no longer
+# asks anybody to type thirty-two characters on a remote. These fixtures are
+# the bodies api.torbox.app returned on 2026-09-08, because its own OpenAPI
+# document publishes no schema at all for either success response.
+# --------------------------------------------------------------------------
+
+DEVICE_START = {
+    "success": True,
+    "error": None,
+    "detail": "Successfully created your device code authorization.",
+    "data": {
+        "device_code": "44134df0d789de14ddaf1dbc1c1f3a7e",
+        "interval": 5,
+        "expires_at": "2026-09-08T11:10:06Z",
+        "verification_url": "https://torbox.app/oauth/device?app=Katan",
+        "friendly_verification_url": "https://tor.box/link",
+        "code": "540608",
+    },
+}
+
+# Both of these are HTTP 400. Only the error name says which is which, and
+# getting that wrong either freezes the screen for ten minutes on a dead code
+# or throws the viewer out while they are still reaching for their phone.
+WAITING = {"success": False, "error": "DEVICE_CODE_NOT_USED",
+           "detail": "This device code has not been used yet. Please wait for "
+                     "the user to scan the code.", "data": None}
+DEAD = {"success": False, "error": "ITEM_NOT_FOUND",
+        "detail": "The device code you entered is invalid or has expired. "
+                  "Please try again.", "data": None}
+
+
+class _Response(object):
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _device(monkeypatch, answers, start=DEVICE_START):
+    """Run the flow, feeding `answers` to the poll one at a time."""
+    monkeypatch.setattr(torbox.http, "get_json",
+                        lambda url, **kw: start if "device/start" in url else None)
+    monkeypatch.setattr(torbox.http, "post",
+                        lambda url, **kw: answers.pop(0))
+
+    seen = {}
+
+    def run_device(title, url, code, poll, lifetime=None, interval=5):
+        seen.update(url=url, code=code, lifetime=lifetime, interval=interval)
+        seen["answers"] = []
+        while answers:
+            answer = poll()
+            seen["answers"].append(answer)
+            if answer is not True and answer is not False:
+                return False
+            if answer:
+                return True
+        return False
+
+    from katan.ui import signin
+    monkeypatch.setattr(signin, "run_device", run_device)
+    return seen
+
+
+def test_the_device_code_and_its_page_reach_the_screen(monkeypatch, settings_module):
+    seen = _device(monkeypatch, [_Response(400, WAITING)])
+    torbox.TorBox().authorize("scan")
+
+    assert seen["code"] == "540608"
+    assert seen["url"] == "https://torbox.app/oauth/device?app=Katan"
+    assert seen["interval"] == 5
+
+
+def test_waiting_and_dead_are_told_apart(monkeypatch, settings_module):
+    """Both are HTTP 400. Confusing them is a screen that never gives up."""
+    seen = _device(monkeypatch, [_Response(400, WAITING), _Response(400, DEAD)])
+    assert torbox.TorBox().authorize("scan") is False
+    assert seen["answers"] == [False, None]
+
+
+@pytest.mark.parametrize("data", [
+    "a-real-looking-torbox-key-000000",
+    {"token": "a-real-looking-torbox-key-000000"},
+    {"api_key": "a-real-looking-torbox-key-000000"},
+])
+def test_the_approved_token_is_kept_however_it_arrives(data, monkeypatch,
+                                                       settings_module):
+    """The 200 has no published schema, and this is the service whose
+    requestdl answers with a bare string where everything else answers with
+    an object. So all of these have to work."""
+    approved = _Response(200, {"success": True, "data": data})
+    _device(monkeypatch, [approved])
+    monkeypatch.setattr(torbox.TorBox, "account_info",
+                        lambda self: {"user": "someone", "plan": "Pro"})
+
+    assert torbox.TorBox().authorize("scan") is True
+    assert settings.get("torbox.apikey") == "a-real-looking-torbox-key-000000"
+
+
+def test_a_token_the_account_call_refuses_is_not_kept(monkeypatch,
+                                                      settings_module):
+    """And it ends the attempt rather than leaving the screen waiting."""
+    settings.set("torbox.apikey", "the-one-that-works")
+    seen = _device(monkeypatch, [_Response(200, {"data": "a-dud"})])
+    monkeypatch.setattr(torbox.TorBox, "account_info", lambda self: None)
+
+    assert torbox.TorBox().authorize("scan") is False
+    assert seen["answers"] == [None]
+    assert settings.get("torbox.apikey") == "the-one-that-works"
+
+
+def test_the_expiry_becomes_a_countdown(monkeypatch):
+    """expires_at is a moment; the sign-in screen wants a number of seconds."""
+    import time as _time
+    monkeypatch.setattr(torbox.time, "time",
+                        lambda: _time.mktime((2026, 9, 8, 11, 5, 6, 0, 0, 0))
+                        - _time.timezone)
+
+    assert torbox._seconds_until("2026-09-08T11:10:06Z") == 300
+    # A clock that disagrees with TorBox must not close the screen at once,
+    # nor leave one up all evening.
+    assert torbox._seconds_until("2020-01-01T00:00:00Z") == 60
+    assert torbox._seconds_until("2099-01-01T00:00:00Z") == 1800
+    assert torbox._seconds_until("") == 600
+    assert torbox._seconds_until("not a timestamp") == 600

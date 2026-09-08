@@ -51,7 +51,7 @@ class RealDebrid(base.DebridService):
     # client id and secret and the refresh depends on having both. So this
     # service offers the two scan-or-link options and no third one, which is
     # the whole point of the methods list being per service.
-    methods = ("scan", "link")
+    methods = ("scan",)
 
     def credential_settings(self):
         # All five, because the device flow mints a client id and secret of
@@ -92,7 +92,7 @@ class RealDebrid(base.DebridService):
                 poll,
                 lifetime=payload.get("expires_in"),
                 interval=max(5, int(payload.get("interval") or 5)),
-                scan=(method != "link")):
+        ):
             return False
         return self._exchange(found, device_code)
 
