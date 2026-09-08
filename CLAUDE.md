@@ -169,6 +169,32 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   because Nyaa matches the number as text. One subtlety worth keeping: a
   season marker changes what the number means, so "S3 - 11" is season three
   episode eleven and not absolute eleven.
+* **An anime episode has two addresses, and TMDB gives us the one nobody
+  indexes.** TMDB folds a whole multi-year arc into one season - all of
+  Bleach's Thousand-Year Blood War is "season 2", numbered 1 to 50 - while
+  Kitsu, AniDB and every release group treat each cour as its own series
+  numbered from 1. So every provider keyed on an id was asked for
+  `tt0434665:2:46`, which returns **nothing at all** from Torrentio, when the
+  same episode as `kitsu:49444:6` returns nine sources. `kitsu.episode_address`
+  walks Kitsu's own cour lengths - 46 - 13 - 13 - 14 = 6, the fourth cour -
+  and the aggregator asks under both addresses.
+
+  Three things that had to be got right, each of which produces a *wrong*
+  episode rather than none, which no filter downstream can catch because the
+  file is exactly what it says it is. A one-episode recap sits between the
+  second and third cours and shifts everything after it, so only a broadcast
+  run of four or more episodes counts as a cour. The season's own name is
+  required, because a text search for "Bleach" alone returns the 366-episode
+  original, six specials and several unrelated shows. And the cours have to
+  add up to what TMDB says the season holds, or no address is offered.
+
+  It is asked **as well as**, not instead of. Making it conditional on the
+  first search failing looked cheaper and was wrong: Bleach 2x47 came back
+  with one wrongly matched result from a name index, and that single result
+  was enough to stop the address that actually had the episode being tried.
+  The two name-keyed providers are left out of the second question, because a
+  cour-relative number means nothing as text to an index whose releases are
+  numbered absolutely.
 * `meta/seadex.py` is the exception to ranking by numbers. For anime the
   release group *is* the quality, and SeaDex publishes which group won. It
   returns infohashes, the aggregator already merges by infohash, so a

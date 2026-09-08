@@ -14,7 +14,7 @@ What it does not carry is an AniList id, so SeaDex release rankings are
 unavailable for titles sourced here. That is the one thing lost by falling
 back, and it degrades quietly rather than failing.
 """
-from .. import cache, http
+from .. import cache, http, kodi
 from . import items
 
 API = "https://kitsu.io/api/edge"
@@ -190,3 +190,97 @@ def current_season():
     if month in (7, 8, 9):
         return "summer", year
     return "fall", year
+
+
+def episode_address(title, episode, season_name="", season_episodes=0):
+    """Where an anime episode lives on Kitsu: (kitsu_id, episode), or None.
+
+    This exists because of how differently the two worlds count. TMDB folds a
+    long-running anime into a few large seasons - all of Bleach's
+    Thousand-Year Blood War is one "season 2" numbered 1 to 50 - while Kitsu,
+    AniDB and every release group treat each cour as its own series numbered
+    from 1. Measured on Bleach 2x46: `tt0434665:2:46` returns nothing at all
+    from Torrentio, and `kitsu:49444:6` - the same episode, addressed as the
+    sixth of the fourth cour - returns nine sources.
+
+    The walk is over Kitsu's own episode counts, so nothing is assumed about
+    how a show is divided: the cours go in broadcast order and the
+    within-season number is spent against them until it lands inside one.
+    Bleach: 46 - 13 - 13 - 14 = 6, the fourth cour.
+
+    `season_episodes` is what TMDB says the season holds, and it is the check
+    that makes this safe to act on. A wrong address is worse than none - it
+    plays a real episode that is not the one asked for, which no filter
+    downstream can catch - so if the cours do not add up to the season, this
+    gives up rather than guessing. Bleach: 13 + 13 + 14 + 10 = 50, which is
+    exactly what TMDB says season 2 holds.
+    """
+    episode = int(episode or 0)
+    if episode < 1:
+        return None
+    parts = _cours(title, season_name)
+    if not parts:
+        return None
+
+    total = sum(count for _id, count in parts)
+    if season_episodes and total != int(season_episodes):
+        kodi.log("kitsu has %d episodes for %s %s where TMDB has %s, so the "
+                 "numbering cannot be trusted" % (total, title, season_name,
+                                                  season_episodes))
+        return None
+
+    remaining = episode
+    for kitsu_id, count in parts:
+        if remaining <= count:
+            return kitsu_id, remaining
+        remaining -= count
+    return None
+
+
+# A cour is roughly ten to twenty-six episodes. Anything shorter is a recap,
+# an OVA or a trailer, and letting one into the walk shifts every number after
+# it by one - which is the failure that plays the wrong episode rather than
+# none at all. Bleach's arc has exactly that: a one-episode recap sitting
+# between its second and third cours.
+MIN_COUR_EPISODES = 4
+
+# A recap is published as "special" and a theme song as "music", and both sit
+# in the middle of the same search results. Only a broadcast run is a cour.
+COUR_SUBTYPES = ("TV", "ONA")
+
+
+def _cours(title, season_name=""):
+    """The cours of one arc, in broadcast order, with their episode counts.
+
+    Searched on the season's own name as well as the show's, because that is
+    what the arc is called and released under, and because the show name
+    alone brings back the 366-episode series it continues, six one-episode
+    specials and several unrelated shows - measured, all together.
+
+    The titles themselves are deliberately not matched on. Kitsu's canonical
+    title is romaji - "BLEACH: Sennen Kessen-hen" - so the English arc name
+    TMDB gives us appears nowhere in it, and requiring it matched nothing at
+    all. Kitsu's own text search already spans every title variant, which is
+    how it finds these from the English name in the first place.
+    """
+    if not title or not season_name:
+        return []
+    payload = _get("/anime", {
+        "filter[text]": "%s %s" % (title, season_name),
+        "page[limit]": 20,
+        "fields[anime]": "canonicalTitle,episodeCount,startDate,subtype",
+    })
+
+    found = []
+    for node in (payload or {}).get("data") or []:
+        attributes = node.get("attributes") or {}
+        count = int(attributes.get("episodeCount") or 0)
+        start = attributes.get("startDate") or ""
+        if attributes.get("subtype") not in COUR_SUBTYPES:
+            continue
+        if count < MIN_COUR_EPISODES or not start:
+            continue
+        found.append((start, node.get("id"), count))
+
+    found.sort()
+    return [(kitsu_id, count) for _start, kitsu_id, count in found]
