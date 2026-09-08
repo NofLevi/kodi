@@ -376,6 +376,91 @@ def _debrid():
     return "TorBox answered HTTP %s" % response.status_code
 
 
+@check("the published index answers anonymously", "updates")
+def _index_published():
+    """Kodi fetches a repository with no credentials of any kind.
+
+    So the one thing that matters about the hosting is that it works for
+    somebody who is not logged in to anything. The three URLs used to point at
+    raw.githubusercontent.com on a private repository, which answers 404 to
+    exactly that request - and the add-on had no way to notice.
+    """
+    from katan import http, updater
+
+    url = updater.index_url()
+    response = http.get(url, timeout=(5, 12))
+    if response is None:
+        raise AssertionError("no answer from %s" % url)
+    if response.status_code != 200:
+        raise AssertionError("%s answered HTTP %s" % (url, response.status_code))
+    if b"<addons" not in response.content:
+        raise AssertionError("%s is not a repository index" % url)
+    return "%s, %d bytes" % (url.rsplit("/", 2)[-2], len(response.content))
+
+
+@check("the index offers a real, downloadable release", "updates")
+def _release_downloadable():
+    """The version in the index and the zip beside it have to agree.
+
+    They are written by two different steps - release.py bumps addon.xml,
+    build.py names the zip - and the download URL is *derived* from the
+    version rather than stored, so a mismatch between them is silent until
+    somebody presses update and gets a 404.
+    """
+    import re
+    import xml.etree.ElementTree as ET
+
+    from katan import http, updater
+
+    response = http.get(updater.index_url(), timeout=(5, 12))
+    root = ET.fromstring(response.content)
+    published = ""
+    for node in root.findall("addon"):
+        if node.get("id") == updater.ADDON_ID:
+            published = node.get("version") or ""
+            break
+    if not published:
+        raise AssertionError("the index does not list %s" % updater.ADDON_ID)
+    if not re.match(r"^\d+\.\d+", published):
+        raise AssertionError("published version %r is not a version" % published)
+
+    base = updater.index_url().rsplit("/", 1)[0]
+    zip_url = "%s/zips/%s/%s-%s.zip" % (base, updater.ADDON_ID,
+                                        updater.ADDON_ID, published)
+    head = http.get(zip_url, timeout=(5, 20))
+    if head is None or head.status_code != 200:
+        raise AssertionError("%s answered %s"
+                             % (zip_url, head.status_code if head else "nothing"))
+    if not head.content.startswith(b"PK"):
+        raise AssertionError("what is published is not a zip")
+    return "%s, %d KB" % (published, len(head.content) // 1024)
+
+
+@check("a newer version would be offered and an older one refused", "updates",
+       network=False)
+def _version_comparison():
+    """The comparison is numeric, and it has to be.
+
+    As text "0.1.10" sorts below "0.1.9", so the tenth patch release of any
+    line would look like a downgrade and never be offered. Anything
+    unparseable sorts lowest, so a corrupt index cannot trigger an update.
+    """
+    from katan import updater
+
+    cases = [("0.1.2", "0.1.1", True), ("0.1.10", "0.1.9", True),
+             ("1.0.0", "0.9.9", True), ("0.1.1", "0.1.1", False),
+             ("0.1.0", "0.1.1", False), ("", "0.1.1", False),
+             ("not-a-version", "0.1.1", False)]
+    wrong = []
+    for published, installed, expected in cases:
+        newer = updater.parse_version(published) > updater.parse_version(installed)
+        if newer != expected:
+            wrong.append("%r against %r said %s" % (published, installed, newer))
+    if wrong:
+        raise AssertionError("; ".join(wrong))
+    return "%d comparisons" % len(cases)
+
+
 @check("every account still offers a phone sign-in", "accounts")
 def _device_flows():
     from katan import http
