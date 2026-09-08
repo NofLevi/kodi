@@ -12,6 +12,7 @@ downloads one small file and often none at all. When a trustworthy reference
 exists, the chosen subtitle is verified and re-timed against it, which turns
 "probably the right subtitle" into "demonstrably fits".
 """
+import hashlib
 import os
 import time
 
@@ -486,6 +487,25 @@ def subtitle_dir():
     return kodi.subdir(CACHE_DIR)
 
 
+def _filename_key(key):
+    """An ASCII name for a title that may have none of its own.
+
+    str.isalnum() is true for Hebrew letters, so the previous "strip to
+    alphanumerics" stripped nothing from an Israeli title and wrote the Hebrew
+    straight onto the filesystem. Android storage and Kodi's path handling are
+    both fussier about that than Windows is, and a subtitle that cannot be
+    written is a subtitle that never appears.
+
+    Falling back to "x" would give every Hebrew title the same filename, so a
+    title with no ASCII in it gets a hash of itself instead.
+    """
+    safe = "".join(c for c in key
+                   if (c.isalnum() and c.isascii()) or c in "-_")[:40]
+    if safe:
+        return safe
+    return "t" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
+
+
 def name_for(meta, language, variant=""):
     """The name a prepared subtitle is stored under.
 
@@ -497,7 +517,8 @@ def name_for(meta, language, variant=""):
     """
     ids = meta.get("ids") or {}
     key = str(ids.get("imdb") or ids.get("tmdb") or (meta.get("title") or "x"))
-    key = "".join(c for c in key if c.isalnum() or c in "-_")[:40] or "x"
+    key = _filename_key(key)
+
     mark = ".%s" % variant if variant else ""
     if meta.get("type") == "episode":
         return "%s.s%02de%02d%s.%s.srt" % (key, int(meta.get("season") or 0),

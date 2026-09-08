@@ -330,3 +330,70 @@ def test_the_cache_rebuilds_even_while_another_connection_holds_the_file(
         assert cache.get("k") == {"v": 1}
     finally:
         holder.close()
+
+
+# --------------------------------------------------------------------------
+# the whole thing, on the real add-on
+# --------------------------------------------------------------------------
+
+
+def test_installing_a_real_release_keeps_every_key(tmp_path, monkeypatch):
+    """The promise of this file, exercised rather than reasoned about.
+
+    Builds a release from the actual add-on tree, installs it over an actual
+    installed copy, and checks that the version moved and the viewer's keys,
+    their subtitles and their profile did not.
+    """
+    import xbmcaddon
+
+    from katan import kodi, updater
+
+    addons = tmp_path / "addons"
+    addons.mkdir()
+    installed = addons / "plugin.video.katan"
+    profile = tmp_path / "addon_data" / "plugin.video.katan"
+    profile.mkdir(parents=True)
+
+    import shutil
+    shutil.copytree(ADDON_DIR, str(installed))
+
+    (profile / "settings.xml").write_text(
+        '<settings version="2">\n'
+        '  <setting id="tmdb.apikey">MY-TMDB-KEY</setting>\n'
+        '  <setting id="torbox.apikey">MY-TORBOX-KEY</setting>\n'
+        "</settings>\n", encoding="utf-8")
+    (profile / "subtitles").mkdir()
+    (profile / "subtitles" / "kept.he.srt").write_text("1\n", encoding="utf-8")
+
+    xbmcaddon.reset(str(profile), str(installed))
+    xbmcaddon.INFO["version"] = "0.1.0"
+    kodi.refresh_addon()
+
+    release = str(tmp_path / "release.zip")
+    with zipfile.ZipFile(release, "w", zipfile.ZIP_DEFLATED) as archive:
+        for folder, dirs, files in os.walk(ADDON_DIR):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for name in files:
+                full = os.path.join(folder, name)
+                arc = "plugin.video.katan/" + os.path.relpath(
+                    full, ADDON_DIR).replace(os.sep, "/")
+                if arc == "plugin.video.katan/addon.xml":
+                    with io.open(full, encoding="utf-8") as handle:
+                        archive.writestr(arc, handle.read().replace(
+                            'version="0.1.0"', 'version="0.9.9"', 1))
+                else:
+                    archive.write(full, arc)
+
+    assert updater._is_sane_zip(release), "the real add-on failed its own check"
+    assert updater.apply(release) is True
+
+    import xml.etree.ElementTree as ET
+    on_disk = ET.parse(str(installed / "addon.xml")).getroot().get("version")
+    assert on_disk == "0.9.9", "the update did not land"
+
+    kept = (profile / "settings.xml").read_text(encoding="utf-8")
+    assert "MY-TMDB-KEY" in kept and "MY-TORBOX-KEY" in kept
+    assert (profile / "subtitles" / "kept.he.srt").is_file()
+
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    assert not leftovers, "staging or backup left behind: %s" % leftovers

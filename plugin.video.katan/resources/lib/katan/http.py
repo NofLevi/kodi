@@ -181,6 +181,13 @@ def run_parallel(tasks, workers=4, deadline=12.0, on_result=None):
 
     Tasks still running when the deadline passes are abandoned. Their threads
     finish on their own, but the caller is never blocked behind a slow provider.
+
+    That last sentence is why the executor is not used as a context manager.
+    Leaving the `with` block calls shutdown(wait=True), which waits for every
+    running task no matter what the timeout said - so a provider that hangs
+    for thirty seconds held the whole search for thirty seconds, which is the
+    exact failure bounded concurrency exists to prevent. future.cancel() does
+    not help either: it only cancels tasks that have not started yet.
     """
     from concurrent import futures
 
@@ -191,7 +198,8 @@ def run_parallel(tasks, workers=4, deadline=12.0, on_result=None):
     results = {}
     started = time.time()
 
-    with futures.ThreadPoolExecutor(max_workers=workers) as pool:
+    pool = futures.ThreadPoolExecutor(max_workers=workers)
+    try:
         pending = {pool.submit(_guard, name, fn): name for name, fn in tasks}
         try:
             for future in futures.as_completed(pending, timeout=deadline):
@@ -214,7 +222,11 @@ def run_parallel(tasks, workers=4, deadline=12.0, on_result=None):
             kodi.log("deadline hit after %.1fs, dropped: %s"
                      % (time.time() - started, ", ".join(unfinished)))
             for future in pending:
-                future.cancel()
+                future.cancel()      # only bites tasks that never started
+    finally:
+        # wait=False is the whole point: return now, let the stragglers end on
+        # their own. Every request they hold has its own timeout, so they do.
+        pool.shutdown(wait=False)
     return results
 
 
