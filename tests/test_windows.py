@@ -1058,12 +1058,43 @@ def test_staying_put_does_not_break_the_rest_of_the_window(monkeypatch,
     assert window.getFocusId() == home_window.BUTTON_SEARCH, \
         "the top bar is still reachable"
 
-    opened = []
-    from katan import settings as settings_mod
-    monkeypatch.setattr(settings_mod, "open_settings",
-                        lambda *a, **k: opened.append(True))
+    # The way out is one press further in than it used to be: the rail button
+    # opens Tools, and the settings dialog holding the switch is one of its
+    # entries. A door with no handle on the inside would be worse than the
+    # problem staying put solves, so the handle is what is checked here.
+    offered = {}
+    ran = []
+    monkeypatch.setattr(home_window.kodi, "select",
+                        lambda labels, heading="", **kw:
+                        offered.setdefault("labels", labels) is None or 2)
+    monkeypatch.setattr(home_window.kodi, "run_builtin", ran.append)
     window.onClick(home_window.BUTTON_RAIL_SETTINGS)
-    assert opened, "the switch that turns this off has to stay reachable"
+
+    assert offered["labels"], "the rail button has to offer something"
+    assert ran and "action=open_settings" in ran[0],         "the switch that turns this off has to stay reachable"
+
+
+def test_the_rail_button_reaches_everything_tools_offers(monkeypatch,
+                                                         settings_module):
+    """It used to open the settings dialog and nothing else.
+
+    So the setup wizard, the accounts screen, the device report and checking
+    for an update were reachable only from the plain directory listing - which
+    the dashboard never shows. They were, in effect, not there.
+    """
+    from katan.ui import handlers
+
+    window = _home_with_rows(monkeypatch, [0])
+    offered = {}
+    monkeypatch.setattr(home_window.kodi, "select",
+                        lambda labels, heading="", **kw:
+                        offered.setdefault("labels", labels) is None or -1)
+    monkeypatch.setattr(home_window.kodi, "run_builtin", lambda command: None)
+    window.onClick(home_window.BUTTON_RAIL_SETTINGS)
+
+    assert len(offered["labels"]) == len(handlers.tool_entries())
+    urls = [url for _string_id, url in handlers.tool_entries()]
+    assert any("action=check_update" in url for url in urls)
 
 
 def test_pressing_ok_on_a_key_does_not_run_a_search(search):

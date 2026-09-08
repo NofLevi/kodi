@@ -345,10 +345,14 @@ def _render_search(handle, query):
 # --------------------------------------------------------------------------
 
 
-@router.route("tools")
-def tools(params):
-    handle = _handle()
-    entries = [
+def tool_entries():
+    """Everything Tools offers, as (string id, url).
+
+    One list, because there are two ways in and they must not drift: the
+    directory below, and the dashboard's own rail button, which cannot open a
+    directory without leaving the window this add-on exists to keep you in.
+    """
+    return [
         (32260, router.url_for("setup")),
         (32396, router.url_for("accounts")),
         (32261, router.url_for("open_settings")),
@@ -360,7 +364,12 @@ def tools(params):
         (32506, router.url_for("check_update")),
         (32370, router.url_for("diagnostics")),
     ]
-    for string_id, url in entries:
+
+
+@router.route("tools")
+def tools(params):
+    handle = _handle()
+    for string_id, url in tool_entries():
         listing.add_directory(handle, kodi.localize(string_id), url,
                               art={"icon": "DefaultAddonProgram.png"},
                               is_folder=False)
