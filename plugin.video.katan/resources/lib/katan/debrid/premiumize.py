@@ -13,7 +13,12 @@ from . import base
 
 API = "https://www.premiumize.me/api"
 TOKEN_URL = "https://www.premiumize.me/token"
-CLIENT_ID = ""          # set in settings when using the device flow
+# Premiumize's device flow needs an OAuth application, and without one the
+# first thing "open a link and it connects" does is ask for a client id on a
+# remote - which defeats the point. Bundled like the TMDB key and Trakt's
+# application: useless on its own, because a token still needs the viewer to
+# approve it on Premiumize's own site.
+BUNDLED_CLIENT_ID = ""
 CHECK_BATCH = 100
 
 
@@ -59,13 +64,13 @@ class Premiumize(base.DebridService):
     def _device_flow(self, scan=True):
         from ..ui import signin
 
-        client_id = settings.get("premiumize.client_id")
+        client_id = (settings.get("premiumize.client_id")
+                     or BUNDLED_CLIENT_ID).strip()
         if not client_id:
-            client_id = kodi.keyboard("", "Premiumize client id") or ""
-            if not client_id.strip():
+            client_id = (kodi.keyboard("", "Premiumize client id") or "").strip()
+            if not client_id:
                 return False
-            settings.set("premiumize.client_id", client_id.strip())
-            client_id = client_id.strip()
+            settings.set("premiumize.client_id", client_id)
 
         start = http.post_json(TOKEN_URL, data={
             "client_id": client_id, "response_type": "device_code",

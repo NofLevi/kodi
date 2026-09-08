@@ -76,9 +76,17 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   QR service would be handed the authorisation URL, which is a live credential
   while it lasts, and `qrcode` needs Pillow.
 * `ui/signin.py` is the one sign-in flow every service shares: scan a code,
-  open a link, or type a key, offering only what the service actually has.
-  Each debrid client declares `methods` and `key_url`; nothing else about
-  signing in lives in the clients any more.
+  open a link, paste from a phone, or type a key, offering only what the
+  service actually has. Each client declares `methods` and `key_url`; nothing
+  else about signing in lives in the clients any more. **Trakt goes through it
+  too**, by declaring the same `label`, `methods`, `authorize` and `sign_out`
+  a debrid client does - it is not a debrid service, but it is signed in to
+  the same way, and having its own flow is what left it as the one account
+  with no way to sign out. Every account is one button that opens a chooser;
+  a connected one is asked whether to replace it or sign out, because a stale
+  token makes every search quietly return nothing and clearing it is the fix.
+  The raw id, secret and key fields still exist for anyone who wants them,
+  at expert level, out of the way of the button.
 * `sources/aggregator.py` runs providers, merges by infohash, asks each debrid
   service once in batches which hashes are cached, then ranks. `model.dedupe`
   merges **twice**, and the second pass matters more than it sounds: an
@@ -177,7 +185,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1176 tests, all running against Kodi stubs, so no Kodi install is needed:
+1211 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -224,7 +232,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
 | `test_play.py` | 33 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. |
 | `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
-| `test_signin.py` | 18 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
+| `test_signin.py` | 23 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
 | `test_profiles.py` | 26 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, **the shipped defaults being the lean profile key for key**, and the visual-polish switch raising artwork without ever lowering a richer profile. |
 | `test_wizard.py` | 7 | The one setup step that is not an account: light against richer artwork, with what each costs, and a device that is told it has room rather than quietly switched. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
@@ -688,8 +696,22 @@ settings that promised a provider with no code behind them were removed, and
 
 **Needs a real device or account to finish**
 
-* Trakt needs the user's own client id and secret, because the project has no
-  registered application.
+* **Trakt and Premiumize need an application registered before anybody can
+  sign in.** Both have the same "open a link and it connects on its own"
+  device flow that Real-Debrid and AllDebrid have, and for those two it works
+  out of the box because Real-Debrid publishes a client id for open source
+  apps and AllDebrid's PIN flow needs nothing but an agent name. Trakt wants a
+  client id *and* secret, Premiumize an OAuth client id, and neither publishes
+  one - so the first thing our flow did was open a keyboard for two long
+  strings, which is the exact barrier the sign-in screen exists to remove and
+  meant nobody ever reached the link. `trakt.BUNDLED_CLIENT_ID` /
+  `BUNDLED_CLIENT_SECRET` and `premiumize.BUNDLED_CLIENT_ID` are where those
+  go, the same way `tmdb.BUNDLED_KEY` does. They are empty until somebody
+  registers the applications, and until then the flow still asks. An
+  application credential in a public repository is worth nothing on its own -
+  every token still needs a viewer to approve it on the service's own site.
+* TorBox has no device flow at all, so its "scan" is a link to the settings
+  page holding the key. That is the service, not a gap here.
 * Ktuvit is implemented against its documented flow and tested against
   fixtures, but has never signed in to a real account.
 * MDBList is implemented and fixture tested; the live API needs a key.

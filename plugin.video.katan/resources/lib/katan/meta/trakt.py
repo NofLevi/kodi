@@ -21,12 +21,25 @@ _post_lock = threading.Lock()
 _last_post = [0.0]
 
 
+# Trakt will not talk to anybody without a registered application: a client id
+# for the public charts, and both id and secret for the device flow. Bundling
+# them is what makes "open the link and it connects" possible at all, because
+# otherwise the first thing that flow does is ask somebody to type two long
+# strings on a remote - which is the exact barrier this screen exists to
+# remove. Same trade as the TMDB key: an application credential in a public
+# repository is worth nothing on its own, since every token still needs a
+# viewer to approve it on Trakt's own site.
+BUNDLED_CLIENT_ID = ""
+BUNDLED_CLIENT_SECRET = ""
+
+
 def client_id():
-    return settings.get("trakt.client_id", "").strip()
+    return (settings.get("trakt.client_id", "") or BUNDLED_CLIENT_ID).strip()
 
 
 def client_secret():
-    return settings.get("trakt.client_secret", "").strip()
+    return (settings.get("trakt.client_secret", "")
+            or BUNDLED_CLIENT_SECRET).strip()
 
 
 def configured():
@@ -171,7 +184,43 @@ def refresh_token():
     return _store_token(response.json()) or ""
 
 
-def revoke():
+# The three names every debrid client declares, so Trakt goes through the one
+# sign-in screen instead of a flow of its own. Device flow only: there is no
+# key to type here, and the id and secret above belong to the application
+# rather than to the viewer.
+label = "Trakt"
+methods = ("scan", "link")
+
+
+def authorize(method=None):
+    """Run the device flow. True once the viewer has finished on their phone."""
+    from ..ui import signin
+
+    device = device_code()
+    if not device:
+        return False
+
+    def poll():
+        answer = exchange_device_token(device)
+        # None has to survive: it is "this code is dead", and turning it into
+        # False would leave the screen waiting out the full ten minutes for
+        # something that is never going to arrive.
+        return None if answer is None else bool(answer)
+
+    signed_in = signin.run_device(
+        label, device.get("verification_url", ""),
+        device.get("user_code", ""), poll,
+        lifetime=device.get("expires_in"),
+        interval=max(5, int(device.get("interval") or 5)),
+        scan=(method != "link"))
+    if not signed_in:
+        return False
+    sync_state()
+    return True
+
+
+def sign_out():
+    """Forget the account, and tell Trakt to drop the token as well."""
     token = settings.get("trakt.access_token")
     if token:
         http.post("%s/oauth/revoke" % API_BASE, json={
@@ -183,6 +232,7 @@ def revoke():
         "trakt.access_token": "", "trakt.refresh_token": "",
         "trakt.expires": "0", "trakt.user": "",
     })
+    return bool(token)
 
 
 # --------------------------------------------------------------------------
