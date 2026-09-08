@@ -21,7 +21,10 @@ name: end to end
 
 on:
   push:
-    branches: [main]
+    # development is where the work happens; main only moves on a release, and
+    # a release that fails its own checks is the one failure that reaches a
+    # television.
+    branches: [main, development]
   pull_request:
   schedule:
     # Every morning. The live services are what drifts, and drift is only
