@@ -490,3 +490,27 @@ def test_it_happens_once_a_session(monkeypatch, settings_module):
     service.open_on_boot(now)
     assert service.open_on_boot(now + 5) is True
     assert len(ran) == 1
+
+
+def test_the_tools_entry_says_what_pressing_it_will_do(settings_module):
+    """A blind toggle switched kids mode on by accident twice in one evening.
+
+    "Kids mode" says nothing about the current state, so the only way to find
+    out was to press it - which replaces the whole catalogue with the kid-safe
+    one and, once a PIN is set, wants the PIN to undo.
+    """
+    from katan import kids, kodi
+    from katan.ui import handlers
+
+    def entry():
+        return [string_id for string_id, url, _group in handlers.tool_entries()
+                if "kids_toggle" in url][0]
+
+    kids.turn_off()
+    off_label = entry()
+    kids.turn_on()
+    on_label = entry()
+
+    assert off_label != on_label, \
+        "the entry reads the same whether it is on or off"
+    assert kodi.localize(off_label) != kodi.localize(on_label)

@@ -1576,3 +1576,11 @@ msgstr ""
 msgctxt "#32516"
 msgid "Maintenance"
 msgstr ""
+
+msgctxt "#32517"
+msgid "Turn kids mode on"
+msgstr ""
+
+msgctxt "#32518"
+msgid "Turn kids mode off"
+msgstr ""
