@@ -627,7 +627,7 @@ def available(row):
         if need == "trakt" and not settings.get("trakt.access_token"):
             return False
         if need == "anilist":
-            continue          # AniList needs no key
+            continue          # neither anime catalogue needs a key
         if need == "trakt_public":
             continue          # public Trakt lists need only the client id
         if need == "vod":
@@ -953,11 +953,17 @@ def _because_you_watched(page=1):
 
 
 def _anime_trending(page=1):
+    """Trending anime, from whichever catalogue is answering today.
+
+    This went through AniList alone until AniList started refusing every
+    request, which emptied the row. It now asks meta.anime, which prefers
+    AniList and falls back to Kitsu.
+    """
     try:
-        from .meta import anilist
+        from .meta import anime
     except ImportError:
         return []
-    return anilist.trending(limit=ROW_LIMIT, page=page)
+    return anime.trending(limit=ROW_LIMIT, page=page)
 
 
 def _slice(items, page):

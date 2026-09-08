@@ -72,11 +72,12 @@ def _tmdb_search(query):
 
 
 def _anilist_search(query):
+    """Anime search, from whichever catalogue is answering today."""
     try:
-        from ..meta import anilist
+        from ..meta import anime
     except ImportError:
         return []
-    return anilist.search(query, limit=MAX_PER_SOURCE)
+    return anime.search(query, limit=MAX_PER_SOURCE)
 
 
 def _vod_search(query):
