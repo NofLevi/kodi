@@ -94,6 +94,35 @@ PAGE = """<!doctype html>
 </body></html>
 """
 
+MISSING = """<!doctype html>
+<html><head><meta charset="utf-8"><title>Not found</title></head>
+<body>
+<h1>Not found</h1>
+<p>No such file in the Katan repository.</p>
+<p><a href="/">back to the top</a></p>
+</body></html>
+"""
+
+
+def write_404():
+    """Make a missing file answer 404, which it stops doing on its own.
+
+    Cloudflare Pages treats a site with a root `index.html` and no `404.html`
+    as a single-page application: every unmatched path is answered with that
+    index, status **200**. Harmless for an app, actively dangerous here -
+    `updater.check` decides on `status_code >= 400`, and Kodi's own repository
+    install would fetch this page believing it was a zip. A mistyped or
+    withdrawn version would look present and fail later, somewhere less
+    obvious.
+
+    A `404.html` in the output directory takes priority over that fallback and
+    is served with a real 404, which is all this needs to be.
+    """
+    path = os.path.join(OUTPUT, "404.html")
+    with io.open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(MISSING)
+    return path
+
 
 def write_listings():
     """An index.html in every folder, so Kodi's own file browser can walk it.
@@ -118,7 +147,7 @@ def write_listings():
         entries = sorted(os.listdir(folder))
         rows = []
         for name in entries:
-            if name == "index.html":
+            if name in ("index.html", "404.html"):
                 continue
             suffix = "/" if os.path.isdir(os.path.join(folder, name)) else ""
             rows.append('<a href="%s%s">%s%s</a><br>' % (name, suffix,
@@ -190,9 +219,10 @@ def main():
     index, digest = build_index()
     print("wrote %s (md5 %s)" % (os.path.relpath(index, ROOT), digest))
 
+    write_404()
     listings = write_listings()
-    print("wrote %d directory listings, so Kodi can browse it as a source"
-          % len(listings))
+    print("wrote %d directory listings and a 404, so Kodi can browse it as a "
+          "source and a missing file still says so" % len(listings))
     return 0
 
 
