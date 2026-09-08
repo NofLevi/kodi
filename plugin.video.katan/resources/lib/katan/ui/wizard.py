@@ -135,6 +135,16 @@ def connect(client, name=""):
     method = signin.choose_method(title, getattr(client, "methods", ("key",)))
     if method is None:
         return False
+
+    if method == signin.PASTE:
+        # The key comes from a phone on the same network rather than from the
+        # remote. Handled here rather than inside each client, because what
+        # differs between them is only which setting it lands in.
+        key = signin.receive_key("%s API key" % title)
+        if not key:
+            return False
+        return bool(client.authorize_with_key(key))
+
     return bool(client.authorize(method))
 
 

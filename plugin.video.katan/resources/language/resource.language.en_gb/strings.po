@@ -1524,3 +1524,43 @@ msgctxt "#30303"
 msgid "Leave empty to use the built-in address"
 msgstr ""
 
+msgctxt "#30310"
+msgid "Real-Debrid"
+msgstr ""
+
+msgctxt "#30311"
+msgid "Premiumize"
+msgstr ""
+
+msgctxt "#30312"
+msgid "TorBox"
+msgstr ""
+
+msgctxt "#30313"
+msgid "AllDebrid"
+msgstr ""
+
+msgctxt "#30314"
+msgid "Pick a service, then how to sign in"
+msgstr ""
+
+msgctxt "#32510"
+msgid "Send"
+msgstr ""
+
+msgctxt "#32511"
+msgid "Paste the key here and press Send. This page is only on your local network."
+msgstr ""
+
+msgctxt "#32512"
+msgid "Done - you can close this"
+msgstr ""
+
+msgctxt "#32513"
+msgid "Paste it from your phone"
+msgstr ""
+
+msgctxt "#32514"
+msgid "Open this on your phone and paste the key"
+msgstr ""
+

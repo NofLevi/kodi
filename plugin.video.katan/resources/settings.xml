@@ -9,7 +9,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>
+                    <level>3</level>
                     <control type="edit" format="string">
                         <heading>30003</heading>
                     </control>
@@ -26,7 +26,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>1</level>
+                    <level>3</level>
                     <control type="edit" format="string">
                         <heading>30005</heading>
                     </control>
@@ -75,9 +75,30 @@
             </group>
 
             <group id="3" label="30010">
-                <setting id="action.connect.debrid" type="action" label="30142">
+                <setting id="action.connect.realdebrid" type="action" label="30310">
                     <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=debrid)</data>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=realdebrid)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.connect.premiumize" type="action" label="30311">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=premiumize)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.connect.torbox" type="action" label="30312">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=torbox)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.connect.alldebrid" type="action" label="30313">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=alldebrid)</data>
                     <control type="button" format="action">
                         <close>true</close>
                     </control>
@@ -87,7 +108,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>2</level>
+                    <level>3</level>
                     <control type="edit" format="string">
                         <heading>30011</heading>
                     </control>
@@ -97,7 +118,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>
+                    <level>3</level>
                     <control type="edit" format="string">
                         <heading>30012</heading>
                     </control>
@@ -107,7 +128,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>
+                    <level>3</level>
                     <control type="edit" format="string">
                         <heading>30013</heading>
                     </control>
@@ -117,7 +138,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>
+                    <level>3</level>
                     <control type="edit" format="string">
                         <heading>30014</heading>
                     </control>

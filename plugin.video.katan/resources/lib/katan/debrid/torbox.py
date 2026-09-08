@@ -46,6 +46,7 @@ class TorBox(base.DebridService):
     # which is honest about what it does and still saves finding it by hand.
     methods = ("scan", "key")
     key_url = "https://torbox.app/settings"
+    key_setting = "torbox.apikey"
 
     def credential_settings(self):
         return ["torbox.apikey"]

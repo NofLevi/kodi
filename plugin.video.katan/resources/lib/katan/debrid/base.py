@@ -38,6 +38,28 @@ class DebridService(object):
     def configured(self):
         raise NotImplementedError
 
+    # The setting a typed or pasted key is stored in. Only services that have
+    # a key need one; Real-Debrid signs in with a device flow and has none.
+    key_setting = ""
+
+    def authorize_with_key(self, key):
+        """Store a key that arrived from somewhere other than the keyboard.
+
+        Verifies before keeping it, and puts back whatever was working if the
+        new one is refused - so a mistyped replacement does not sign somebody
+        out of an account that was fine.
+        """
+        from .. import settings
+
+        if not self.key_setting or not key:
+            return False
+        previous = settings.get(self.key_setting)
+        settings.set(self.key_setting, key)
+        if self.account_info():
+            return True
+        settings.set(self.key_setting, previous)
+        return False
+
     def authorize(self, method=None):
         """Run the sign-in flow. Returns True on success.
 

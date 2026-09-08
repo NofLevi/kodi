@@ -18,6 +18,7 @@ An option is only offered when the service has it. Nothing here pretends: a
 service with no device flow does not get a "scan a code" entry that opens a
 page and then asks you to type the key anyway.
 """
+import threading
 import time
 
 from .. import kodi, qr
@@ -30,16 +31,25 @@ DEFAULT_LIFETIME = 600
 KEY = "key"
 LINK = "link"
 SCAN = "scan"
+PASTE = "paste"
 
 
 def choose_method(title, methods):
     """Ask how the viewer wants to sign in. Returns a method or None."""
     labels = {
         SCAN: kodi.localize(32460),
+        PASTE: kodi.localize(32513),
         LINK: kodi.localize(32461),
         KEY: kodi.localize(32462),
     }
-    offered = [m for m in (SCAN, LINK, KEY) if m in methods]
+    # A key that can be typed can be pasted from a phone instead, so PASTE is
+    # offered wherever KEY is rather than being declared by every client. It
+    # sits above KEY because typing thirty-two characters on a remote is the
+    # worst thing this add-on asks anybody to do.
+    methods = tuple(methods)
+    if KEY in methods and PASTE not in methods:
+        methods = methods + (PASTE,)
+    offered = [m for m in (SCAN, PASTE, LINK, KEY) if m in methods]
     if not offered:
         return None
     if len(offered) == 1:
@@ -119,3 +129,45 @@ def code_image(url):
     except Exception:
         pass
     return qr.image_for(url)
+
+
+def receive_key(title, placeholder="", lifetime=None):
+    """Take a key from a phone on the same network. Returns it, or None.
+
+    The address is served by `pastebox`, and shown here the same way a device
+    code is - as something to scan - because the whole point is that nothing
+    gets typed on the television.
+    """
+    from .. import pastebox
+    from .auth_window import open_auth
+
+    state = {"value": "", "url": ""}
+    ready = threading.Event()
+    span = float(lifetime or pastebox.LIFETIME)
+
+    def serve():
+        state["value"] = pastebox.receive(
+            title, placeholder, lifetime=span,
+            on_ready=lambda url: (state.__setitem__("url", url), ready.set()))
+
+    thread = threading.Thread(target=serve)
+    thread.daemon = True
+    thread.start()
+
+    # No LAN address, or the socket would not open. Say so by returning None,
+    # which sends the caller back to the chooser rather than to a blank wait.
+    if not ready.wait(5) or not state["url"]:
+        return None
+
+    deadline = time.time() + span
+
+    def tick():
+        if state["value"]:
+            return None
+        if time.time() >= deadline:
+            return None
+        return max(0.0, (deadline - time.time()) / span)
+
+    open_auth(title=title, url=state["url"], code="",
+              message=kodi.localize(32514), poll=tick, interval=1)
+    return state["value"] or None

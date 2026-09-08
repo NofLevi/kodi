@@ -42,17 +42,49 @@ def test_the_methods_are_offered_best_first(monkeypatch):
                             shown.setdefault("labels", labels) and 0 or 0)
     signin.choose_method("Fake", ("key", "link", "scan"))
     labels = shown["labels"]
-    assert labels == [signin.kodi.localize(32460), signin.kodi.localize(32461),
-                      signin.kodi.localize(32462)]
+    # Paste sits between scan and link: it needs a phone like scan does, but
+    # unlike scan it still involves a copy, and it beats typing outright.
+    assert labels == [signin.kodi.localize(32460), signin.kodi.localize(32513),
+                      signin.kodi.localize(32461), signin.kodi.localize(32462)]
 
 
 def test_a_service_with_one_way_in_is_not_asked(monkeypatch):
-    """TorBox has a key and nothing else. A one-item menu is a speed bump."""
+    """A one-item menu is a speed bump.
+
+    This used to use TorBox, which had "a key and nothing else" - it now also
+    has "paste it from your phone", because anything that can be typed can be
+    pasted, so it has two. A device flow with no key is the genuine one-way
+    case left.
+    """
     def refuse(*a, **k):
         raise AssertionError("should not have asked")
 
     monkeypatch.setattr(signin.kodi, "select", refuse)
-    assert signin.choose_method("TorBox", ("key",)) == signin.KEY
+    assert signin.choose_method("Somewhere", ("scan",)) == signin.SCAN
+
+
+def test_a_key_can_always_be_pasted_instead_of_typed(monkeypatch):
+    """Typing a thirty-two character key on a remote is the worst thing this
+    add-on asks of anybody, so every service that takes a key offers the
+    phone as well - without each client having to say so."""
+    shown = {}
+    monkeypatch.setattr(signin.kodi, "select",
+                        lambda labels, heading="", **kw:
+                            shown.setdefault("labels", labels) and 0 or 0)
+
+    signin.choose_method("TorBox", ("key",))
+    assert signin.kodi.localize(32513) in shown["labels"]
+
+
+def test_a_service_with_no_key_is_not_offered_the_phone(monkeypatch):
+    """Real-Debrid has no key to paste; offering the page would lead nowhere."""
+    shown = {}
+    monkeypatch.setattr(signin.kodi, "select",
+                        lambda labels, heading="", **kw:
+                            shown.setdefault("labels", labels) and 0 or 0)
+
+    signin.choose_method("Real-Debrid", ("scan", "link"))
+    assert signin.kodi.localize(32513) not in shown["labels"]
 
 
 def test_only_the_methods_a_service_has_are_offered(monkeypatch):

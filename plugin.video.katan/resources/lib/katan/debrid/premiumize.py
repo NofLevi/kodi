@@ -35,6 +35,7 @@ class Premiumize(base.DebridService):
 
     methods = ("scan", "link", "key")
     key_url = "https://www.premiumize.me/account"
+    key_setting = "premiumize.apikey"
 
     def credential_settings(self):
         return ["premiumize.apikey", "premiumize.token"]
