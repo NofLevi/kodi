@@ -23,7 +23,7 @@ reinstalling.
 
 | | |
 |---|---|
-| Repository zip | <https://kodi-ecg.pages.dev/zips/repository.katan/repository.katan-1.0.4.zip> |
+| Repository zip | <https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-1.0.5.zip> |
 | Requires | Kodi 19 or newer; developed and tested on Kodi 21 |
 | Optional | `inputstream.adaptive` — needed for the DASH live channels |
 
@@ -38,7 +38,7 @@ gives instead does not say so.
 
 ## Windows
 
-1. Download the [repository zip](https://kodi-ecg.pages.dev/zips/repository.katan/repository.katan-1.0.4.zip).
+1. Download the [repository zip](https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-1.0.5.zip).
 2. Kodi → **Add-ons** → the box icon (top left) → **Install from zip file**.
 3. Point it at the file you downloaded, usually `C:\Users\<you>\Downloads`.
 4. **Install from repository → Katan Repository → Video add-ons → Katan → Install.**
@@ -92,7 +92,7 @@ On LibreELEC, over SSH:
 
 ```
 cd /storage/downloads
-wget https://kodi-ecg.pages.dev/zips/repository.katan/repository.katan-1.0.4.zip
+wget https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-1.0.5.zip
 ```
 
 then install it from that path in step 3.
