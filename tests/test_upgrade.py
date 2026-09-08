@@ -402,3 +402,44 @@ def test_installing_a_real_release_keeps_every_key(tmp_path, monkeypatch):
 
     leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
     assert not leftovers, "staging or backup left behind: %s" % leftovers
+
+
+def test_the_addon_path_may_end_in_a_separator(tmp_path, monkeypatch):
+    r"""Real Kodi hands one back with a trailing slash. The stub does not.
+
+    That single character broke the whole update on a real box while every
+    test here passed: `target + ".old"` named a file *inside* the folder being
+    replaced instead of a sibling of it, and os.path.dirname returned the
+    add-on folder itself, so the staging directory was unpacked inside the
+    thing it was meant to replace.
+
+        OSError: [WinError 87] The parameter is incorrect:
+          '...\addons\plugin.video.katan\'
+          -> '...\addons\plugin.video.katan\.old'
+    """
+    import zipfile
+    from katan import kodi, updater
+
+    addons = tmp_path / "addons"
+    installed = addons / "plugin.video.katan"
+    (installed / "resources").mkdir(parents=True)
+    (installed / "addon.xml").write_text(
+        '<addon id="plugin.video.katan" version="0.1.1"/>', encoding="utf-8")
+
+    release = str(tmp_path / "release.zip")
+    with zipfile.ZipFile(release, "w") as archive:
+        archive.writestr("plugin.video.katan/addon.xml",
+                         '<addon id="plugin.video.katan" version="0.9.9"/>')
+        archive.writestr("plugin.video.katan/resources/marker.txt", "new")
+
+    # The trailing separator is the whole point of this test.
+    monkeypatch.setattr(kodi, "addon_path", lambda: str(installed) + os.sep)
+    assert updater.apply(release) is True, "the trailing separator broke it"
+
+    import xml.etree.ElementTree as ET
+    assert ET.parse(str(installed / "addon.xml")).getroot().get("version") == "0.9.9"
+    assert (installed / "resources" / "marker.txt").is_file()
+    # And nothing was left inside the add-on folder or beside it.
+    assert not (installed / ".old").exists()
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    assert not leftovers, "left behind %s" % leftovers
