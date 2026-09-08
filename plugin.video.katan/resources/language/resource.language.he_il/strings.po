@@ -1528,3 +1528,7 @@ msgstr "פתחו בטלפון והדביקו את המפתח"
 msgctxt "#32515"
 msgid "recommended"
 msgstr "מומלץ"
+
+msgctxt "#30315"
+msgid "Check for updates now"
+msgstr "בדוק עדכונים עכשיו"
