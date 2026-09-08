@@ -369,6 +369,12 @@ def test_installing_a_real_release_keeps_every_key(tmp_path, monkeypatch):
     xbmcaddon.INFO["version"] = "0.1.0"
     kodi.refresh_addon()
 
+    # The version this add-on currently declares, read rather than spelled
+    # out: hard-coding it meant the first release ever cut broke this test,
+    # and a test that fails on release day teaches people to ignore it.
+    import xml.etree.ElementTree as ET
+    current = ET.parse(os.path.join(ADDON_DIR, "addon.xml")).getroot().get("version")
+
     release = str(tmp_path / "release.zip")
     with zipfile.ZipFile(release, "w", zipfile.ZIP_DEFLATED) as archive:
         for folder, dirs, files in os.walk(ADDON_DIR):
@@ -380,14 +386,13 @@ def test_installing_a_real_release_keeps_every_key(tmp_path, monkeypatch):
                 if arc == "plugin.video.katan/addon.xml":
                     with io.open(full, encoding="utf-8") as handle:
                         archive.writestr(arc, handle.read().replace(
-                            'version="0.1.0"', 'version="0.9.9"', 1))
+                            'version="%s"' % current, 'version="0.9.9"', 1))
                 else:
                     archive.write(full, arc)
 
     assert updater._is_sane_zip(release), "the real add-on failed its own check"
     assert updater.apply(release) is True
 
-    import xml.etree.ElementTree as ET
     on_disk = ET.parse(str(installed / "addon.xml")).getroot().get("version")
     assert on_disk == "0.9.9", "the update did not land"
 

@@ -27,7 +27,7 @@ ADDON_ID = "plugin.video.katan"
 
 # Where the repository index lives. Overridable in settings so the host can
 # move without waiting for a release from the host that moved.
-DEFAULT_INDEX = "https://katan.pages.dev/addons.xml"
+DEFAULT_INDEX = "https://kodi-ecg.pages.dev/addons.xml"
 
 VERSION = re.compile(r"^(\d+)(?:\.(\d+))?(?:\.(\d+))?")
 

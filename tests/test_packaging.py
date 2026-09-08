@@ -17,8 +17,14 @@ def built():
     result = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build.py")],
                             cwd=ROOT, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+    # Read the version rather than spell it out. Hard-coding 0.1.0 meant the
+    # first release this project ever cut broke five packaging tests, which is
+    # exactly the moment you least want the suite lying to you.
+    import xml.etree.ElementTree as ET
+    version = ET.parse(os.path.join(ROOT, "plugin.video.katan",
+                                    "addon.xml")).getroot().get("version")
     path = os.path.join(ROOT, "repo", "zips", "plugin.video.katan",
-                        "plugin.video.katan-0.1.0.zip")
+                        "plugin.video.katan-%s.zip" % version)
     assert os.path.isfile(path), result.stdout
     return path
 
