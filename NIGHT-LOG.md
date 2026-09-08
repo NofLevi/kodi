@@ -1776,3 +1776,64 @@ reaches for first. Two deliberate limits:
   what Play would start rather than offering sources for "Season 2".
 
 1085 tests, zip 432 KB.
+
+## The on-demand catalogue had no seasons, and two different reasons why
+
+Reported as "the VOD is not separated into seasons like POV". It was two
+unrelated faults that produced the same flat list, and a third broadcaster
+that had never been asked the question at all.
+
+**Reshet numbered its seasons and nobody read them.** "החברים של נאור" is
+fifty-two episodes over four seasons, and `reshet.py` has parsed the season
+out of the Hebrew title since it was written - `vod_show` simply listed
+whatever came back. "אבודים" was ninety-four episodes over seventeen seasons
+in one list.
+
+**Mako lists a programme as its seasons, and they were offered as videos.**
+"ארץ נהדרת" answers with forty-four entries: twenty-three titled "עונה 1" to
+"עונה 23", each of which is another page, plus the twenty-one episodes of the
+current season. Every one of them was given a `play_vod` url, so choosing a
+season asked the player for a directory and nothing happened whatsoever. An
+episode's address ends in its own document - `.../eretz_nehederet-s20/VOD-
+5dd3698d83a5381026.htm` - and a season's does not, which is the whole
+difference.
+
+**Kan puts the season in the address and nowhere else.** `.../p-12463/s4/
+1094610/`. Nothing read it, so "מהצד השני עם גיא זהר" was six hundred and
+twelve entries.
+
+    before        after
+    52       ->   4 seasons        החברים של נאור   reshet
+    94       ->   17 seasons       אבודים           reshet
+    612      ->   2 seasons + 1    מהצד השני        kan
+    44 plays ->   23 folders + 21  ארץ נהדרת        keshet
+
+### Three rules, and the third is the one worth keeping
+
+**The broadcaster decides.** Where it numbers seasons there are numbered
+season folders; where it files by month there are months - Now 14 groups a
+programme as "אפריל 2026", and calling that "Season 1" would invent something
+the broadcaster never said; and where it numbers nothing, the flat list is
+left exactly as it was. A sports channel's clips and a nightly news programme
+have no seasons, and one folder called "Season 0" is worse than the list it
+replaced.
+
+**One season is not a season.** A folder you have to open to find the only
+thing inside it is worse than no folder. "The X Factor ישראל" has thirty-five
+episodes in one season and stays flat.
+
+**An entry that belongs to no season does not cancel the grouping.** This one
+was got wrong first, and the guard read well - "one unfiled episode and the
+grouping is a lie". But Kan puts a "watch the first episode" link on every
+programme page, and Mako lists the current season's episodes beside the
+seasons, so that rule left the 612-entry programme flat for the sake of a
+single link. Those entries are now shown *after* the folders, which is what
+Mako's own page does and what the report compared us against.
+
+Confirmed in a real Kodi rather than in the stubs, because whether Kodi treats
+a row as a folder is Kodi's decision: `Files.GetDirectory` on "החברים של נאור"
+returns four rows of `filetype: directory` labelled "עונה 1" to "עונה 4", and
+season two returns ten `filetype: file`. "ארץ נהדרת" returns forty-four, the
+seasons among them now directories rather than things to play.
+
+1289 tests, zip 464 KB.

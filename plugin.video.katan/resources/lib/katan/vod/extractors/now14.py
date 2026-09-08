@@ -116,9 +116,15 @@ def _to_item(entry):
         art={"poster": image, "thumb": image},
         premiered=entry.get("a") or "",
         show_title=entry.get("s") or "",
+        # Now 14 groups a programme by *month*, not by season - "אפריל 2026",
+        # "פברואר 2026". A hundred and fifty entries in one list is the thing
+        # worth fixing, so it is grouped under that name rather than being
+        # called a season it is not. What the groups are called is the
+        # broadcaster's business.
         extra={"url": router.url_for("play_vod", module="14tv",
                                      ref=entry.get("u", "")),
-               "module": "14tv", "ref": entry.get("u", "")},
+               "module": "14tv", "ref": entry.get("u", ""),
+               "group": entry.get("s") or ""},
     )
 
 

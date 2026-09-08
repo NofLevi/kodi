@@ -571,16 +571,108 @@ def vod_category(params):
 
 @router.route("vod_show")
 def vod_show(params):
-    """Episodes of one programme, resolved by the per-broadcaster extractor."""
+    """Episodes of one programme, in season folders when there are seasons.
+
+    A flat list of every episode a programme ever had is not browsable with a
+    remote: "החברים של נאור" is fifty-two episodes over four seasons, and
+    Reshet's own numbering was already there to group them by. So when the
+    broadcaster says which season an episode belongs to, and says more than
+    one, the programme opens on its seasons the way every other television
+    interface does.
+
+    Broadcasters that number nothing - a sports channel's clips, a nightly
+    news programme - are left exactly as they were. One folder called
+    "Season 0" would be worse than the flat list it replaced.
+    """
     from ..vod import extractors
     handle = _handle()
-    entries = extractors.episodes(params.get("module", ""), params.get("ref", ""),
-                                  params.get("mode", ""))
+    module = params.get("module", "")
+    ref = params.get("ref", "")
+    entries = extractors.episodes(module, ref, params.get("mode", ""))
     if not entries:
         kodi.notify(kodi.localize(32361))
         listing.end(handle, succeeded=False)
         return
+
+    wanted = params.get("season")
+    if wanted:
+        entries = [e for e in entries if _group_key(e) == wanted]
+    else:
+        folders = _group_folders(entries, module, ref, params.get("mode", ""))
+        if folders:
+            listing.add_items(handle, folders, content="seasons",
+                              cache_to_disc=False)
+            return
+
     listing.add_items(handle, entries, content="episodes", cache_to_disc=False)
+
+
+def _group_key(entry):
+    """Which folder this episode belongs in, as the url carries it.
+
+    A number when the broadcaster numbers its seasons, and the group's own
+    name when it does not: Now 14 files a programme by month rather than by
+    season - "אפריל 2026" - and calling that "Season 1" would be inventing
+    something the broadcaster never said.
+    """
+    season = int(entry.get("season") or 0)
+    if season > 0:
+        return str(season)
+    return ((entry.get("extra") or {}).get("group") or "").strip()
+
+
+def _group_folders(entries, module, ref, mode):
+    """One folder per season, or nothing when there is not more than one.
+
+    Numbered seasons are ordered by their number rather than by the order the
+    broadcaster listed them in - Reshet returns them in an order of its own,
+    and somebody looking for season three should not have to hunt. Named
+    groups keep the broadcaster's order, because it is usually chronological
+    and there is nothing better to sort them by.
+    """
+    from ..meta import items as meta_items
+
+    order = []
+    grouped = {}
+    loose = []
+    for entry in entries:
+        key = _group_key(entry)
+        if not key:
+            # Not every entry belongs to a season. Kan puts a "watch the first
+            # episode" link on the programme page, and Mako lists the current
+            # season's episodes beside the seasons. Those are shown after the
+            # folders rather than being a reason to abandon the grouping -
+            # refusing to group because of one of them left "מהצד השני" as one
+            # list of six hundred and twelve.
+            loose.append(entry)
+            continue
+        if key not in grouped:
+            order.append(key)
+            grouped[key] = []
+        grouped[key].append(entry)
+
+    if len(order) < 2:
+        return []
+    if all(key.isdigit() for key in order):
+        order.sort(key=int)
+
+    folders = []
+    for key in order:
+        episodes = grouped[key]
+        art = episodes[0].get("art") or {}
+        title = kodi.localize(32392, key) if key.isdigit() else key
+        folders.append(meta_items.new_item(
+            "vod",
+            ids={"vod": "%s|%s|%s" % (module, ref, key)},
+            title=title,
+            plot=kodi.localize(32519, len(episodes)),
+            art={"poster": art.get("poster", ""), "thumb": art.get("thumb", "")},
+            season=int(key) if key.isdigit() else 0,
+            extra={"url": router.url_for("vod_show", module=module, ref=ref,
+                                         mode=mode, season=key),
+                   "module": module, "ref": ref},
+        ))
+    return folders + loose
 
 
 @router.route("play_channel")
