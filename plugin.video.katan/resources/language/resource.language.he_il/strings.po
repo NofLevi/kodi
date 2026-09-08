@@ -1525,3 +1525,6 @@ msgctxt "#32514"
 msgid "Open this on your phone and paste the key"
 msgstr "פתחו בטלפון והדביקו את המפתח"
 
+msgctxt "#32515"
+msgid "recommended"
+msgstr "מומלץ"

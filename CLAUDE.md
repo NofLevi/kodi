@@ -95,14 +95,14 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   `direct_verification_url`. The second one was being ignored in favour of
   `verification_url`, which is the same page with the work still to do.
 
-  Because all five have one, **connecting no longer opens a menu**. The device
-  flow runs; the other ways in are offered only if it fails, which is the
-  moment they are worth having - a service having a bad day, no camera to
-  hand, a key already sitting in a phone. Three entries in front of somebody
-  holding a remote, to make them pick the one we would have picked, is not a
-  choice worth offering. The cost is one extra Back to leave after backing out
-  of the code screen, because a viewer who gave up and a service that refused
-  are indistinguishable from here. There used to be a fourth entry, "open a link and type a
+  Pressing a service **shows every way in, and marks the easiest rather than
+  taking it**. Running the device flow on its own was tried and is wrong: the
+  alternatives become reachable only by backing out of a QR code, so somebody
+  who wanted to paste a key they already had was cancelling out of a screen to
+  find the option. Scanning still carries "(recommended)", which says the same
+  thing without deciding it. Real-Debrid and Trakt show no list because they
+  genuinely have one way in - the device flow mints their credentials, so
+  there is no key anywhere that could be typed or pasted. There used to be a fourth entry, "open a link and type a
   code", and it was not a fourth way in at all: it ran the identical flow with
   the QR code not drawn, and the screen shows the link and the six digits
   either way. So it asked the viewer a question about themselves - do you have

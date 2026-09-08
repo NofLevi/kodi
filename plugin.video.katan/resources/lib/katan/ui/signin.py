@@ -42,8 +42,12 @@ PASTE = "paste"
 
 def choose_method(title, methods):
     """Ask how the viewer wants to sign in. Returns a method or None."""
+    # Marked, not chosen for them. Scanning is the least work by a distance -
+    # nothing typed and nothing copied - and saying so is more useful than
+    # silently running it, which leaves somebody looking at a QR code with no
+    # idea the other ways in exist.
     labels = {
-        SCAN: kodi.localize(32460),
+        SCAN: "%s   (%s)" % (kodi.localize(32460), kodi.localize(32515)),
         PASTE: kodi.localize(32513),
         KEY: kodi.localize(32462),
     }
