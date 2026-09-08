@@ -149,9 +149,33 @@ def test_opening_the_addon_goes_straight_to_the_katan_window(monkeypatch,
     assert opened, "the custom window should have been opened"
 
 
-def test_without_a_key_it_lists_instead_of_flashing_a_window(monkeypatch,
-                                                            settings_module):
-    """The window would have nothing to draw, so the listing explains itself."""
+def test_it_lists_instead_of_flashing_an_empty_window(monkeypatch,
+                                                      settings_module):
+    """An empty window is worse than a listing that explains itself.
+
+    This used to key on the TMDB key, on the grounds that almost every row
+    needs one. It does not any more: the Israeli channels and catalogue are
+    bundled data and anime comes from Kitsu, so five rows draw with nothing
+    configured, and a fresh install was being shown a file list while the
+    window had content waiting. What actually decides is whether any row can
+    draw at all.
+    """
+    from katan import catalog
+    from katan.ui import handlers
+
+    settings_module.set("ui.window_home", "true")
+    monkeypatch.setattr(catalog, "enabled_rows", lambda *a, **k: [])
+
+    opened = []
+    import katan.ui.home_window as hw
+    monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
+
+    handlers.home({})
+    assert not opened, "an empty window is worse than a listing that explains"
+
+
+def test_a_fresh_install_still_gets_the_window(monkeypatch, settings_module):
+    """No key configured, but the Israeli and anime rows need none."""
     from katan.meta import tmdb
     from katan.ui import handlers
 
@@ -163,7 +187,7 @@ def test_without_a_key_it_lists_instead_of_flashing_a_window(monkeypatch,
     monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
 
     handlers.home({})
-    assert not opened, "an empty window is worse than a listing that explains"
+    assert opened, "a first-time viewer was shown a file list"
 
 
 def test_finishing_setup_opens_the_window(monkeypatch, settings_module):
@@ -202,12 +226,15 @@ def test_abandoning_setup_does_not_loop_back_into_the_window(monkeypatch,
     assert not opened
 
 
-def test_home_offers_setup_instead_of_a_black_screen(monkeypatch):
-    """Without a key almost every row is unavailable and the screen was blank.
+def test_home_draws_the_rows_that_need_no_key(monkeypatch):
+    """Without a TMDB key the window used to close itself and offer a wizard.
 
-    The plain directory listing has always offered the wizard here. The window
-    showed nothing at all, which reads as a broken add-on rather than an
-    unconfigured one.
+    That was written when almost every row needed a key. It does not hold any
+    more: the Israeli channels and catalogue are bundled data, Kitsu anime
+    needs nothing, and the two public Trakt charts need only a client id. The
+    catalog already drops rows whose credentials are missing, so what comes
+    back is exactly what can be drawn - and closing over a modal yes/no meant
+    a fresh install never once saw the home screen.
     """
     from katan import kodi
     from katan.meta import tmdb
@@ -219,8 +246,22 @@ def test_home_offers_setup_instead_of_a_black_screen(monkeypatch):
     window = home_window.HomeWindow()
     window.onInit()
 
-    assert asked, "the viewer should be offered the setup wizard"
-    assert window.rows == [], "no rows should be built without a key"
+    assert not asked, "a modal over the window is what tore it down"
+    assert not window.closed, "the window closed itself on a fresh install"
+    assert window.rows, "the rows that need no key should still be drawn"
+    assert window.section != "movies", (
+        "it should move off the tab whose every row needs a key")
+
+
+def test_home_still_closes_when_there_is_genuinely_nothing(monkeypatch):
+    """The honest version of the guard that was removed."""
+    from katan import catalog
+
+    monkeypatch.setattr(catalog, "enabled_rows", lambda *a, **k: [])
+
+    window = home_window.HomeWindow()
+    window.onInit()
+    assert window.closed, "a window with no rows at all is a black screen"
 
 
 def test_home_preloads_past_rows_that_come_back_empty(monkeypatch, configured):
@@ -1029,3 +1070,61 @@ def test_the_search_button_still_submits(search):
     search.onClick(search_window.BUTTON_SEARCH)
 
     assert search.submitted == "aa"
+
+
+def test_a_bundled_tmdb_key_is_used_when_the_setting_is_empty(monkeypatch,
+                                                              settings_module):
+    """Shipping a key is what makes a fresh install show the Films tab."""
+    from katan.meta import tmdb
+
+    settings_module.set("tmdb.apikey", "")
+    monkeypatch.setattr(tmdb, "BUNDLED_KEY", "shipped-key")
+    assert tmdb.api_key() == "shipped-key"
+    assert tmdb.has_key() is True
+
+
+def test_the_setting_beats_the_bundled_key(monkeypatch, settings_module):
+    """Anyone who wants their own quota just enters theirs."""
+    from katan.meta import tmdb
+
+    monkeypatch.setattr(tmdb, "BUNDLED_KEY", "shipped-key")
+    settings_module.set("tmdb.apikey", "my-own-key")
+    assert tmdb.api_key() == "my-own-key"
+
+
+def test_an_empty_tab_clears_the_hero_it_inherited(monkeypatch):
+    """Setting only the title left the previous tab's plot and backdrop, so an
+    empty Films tab read "Nothing to show right now" over another show's
+    synopsis - which looks like a bug in the thing that is working."""
+    from katan import catalog
+
+    window = home_window.HomeWindow()
+    window._show_hero({"title": "Attack on Titan", "plot": "Centuries ago...",
+                       "year": 2013, "rating": 8.4,
+                       "art": {"fanart": "aot.jpg"}})
+    assert window.getProperty("katan.hero.plot")
+
+    monkeypatch.setattr(catalog, "enabled_rows", lambda *a, **k: [])
+    window.rows = []
+    window._focus_first_row()
+
+    assert window.getProperty("katan.hero.title")
+    assert window.getProperty("katan.hero.plot") == ""
+    assert window.getProperty("katan.hero.meta") == ""
+    assert window.getProperty("katan.hero.fanart") == ""
+
+
+def test_the_shipped_key_actually_reaches_the_catalog(monkeypatch):
+    """The point of shipping a key: a fresh install has content in every tab.
+
+    The suite blanks BUNDLED_KEY so it can still test the no-key path, so this
+    is the one place that puts it back and checks it does what it is for.
+    """
+    from katan import catalog
+    from katan.meta import tmdb
+
+    monkeypatch.setattr(tmdb, "BUNDLED_KEY", "a-shipped-key")
+    assert tmdb.has_key(), "the bundled key should apply with nothing configured"
+
+    for section in catalog.SECTION_ORDER:
+        assert catalog.enabled_rows(section), "%s tab is empty" % section

@@ -32,11 +32,16 @@ def home(params):
     window is handed an empty directory so the plugin call finishes at once
     rather than holding the handle open for as long as the window lives.
 
-    The one case where the window is not opened is having no TMDB key. Almost
-    every row needs one, so the window would have nothing to draw; the plain
-    listing at least explains itself and offers the wizard. The wizard then
-    opens the window itself, so setting a key leads straight into the GUI
-    rather than back to a file list.
+    The plain listing is for when the window would be empty, and that is the
+    only reason it is ever chosen. It used to be chosen whenever there was no
+    TMDB key, on the grounds that almost every row needs one - but the Israeli
+    live channels and catalogue are bundled data, and anime comes from Kitsu,
+    which needs no key either. Five rows draw with nothing configured at all,
+    so a fresh install was being shown a file list while the window it should
+    have opened had content waiting.
+
+    The wizard is a notification away rather than a menu entry, because the
+    window's own Tools button leads there.
     """
     from ..meta import tmdb
 
@@ -44,10 +49,20 @@ def home(params):
     wants_window = (settings.get_bool("ui.window_home", True)
                     and params.get("nowindow") != "1")
 
-    if wants_window and tmdb.has_key():
-        listing.end(handle, succeeded=False)
+    if wants_window and catalog.enabled_rows():
+        if not tmdb.has_key():
+            kodi.notify(kodi.localize(32256))
         from .home_window import open_home
         open_home()
+        # Ending the directory *after* the window has closed, and ending it as
+        # a failure, is what makes back work. Ending it first is a race the
+        # window loses: Kodi reacts to a failed GetDirectory by navigating to
+        # the previous window, and that Deactivate closes whatever was opened
+        # in the meantime - measured, the window initialised and was torn down
+        # in the same 19 ms. Failing it here instead means Kodi steps back out
+        # of the plugin folder at the moment the viewer leaves Katan, which is
+        # exactly where they wanted to be.
+        listing.end(handle, succeeded=False)
         return
 
     if not _require_tmdb(handle):
