@@ -167,16 +167,44 @@ class DetailsWindow(xbmcgui.WindowXML):
         """Open the picker for one episode, or for whatever Play would start.
 
         A film has one thing to choose a source for and a show has forty, so
-        "choose a source" on a series has to mean *this* episode. It meant the
-        next unwatched one, which is what Play starts - so having highlighted
-        episode nine and found its only source unwatchable, there was no way
-        to ask for another. Pressing it played episode three instead.
+        on a series this has to mean a particular episode - and the episode
+        list's cursor cannot say which. Reaching this button from episode nine
+        means pressing up nine times, and every one of those presses walks the
+        selection up with it, so the list is back on episode one by the time
+        the button has focus. That is the whole of "it always picks the first
+        episode", and no amount of reading the cursor better can fix it: the
+        cursor really is on episode one.
+
+        So it asks. `entry` is passed by the context menu, which fires while
+        the episode itself is under the cursor and therefore does know.
         """
-        entry = entry or self._selected_episode()
+        if entry is None and self.season is not None:
+            entry = self._ask_which_episode()
+            if entry is None:
+                return
         if entry is not None:
             self._play(entry, force_picker=True)
             return
         self._play_best(force_picker=True)
+
+    def _ask_which_episode(self):
+        """Which episode the picker is for. An entry, or None if cancelled.
+
+        Opens on whatever the list is showing, so the common case - move down
+        to an episode, come back up, press the button - still lands on it.
+        """
+        episodes = [entry for entry in self.entries
+                    if entry.get("type") == "episode"]
+        if len(episodes) < 2:
+            return episodes[0] if episodes else None
+        try:
+            preselect = self.getControl(LIST_CONTENT).getSelectedPosition()
+        except Exception:
+            preselect = 0
+        choice = kodi.select([_row_label(entry) for entry in episodes],
+                             kodi.localize(32250),
+                             preselect=preselect if 0 <= preselect < len(episodes) else 0)
+        return episodes[choice] if 0 <= choice < len(episodes) else None
 
     def _play_best(self, force_picker=False):
         if self.item.get("type") == "show":

@@ -86,8 +86,15 @@
                 <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
             </control>
+            <!-- 360, the same as the Trakt button below and for the same
+                 reason. "Choose a source" does not fit in 230 and was drawn
+                 as "Choose a so...", which reads as a different instruction.
+                 Auto width would size these to their own labels and end this
+                 class of bug, but a rendering change has to be checked in a
+                 real Kodi and this window cannot be opened from the outside
+                 yet - so this is the measured fix rather than the clever one. -->
             <control type="button" id="9101">
-                <width>230</width>
+                <width>360</width>
                 <height>60</height>
                 <font>font14</font>
                 <textcolor>white</textcolor>

@@ -244,3 +244,48 @@ def test_the_site_stamp_comes_off_the_name_as_well():
 def test_an_anime_group_in_the_same_position_survives():
     assert release.strip_site_tags(
         "[SubsPlease] Bleach - 46 (1080p).mkv").startswith("[SubsPlease]")
+
+
+# --------------------------------------------------------------------------
+# dub or subs
+#
+# Anime publishes the same episode twice, and until the picker said which was
+# which the two were indistinguishable rows of the same resolution, size and
+# group. Choosing the English dub meant trying one and backing out.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("Attack on Titan S04E28 1080p Dual Audio HEVC-Judas", "dual"),
+    ("[Anime Time] Bleach - 366 [BD][1080p][HEVC][Dual-Audio]", "dual"),
+    ("One Piece 1071 [1080p][English Dub][WEB-DL]", "dub"),
+    ("Jujutsu Kaisen S02E01 English Dubbed 1080p", "dub"),
+    ("Naruto Shippuden 500 [Japanese][Eng Sub][720p]", "sub"),
+    ("[Judas] Frieren - 01 [1080p][HEVC][Softsubs]", "sub"),
+    # A group whose name happens to contain the word. Neither of these says
+    # anything about the audio, and both are among the most common anime
+    # groups there are.
+    ("[SubsPlease] Frieren - 01 (1080p) [F2F1CA2A].mkv", ""),
+    ("[HorribleSubs] Boku no Hero Academia - 88 [720p].mkv", ""),
+    # A live-action release listing its subtitles. It has said nothing about
+    # the audio, so calling it SUB in the picker would be a lie.
+    ("Dune.Part.Two.2024.1080p.WEB-DL.MULTI.SUBS.x264", ""),
+    ("Silo.S01E01.1080p.WEB.H264-GGWP", ""),
+])
+def test_it_reads_how_the_audio_is_presented(name, expected):
+    assert release.parse(name)["dub"] == expected
+
+
+def test_the_picker_says_which_one_it_is():
+    """The whole point: two identical-looking rows that now read differently."""
+    from katan.sources import model
+
+    dubbed = model.from_release_name(
+        "One Piece 1071 [1080p][English Dub][WEB-DL]", "torrentio", size=1 << 30)
+    subbed = model.from_release_name(
+        "One Piece 1071 [1080p][Japanese][Eng Sub][WEB-DL]", "torrentio",
+        size=1 << 30)
+
+    assert "DUB" in model.label(dubbed)
+    assert "SUB" in model.label(subbed)
+    assert model.label(dubbed) != model.label(subbed)

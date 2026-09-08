@@ -59,6 +59,24 @@ LANGUAGE_PATTERNS = {
     "multi": r"\b(multi|multisub|multisubs|dual|dual-?audio)\b",
 }
 
+# Anime publishes the same episode twice - Japanese audio with subtitles, and
+# an English dub - and the release name is the only place that says which. Two
+# rows of the same resolution, size and group are otherwise indistinguishable
+# in the picker, so somebody wanting the dub picks by trial and error.
+#
+# Order matters: a dual-audio release usually says "dual audio" and then names
+# both tracks, so the widest reading has to win before "dub" or "sub" claims
+# it. "sub" is last for the same reason - almost every dub release also
+# carries subtitles and says so.
+DUB_PATTERNS = [
+    ("dual", r"\b(dual[\s-]?audio|multi[\s-]?audio|dual)\b"),
+    ("dub", r"\b(dub|dubs|dubbed|eng(?:lish)?[\s-]?dub)\b"),
+    # Not a bare "sub" or "subs". "MULTI.SUBS" on a live-action film is a
+    # claim about its subtitles and says nothing at all about the audio,
+    # and labelling that release SUB in the picker would be a lie.
+    ("sub", r"\b(subbed|softsubs?|hardsubs?|japanese|eng(?:lish)?[\s-]?subs?)\b"),
+]
+
 # "+" is deliberately NOT stripped: HDR10+ and DD+ depend on it.
 _JUNK = re.compile(r"[\[\]\(\)\{\}_.]+")
 _GROUP_TAIL = re.compile(r"-([A-Za-z0-9]{2,20})$")
@@ -238,6 +256,10 @@ def _parse(raw, size=0):
         "source": _first_match(text, SOURCES, "unknown"),
         "codec": _first_match(text, CODECS, "unknown"),
         "audio": _first_match(text, AUDIO, "unknown"),
+        # "" rather than "unknown": most releases genuinely do not say, and
+        # only anime routinely does. An empty string keeps it out of the
+        # picker label for everything else.
+        "dub": _first_match(text, DUB_PATTERNS, ""),
         "hdr": hdr,
         "languages": languages,
         "group": release_group(raw),

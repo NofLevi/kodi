@@ -43,6 +43,7 @@ def new_source(**fields):
         "quality": "sd",
         "codec": "unknown",
         "audio": "unknown",
+        "dub": "",
         "hdr": [],
         "languages": [],
         "group": "",
@@ -72,6 +73,7 @@ def from_release_name(title, provider, size=0, seeders=0, info_hash="",
         quality=parsed["resolution"],
         codec=parsed["codec"],
         audio=parsed["audio"],
+        dub=parsed["dub"],
         hdr=parsed["hdr"],
         languages=parsed["languages"],
         group=parsed["group"],
@@ -265,8 +267,8 @@ def _collapse(sources, key_of):
             existing["file_name"] = source.get("file_name", "")
         # Keep whichever title parsed into more detail.
         if _detail(source) > _detail(existing):
-            for field in ("title", "quality", "codec", "audio", "hdr",
-                          "languages", "group"):
+            for field in ("title", "quality", "codec", "audio", "dub",
+                          "hdr", "languages", "group"):
                 existing[field] = source[field]
         existing.setdefault("providers", [])
         for name in (existing.get("provider"), source.get("provider")):
@@ -303,4 +305,9 @@ def label(source):
         bits.append("%dS" % source["seeders"])
     if source.get("group"):
         bits.append(source["group"].upper())
+    # Anime only, in practice, and the one thing that decides between two rows
+    # that are otherwise identical: whether this is the English dub or the
+    # original audio. Nothing said it before, so choosing meant guessing.
+    if source.get("dub"):
+        bits.append(source["dub"].upper())
     return " | ".join(b for b in bits if b)
