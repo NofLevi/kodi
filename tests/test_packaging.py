@@ -85,3 +85,22 @@ def test_the_repository_index_lists_both_addons(built):
     checksum = open(index + ".md5", encoding="utf-8").read().strip()
     import hashlib
     assert checksum == hashlib.md5(text.encode("utf-8")).hexdigest()
+
+
+def test_the_published_site_can_say_a_file_is_missing(built):
+    """A 404.html, or Cloudflare answers every wrong path with 200 and HTML.
+
+    Pages treats a site with a root index.html and no 404.html as a
+    single-page application and serves that index for anything unmatched,
+    status 200. `updater.check` decides on `status_code >= 400`, so a
+    withdrawn or mistyped version would read as present and fail later.
+    """
+    out = os.path.dirname(os.path.dirname(os.path.dirname(built)))
+    page = os.path.join(out, "404.html")
+    assert os.path.isfile(page), "no 404.html: every missing path answers 200"
+
+    # And it must not appear in the listings Kodi walks.
+    for folder, _dirs, _files in os.walk(out):
+        listing = os.path.join(folder, "index.html")
+        if os.path.isfile(listing):
+            assert "404.html" not in open(listing, encoding="utf-8").read()
