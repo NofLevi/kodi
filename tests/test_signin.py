@@ -467,3 +467,91 @@ def test_the_plain_link_is_used_when_there_is_no_direct_one(monkeypatch,
     realdebrid.RealDebrid().authorize("scan")
 
     assert seen["url"] == "https://real-debrid.com/device"
+
+
+# --------------------------------------------------------------------------
+# connecting asks nothing when it does not have to
+#
+# Every account has a device flow, and it is better than every alternative
+# for every viewer: nothing typed, nothing copied, and it finishes on the
+# phone already in their hand. Offering a menu was making somebody with a
+# remote choose the option we would have chosen for them.
+# --------------------------------------------------------------------------
+
+
+class _Client(object):
+    label = "Fake"
+    key_url = "https://example.test/key"
+
+    def __init__(self, methods, works=True):
+        self.methods = methods
+        self.works = works
+        self.tried = []
+
+    def authorize(self, method=None):
+        self.tried.append(method)
+        return self.works
+
+    def authorize_with_key(self, key):
+        self.tried.append(("key", key))
+        return True
+
+
+def _no_questions(monkeypatch):
+    """Fail loudly if anything puts a list in front of the viewer."""
+    from katan.ui import wizard
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("the viewer was asked something")
+
+    monkeypatch.setattr(wizard.kodi, "select", refuse)
+    return wizard
+
+
+def test_a_device_flow_just_runs(monkeypatch):
+    wizard = _no_questions(monkeypatch)
+    client = _Client(("scan", "key"))
+
+    assert wizard.connect(client) is True
+    assert client.tried == [signin.SCAN]
+
+
+def test_the_other_ways_in_appear_only_when_it_fails(monkeypatch):
+    """Which is the moment they are worth having."""
+    from katan.ui import wizard
+
+    client = _Client(("scan", "key"), works=False)
+    offered = {}
+    monkeypatch.setattr(wizard.kodi, "select",
+                        lambda labels, heading="", **kw:
+                        offered.setdefault("labels", labels) is None or -1)
+
+    assert wizard.connect(client) is False
+    assert client.tried == [signin.SCAN]
+    # Paste and type, and no second offer of the thing that just failed.
+    assert offered["labels"] == [signin.kodi.localize(32513),
+                                 signin.kodi.localize(32462)]
+
+
+def test_a_service_with_only_a_device_flow_does_not_show_a_list_of_one(
+        monkeypatch):
+    """Real-Debrid mints its credentials in the flow; there is no key."""
+    wizard = _no_questions(monkeypatch)
+    client = _Client(("scan",), works=False)
+
+    assert wizard.connect(client) is False
+    assert client.tried == [signin.SCAN]
+
+
+def test_a_service_with_no_device_flow_still_gets_asked(monkeypatch):
+    """Nothing here assumes every client will always have one."""
+    from katan.ui import wizard
+
+    client = _Client(("key",))
+    monkeypatch.setattr(wizard.kodi, "select",
+                        lambda labels, heading="", **kw: len(labels) - 1)
+    monkeypatch.setattr(wizard.kodi, "keyboard", lambda *a, **k: "typed-key")
+    monkeypatch.setattr(signin, "show_url", lambda *a, **k: None)
+
+    assert wizard.connect(client) is True
+    assert client.tried == [signin.KEY]

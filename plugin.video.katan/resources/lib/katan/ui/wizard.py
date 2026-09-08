@@ -125,14 +125,37 @@ def step_debrid():
 def connect(client, name=""):
     """Sign in to one service, however that service can be signed in to.
 
-    The choice of method belongs here rather than inside each client, so that
-    every service asks the same question in the same words and a client only
-    has to say which ways in it actually has.
+    **There is no menu in the ordinary case.** Every account has a device flow
+    now, and that flow is better than every alternative for every viewer -
+    nothing is typed, nothing is copied, and it ends on the phone that is
+    already in their hand. Asking which way in they would like was asking a
+    question that has a right answer, and putting three entries in front of
+    somebody holding a remote to make them pick the one we would have picked.
+
+    So the device flow simply runs. The other ways in are offered only when it
+    does not work, which is the moment they are worth having: a service having
+    a bad day, no camera to hand, or a key already sitting in a phone. A
+    service with nothing else to offer says so by failing, rather than by
+    showing a list of one.
+
+    The cost is one extra Back to leave after backing out of the code screen,
+    because a viewer who gave up and a service that refused look identical
+    from here - `run_device` returns False for both. Worth it against a menu
+    on every single sign-in.
     """
     from . import signin
 
     title = name or getattr(client, "label", "") or ""
-    method = signin.choose_method(title, getattr(client, "methods", ("key",)))
+    methods = tuple(getattr(client, "methods", ("key",)))
+
+    if signin.SCAN in methods:
+        if client.authorize(signin.SCAN):
+            return True
+        methods = tuple(m for m in methods if m != signin.SCAN)
+        if not methods:
+            return False
+
+    method = signin.choose_method(title, methods)
     if method is None:
         return False
 
