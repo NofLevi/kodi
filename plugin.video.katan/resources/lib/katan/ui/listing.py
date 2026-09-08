@@ -189,7 +189,15 @@ def target_url(item):
                               season=item.get("season"),
                               episode=item.get("episode")), False
     if item_type in ("channel", "vod"):
-        return (item.get("extra") or {}).get("url", ""), False
+        url = (item.get("extra") or {}).get("url", "")
+        # Both arrive as one type and they are not the same thing: a channel
+        # is a stream, and a VOD entry is a *programme* whose url is the route
+        # that lists its episodes. Marking that playable makes Kodi ask a
+        # directory route for a URL to play, which answers with a directory,
+        # so nothing happens at all. It never showed while browsing, because
+        # the VOD screens build their own directories - only search sends
+        # these through here.
+        return url, "action=vod_show" in url
     return "", False
 
 

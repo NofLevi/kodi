@@ -1062,11 +1062,17 @@ def test_staying_put_does_not_break_the_rest_of_the_window(monkeypatch,
     # opens Tools, and the settings dialog holding the switch is one of its
     # entries. A door with no handle on the inside would be worse than the
     # problem staying put solves, so the handle is what is checked here.
+    from katan.ui import handlers
+
+    # By what it is, not where it sits: picking index 2 broke the moment an
+    # entry above it was removed, and picked the kids toggle instead.
+    settings_at = [n for n, (_s, url, _g) in enumerate(handlers.tool_entries())
+                   if "action=open_settings" in url][0]
     offered = {}
     ran = []
     monkeypatch.setattr(home_window.kodi, "select",
                         lambda labels, heading="", **kw:
-                        offered.setdefault("labels", labels) is None or 2)
+                        offered.setdefault("labels", labels) is None or settings_at)
     monkeypatch.setattr(home_window.kodi, "run_builtin", ran.append)
     window.onClick(home_window.BUTTON_RAIL_SETTINGS)
 

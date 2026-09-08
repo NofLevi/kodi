@@ -444,7 +444,7 @@ class HomeWindow(xbmcgui.WindowXML):
             # Nothing in this section yet. Leave focus on the rail rather than
             # sending it to the top bar: the viewer is picking sections, and
             # the next thing they will want is a different one.
-            self.setFocusId(SECTION_BASE + catalog.section_ids().index(section))
+            self.setFocusId(SECTION_BASE + catalog.section_ids().index(self.section))
         self._seed_hero()
         self._fill_rest_async()
 
