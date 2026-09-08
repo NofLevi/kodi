@@ -109,6 +109,15 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   correlation, then AI translation of the best English match. Wizdom and
   SubSource are anonymous; Ktuvit is a members' site, so it is off until an
   account is entered and is asked after the faster sources.
+* **Anime publishes the same episode twice** - Japanese audio with subtitles,
+  and an English dub - and the release name is the only place that says which.
+  Two rows of the same resolution, size and group were indistinguishable in
+  the picker, so choosing the dub meant starting one and backing out.
+  `release.parse` reads it into a `dub` field and the picker label says DUAL,
+  DUB or SUB. It is deliberately blank rather than wrong for everything else:
+  "MULTI.SUBS" on a live-action film is a claim about its subtitles and says
+  nothing at all about the audio, and `[SubsPlease]` and `[HorribleSubs]` are
+  group names that happen to contain the word.
 * **Anime is named and numbered differently, and every layer had it wrong.**
   Two providers search by *name* rather than by IMDb id, and they were handed
   `original_title`, which for anime is Japanese in Japanese script - measured
@@ -185,7 +194,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1211 tests, all running against Kodi stubs, so no Kodi install is needed:
+1223 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -206,7 +215,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_providers.py` | 17 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
 | `test_anime_numbering.py` | 33 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. |
-| `test_release_parser.py` | 45 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
+| `test_release_parser.py` | 56 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
 | `test_sources.py` | 36 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
@@ -228,7 +237,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
 | `test_kids.py` | 39 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. |
 | `test_windows.py` | 55 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Katan window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
-| `test_details_window.py` | 19 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. |
+| `test_details_window.py` | 20 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. |
 | `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
 | `test_play.py` | 33 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. |
 | `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
@@ -414,6 +423,16 @@ A later pass found three more, none of which any test could have shown:
   with no beginning.
 * The search window opened on the **Latin** keyboard in a Hebrew interface,
   for a catalogue titled entirely in Hebrew.
+
+A later pass added one that only a remote can find. **The details screen's
+buttons cannot read the episode list's cursor**, and for a reason no amount of
+reading it better can fix: getting from episode nine back up to the button row
+means pressing up nine times, and every one of those presses walks the
+selection up with it. By the time the button has focus the list genuinely is
+on episode one. "Choose a source always plays the first episode" was not a bug
+in how the cursor was read - the cursor was right. So the button asks which
+episode, opening on whatever the list is showing so the obvious way round
+still lands where the viewer expects.
 
 A later pass added two more, both about lists rather than layout:
 

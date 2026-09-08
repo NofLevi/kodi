@@ -240,10 +240,10 @@ def test_an_episode_runtime_is_localised(window):
 # choosing a source for a series
 #
 # A film has one thing to choose a source for and a show has forty, so
-# "choose a source" on a series has to mean the episode being looked at. It
-# meant the next unwatched one - the same episode Play starts - so having
-# highlighted episode nine and found its only source unwatchable, there was
-# no way at all to ask for another.
+# "choose a source" on a series has to reach a particular episode. Reading the
+# list cursor cannot do it: getting from episode nine back up to the button
+# walks the selection up with it, so the cursor genuinely is on episode one by
+# the time the button is pressed. It asks instead.
 # --------------------------------------------------------------------------
 
 
@@ -256,20 +256,45 @@ def _picker_calls(monkeypatch):
     return calls
 
 
-def test_choosing_a_source_uses_the_highlighted_episode(window, monkeypatch):
-    detail = window(SHOW)
+def _into_season_one(window_factory):
+    detail = window_factory(SHOW)
     detail.getControl(details_window.LIST_CONTENT).position = 0
     detail.onClick(details_window.LIST_CONTENT)          # into season 1
-    detail.getControl(details_window.LIST_CONTENT).position = 1
+    return detail
+
+
+def test_choosing_a_source_asks_which_episode(window, monkeypatch):
+    """Any episode has to be reachable, including one the cursor is not on."""
+    detail = _into_season_one(window)
+    asked = {}
+    monkeypatch.setattr(details_window.kodi, "select",
+                        lambda options, heading=None, **kw:
+                        asked.setdefault("options", options) is None or 2)
 
     calls = _picker_calls(monkeypatch)
     detail.onClick(details_window.BUTTON_SOURCES)
 
+    assert len(asked["options"]) == len(detail.entries)
     assert len(calls) == 1
     entry, force_picker = calls[0]
     assert force_picker is True
-    assert entry["type"] == "episode"
-    assert entry["episode"] == detail.entries[1]["episode"]
+    assert entry["episode"] == detail.entries[2]["episode"]
+
+
+def test_the_question_opens_on_the_episode_being_looked_at(window, monkeypatch):
+    """So the obvious way round - move down, come back up, press it - works."""
+    detail = _into_season_one(window)
+    detail.getControl(details_window.LIST_CONTENT).position = 1
+    seen = {}
+    monkeypatch.setattr(details_window.kodi, "select",
+                        lambda options, heading=None, preselect=-1, **kw:
+                        seen.setdefault("preselect", preselect) is None or -1)
+
+    calls = _picker_calls(monkeypatch)
+    detail.onClick(details_window.BUTTON_SOURCES)
+
+    assert seen["preselect"] == 1
+    assert calls == []              # cancelling the question plays nothing
 
 
 def test_the_context_menu_opens_the_picker_for_that_episode(window,
