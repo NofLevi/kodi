@@ -18,6 +18,10 @@ ACTION_PREVIOUS_MENU = 10
 ACTION_NAV_BACK = 92
 ACTION_CONTEXT_MENU = 117
 
+# Any of these can change which episode is highlighted, and the buttons say
+# which one they will act on, so the label is rebuilt after each.
+MOVE_ACTIONS = (1, 2, 3, 4, 6, 7, 104, 105, 107)
+
 LIST_CONTENT = 5300
 BUTTON_PLAY = 9100
 BUTTON_SOURCES = 9101
@@ -44,10 +48,15 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.setFocusId(BUTTON_PLAY)
 
     def onAction(self, action):
-        if action.getId() == ACTION_CONTEXT_MENU:
+        code = action.getId()
+        if code in MOVE_ACTIONS:
+            # After the move, so it reads the position the viewer has landed
+            # on rather than the one they left.
+            self._update_action_label()
+        if code == ACTION_CONTEXT_MENU:
             self._choose_source(self._selected_episode())
             return
-        if action.getId() not in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
+        if code not in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
             return
         # Back steps out of the episode list before it leaves the window.
         if self.season is not None:
@@ -89,10 +98,27 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.setProperty("katan.detail.trailer",
                          (self.item.get("extra") or {}).get("trailer", ""))
         self.setProperty("katan.detail.listheading", "")
+        self.setProperty("katan.detail.sourcelabel", kodi.localize(32250))
+
+    def _update_action_label(self):
+        """Name the episode the buttons will act on, on the button itself.
+
+        The alternative is what was there before: a button that acts on
+        something the viewer cannot see, and finds out about by pressing it.
+        With the episode in the label there is nothing to guess - and when the
+        list is showing seasons, or a film, the label is just the plain one.
+        """
+        entry = self._selected_episode()
+        label = kodi.localize(32250)
+        if entry is not None:
+            label = "%s   %dx%02d" % (label, int(entry.get("season") or 0),
+                                      int(entry.get("episode") or 0))
+        self.setProperty("katan.detail.sourcelabel", label)
 
     def _fill(self, entries, heading):
         self.entries = entries or []
         self.setProperty("katan.detail.listheading", heading if entries else "")
+        self._update_action_label()
         try:
             control = self.getControl(LIST_CONTENT)
             control.reset()
@@ -178,6 +204,8 @@ class DetailsWindow(xbmcgui.WindowXML):
         So it asks. `entry` is passed by the context menu, which fires while
         the episode itself is under the cursor and therefore does know.
         """
+        if entry is None:
+            entry = self._selected_episode()
         if entry is None and self.season is not None:
             entry = self._ask_which_episode()
             if entry is None:
@@ -300,7 +328,7 @@ class DetailsWindow(xbmcgui.WindowXML):
 
     def _cleanup(self):
         for name in ("title", "plot", "poster", "fanart", "meta", "cast",
-                     "trailer", "listheading"):
+                     "trailer", "listheading", "sourcelabel"):
             self.clearProperty("katan.detail.%s" % name)
         self.entries = []
 
