@@ -219,7 +219,7 @@ class Service(xbmc.Monitor):
         untouched. Only landing on the screen that means "you have left"
         brings it back.
         """
-        if not settings.get_bool("ui.stay_in_katan", False):
+        if not settings.get_bool("ui.stay_in_katan"):
             return
         if xbmc.getCondVisibility("Player.HasMedia"):
             return

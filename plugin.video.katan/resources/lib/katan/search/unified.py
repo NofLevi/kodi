@@ -30,7 +30,13 @@ def search(query, limit=60):
     found = http.run_parallel(tasks, workers=3, deadline=8.0)
 
     merged = []
-    for source in ("tmdb", "anilist", "vod"):
+    # Israeli VOD first, and the order is the whole point rather than a
+    # preference. Searching for a Hebrew programme returns TMDB's entry for
+    # the same show as well, and TMDB's entry is a show with no sources
+    # anywhere - Israeli television is not on the trackers. So the result that
+    # played was listed second and the one that could not was listed first,
+    # which reads exactly like "it did not find anything".
+    for source in ("vod", "tmdb", "anilist"):
         merged.extend(found.get(source) or [])
     merged = meta_items.dedupe(merged)[:limit]
     if merged:
@@ -113,20 +119,21 @@ def _local_index():
     if cached_index is not None:
         return cached_index
 
-    from .. import catalog
     seen = {}
-    for row_id in catalog.enabled_row_ids():
-        for item in catalog.peek(row_id) or []:
-            key = meta_items.unique_key(item)
-            if key not in seen:
-                seen[key] = item
+    # The VOD list first, for the same reason the search results are ordered
+    # that way: where both catalogues hold a programme, the one that plays is
+    # the Israeli one.
     try:
         from ..vod import library
         for item in library.all_titles():
-            key = meta_items.unique_key(item)
-            seen.setdefault(key, item)
+            seen.setdefault(meta_items.unique_key(item), item)
     except Exception:
-        pass
+        kodi.log_exception("the VOD list could not be indexed for suggestions")
+
+    from .. import catalog
+    for row_id in catalog.enabled_row_ids():
+        for item in catalog.peek(row_id) or []:
+            seen.setdefault(meta_items.unique_key(item), item)
 
     index = [[_normalise(i.get("title")), _normalise(i.get("original_title")), i]
              for i in seen.values()]
