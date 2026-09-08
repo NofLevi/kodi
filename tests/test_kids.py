@@ -435,7 +435,14 @@ def test_it_opens_katan_when_asked(monkeypatch, settings_module):
     assert service.open_on_boot(now + 5) is True
     assert len(ran) == 1
     assert "plugin://plugin.video.katan/" in ran[0]
-    assert "return" in ran[0], "back should leave Katan, not the window stack"
+
+    # The intent behind the old ",return" check: back should leave Katan
+    # rather than unwind a stack of plugin folders. RunPlugin satisfies it by
+    # never building a stack - the window is not a directory, and routing
+    # through the video browser to reach it left an empty plugin folder behind
+    # it and a busy dialog over it.
+    assert ran[0].startswith("RunPlugin("), ran[0]
+    assert "ActivateWindow" not in ran[0],         "the window is not a directory and must not be opened as one"
 
 
 def test_it_waits_for_kodis_home_screen_rather_than_a_clock(monkeypatch,

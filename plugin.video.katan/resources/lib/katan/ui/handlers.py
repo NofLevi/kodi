@@ -53,16 +53,28 @@ def home(params):
         if not tmdb.has_key():
             kodi.notify(kodi.localize(32256))
         from .home_window import open_home
+
+        # A window must not be opened inside a directory call. Both orders are
+        # wrong and both were tried: ending the directory first lets Kodi react
+        # to the failure by navigating, and that Deactivate tears down the
+        # window that was opening - measured at 19 ms from Init to Deinit.
+        # Ending it afterwards holds GetDirectory open for as long as the
+        # window lives, so Kodi sits behind a busy dialog the whole time and
+        # the add-on has to keep closing it - measured at "action home took
+        # 1301141 ms", twenty-one minutes, and on exit the stale directory
+        # completes, Kodi navigates, and the window is reopened. That is the
+        # loop that left Kodi stuck.
+        #
+        # So the window is not opened from a directory call at all. This ends
+        # the directory at once and asks Kodi to run the plugin again with no
+        # directory attached, which is what RunPlugin is for. `handle` is -1
+        # in that second invocation, which is how the two are told apart.
+        if handle >= 0:
+            listing.end(handle, succeeded=False)
+            kodi.run_builtin("RunPlugin(%s)" % router.url_for("home"))
+            return
+
         open_home()
-        # Ending the directory *after* the window has closed, and ending it as
-        # a failure, is what makes back work. Ending it first is a race the
-        # window loses: Kodi reacts to a failed GetDirectory by navigating to
-        # the previous window, and that Deactivate closes whatever was opened
-        # in the meantime - measured, the window initialised and was torn down
-        # in the same 19 ms. Failing it here instead means Kodi steps back out
-        # of the plugin folder at the moment the viewer leaves Katan, which is
-        # exactly where they wanted to be.
-        listing.end(handle, succeeded=False)
         return
 
     if not _require_tmdb(handle):

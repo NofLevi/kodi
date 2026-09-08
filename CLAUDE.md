@@ -458,6 +458,29 @@ Hebrew onto the filesystem**, because `str.isalnum()` is true for Hebrew
 letters, so the strip that was supposed to make them ASCII stripped nothing
 from an Israeli title.
 
+And one more about *where* code runs, which cost an evening and both wrong
+answers before the right one. **A custom window must not be opened from inside
+a directory call.** Both orderings fail, differently:
+
+* Ending the directory *first* lets Kodi react to the failed `GetDirectory` by
+  navigating to the previous window, and that Deactivate tears down the window
+  that was opening - measured at 19 ms from Init to Deinit.
+* Ending it *afterwards* holds `GetDirectory` open for as long as the window
+  lives. Kodi sits behind a busy dialog the whole time, which the add-on then
+  has to keep closing, and the plugin call is logged as `action home took
+  1301141 ms` - twenty-one minutes. Press Exit and the stale directory
+  completes, Kodi navigates, "stay in Katan" reopens it, and Kodi deadlocks
+  during its own shutdown. Eight plugin invocations and a stuck process.
+
+The window is therefore not opened from a directory call at all. The directory
+is ended at once and `RunPlugin` asks Kodi to run the plugin again with no
+directory attached; `handle` is -1 in that second invocation, which is how the
+two are told apart. Start-up and "stay in Katan" call `RunPlugin` directly for
+the same reason, rather than `ActivateWindow(Videos,...)` - the window is not a
+directory, and routing through the video browser left an empty plugin folder in
+the back stack. Measured after: one invocation, no busy dialog, and Quit exits
+in 2.0 seconds.
+
 The lesson worth keeping: the stubs can only be as right as our belief about
 Kodi, and five of these were the stubs being more generous, or more
 synchronous, than the real thing. Anything about how Kodi *renders*,

@@ -137,9 +137,14 @@ class Service(xbmc.Monitor):
         elif now < self.open_deadline:
             return False    # not up yet, and there is still time to wait
 
+        # RunPlugin rather than ActivateWindow: the window is not a
+        # directory, and routing through the video browser leaves an
+        # empty plugin folder in the back stack and a busy dialog over
+        # the window while GetDirectory waits for a listing that is never
+        # coming.
         kodi.log("opening Katan on start-up", kodi.LOG_INFO)
         kodi.run_builtin(
-            "ActivateWindow(Videos,plugin://plugin.video.katan/,return)")
+            "RunPlugin(plugin://plugin.video.katan/)")
         return True
 
     def check_translation_request(self):
@@ -233,7 +238,7 @@ class Service(xbmc.Monitor):
         kodi.log("back on Kodi's home screen, returning to Katan",
                  kodi.LOG_INFO)
         kodi.run_builtin(
-            "ActivateWindow(Videos,plugin://plugin.video.katan/,return)")
+            "RunPlugin(plugin://plugin.video.katan/)")
 
     def run(self):
         kodi.log("service started, version %s" % kodi.addon_version(), kodi.LOG_INFO)
