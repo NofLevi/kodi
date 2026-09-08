@@ -44,7 +44,7 @@ def test_the_methods_are_offered_best_first(monkeypatch):
     labels = shown["labels"]
     # Paste sits between scan and typing: it needs a phone like scan does, but
     # unlike scan it still involves a copy, and it beats typing outright.
-    assert labels == [signin.kodi.localize(32460), signin.kodi.localize(32513),
+    assert labels == [_scan_label(), signin.kodi.localize(32513),
                       signin.kodi.localize(32462)]
 
 
@@ -102,7 +102,7 @@ def test_only_the_methods_a_service_has_are_offered(monkeypatch):
     assert "labels" not in shown, "one way in is not a question worth asking"
 
     signin.choose_method("TorBox", ("scan", "key"))
-    assert shown["labels"] == [signin.kodi.localize(32460),
+    assert shown["labels"] == [_scan_label(),
                                signin.kodi.localize(32513),
                                signin.kodi.localize(32462)]
 
@@ -470,13 +470,18 @@ def test_the_plain_link_is_used_when_there_is_no_direct_one(monkeypatch,
 
 
 # --------------------------------------------------------------------------
-# connecting asks nothing when it does not have to
+# connecting shows what the options are
 #
-# Every account has a device flow, and it is better than every alternative
-# for every viewer: nothing typed, nothing copied, and it finishes on the
-# phone already in their hand. Offering a menu was making somebody with a
-# remote choose the option we would have chosen for them.
+# Running the device flow on its own was tried and is wrong: somebody who
+# presses a service wants to see what their choices are, and being dropped
+# into a QR code with no sight of the alternatives is a screen happening to
+# them. The easiest way in is marked instead of taken.
 # --------------------------------------------------------------------------
+
+
+def _scan_label():
+    return "%s   (%s)" % (signin.kodi.localize(32460),
+                          signin.kodi.localize(32515))
 
 
 class _Client(object):
@@ -497,57 +502,41 @@ class _Client(object):
         return True
 
 
-def _no_questions(monkeypatch):
-    """Fail loudly if anything puts a list in front of the viewer."""
+def test_the_options_are_shown_rather_than_decided(monkeypatch):
     from katan.ui import wizard
 
-    def refuse(*args, **kwargs):
-        raise AssertionError("the viewer was asked something")
-
-    monkeypatch.setattr(wizard.kodi, "select", refuse)
-    return wizard
-
-
-def test_a_device_flow_just_runs(monkeypatch):
-    wizard = _no_questions(monkeypatch)
     client = _Client(("scan", "key"))
-
-    assert wizard.connect(client) is True
-    assert client.tried == [signin.SCAN]
-
-
-def test_the_other_ways_in_appear_only_when_it_fails(monkeypatch):
-    """Which is the moment they are worth having."""
-    from katan.ui import wizard
-
-    client = _Client(("scan", "key"), works=False)
     offered = {}
     monkeypatch.setattr(wizard.kodi, "select",
                         lambda labels, heading="", **kw:
-                        offered.setdefault("labels", labels) is None or -1)
+                        offered.setdefault("labels", labels) is None or 0)
 
-    assert wizard.connect(client) is False
-    assert client.tried == [signin.SCAN]
-    # Paste and type, and no second offer of the thing that just failed.
-    assert offered["labels"] == [signin.kodi.localize(32513),
+    assert wizard.connect(client) is True
+    assert offered["labels"] == [_scan_label(),
+                                 signin.kodi.localize(32513),
                                  signin.kodi.localize(32462)]
-
-
-def test_a_service_with_only_a_device_flow_does_not_show_a_list_of_one(
-        monkeypatch):
-    """Real-Debrid mints its credentials in the flow; there is no key."""
-    wizard = _no_questions(monkeypatch)
-    client = _Client(("scan",), works=False)
-
-    assert wizard.connect(client) is False
     assert client.tried == [signin.SCAN]
 
 
-def test_a_service_with_no_device_flow_still_gets_asked(monkeypatch):
-    """Nothing here assumes every client will always have one."""
+def test_the_easiest_way_in_says_so(monkeypatch):
+    """Marked, not chosen. Scanning types nothing and copies nothing."""
+    shown = {}
+    monkeypatch.setattr(signin.kodi, "select",
+                        lambda labels, heading="", **kw:
+                        shown.setdefault("labels", labels) is None or -1)
+    signin.choose_method("TorBox", ("scan", "key"))
+
+    assert signin.kodi.localize(32515) in shown["labels"][0]
+    assert all(signin.kodi.localize(32515) not in label
+               for label in shown["labels"][1:]), \
+        "only one option can be the recommended one"
+
+
+def test_any_of_them_can_be_taken(monkeypatch):
+    """Marking the first must not make the others unreachable."""
     from katan.ui import wizard
 
-    client = _Client(("key",))
+    client = _Client(("scan", "key"))
     monkeypatch.setattr(wizard.kodi, "select",
                         lambda labels, heading="", **kw: len(labels) - 1)
     monkeypatch.setattr(wizard.kodi, "keyboard", lambda *a, **k: "typed-key")
@@ -555,3 +544,13 @@ def test_a_service_with_no_device_flow_still_gets_asked(monkeypatch):
 
     assert wizard.connect(client) is True
     assert client.tried == [signin.KEY]
+
+
+def test_backing_out_of_the_question_signs_in_to_nothing(monkeypatch):
+    from katan.ui import wizard
+
+    client = _Client(("scan", "key"))
+    monkeypatch.setattr(wizard.kodi, "select", lambda *a, **k: -1)
+
+    assert wizard.connect(client) is False
+    assert client.tried == []
