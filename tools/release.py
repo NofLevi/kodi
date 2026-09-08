@@ -5,6 +5,10 @@
     python tools/release.py --minor    0.1.4 -> 0.2.0
     python tools/release.py --dry-run  say what would change, write nothing
 
+Work happens on `development`. A release is a merge to `main`, which is the
+only branch Cloudflare watches - so pushing code never publishes anything and
+merging always does.
+
 Why this exists at all: Kodi only offers an update when the version in the
 repository index is higher than the one installed. The version sat at 0.1.0
 through every change so far, so no device could ever have been told there was
@@ -144,7 +148,11 @@ def main():
     if build.main() != 0:
         return 1
 
-    print("\nreleased %s. Commit and push; Cloudflare republishes repo/." % new)
+    print("\nreleased %s. Now:" % new)
+    print('    git commit -am "Release %s"' % new)
+    print("    git push origin development")
+    print("    git checkout main && git merge development && git push origin main")
+    print("\nCloudflare watches main alone, so the merge is what republishes.")
     return 0
 
 

@@ -345,6 +345,20 @@ pure Python, no `.so` and no `.dll`, and the only required dependency is
 `urlsession.py` covers requests with the standard library. So there is nothing
 to build per platform, and the whole problem is distribution.
 
+### Branches
+
+`development` is where the work happens. `main` only moves on a release, and
+**Cloudflare watches `main` alone** - so pushing code never publishes anything
+and merging always does. That is the whole reason for the split: with one
+branch every push was a deployment, and a list of deployments in which almost
+nothing is a release is a list nobody reads.
+
+    git push origin development       Cloudflare does nothing at all
+    ...merge to main...               one deployment, which is the release
+
+CI runs on both, because a release that fails its own checks is the one
+failure that reaches a television.
+
     python tools/release.py            patch bump, news, build
     python tools/release.py --minor    0.1.4 -> 0.2.0
     python tools/release.py --dry-run  say what would change, write nothing
