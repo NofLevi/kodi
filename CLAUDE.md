@@ -389,13 +389,30 @@ a changelog nobody reads.
 Kodi fetches a repository anonymously, so "private with a login" is not
 possible and the only lever is discoverability. `NofLevi/kodi` stays private;
 **Cloudflare Pages publishes only the `repo/` folder** at an unguessable
-`pages.dev` address - **kodi-katan.pages.dev**. Connect to Git, framework
-preset none, no build command, output directory `repo`, production branch
-`main`, and **preview deployments set to None**. That last one is not
-optional: production branch only says which branch is production, and
-Cloudflare still builds a preview for every push to every other branch - so
-without it every push to `development` deploys, which is the exact thing the
-branch split exists to prevent.
+`pages.dev` address - **kodi-katan.pages.dev**.
+
+    Framework preset        None
+    Build command           (empty)
+    Build output directory  repo
+    Root directory          /
+    Production branch       main
+    Preview branches        None          <- not optional
+
+**Preview branches is the setting people miss, including me.** Production
+branch only says which branch is *production*; on its own, Cloudflare still
+builds a **preview** for every push to every other branch. So with it left at
+the default, every push to `development` deploys - the exact thing the branch
+split exists to prevent - and the deployment list fills with builds that are
+not releases. It is under Settings, called *Branch control* on newer accounts
+and *Configure preview deployments* on older ones, and the value wanted is
+`None`.
+
+**A push to `main` that is not a release** should carry `[skip ci]` in the
+commit subject. Cloudflare reads the subject and skips the build, which is
+the repo-side half of the same idea: the dashboard decides which *branches*
+can build, and the commit decides whether this particular one should. There
+is no config file for any of this - Pages takes branch control from the
+dashboard alone.
 
 The first project was wired to `development` instead of `main`, which is the
 same fault the other way round: three pushes to `main` published nothing
