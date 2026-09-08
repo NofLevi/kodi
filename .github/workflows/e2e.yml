@@ -26,7 +26,11 @@ on:
 jobs:
   suite:
     name: unit suite and packaging
-    runs-on: ubuntu-latest
+    # Pinned, not `ubuntu-latest`. Kodi 21 ships Python 3.8 and that is what
+    # this has to be tested on, and 3.8 is past end of life: the 24.04 image
+    # that `ubuntu-latest` now points at has no build of it, so setup-python
+    # fails outright with "version not found" before a single test runs.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +40,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.8"
+
+      # The only thing that is not in the standard library. The add-on itself
+      # has no required dependencies at all - that is deliberate and enforced
+      # by a test - so this is the test runner and nothing else.
+      - name: pytest
+        run: python -m pip install --disable-pip-version-check pytest
 
       - name: the whole suite
         run: python -m pytest tests -q
@@ -56,7 +66,11 @@ jobs:
 
   live:
     name: against the live services
-    runs-on: ubuntu-latest
+    # Pinned, not `ubuntu-latest`. Kodi 21 ships Python 3.8 and that is what
+    # this has to be tested on, and 3.8 is past end of life: the 24.04 image
+    # that `ubuntu-latest` now points at has no build of it, so setup-python
+    # fails outright with "version not found" before a single test runs.
+    runs-on: ubuntu-22.04
     # A service having a bad day must not turn the whole repository red, or
     # the red stops meaning anything. The report is still written, and the
     # summary below says what failed.
