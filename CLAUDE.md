@@ -177,7 +177,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1085 tests, all running against Kodi stubs, so no Kodi install is needed:
+1176 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -229,12 +229,72 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_wizard.py` | 7 | The one setup step that is not an account: light against richer artwork, with what each costs, and a device that is told it has room rather than quietly switched. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
 | `test_upnext.py` | 8 | The next episode, including across a season boundary, and the signal being well formed. |
+| `test_upgrade.py` | 27 | That an update costs the viewer nothing. Twenty-two credentials, and re-entering them on a projector with a remote is the difference between an update people accept and one they refuse. Reads the source for anything writing inside the add-on folder, which an update wipes; installs a real release over a real one and checks the keys, the subtitles and the profile survived; and refuses a truncated download, a file that is not a zip, and one with no `addon.xml`. |
+| `test_failure_paths.py` | 24 | Somebody else's free service misbehaving. 429 retried and 404 not, `Retry-After` honoured rather than the backoff and capped so an hour-long wait cannot freeze a search, truncated JSON, DNS failure - and **the deadline**, which is the rule the whole add-on rests on. |
+| `test_hebrew.py` | 21 | Hebrew is half the catalogue, not an edge case: cp1255 and iso-8859-8 subtitles, a byte order mark landing in the first cue, substring search over 2,810 Hebrew titles, a Hebrew title beside a Latin release group, and a filename that has to survive Android storage. |
 | `test_packaging.py` | 5 | The built zip staying under 600 KB, containing no build junk, rooted at the add-on id, and carrying every file the add-on needs. |
 
 Three of these catch whole classes of mistake rather than one bug:
 `test_imports.py` finds anything that will not load, `test_addon_integrity.py`
 finds settings and routes that promise something with no code behind them, and
 `test_packaging.py` stops the add-on quietly growing.
+
+## Releasing, and updating a device
+
+One zip runs on Windows, the U4 and the Mi Box. `<platform>all</platform>`,
+pure Python, no `.so` and no `.dll`, and the only required dependency is
+`xbmc.python` - `requests` and `inputstream.adaptive` are both optional and
+`urlsession.py` covers requests with the standard library. So there is nothing
+to build per platform, and the whole problem is distribution.
+
+    python tools/release.py            patch bump, news, build
+    python tools/release.py --minor    0.1.4 -> 0.2.0
+    python tools/release.py --dry-run  say what would change, write nothing
+
+**Kodi only offers an update when the published version is higher than the
+installed one.** The version sat at `0.1.0` through every change recorded in
+this file, with `<news>0.1.0 - Initial skeleton.</news>`, so no device could
+ever have been told there was anything new. `release.py` bumps both add-ons and
+writes the news from the commit subjects, because a changelog nobody writes is
+a changelog nobody reads.
+
+### Where the files live
+
+Kodi fetches a repository anonymously, so "private with a login" is not
+possible and the only lever is discoverability. `NofLevi/kodi` stays private;
+**Cloudflare Pages publishes only the `repo/` folder** at an unguessable
+`pages.dev` address. Connect to Git, no build command, output directory `repo`.
+`git push` republishes, so the release workflow does not change. Moving host
+later is three URLs in `repository.katan/addon.xml`.
+
+### On a device
+
+Install `repository.katan` once from a zip, then Katan from within it; after
+that Kodi updates itself. `tools/deploy_android.py` pushes the zips over adb,
+which saves driving a file manager with a remote. Both Android boxes also need
+**inputstream.adaptive from Kodi's own repository** - the DASH live channels
+need it and it is not ours to ship.
+
+### Updating from inside
+
+`updater.py` is Tools -> Check for updates, plus an optional weekly background
+check that only speaks when there is something to say. It exists alongside the
+repository rather than instead of it, because the repository route needs the
+repository installed and the first update after a zip install has nothing to
+work with.
+
+Keys survive because of where they are written, not because the updater is
+careful: Kodi preserves `userdata/addon_data`, and **nothing here writes inside
+the add-on folder** - every runtime path goes to `kodi.profile_path()`.
+`test_upgrade.py` holds both halves of that, by reading the source for writes
+into `addon_path()` and by installing a real release over a real one and
+checking the keys are still there afterwards.
+
+The one risky step is replacing the folder, so it is the one with care taken:
+unpack to a temporary directory beside the add-on, refuse anything without a
+parseable `addon.xml`, then swap and keep a backup until the swap succeeds. A
+projector on wifi produces half-downloads, and installing one would leave an
+add-on that cannot start.
 
 ## Integration testing
 
@@ -383,6 +443,20 @@ what it does. Neither is visible from Python and neither could fail a test.
   now leaves a window property and the background service, which outlives
   every window and every plugin call, picks it up within a second and does
   the work on a thread of its own.
+
+Three more came from writing the edge-case tests, and all three had been
+shipping. **The deadline did not work**: `run_parallel` used the executor as a
+context manager, and leaving a `with` block calls `shutdown(wait=True)`, which
+waits for every running task regardless of the timeout - so one provider that
+hung for thirty seconds held the whole search for thirty seconds, which is the
+exact failure bounded concurrency exists to prevent. Its own docstring already
+claimed the behaviour it did not have. **The cache silently stopped storing
+anything** after a schema change, because `CREATE TABLE IF NOT EXISTS` accepts
+a table of the wrong shape and every "no such column" was swallowed on the way
+past; there is no symptom except slowness. And **subtitle filenames carried
+Hebrew onto the filesystem**, because `str.isalnum()` is true for Hebrew
+letters, so the strip that was supposed to make them ASCII stripped nothing
+from an Israeli title.
 
 The lesson worth keeping: the stubs can only be as right as our belief about
 Kodi, and five of these were the stubs being more generous, or more
@@ -653,9 +727,9 @@ settings that promised a provider with no code behind them were removed, and
   results identical to no filter at all. Shipping something here would mean
   shipping a stub, so nothing was shipped. Hebrew release hints in the parser
   and the `prefer_hebrew` ranking weight remain the honest version of this.
-* The repository add-on cannot auto-update while `NofLevi/kodi` is private.
-  Kodi fetches `repo/addons.xml` anonymously, so the URLs 404 until the
-  repository is made public. Nothing in the code needs changing.
+* Auto-update needs the Cloudflare Pages project connected and the three URLs
+  in `repository.katan/addon.xml` pointed at it. Until then the in-add-on
+  updater reports no update rather than failing, and installing by zip works.
 
 **Done since this list was written**
 
