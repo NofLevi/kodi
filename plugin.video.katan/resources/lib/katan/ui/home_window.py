@@ -115,16 +115,38 @@ class HomeWindow(xbmcgui.WindowXML):
             return                # onInit fires again when returning from a dialog
         self.ready = True
 
-        # Without a TMDB key almost every row is unavailable, and the ones that
-        # remain are the Israeli ones further down the list. Filling the first
-        # few slots then leaves a completely black screen with no explanation,
-        # which is what this window used to do. The plain directory listing has
-        # always offered the setup wizard here, so this does too.
-        if not self._require_setup():
-            return
-
+        # This used to close on the spot when there was no TMDB key, and offer
+        # the wizard instead, because "almost every row is unavailable" and
+        # filling the first slots would leave a black screen. Neither half is
+        # true any more. `_pick_rows` asks the catalog, which already drops
+        # rows whose credentials are missing, so the five that need none - the
+        # Israeli channels, the Israeli catalogue, Kitsu anime and the two
+        # public Trakt charts - are exactly what comes back. The check below
+        # is the honest version of the same guard: close only when there is
+        # genuinely nothing to draw.
+        #
+        # It mattered more than it looks. A viewer opening the add-on for the
+        # first time got a modal yes/no over a window that then tore itself
+        # down, so a fresh install never once showed the home screen.
         if not self.rows:
             self.rows = _pick_rows(self.section)
+        if not self.rows:
+            # The tab this opened on has nothing to draw. On a configured box
+            # that means an outage; on a fresh one it means the Films tab,
+            # every row of which needs a TMDB key, while Live TV has ten rows
+            # of bundled Israeli channels sitting one tab away. Landing on the
+            # empty one and closing is how a first run came to show a file
+            # list instead of the home screen.
+            for section in catalog.SECTION_ORDER:
+                if section == self.section:
+                    continue
+                found = _pick_rows(section)
+                if found:
+                    kodi.log("home: %s is empty, opening on %s instead"
+                             % (self.section, section))
+                    self.section = section
+                    self.rows = found
+                    break
         if not self.rows:
             kodi.notify(kodi.localize(32256))
             self.close()
@@ -200,25 +222,24 @@ class HomeWindow(xbmcgui.WindowXML):
         # empty - a TMDB outage now paints this screen rather than a stale one.
         kodi.log("home: no row has anything in it, focusing the top bar")
         self.setFocusId(BUTTON_SEARCH)
-        # Not "set up Katan": _require_setup has already run and returned
-        # True, so there *is* a TMDB key and setup is not the problem. Saying
-        # so would send the viewer to a wizard that has nothing to fix.
-        self.setProperty("katan.hero.title", kodi.localize(32414))
+        # Deliberately not "set up Katan". Every row being empty is usually an
+        # outage rather than a missing key, and the rows that need no key at
+        # all are in this list too - so a wizard is as likely to have nothing
+        # to fix as something.
+        #
+        # The rest of the hero has to be cleared with it. Setting only the
+        # title left the previous tab's year, rating, plot and backdrop
+        # underneath, so an empty Films tab read "Nothing to show right now"
+        # over Attack on Titan's synopsis - which looks like a bug in the
+        # thing that *is* working rather than an empty tab.
+        self._blank_hero(kodi.localize(32414))
 
-    def _require_setup(self):
-        """Offer the wizard when there is no TMDB key, and close.
-
-        Returns True when the window should carry on building itself.
-        """
-        from ..meta import tmdb
-        if tmdb.has_key():
-            return True
-
-        self.close()
-        if kodi.yes_no(kodi.localize(32256)):
-            from .wizard import run
-            run()
-        return False
+    def _blank_hero(self, title=""):
+        """Put a message in the hero and clear everything that described the
+        item that used to be there."""
+        self.setProperty("katan.hero.title", title)
+        for name in ("plot", "meta", "fanart"):
+            self.setProperty("katan.hero.%s" % name, "")
 
     def onAction(self, action):
         code = action.getId()

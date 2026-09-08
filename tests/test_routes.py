@@ -323,3 +323,42 @@ def test_a_fresh_install_does_not_offer_rows_that_need_a_key(settings_module):
     urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
     assert not any("action=row" in u for u in urls), \
         "every catalogue row needs TMDB"
+
+
+def test_the_window_opens_even_without_a_tmdb_key(monkeypatch,
+                                                  settings_module):
+    """A fresh install has no key, but the Israeli rows and Kitsu anime need
+    none - so the window has content and a file list is the wrong thing to
+    show somebody opening the add-on for the first time."""
+    import xbmcplugin
+    from katan.ui import handlers
+
+    settings_module.set_many({"ui.window_home": "true", "tmdb.apikey": ""})
+
+    opened = []
+    monkeypatch.setattr("katan.ui.home_window.open_home",
+                        lambda: opened.append(True))
+
+    xbmcplugin.reset()
+    handlers.home({})
+    assert opened, "the plain listing was shown instead of the window"
+
+
+def test_the_plain_listing_is_used_when_no_row_can_draw(monkeypatch,
+                                                        settings_module):
+    """The one case the fallback is for."""
+    import xbmcplugin
+    from katan import catalog
+    from katan.ui import handlers
+
+    settings_module.set_many({"ui.window_home": "true", "tmdb.apikey": ""})
+    monkeypatch.setattr(catalog, "enabled_rows", lambda *a, **k: [])
+
+    opened = []
+    monkeypatch.setattr("katan.ui.home_window.open_home",
+                        lambda: opened.append(True))
+
+    xbmcplugin.reset()
+    handlers.home({})
+    assert not opened
+    assert any("action=setup" in url for url, _i, _f in xbmcplugin.ITEMS)

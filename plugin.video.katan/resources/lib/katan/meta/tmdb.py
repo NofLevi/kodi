@@ -39,8 +39,25 @@ WATCH_PROVIDERS = {
 }
 
 
+# A TMDB key is not a secret in the way an account password is. It is read
+# only, rate limited per key, and TMDB's terms allow one to ship inside a
+# client - Kodi's own metadata.themoviedb.org.python embeds one, as does every
+# other Kodi add-on that reads TMDB. Shipping one here is the difference
+# between a fresh install showing the home screen and showing an empty Films
+# tab, because every row in that tab needs it.
+#
+# Paste one in to enable that. The setting still wins, so anyone who wants
+# their own quota, or a different language default, just enters theirs.
+# This is the v3 API Key, not the v4 "API Read Access Token". The names are
+# misleading: the v3 key is the one that cannot write. Measured against the
+# live API - reads answer 200, while creating a list and adding to a watchlist
+# both answer 401, because TMDB writes need a user session on top of the key.
+# The v4 bearer token is bound to the account and is deliberately not here.
+BUNDLED_KEY = "94584cab08f71b624286f19eda8d2b5e"
+
+
 def api_key():
-    return settings.get("tmdb.apikey").strip()
+    return (settings.get("tmdb.apikey") or BUNDLED_KEY).strip()
 
 
 def has_key():

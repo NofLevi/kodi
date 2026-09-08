@@ -37,6 +37,16 @@ def kodi_environment(tmp_path):
     xbmcplugin.reset()
 
     from katan import cache, kodi
+    from katan.meta import tmdb
+
+    # The add-on ships a TMDB key so a fresh install has content. Tests must
+    # not inherit it: "no key configured" is a real state the code still has
+    # to handle - a revoked key, or somebody who removed it - and a suite that
+    # cannot express it stops testing that path the day the key is added.
+    # A test that wants a key sets the setting, which wins over the bundled one.
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(tmdb, "BUNDLED_KEY", "")
+
     kodi.refresh_addon()
     # The router remembers the handle it was invoked with, and a handle left
     # over from another test is exactly the sort of thing that makes a suite
@@ -46,6 +56,7 @@ def kodi_environment(tmp_path):
 
     yield
 
+    monkeypatch.undo()
     cache.close()
     shutil.rmtree(str(profile), ignore_errors=True)
 
