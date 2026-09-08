@@ -1,0 +1,106 @@
+name: end to end
+
+# Two jobs on purpose, because they answer different questions and only one of
+# them can be broken by a commit.
+#
+#   `suite`  - the stubs. Deterministic, offline, and a failure here is ours.
+#   `live`   - the real services. A failure here is usually somebody else's
+#              outage, and it still has to be seen: AniList going dark,
+#              SubSource moving behind a login and TorBox growing a device flow
+#              were all invisible to the unit suite and all changed what this
+#              add-on could do.
+#
+# Neither job stops at the first problem. A run that dies on the third check
+# says nothing about the rest, and the point is to come back with the list.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Every morning. The live services are what drifts, and drift is only
+    # visible if something looks.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  suite:
+    name: unit suite and packaging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Kodi 21 ships Python 3.8, so that is what the add-on has to run on.
+      # Testing on anything newer would let a walrus or an f-string with an
+      # equals sign through, and the symptom in Kodi is a blank screen.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: the whole suite
+        run: python -m pytest tests -q
+
+      - name: the manifests and the zips
+        run: |
+          python tools/build.py --check
+          python tools/build.py
+
+      - name: everything that needs no network
+        run: python tools/e2e.py --offline
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repository
+          path: repo/
+
+  live:
+    name: against the live services
+    runs-on: ubuntu-latest
+    # A service having a bad day must not turn the whole repository red, or
+    # the red stops meaning anything. The report is still written, and the
+    # summary below says what failed.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: end to end
+        id: e2e
+        run: python tools/e2e.py --json e2e.json
+
+      - name: what it found
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import io, json, os
+          if not os.path.isfile("e2e.json"):
+              print("The end-to-end run produced no report at all.")
+              raise SystemExit
+          rows = json.load(io.open("e2e.json", encoding="utf-8"))
+          ok = [r for r in rows if r["status"] == "ok"]
+          bad = [r for r in rows if r["status"] == "failed"]
+          print("## End to end: %d of %d checks passed\n" % (len(ok), len(rows)))
+          if bad:
+              print("| | check | area | what happened |")
+              print("|---|---|---|---|")
+              for r in bad:
+                  print("| %s | %s | %s | %s |"
+                        % ("**blocking**" if r["required"] else "outage?",
+                           r["name"], r["area"], r["detail"][:160]))
+              print("")
+          print("<details><summary>everything that passed</summary>\n")
+          print("| check | area | took |")
+          print("|---|---|---|")
+          for r in ok:
+              print("| %s | %s | %d ms |" % (r["name"], r["area"], r["ms"]))
+          print("\n</details>")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: e2e.json
