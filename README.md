@@ -24,13 +24,13 @@ reinstalling.
 | | |
 |---|---|
 | Current release | **Katan 0.0.1** |
-| Repository zip | <https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-1.0.5.zip> |
+| Repository zip | <https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-0.0.1.zip> |
 | Requires | Kodi 19 or newer; developed and tested on Kodi 21 |
 | Optional | `inputstream.adaptive` — needed for the DASH live channels |
 
-The two version numbers are different things and both are right: **0.0.1** is
-the add-on you watch with, and **1.0.5** is the two-kilobyte repository that
-tells Kodi where to look for it. The repository almost never changes.
+Two add-ons, both at 0.0.1: **Katan** is what you watch with, and **Katan
+Repository** is the two-kilobyte pointer that tells Kodi where to look for new
+versions of it. Install the repository and the other arrives on its own.
 
 ### Step 0, on every platform: allow unknown sources
 
@@ -43,7 +43,7 @@ gives instead does not say so.
 
 ## Windows
 
-1. Download the [repository zip](https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-1.0.5.zip).
+1. Download the [repository zip](https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-0.0.1.zip).
 2. Kodi → **Add-ons** → the box icon (top left) → **Install from zip file**.
 3. Point it at the file you downloaded, usually `C:\Users\<you>\Downloads`.
 4. **Install from repository → Katan Repository → Video add-ons → Katan → Install.**
@@ -113,7 +113,7 @@ On LibreELEC, over SSH:
 
 ```
 cd /storage/downloads
-wget https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-1.0.5.zip
+wget https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-0.0.1.zip
 ```
 
 then install it from that path in step 3.
