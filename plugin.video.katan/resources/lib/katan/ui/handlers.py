@@ -695,6 +695,10 @@ def connect(params):
 
     service = params.get("service", "")
     if service == "trakt":
+        from ..meta import trakt
+        if trakt.authorised() and not _offer_sign_out(trakt.label,
+                                                      trakt.sign_out):
+            return
         wizard.step_trakt()
     elif service == "tmdb":
         wizard.step_tmdb()
@@ -713,26 +717,35 @@ def connect(params):
     kodi.refresh_container()
 
 
-def _connect_or_disconnect(client):
-    """Sign in, or sign out of an account that is already connected.
+def _offer_sign_out(label, sign_out):
+    """What a connected account is asked before it is replaced.
 
     A connected service used to offer only "connect again", which is the one
     thing somebody looking at a working account does not want. Signing out
     matters more than it sounds: a stale token makes every source search
     quietly return nothing, and clearing it is the fix.
+
+    True means carry on to the sign-in flow. False means this screen is
+    finished - either nothing was chosen, or the account has just been
+    forgotten and the list behind it redrawn.
     """
+    choice = kodi.select([kodi.localize(32468), kodi.localize(32469) % label],
+                         label)
+    if choice != 1:
+        return choice == 0
+    sign_out()
+    kodi.notify(kodi.localize(32467))
+    kodi.refresh_container()
+    return False
+
+
+def _connect_or_disconnect(client):
+    """Sign in, or sign out of an account that is already connected."""
     from . import wizard
 
-    if client.configured():
-        options = [kodi.localize(32468),
-                   kodi.localize(32469) % client.label]
-        choice = kodi.select(options, client.label)
-        if choice < 0:
-            return False
-        if choice == 1:
-            client.sign_out()
-            kodi.notify(kodi.localize(32467))
-            return True
+    if client.configured() and not _offer_sign_out(client.label,
+                                                   client.sign_out):
+        return False
 
     if wizard.connect(client, client.label):
         kodi.notify(kodi.localize(32321, client.label))

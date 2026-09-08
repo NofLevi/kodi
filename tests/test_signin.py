@@ -285,3 +285,96 @@ def test_every_service_can_say_what_its_credentials_are():
         assert keys, "%s cannot say what to clear to sign out" % name
         for key in keys:
             assert key.startswith(name.replace("-", "")) or "." in key
+
+
+# --------------------------------------------------------------------------
+# Trakt goes through the same screen as everything else
+# --------------------------------------------------------------------------
+
+
+def _connect_trakt(monkeypatch, choice, signed_in=True):
+    """Press the one Trakt button, answering its chooser with `choice`."""
+    from katan import settings
+    from katan.meta import trakt
+    from katan.ui import handlers, wizard
+
+    settings.set_many({"trakt.access_token": "token" if signed_in else "",
+                       "trakt.refresh_token": "refresh",
+                       "trakt.client_id": "id", "trakt.client_secret": "secret"})
+    asked = {}
+    monkeypatch.setattr(handlers.kodi, "select",
+                        lambda labels, heading="", **kw:
+                            asked.setdefault("labels", labels) is None or choice)
+    monkeypatch.setattr(trakt, "http", _NoHttp())
+    monkeypatch.setattr(wizard, "step_trakt",
+                        lambda: asked.__setitem__("signed_in_again", True))
+    monkeypatch.setattr(handlers.kodi, "refresh_container", lambda: None)
+    monkeypatch.setattr(handlers.kodi, "notify", lambda *a, **k: None)
+    handlers.connect({"service": "trakt"})
+    return asked
+
+
+class _NoHttp(object):
+    """Trakt's revoke call has nowhere to go in a test."""
+
+    def post(self, *args, **kwargs):
+        return None
+
+
+def test_a_connected_trakt_can_be_signed_out_of(monkeypatch):
+    """The whole point of the chooser: an account you can get back out of.
+
+    Trakt had no sign-out anywhere in the interface, so a token that stopped
+    working could only be cleared by editing the setting by hand.
+    """
+    from katan import settings
+
+    asked = _connect_trakt(monkeypatch, choice=1)
+    assert "Trakt" in asked["labels"][1]
+    assert not settings.get("trakt.access_token")
+    assert not settings.get("trakt.refresh_token")
+    assert "signed_in_again" not in asked
+
+
+def test_signing_in_again_leaves_the_account_alone_until_it_succeeds(monkeypatch):
+    """Choosing "connect" must not clear what is already working."""
+    from katan import settings
+
+    asked = _connect_trakt(monkeypatch, choice=0)
+    assert asked["signed_in_again"] is True
+    assert settings.get("trakt.access_token") == "token"
+
+
+def test_cancelling_the_chooser_does_nothing_at_all(monkeypatch):
+    from katan import settings
+
+    asked = _connect_trakt(monkeypatch, choice=-1)
+    assert "signed_in_again" not in asked
+    assert settings.get("trakt.access_token") == "token"
+
+
+def test_a_disconnected_trakt_goes_straight_to_signing_in(monkeypatch):
+    """Nothing to sign out of, so nothing to ask about."""
+    asked = _connect_trakt(monkeypatch, choice=1, signed_in=False)
+    assert "labels" not in asked
+    assert asked["signed_in_again"] is True
+
+
+def test_a_bundled_application_is_never_asked_for(monkeypatch):
+    """The reason "open a link and it connects" was unreachable.
+
+    Trakt needs a registered application before anybody can sign in, and
+    without a bundled one the flow opened a keyboard for two long strings
+    before it ever showed the link.
+    """
+    from katan import settings
+    from katan.meta import trakt
+
+    settings.set_many({"trakt.client_id": "", "trakt.client_secret": ""})
+    assert not trakt.configured()
+
+    monkeypatch.setattr(trakt, "BUNDLED_CLIENT_ID", "bundled-id")
+    monkeypatch.setattr(trakt, "BUNDLED_CLIENT_SECRET", "bundled-secret")
+    assert trakt.configured()
+    assert trakt.client_id() == "bundled-id"
+    assert trakt.client_secret() == "bundled-secret"

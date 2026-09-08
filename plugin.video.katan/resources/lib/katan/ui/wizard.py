@@ -149,6 +149,13 @@ def connect(client, name=""):
 
 
 def step_trakt():
+    """Connect Trakt, asking for an application only when none is bundled.
+
+    Everything after this is the shared device flow, so the flow itself lives
+    in `meta/trakt.py` beside the token handling and this step is only the
+    part that is peculiar to Trakt: it is the one service that needs an
+    application registered before anybody can sign in at all.
+    """
     from ..meta import trakt
     if not trakt.configured():
         kodi.ok_dialog(kodi.localize(32323, TRAKT_APPS), kodi.localize(32312))
@@ -161,35 +168,7 @@ def step_trakt():
         settings.set_many({"trakt.client_id": client_id.strip(),
                            "trakt.client_secret": secret.strip()})
 
-    device = trakt.device_code()
-    if not device:
-        kodi.notify(kodi.localize(32322))
-        return
-
-    from . import signin
-
-    # Trakt puts the code on its own page, so the address is the thing to
-    # scan and the code still has to be typed there. Both are on screen.
-    method = signin.choose_method(kodi.localize(32312), ("scan", "link"))
-    if method is None:
-        return
-
-    def poll():
-        answer = trakt.exchange_device_token(device)
-        # None has to survive: it is "this code is dead", and turning it into
-        # False would leave the screen waiting out the full ten minutes for
-        # something that is never going to happen.
-        return None if answer is None else bool(answer)
-
-    signed_in = signin.run_device(
-        kodi.localize(32312), device.get("verification_url", ""),
-        device.get("user_code", ""), poll,
-        lifetime=device.get("expires_in"),
-        interval=max(5, int(device.get("interval") or 5)),
-        scan=(method != "link"))
-
-    if signed_in:
-        trakt.sync_state()
+    if connect(trakt, kodi.localize(32312)):
         kodi.notify(kodi.localize(32325, settings.get("trakt.user")))
     else:
         kodi.notify(kodi.localize(32322))
