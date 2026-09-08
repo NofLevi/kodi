@@ -99,23 +99,27 @@ def _ranked(meta, prefetch=False, force=False):
         kodi.log("no source providers are enabled")
         return []
 
-    raw = _run_providers(providers, meta, quiet=prefetch)
+    # An anime episode whose arc TMDB has named is asked for under both of the
+    # addresses the world files it under, and **in the same round**. Not as a
+    # fallback: making it conditional on the first search finding nothing
+    # meant one bad name-match suppressed it entirely, and that is not
+    # hypothetical - Bleach 2x47 came back with a single wrongly matched
+    # result from a name index, which was enough to stop the address that had
+    # the episode from ever being tried.
+    #
+    # Together rather than one after the other, because two rounds is two
+    # deadlines and the viewer waits through both: measured on Bleach 2x46 at
+    # 3598 ms against 904 ms for a series needing only one address.
+    raw = _run_providers(providers, meta, quiet=prefetch,
+                         also=_anime_address(meta, "arc"))
 
-    # An anime episode is asked for twice, under both of the addresses the
-    # world files it under. Not as a fallback: making it conditional on the
-    # first search finding nothing meant one bad name-match suppressed it
-    # entirely, and that is not hypothetical - Bleach 2x47 came back with a
-    # single wrongly matched result from a name index, which was enough to
-    # stop the address that had the episode from ever being tried.
-    also = _anime_address(meta, found_already=bool(raw))
-    if also:
-        # Only the providers that ask by id. The two that ask by name have
-        # already been given their best question - the show's name and the
-        # absolute number - and asking them again with a cour-relative number
-        # is asking something they cannot answer correctly.
-        by_id = [(n, m) for n, m in providers
-                 if not getattr(m, "BY_NAME", False)]
-        raw = list(raw) + _run_providers(by_id, also, quiet=prefetch)
+    if not raw:
+        # The plain shape, where TMDB's address usually works and paying for a
+        # second question every time buys nothing - so it is only asked when
+        # the first one came back with nothing at all.
+        season = _anime_address(meta, "season")
+        if season:
+            raw = _run_providers(_by_id(providers), season, quiet=prefetch)
 
     if not raw:
         cache.set(key, [], TTL_EMPTY)
@@ -206,8 +210,26 @@ def _top(sources):
     return sources[:limit] if limit else sources
 
 
-def _run_providers(providers, meta, quiet=False):
-    """Fan out under the shared cap, showing progress unless prefetching."""
+def _by_id(providers):
+    """The providers that ask by id.
+
+    The two that ask by name have already been given their best question - the
+    show's name and the absolute number - and asking them again with a
+    cour-relative number is asking something they cannot answer correctly.
+    """
+    return [(name, module) for name, module in providers
+            if not getattr(module, "BY_NAME", False)]
+
+
+def _run_providers(providers, meta, quiet=False, also=None):
+    """Fan out under the shared cap, showing progress unless prefetching.
+
+    `also` is a second description of the same episode - the anime address -
+    and its providers join the same round rather than forming another one.
+    Under one worker cap and one deadline, which is the point: a second round
+    is a second wait, and the rule this add-on rests on is that a search has a
+    wall clock.
+    """
     workers = max(1, settings.get_int("sources.workers"))
     deadline = max(4, settings.get_int("sources.timeout"))
 
@@ -227,10 +249,27 @@ def _run_providers(providers, meta, quiet=False):
             progress.update(int(min(99, (elapsed / deadline) * 100)),
                             message=kodi.localize(32332, len(found)))
 
+    if also:
+        # A named arc replaces the address rather than adding to it, for the
+        # providers that ask by id. TMDB's address is not merely sometimes
+        # empty for those - it is the wrong address, and measured on both
+        # Bleach 2x46 and 2x47 it contributed nothing at all. Asking anyway
+        # would be half again as many requests through a four-worker cap,
+        # which the viewer waits through; the whole reason this add-on caps
+        # concurrency is that the wait is the cost.
+        #
+        # The two that ask by name still get the original, because the show's
+        # name and the absolute number are what they can answer.
+        tasks = []
+        for name, module in providers:
+            asks_by_name = getattr(module, "BY_NAME", False)
+            tasks.append((name, _guarded(module, meta if asks_by_name else also)))
+    else:
+        tasks = [(name, _guarded(module, meta)) for name, module in providers]
+
     try:
-        http.run_parallel(
-            [(name, _guarded(module, meta)) for name, module in providers],
-            workers=workers, deadline=deadline, on_result=on_result)
+        http.run_parallel(tasks, workers=workers, deadline=deadline,
+                          on_result=on_result)
     finally:
         if progress is not None:
             progress.close()
@@ -385,7 +424,7 @@ def invalidate(meta=None):
         cache.delete_prefix("sources|")
 
 
-def _anime_address(meta, found_already=False):
+def _anime_address(meta, mode="arc"):
     """The same episode, addressed the way an anime index files it.
 
     Every provider keyed on an IMDb id asks for `imdb:season:episode`, and for
@@ -394,45 +433,40 @@ def _anime_address(meta, found_already=False):
     trackers count each cour from one. Bleach 2x46 measured against Torrentio:
     nothing for `tt0434665:2:46`, nine sources for `kitsu:49444:6`.
 
-    Only reached when the ordinary search found nothing, so it costs a Kitsu
-    lookup on a search that has already failed and nothing at all otherwise.
+    Two shapes, and they are asked at different times because they are worth
+    different amounts:
+
+    * `"arc"` - TMDB gave the season a name, which means it folded several
+      broadcast runs into one and its address is *systematically* wrong. Asked
+      alongside the ordinary one, in the same round.
+    * `"season"` - the plain shape, one TMDB season to one broadcast run.
+      TMDB's address usually works here, and measured on KonoSuba S03E05 both
+      return the same 39 sources, so this is only asked when the first
+      question came back with nothing at all.
+
     Returns a copy of `meta` carrying a kitsu id, or None.
     """
     if meta.get("type") != "episode" or (meta.get("ids") or {}).get("kitsu"):
         return None
-    # Anime only, and only when TMDB named the season. Everything below costs
-    # a Kitsu lookup and a second round of providers, and neither is worth
+    # Anime only. Everything below costs a Kitsu lookup, and that is not worth
     # spending on a show whose numbering nobody disagrees about.
     if not (meta.get("extra") or {}).get("anime"):
         return None
 
+    title = meta.get("search_title") or meta.get("title") or ""
     try:
         from ..meta import kitsu
         if not kitsu.available():
             return None
-        found = None
-        if meta.get("season_name"):
-            # A named arc: TMDB folded several broadcast runs into one season,
-            # so the number has to be spent across them.
-            found = kitsu.episode_address(
-                meta.get("search_title") or meta.get("title") or "",
-                meta.get("episode"), meta.get("season_name"),
-                meta.get("season_episodes") or 0)
-        if not found and not found_already:
-            # The ordinary shape: one TMDB season is one broadcast run, and
-            # the season number is the address. Most anime seasons have no
-            # name at all, which is why the branch above reached only a fifth
-            # of them in a survey of 166 anime episodes.
-            #
-            # Only when the first address came back empty, unlike the named
-            # arc above. Measured on KonoSuba: both addresses return the same
-            # 39 sources for S03E05, so asking twice buys nothing and costs a
-            # round of requests. A named arc is different because TMDB's
-            # address is systematically wrong there rather than merely
-            # sometimes empty.
+        if mode == "arc":
+            if not meta.get("season_name"):
+                return None
+            found = kitsu.episode_address(title, meta.get("episode"),
+                                          meta.get("season_name"),
+                                          meta.get("season_episodes") or 0)
+        else:
             found = kitsu.season_address(
-                [meta.get("search_title") or meta.get("title") or "",
-                 meta.get("original_title") or ""],
+                [title, meta.get("original_title") or ""],
                 meta.get("season"), meta.get("episode"),
                 meta.get("season_counts") or [])
     except Exception:
@@ -442,14 +476,14 @@ def _anime_address(meta, found_already=False):
         return None
 
     kitsu_id, episode = found
-    kodi.log("nothing for %s S%02dE%02d, trying kitsu:%s:%s"
+    kodi.log("%s S%02dE%02d is also kitsu:%s:%s"
              % (meta.get("title", ""), int(meta.get("season") or 0),
                 int(meta.get("episode") or 0), kitsu_id, episode))
-    retry = dict(meta)
-    retry["ids"] = dict(meta.get("ids") or {}, kitsu=kitsu_id)
+    address = dict(meta)
+    address["ids"] = dict(meta.get("ids") or {}, kitsu=kitsu_id)
     # The kitsu address carries its own numbering, and stream_id prefers an
-    # IMDb id when it sees one - so the IMDb id has to go, or the retry asks
-    # the identical question a second time.
-    retry["ids"].pop("imdb", None)
-    retry["episode"] = episode
-    return retry
+    # IMDb id when it sees one - so the IMDb id has to go, or this asks the
+    # identical question a second time.
+    address["ids"].pop("imdb", None)
+    address["episode"] = episode
+    return address

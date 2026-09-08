@@ -417,3 +417,52 @@ def test_a_runplugin_invocation_opens_the_window_directly(monkeypatch,
 
     assert opened, "the window should just open"
     assert not ran, "it must not ask for a third invocation"
+
+
+# --------------------------------------------------------------------------
+# choosing a source for an episode
+#
+# An episode's own TMDB id is not its show's, and every route below the
+# context menu is keyed on the series. Sending the episode's id means
+# build_meta asks TMDB for a show that does not exist, gets no title, and
+# gives up - so the press does nothing whatsoever, which is what "choosing a
+# source only works on films" looked like.
+# --------------------------------------------------------------------------
+
+
+def test_the_context_menu_asks_for_sources_by_the_shows_id():
+    from katan.ui import listing
+
+    episode = {
+        "type": "episode", "title": "Freedom Day", "season": 1, "episode": 1,
+        # The shape tmdb.episodes really returns: the episode's own id in
+        # ids, and the series id kept beside it.
+        "ids": {"tmdb": 2964686, "imdb": "tt14688458"},
+        "extra": {"tmdb_show": 125988},
+    }
+    sources = [url for label, url in listing.context_menu(episode)
+               if "action=sources" in url]
+    assert sources, "an episode has to offer a source picker at all"
+    assert "tmdb=125988" in sources[0], \
+        "the picker has to be asked for the series, not the episode"
+    assert "tmdb=2964686" not in sources[0]
+
+
+def test_a_film_still_uses_its_own_id():
+    from katan.ui import listing
+
+    film = {"type": "movie", "title": "Fight Club", "ids": {"tmdb": 550}}
+    sources = [url for label, url in listing.context_menu(film)
+               if "action=sources" in url]
+    assert sources and "tmdb=550" in sources[0]
+
+
+def test_an_episode_with_no_show_id_falls_back_rather_than_vanishing():
+    """Rows built somewhere other than tmdb.episodes carry no tmdb_show."""
+    from katan.ui import listing
+
+    episode = {"type": "episode", "season": 2, "episode": 3,
+               "ids": {"tmdb": 4242}, "extra": {}}
+    sources = [url for label, url in listing.context_menu(episode)
+               if "action=sources" in url]
+    assert sources and "tmdb=4242" in sources[0]

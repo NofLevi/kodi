@@ -200,9 +200,19 @@ def context_menu(item):
     item_type = item.get("type")
 
     if item_type in ("movie", "episode"):
+        # An episode's own TMDB id is not its show's - Silo's first episode is
+        # 2964686 where the series is 125988 - and everything downstream is
+        # keyed on the series: build_meta asks TMDB for a *show* and gets
+        # nothing back, so the search never starts and the press does nothing
+        # at all. Which is exactly what "choosing a source only works on
+        # films" looks like. The details window already knew this and read
+        # tmdb_show; the context menu did not.
         entries.append((kodi.localize(32250),
                         "RunPlugin(%s)" % router.url_for(
-                            "sources", tmdb=ids.get("tmdb"), imdb=ids.get("imdb"),
+                            "sources",
+                            tmdb=(item.get("extra") or {}).get("tmdb_show")
+                            or ids.get("tmdb"),
+                            imdb=ids.get("imdb"),
                             type=item_type, season=item.get("season"),
                             episode=item.get("episode"))))
     if item_type in ("movie", "show"):

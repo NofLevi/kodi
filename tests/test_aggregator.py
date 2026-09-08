@@ -446,3 +446,67 @@ def test_the_fallback_still_honours_every_other_filter(settings_module):
 
     assert aggregator.uncached(meta) == [], \
         "a camera recording is not rescued by nothing being cached"
+
+
+# --------------------------------------------------------------------------
+# the anime address, and what it costs
+#
+# A named arc means TMDB's address is the wrong address rather than merely a
+# sometimes-empty one, so the providers that ask by id are asked at the Kitsu
+# address *instead of* the TMDB one. Asking both was half again as many
+# requests through a four-worker cap, and the viewer waits through every one:
+# Bleach 2x47 took 4217 ms asking both and 1043 ms asking once, for the same
+# three sources.
+# --------------------------------------------------------------------------
+
+
+def test_a_named_arc_replaces_the_address_it_does_not_add_to_it(monkeypatch):
+    from katan.sources import aggregator
+
+    asked = []
+
+    class ById(object):
+        BY_NAME = False
+
+        def search(self, meta):
+            asked.append(("byid", (meta.get("ids") or {}).get("kitsu"),
+                          meta.get("episode")))
+            return []
+
+    class ByName(object):
+        BY_NAME = True
+
+        def search(self, meta):
+            asked.append(("byname", (meta.get("ids") or {}).get("kitsu"),
+                          meta.get("episode")))
+            return []
+
+    meta = {"type": "episode", "title": "Bleach", "season": 2, "episode": 46,
+            "ids": {"imdb": "tt0434665"}}
+    address = dict(meta, episode=6, ids={"kitsu": "49444"})
+
+    aggregator._run_providers([("a", ById()), ("b", ByName())], meta,
+                              quiet=True, also=address)
+
+    assert len(asked) == 2, "one question each, not two each"
+    by_id = [a for a in asked if a[0] == "byid"][0]
+    by_name = [a for a in asked if a[0] == "byname"][0]
+    assert by_id[1] == "49444" and by_id[2] == 6, \
+        "the id provider is asked at the Kitsu address"
+    assert by_name[1] is None and by_name[2] == 46, \
+        "the name provider keeps the show's own numbering"
+
+
+def test_without_an_anime_address_everything_is_asked_once(monkeypatch):
+    from katan.sources import aggregator
+
+    asked = []
+
+    class Provider(object):
+        def search(self, meta):
+            asked.append(meta.get("episode"))
+            return []
+
+    aggregator._run_providers([("a", Provider()), ("b", Provider())],
+                              {"type": "episode", "episode": 3}, quiet=True)
+    assert asked == [3, 3]
