@@ -408,6 +408,20 @@ class HomeWindow(xbmcgui.WindowXML):
         kodi.log("switching to the %s section" % section)
         self.section = section
         self.setProperty("katan.section", section)
+        self._rebuild()
+
+    def _reload(self):
+        """Draw this section again from scratch.
+
+        Kids mode replaces the rows rather than filtering them, so switching
+        it leaves every slot on screen holding something from the catalogue
+        that no longer applies. `kodi.refresh_container` cannot help: it
+        refreshes a *directory*, and this is a window.
+        """
+        kodi.log("reloading the %s section" % self.section)
+        self._rebuild()
+
+    def _rebuild(self):
 
         for index in range(ROW_SLOTS):
             self._set_title(index, "")
@@ -423,7 +437,7 @@ class HomeWindow(xbmcgui.WindowXML):
         self.pending.clear()
         self.barren.clear()
 
-        self.rows = _pick_rows(section)
+        self.rows = _pick_rows(self.section)
         self._lay_out_rows()
 
         if not self._focus_first_row():
@@ -781,6 +795,15 @@ class HomeWindow(xbmcgui.WindowXML):
                 return
             _string_id, url, is_group = entries[choice]
             if not is_group:
+                if "action=kids_toggle" in url:
+                    # In place, not through RunPlugin: a plugin call is
+                    # asynchronous, so the window would have no idea when to
+                    # redraw - and kids mode replaces every row on screen.
+                    from .handlers import toggle_kids
+
+                    toggle_kids()
+                    self._reload()
+                    return
                 kodi.run_builtin("RunPlugin(%s)" % url)
                 return
             # A group's url is the same route with a group parameter, which is

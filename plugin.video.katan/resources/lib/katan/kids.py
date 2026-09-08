@@ -95,13 +95,17 @@ def turn_on():
     kodi.log("kids mode on")
 
 
-def turn_off(pin=""):
-    """Leave kids mode. Refuses without the PIN, which is the whole point."""
-    if not check_pin(pin):
-        kodi.log("kids mode: wrong PIN")
+def turn_off(pin="", force=False):
+    """Leave kids mode. Returns False when the PIN was wrong.
+
+    `force` skips the check, which is what the menu does now: the PIN existed
+    so a child could not undo the mode from the menu they found it in, and the
+    cost was that switching a browsing mode off needed a password nobody had
+    set. The check stays for whenever there is a reason to ask again.
+    """
+    if not force and not check_pin(pin):
         return False
     settings.set("kids.enabled", "false")
-    kodi.log("kids mode off")
     return True
 
 

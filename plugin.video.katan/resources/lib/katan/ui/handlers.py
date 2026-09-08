@@ -450,32 +450,33 @@ def rebuild_rows(params):
 
 @router.route("kids_toggle")
 def kids_toggle(params):
-    """Turn kids mode on, or ask for the PIN to turn it off.
+    """Switch kids mode, from the plain directory listing."""
+    toggle_kids()
+    kodi.refresh_container()
 
-    The asymmetry is the point: switching it on is one confirmation, switching
-    it off costs the PIN, so a child cannot undo it from the same menu.
+
+def toggle_kids():
+    """Switch kids mode and say what it is now.
+
+    No PIN either way. It was there so a child could not undo the mode from
+    the menu they found it in, which is a real concern and the wrong owner for
+    it: this add-on is used by one family on one television, and the cost was
+    that switching a browsing mode on and off - something done several times
+    an evening while setting the thing up - needed a password nobody had set.
+    `kids.check_pin` and its hashed store remain for whenever there is a
+    reason to ask again.
+
+    Returns True when kids mode is now on.
     """
     from .. import kids
 
-    if not kids.enabled():
-        if not kids.has_pin():
-            entered = kodi.keyboard("", kodi.localize(32228), hidden=True)
-            if entered:
-                kids.set_pin(entered)
-        kids.turn_on()
-        catalog.invalidate()
-        kodi.notify(kodi.localize(32229))
-        kodi.refresh_container()
-        return
-
-    entered = kodi.keyboard("", kodi.localize(32227), hidden=True) \
-        if kids.has_pin() else ""
-    if kids.turn_off(entered):
-        catalog.invalidate()
-        kodi.notify(kodi.localize(32230))
-        kodi.refresh_container()
+    if kids.enabled():
+        kids.turn_off(force=True)
     else:
-        kodi.notify(kodi.localize(32231))
+        kids.turn_on()
+    catalog.invalidate()
+    kodi.notify(kodi.localize(32229 if kids.enabled() else 32230))
+    return kids.enabled()
 
 
 @router.route("mark_watched")
