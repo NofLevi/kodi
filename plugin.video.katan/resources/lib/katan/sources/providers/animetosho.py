@@ -9,6 +9,13 @@ from ...sources import model
 from ...utils import release
 
 NAME = "animetosho"
+
+# Searched by name and episode number rather than by an id. That matters
+# when the aggregator retries an anime episode under a Kitsu address: the
+# retry carries a cour-relative number, which is meaningless as text to an
+# index whose releases are named absolutely, and matching it against one
+# offers a real episode that is not the one asked for.
+BY_NAME = True
 BASE = "https://feed.animetosho.org"
 
 

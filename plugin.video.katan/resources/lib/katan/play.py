@@ -97,6 +97,27 @@ def _name_it_the_way_the_indexes_do(meta, tmdb_id):
                 tmdb_id, meta.get("season"), meta.get("episode"))
         except Exception:
             meta["absolute"] = int(meta.get("episode") or 0)
+        # The season's own name, which for a long-running anime is what the
+        # arc is actually called and released under - TMDB's Bleach season 2
+        # is "Thousand-Year Blood War". The show name alone finds the 2004
+        # series; the arc name finds the cours the trackers file it under.
+        try:
+            for season in tmdb.seasons(tmdb_id) or []:
+                if int(season.get("season") or -1) == int(meta.get("season") or 0):
+                    name = season.get("title") or ""
+                    # A season TMDB never named is called "Season 3", which
+                    # is a number dressed as a name and finds nothing.
+                    if name and not name.lower().startswith("season"):
+                        meta["season_name"] = name
+                    # How many episodes the season holds, which is what makes
+                    # a Kitsu address safe to act on: if the cours do not add
+                    # up to this, the numbering is not understood and no
+                    # address is better than a plausible wrong one.
+                    meta["season_episodes"] = int(
+                        (season.get("extra") or {}).get("episode_count") or 0)
+                    break
+        except Exception:
+            pass
 
 
 def play(handle, request, force_picker=False):

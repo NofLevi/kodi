@@ -100,6 +100,23 @@ def _ranked(meta, prefetch=False, force=False):
         return []
 
     raw = _run_providers(providers, meta, quiet=prefetch)
+
+    # An anime episode is asked for twice, under both of the addresses the
+    # world files it under. Not as a fallback: making it conditional on the
+    # first search finding nothing meant one bad name-match suppressed it
+    # entirely, and that is not hypothetical - Bleach 2x47 came back with a
+    # single wrongly matched result from a name index, which was enough to
+    # stop the address that had the episode from ever being tried.
+    also = _anime_address(meta)
+    if also:
+        # Only the providers that ask by id. The two that ask by name have
+        # already been given their best question - the show's name and the
+        # absolute number - and asking them again with a cour-relative number
+        # is asking something they cannot answer correctly.
+        by_id = [(n, m) for n, m in providers
+                 if not getattr(m, "BY_NAME", False)]
+        raw = list(raw) + _run_providers(by_id, also, quiet=prefetch)
+
     if not raw:
         cache.set(key, [], TTL_EMPTY)
         return []
@@ -366,3 +383,53 @@ def invalidate(meta=None):
         cache.delete(cache_key(meta))
     else:
         cache.delete_prefix("sources|")
+
+
+def _anime_address(meta):
+    """The same episode, addressed the way an anime index files it.
+
+    Every provider keyed on an IMDb id asks for `imdb:season:episode`, and for
+    anime that address is very often empty even when the episode is widely
+    available - TMDB counts a whole multi-year arc as one season, and the
+    trackers count each cour from one. Bleach 2x46 measured against Torrentio:
+    nothing for `tt0434665:2:46`, nine sources for `kitsu:49444:6`.
+
+    Only reached when the ordinary search found nothing, so it costs a Kitsu
+    lookup on a search that has already failed and nothing at all otherwise.
+    Returns a copy of `meta` carrying a kitsu id, or None.
+    """
+    if meta.get("type") != "episode" or (meta.get("ids") or {}).get("kitsu"):
+        return None
+    # Anime only, and only when TMDB named the season. Everything below costs
+    # a Kitsu lookup and a second round of providers, and neither is worth
+    # spending on a show whose numbering nobody disagrees about.
+    if not (meta.get("extra") or {}).get("anime"):
+        return None
+    if not meta.get("season_name"):
+        return None
+    try:
+        from ..meta import kitsu
+        if not kitsu.available():
+            return None
+        found = kitsu.episode_address(
+            meta.get("search_title") or meta.get("title") or "",
+            meta.get("episode"), meta.get("season_name") or "",
+            meta.get("season_episodes") or 0)
+    except Exception:
+        kodi.log_exception("could not look up an anime address")
+        return None
+    if not found:
+        return None
+
+    kitsu_id, episode = found
+    kodi.log("nothing for %s S%02dE%02d, trying kitsu:%s:%s"
+             % (meta.get("title", ""), int(meta.get("season") or 0),
+                int(meta.get("episode") or 0), kitsu_id, episode))
+    retry = dict(meta)
+    retry["ids"] = dict(meta.get("ids") or {}, kitsu=kitsu_id)
+    # The kitsu address carries its own numbering, and stream_id prefers an
+    # IMDb id when it sees one - so the IMDb id has to go, or the retry asks
+    # the identical question a second time.
+    retry["ids"].pop("imdb", None)
+    retry["episode"] = episode
+    return retry

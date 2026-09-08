@@ -317,3 +317,91 @@ def test_a_season_pack_still_answers_for_any_episode_in_it():
     parsed = release.parse("Show.S02.COMPLETE.1080p.WEB-DL-GRP")
     assert release.matches_episode(parsed, 2, 5, 5)
     assert not release.matches_episode(parsed, 3, 5, 5)
+
+
+# --------------------------------------------------------------------------
+# the fourth way anime numbering breaks: the address itself
+#
+# TMDB folds a whole multi-year arc into one season - Bleach's Thousand-Year
+# Blood War is "season 2", numbered 1 to 50 - while Kitsu, AniDB and every
+# release group treat each cour as its own series numbered from 1. So the
+# address every id-keyed provider is given, imdb:2:46, is one nobody indexes.
+# Measured against Torrentio: tt0434665:2:46 returns nothing at all, and
+# kitsu:49444:6 - the same episode - returns nine sources.
+# --------------------------------------------------------------------------
+
+# Exactly what kitsu.io returned for "Bleach Thousand-Year Blood War".
+BLEACH_COURS = {"data": [
+    {"id": "43078", "attributes": {"canonicalTitle": "BLEACH: Sennen Kessen-hen",
+                                   "episodeCount": 13, "startDate": "2022-10-10",
+                                   "subtype": "TV"}},
+    {"id": "46903", "attributes": {"canonicalTitle": "BLEACH: Sennen Kessen-hen - Ketsubetsu-tan",
+                                   "episodeCount": 13, "startDate": "2023-07-08",
+                                   "subtype": "TV"}},
+    {"id": "48015", "attributes": {"canonicalTitle": "BLEACH: Sennen Kessen-hen - Soukoku-tan",
+                                   "episodeCount": 14, "startDate": "2024-10-05",
+                                   "subtype": "TV"}},
+    {"id": "49444", "attributes": {"canonicalTitle": "BLEACH: Sennen Kessen-hen - Kashin-tan",
+                                   "episodeCount": 10, "startDate": "2026-07-25",
+                                   "subtype": "TV"}},
+    # The two that come back in the same search and must not be walked over:
+    # a one-episode recap sitting between the second and third cours, and a
+    # theme song. Counting either shifts every episode after it by one.
+    {"id": "48914", "attributes": {"canonicalTitle": "BLEACH: Sennen Kessen-hen - Recap",
+                                   "episodeCount": 1, "startDate": "2023-09-02",
+                                   "subtype": "special"}},
+    {"id": "45543", "attributes": {"canonicalTitle": "Rapport", "episodeCount": 1,
+                                   "startDate": "2021-11-23", "subtype": "music"}},
+]}
+
+
+@pytest.fixture
+def bleach_cours(monkeypatch):
+    from katan.meta import kitsu
+    monkeypatch.setattr(kitsu, "_get", lambda path, params=None, **kw: BLEACH_COURS)
+    return kitsu
+
+
+@pytest.mark.parametrize("episode,expected", [
+    (1, ("43078", 1)),
+    (13, ("43078", 13)),
+    (14, ("46903", 1)),          # straight over the cour boundary
+    (26, ("46903", 13)),
+    (27, ("48015", 1)),          # and over the recap, which is not a cour
+    (40, ("48015", 14)),
+    (41, ("49444", 1)),
+    (46, ("49444", 6)),          # the one that started this
+    (50, ("49444", 10)),
+])
+def test_a_season_number_becomes_a_cour_and_a_number(episode, expected,
+                                                     bleach_cours):
+    assert bleach_cours.episode_address(
+        "Bleach", episode, "Thousand-Year Blood War", 50) == expected
+
+
+def test_it_gives_up_rather_than_guess_when_the_counts_disagree(bleach_cours):
+    """A wrong address is worse than none.
+
+    It plays a real episode that is not the one asked for, and nothing
+    downstream can catch that - the file is exactly what it says it is. So
+    the cours have to add up to the season TMDB describes, or no address is
+    offered at all.
+    """
+    assert bleach_cours.episode_address("Bleach", 46,
+                                        "Thousand-Year Blood War", 99) is None
+
+
+def test_an_unnamed_season_is_not_guessed_at(bleach_cours):
+    """The arc's name is the only thing separating it from its parent series.
+
+    Without one, a text search for "Bleach" returns the 366-episode original,
+    six one-episode specials and several unrelated shows - measured - and
+    episode 46 lands in the wrong one of them.
+    """
+    assert bleach_cours.episode_address("Bleach", 46, "", 50) is None
+    assert bleach_cours.episode_address("", 46, "Thousand-Year Blood War", 50) is None
+
+
+def test_an_episode_past_the_end_is_not_forced_into_the_last_cour(bleach_cours):
+    assert bleach_cours.episode_address("Bleach", 51,
+                                        "Thousand-Year Blood War", 50) is None
