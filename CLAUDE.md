@@ -389,7 +389,20 @@ a changelog nobody reads.
 Kodi fetches a repository anonymously, so "private with a login" is not
 possible and the only lever is discoverability. `NofLevi/kodi` stays private;
 **Cloudflare Pages publishes only the `repo/` folder** at an unguessable
-`pages.dev` address. Connect to Git, no build command, output directory `repo`.
+`pages.dev` address - **kodi-katan.pages.dev**. Connect to Git, framework
+preset none, no build command, output directory `repo`, production branch
+`main`, and **preview deployments set to None**. That last one is not
+optional: production branch only says which branch is production, and
+Cloudflare still builds a preview for every push to every other branch - so
+without it every push to `development` deploys, which is the exact thing the
+branch split exists to prevent.
+
+The first project was wired to `development` instead of `main`, which is the
+same fault the other way round: three pushes to `main` published nothing
+while the published zip matched `development`'s tip byte for byte. **The
+hostname is baked into every installed copy of `repository.katan`**, so
+moving it means republishing the repository add-on at the *old* address first
+and bumping its version, or every existing device is stranded.
 `git push` republishes, so the release workflow does not change. Moving host
 later is three URLs in `repository.katan/addon.xml`.
 
