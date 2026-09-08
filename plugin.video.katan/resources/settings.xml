@@ -841,6 +841,18 @@
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <!-- The only way to reach an update from the custom home
+                     screen. Its Settings tab opens this dialog, and the
+                     "Check for updates" entry lived in the Tools *directory* -
+                     which the home window never shows, so from the dashboard
+                     there was no route to it at all. -->
+                <setting id="action.check_update" type="action" label="30315">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=check_update)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="update.check_on_start" type="boolean" label="30300"
                          help="30301">
                     <level>0</level><default>false</default>

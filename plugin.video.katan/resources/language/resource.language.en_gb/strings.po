@@ -1567,3 +1567,7 @@ msgstr ""
 msgctxt "#32515"
 msgid "recommended"
 msgstr ""
+
+msgctxt "#30315"
+msgid "Check for updates now"
+msgstr ""
