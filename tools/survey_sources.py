@@ -143,6 +143,63 @@ STRATA = [
 ]
 
 
+# A second sample, all episodes, for the question "does the address problem
+# happen anywhere else". Anime is weighted heavily because that is where TMDB
+# and the trackers disagree about numbering, and because it is what gets
+# watched here. Foreign-language shows are next, because they are the other
+# place a name-based lookup has nothing to work with. The rest is drawn from
+# ordinary listings so the two awkward groups have something to be compared
+# against rather than being measured on their own.
+EPISODE_MIX = [
+    ("anime episodes", 0.30, lambda n: _anime_episodes(n)),
+    ("foreign-language episodes", 0.20, lambda n: _foreign_episodes(n)),
+    ("first episodes", 0.13, lambda n: _episodes_from("popular", n, "first")),
+    ("mid-season episodes", 0.12,
+     lambda n: _episodes_from("top_rated", n, "middle")),
+    ("the latest episode", 0.13,
+     lambda n: _episodes_from("on_the_air", n, "latest")),
+    ("episodes airing today", 0.07,
+     lambda n: _episodes_from("airing_today", n, "latest")),
+    ("specials, season zero", 0.05,
+     lambda n: _episodes_from("popular", n, "special")),
+]
+
+# Turkish, Spanish, Korean, Hindi, Japanese live action, French, Portuguese,
+# German, Italian, Polish. Which ones hardly matters, as long as none of them
+# is English and the titles are not all in one script.
+FOREIGN_LANGUAGES = ("tr", "es", "ko", "hi", "fr", "pt", "de", "it", "pl", "th")
+
+
+def _foreign_episodes(wanted):
+    """One episode each from shows made outside the English-speaking world."""
+    from katan.meta import tmdb
+
+    picked = []
+    per_language = max(1, (wanted // len(FOREIGN_LANGUAGES)) + 1)
+    for language in FOREIGN_LANGUAGES:
+        if len(picked) >= wanted:
+            break
+
+        def fetch(page, language=language):
+            return tmdb.discover("tv", page=page,
+                                 with_original_language=language,
+                                 sort_by="popularity.desc",
+                                 **{"vote_count.gte": "10"})
+
+        for row in _pages(fetch, per_language * 3):
+            if len(picked) >= wanted:
+                break
+            # A mix of positions, because "the newest episode" and "the first
+            # episode" fail for different reasons and a survey of only one of
+            # them answers half the question.
+            which = ("first", "middle", "latest")[len(picked) % 3]
+            entry = _pick_episode(row, which)
+            if entry:
+                entry["note"] = "foreign:%s" % language
+                picked.append(entry)
+    return picked
+
+
 def _pages(fetch, wanted, per_page=20):
     """Walk pages of a TMDB listing until there are enough rows."""
     rows = []
@@ -301,6 +358,14 @@ def _pick_episode(show_row, which):
     if not seasons:
         return None
 
+    # TMDB lists a season the moment it is announced, with no air date and no
+    # episodes in it. Sampling from one of those and calling the result a miss
+    # is measuring nothing: KONOSUBA season 4 is exactly that, and its
+    # "S04E01" found no sources because there is no episode.
+    seasons = [s for s in seasons
+               if (s.get("extra") or {}).get("episode_count")
+               and s.get("premiered")] or seasons
+
     if which == "special":
         # tmdb.seasons hides season zero unless it is all there is, so ask the
         # show for it directly.
@@ -435,6 +500,24 @@ def examine(entry):
         for source in raw:
             per[source.get("provider")] = per.get(source.get("provider"), 0) + 1
         record["per_provider"] = per
+
+        # The whole point of this run. `raw` above is what the address TMDB
+        # gives us returns; this is what the address the anime indexes file it
+        # under returns. Recording them apart is the only way to say whether
+        # the second one is earning its request, and on what.
+        record["found_tmdb_address"] = len(merged)
+        record["kitsu_address"] = ""
+        record["found_kitsu_address"] = 0
+        also = aggregator._anime_address(meta)
+        if also:
+            record["kitsu_address"] = "kitsu:%s:%s" % (
+                (also.get("ids") or {}).get("kitsu"), also.get("episode"))
+            by_id = [(n, m) for n, m in providers
+                     if not getattr(m, "BY_NAME", False)]
+            extra = aggregator._run_providers(by_id, also, quiet=True)
+            record["found_kitsu_address"] = len(model.dedupe(extra))
+            merged = model.dedupe(raw + extra)
+            record["found"] = len(merged)
     except Exception as error:
         record["error"] = "sources: %s" % str(error)[:90]
         record["ms"] = int((time.time() - started) * 1000)
@@ -738,11 +821,17 @@ def main():
     parser.add_argument("--report", action="store_true",
                         help="summarise what has been written so far")
     parser.add_argument("--examples", type=int, default=12)
+    parser.add_argument("--episodes", action="store_true",
+                        help="sample episodes only, 30%% anime and 20%% "
+                             "foreign-language, rest from ordinary listings")
     args = parser.parse_args()
 
     if args.report:
         report(args.out, args.examples)
         return
+    if args.episodes:
+        global STRATA
+        STRATA = EPISODE_MIX
     started = time.time()
     run(args.count, args.workers, args.debrid, args.out)
     say("done in %.1f minutes" % ((time.time() - started) / 60.0))

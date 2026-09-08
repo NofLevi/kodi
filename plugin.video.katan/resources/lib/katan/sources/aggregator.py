@@ -107,7 +107,7 @@ def _ranked(meta, prefetch=False, force=False):
     # entirely, and that is not hypothetical - Bleach 2x47 came back with a
     # single wrongly matched result from a name index, which was enough to
     # stop the address that had the episode from ever being tried.
-    also = _anime_address(meta)
+    also = _anime_address(meta, found_already=bool(raw))
     if also:
         # Only the providers that ask by id. The two that ask by name have
         # already been given their best question - the show's name and the
@@ -385,7 +385,7 @@ def invalidate(meta=None):
         cache.delete_prefix("sources|")
 
 
-def _anime_address(meta):
+def _anime_address(meta, found_already=False):
     """The same episode, addressed the way an anime index files it.
 
     Every provider keyed on an IMDb id asks for `imdb:season:episode`, and for
@@ -405,16 +405,36 @@ def _anime_address(meta):
     # spending on a show whose numbering nobody disagrees about.
     if not (meta.get("extra") or {}).get("anime"):
         return None
-    if not meta.get("season_name"):
-        return None
+
     try:
         from ..meta import kitsu
         if not kitsu.available():
             return None
-        found = kitsu.episode_address(
-            meta.get("search_title") or meta.get("title") or "",
-            meta.get("episode"), meta.get("season_name") or "",
-            meta.get("season_episodes") or 0)
+        found = None
+        if meta.get("season_name"):
+            # A named arc: TMDB folded several broadcast runs into one season,
+            # so the number has to be spent across them.
+            found = kitsu.episode_address(
+                meta.get("search_title") or meta.get("title") or "",
+                meta.get("episode"), meta.get("season_name"),
+                meta.get("season_episodes") or 0)
+        if not found and not found_already:
+            # The ordinary shape: one TMDB season is one broadcast run, and
+            # the season number is the address. Most anime seasons have no
+            # name at all, which is why the branch above reached only a fifth
+            # of them in a survey of 166 anime episodes.
+            #
+            # Only when the first address came back empty, unlike the named
+            # arc above. Measured on KonoSuba: both addresses return the same
+            # 39 sources for S03E05, so asking twice buys nothing and costs a
+            # round of requests. A named arc is different because TMDB's
+            # address is systematically wrong there rather than merely
+            # sometimes empty.
+            found = kitsu.season_address(
+                [meta.get("search_title") or meta.get("title") or "",
+                 meta.get("original_title") or ""],
+                meta.get("season"), meta.get("episode"),
+                meta.get("season_counts") or [])
     except Exception:
         kodi.log_exception("could not look up an anime address")
         return None

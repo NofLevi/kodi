@@ -268,7 +268,7 @@ def _cours(title, season_name=""):
     payload = _get("/anime", {
         "filter[text]": "%s %s" % (title, season_name),
         "page[limit]": 20,
-        "fields[anime]": "canonicalTitle,episodeCount,startDate,subtype",
+        "fields[anime]": "canonicalTitle,titles,episodeCount,startDate,subtype",
     })
 
     found = []
@@ -284,3 +284,103 @@ def _cours(title, season_name=""):
 
     found.sort()
     return [(kitsu_id, count) for _start, kitsu_id, count in found]
+
+
+def season_address(titles, season, episode, season_counts):
+    """A whole TMDB season as one Kitsu entry: (kitsu_id, episode), or None.
+
+    The other mapping in this file needs the season to have a name, because a
+    name is what separates an arc from the series it continues. Most anime
+    seasons have no name - TMDB calls them "Season 1", "Season 2" - and for
+    those the shape is much simpler: one TMDB season *is* one Kitsu entry, in
+    order, and the episode number does not change. KonoSuba, measured: TMDB
+    has three aired seasons of 10, 10 and 11 episodes and Kitsu has three TV
+    entries of 10, 10 and 11.
+
+    That correspondence is also the check. The two lists have to be the same
+    length and agree on every count, so a spin-off or an OVA that crept into
+    the search results makes this refuse rather than shift everything by one.
+    `titles` are TMDB's names for the show, English and original, and are what
+    keeps the spin-off out in the first place: KonoSuba's Kitsu neighbour is
+    the same franchise and the same length of season, and only its Japanese
+    title - Bakuen rather than Shukufuku - says it is a different show.
+    """
+    season = int(season or 0)
+    episode = int(episode or 0)
+    counts = [int(c or 0) for c in (season_counts or [])]
+    if season < 1 or episode < 1 or not counts:
+        return None
+
+    entries = _entries_for(titles)
+    if len(entries) != len(counts):
+        return None
+    if [count for _id, count in entries] != counts:
+        return None
+    if season > len(entries):
+        return None
+
+    kitsu_id, count = entries[season - 1]
+    if episode > count:
+        return None
+    return kitsu_id, episode
+
+
+def _entries_for(titles):
+    """This show's own broadcast runs on Kitsu, in order, with their counts.
+
+    Matched on the titles rather than trusted from the search, because a text
+    search for a franchise returns the franchise: KonoSuba brings back two
+    OVAs, a film and a spin-off whose seasons are the same length as the real
+    ones. A Kitsu entry carries its name in several languages and TMDB gives
+    us two, so a run belongs to this show when any one of its names begins
+    with any one of ours - which is what makes "Season 2" match, since Kitsu
+    writes that as the show's name with a 2 after it.
+    """
+    wanted = [_words(t) for t in (titles or []) if t and _words(t)]
+    if not wanted:
+        return []
+    payload = _get("/anime", {
+        "filter[text]": (titles or [""])[0],
+        "page[limit]": 20,
+        "fields[anime]": "canonicalTitle,titles,episodeCount,startDate,subtype",
+    })
+
+    found = []
+    for node in (payload or {}).get("data") or []:
+        attributes = node.get("attributes") or {}
+        count = int(attributes.get("episodeCount") or 0)
+        start = attributes.get("startDate") or ""
+        if attributes.get("subtype") not in COUR_SUBTYPES:
+            continue
+        if count < MIN_COUR_EPISODES or not start:
+            continue
+        names = [_words(n) for n in _names(attributes)]
+        if not any(name.startswith(one) for name in names for one in wanted):
+            continue
+        found.append((start, node.get("id"), count))
+
+    found.sort()
+    return [(kitsu_id, count) for _start, kitsu_id, count in found]
+
+
+def _names(attributes):
+    """Every name Kitsu has for one entry.
+
+    The canonical one is romaji, so on its own it can never match an English
+    name from TMDB or a Japanese one. The `titles` map holds both.
+    """
+    names = [attributes.get("canonicalTitle") or ""]
+    for value in (attributes.get("titles") or {}).values():
+        if value:
+            names.append(value)
+    return [n for n in names if n]
+
+
+def _words(text):
+    """Lowercase words with the punctuation gone, for comparing two titles.
+
+    Japanese has no spaces and needs none of this, and passing it through
+    unchanged is the point - it is compared against another Japanese title.
+    """
+    letters = [c.lower() if (c.isalnum() or c == " ") else " " for c in text]
+    return " ".join("".join(letters).split())

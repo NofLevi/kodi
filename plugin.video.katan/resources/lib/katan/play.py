@@ -116,6 +116,15 @@ def _name_it_the_way_the_indexes_do(meta, tmdb_id):
                     meta["season_episodes"] = int(
                         (season.get("extra") or {}).get("episode_count") or 0)
                     break
+            # And the shape of every season, which is what lets a season
+            # number be matched against a list of broadcast runs. Seasons that
+            # have not started are left out: TMDB lists a whole season the
+            # moment it is announced, with no air date and no episodes.
+            meta["season_counts"] = [
+                int((s.get("extra") or {}).get("episode_count") or 0)
+                for s in (tmdb.seasons(tmdb_id) or [])
+                if int(s.get("season") or 0) >= 1
+                and int((s.get("extra") or {}).get("episode_count") or 0) > 0]
         except Exception:
             pass
 
