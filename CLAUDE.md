@@ -288,7 +288,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1289 tests, all running against Kodi stubs, so no Kodi install is needed:
+1292 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -322,7 +322,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_ktuvit.py` | 19 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
 | `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
-| `test_vod_seasons.py` | 14 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video. |
+| `test_vod_seasons.py` | 17 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video. |
 | `test_vod.py` | 30 | Israeli live TV and the catalogue: broadcaster ordering, referers carried through, relative paths given their CDN host, broken channels hidden, Hebrew substring search, and updating the bundled data invalidating the cache. |
 | `test_entitlement.py` | 24 | The broadcaster ticket: one Akamai ticket covering every Keshet channel rather than one each, the on-demand CDN getting an AWS ticket instead because the two are not interchangeable, browsing never asking for one, a refusal leaving the URL unsigned rather than empty, and a failure never being cached. |
 | `test_kan_mako.py` | 15 | An episode being a descendant of its programme, which is what stops the site's own navigation menu being listed as episodes, and Mako's on-demand streams being signed. |

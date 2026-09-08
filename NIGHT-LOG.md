@@ -1837,3 +1837,57 @@ season two returns ten `filetype: file`. "ארץ נהדרת" returns forty-four,
 seasons among them now directories rather than things to play.
 
 1289 tests, zip 464 KB.
+
+### Asked whether it was fixed everywhere, and it was not
+
+The seasons work was checked on three programmes per broadcaster, which is
+not an answer to "everywhere". Auditing it properly - 116 programmes across
+all seven broadcasters, each run through the real route - found one more
+fault and one blind spot in the audit itself.
+
+**The audit was wrong first.** It counted only the folders `_group_folders`
+builds, and Keshet's folders do not come from there - Mako supplies them as
+entries of its own. So Keshet scored 0 of 17 by construction, which looked
+like a broken broadcaster and was a broken measurement. Counting what the
+*route* emits, folder or not, is the only measure that means anything.
+
+**A Mako page lists its seasons and its episodes.** "נסלי ויואב" answers with
+four seasons and a hundred and seventy-two episodes, so the fix put four
+folders on top of the flat list it was supposed to replace - 176 entries in,
+176 rows out. `_fold_into_seasons` now drops the episodes a season on the same
+page already holds, and only those: an episode whose season is not listed
+stays, because removing it would make it unreachable.
+
+The result is better than the flat list ever was. Those four folders hold
+**729 episodes** between them; the flat page had shown 176.
+
+    before                       after
+    176 rows, 4 folders    ->    4 rows, 4 folders, 729 episodes behind them
+    44 rows, 23 folders    ->    23 rows, all folders    ארץ נהדרת
+
+**The sample was alphabetical**, which for Keshet meant seventeen news and
+short-form programmes and not one drama. A spread sample of sixty puts it at
+13 grouped of 48.
+
+### What the audit says now
+
+Across 116 programmes, the line that matters: **no programme anywhere comes
+back flat while its own titles or addresses name a season.**
+
+    14tv     21 of 21 grouped, by month
+    reshet   15 of 45 grouped
+    kan       2 of 14 grouped
+    keshet   13 of 48 grouped
+    891fm     0 of 22    no seasons anywhere in the data
+    sport1    0 of 19    clips
+    sport5    0 of  6    clips
+
+The largest still-flat programmes were checked one at a time rather than
+assumed: "אזור בחירה" is 120 daily editions all in season one, and "12
+בצוהריים" is a daily noon bulletin with no season anywhere. Both are correctly
+flat - one season is not a season, and a folder holding the only thing inside
+it is worse than none.
+
+Sport 5 is thinly sampled and honestly so: 45 programmes drawn, and only six
+have more than one entry. The rest are single clips, which is what that
+catalogue mostly is.

@@ -188,3 +188,64 @@ def test_mako_tells_a_season_page_from_a_video(link, is_season):
     from katan.vod.extractors import mako
 
     assert mako._is_a_season(link) is is_season
+
+
+# --------------------------------------------------------------------------
+# a Mako page lists its seasons *and* its episodes
+# --------------------------------------------------------------------------
+
+
+def mako_item(link, title="x"):
+    from katan import router
+    from katan.vod.extractors import mako
+    is_season = mako._is_a_season(link)
+    url = (router.url_for("vod_show", module="keshet", ref=link) if is_season
+           else router.url_for("play_vod", module="keshet", ref=link))
+    return meta_items.new_item("vod", ids={"vod": link}, title=title,
+                               extra={"url": url, "module": "keshet",
+                                      "ref": link})
+
+
+def test_a_season_folder_swallows_the_episodes_it_holds():
+    """"נסלי ויואב" lists four seasons and a hundred and seventy-two
+    episodes. Showing both leaves the flat list exactly where it was with
+    four folders on top of it, which is not what opening on seasons means."""
+    from katan.vod.extractors import mako
+
+    base = "https://www.mako.co.il/mako-vod-keshet/show"
+    entries = [
+        mako_item(base + "-s1", "עונה 1"),
+        mako_item(base + "-s2", "עונה 2"),
+        mako_item(base + "-s1/VOD-aaa.htm", "episode one"),
+        mako_item(base + "-s2/VOD-bbb.htm", "episode two"),
+    ]
+
+    kept = mako._fold_into_seasons(entries)
+
+    assert [item["title"] for item in kept] == ["עונה 1", "עונה 2"]
+
+
+def test_an_episode_whose_season_is_not_listed_stays():
+    """Removing it would make it unreachable, which is worse than a stray
+    row under the folders."""
+    from katan.vod.extractors import mako
+
+    base = "https://www.mako.co.il/mako-vod-keshet/show"
+    entries = [
+        mako_item(base + "-s1", "עונה 1"),
+        mako_item(base + "-s2", "עונה 2"),
+        mako_item(base + "-s9/VOD-ccc.htm", "orphan"),
+    ]
+
+    kept = mako._fold_into_seasons(entries)
+
+    assert "orphan" in [item["title"] for item in kept]
+
+
+def test_a_page_with_no_seasons_is_untouched():
+    from katan.vod.extractors import mako
+
+    base = "https://www.mako.co.il/mako-vod-keshet/show-s1"
+    entries = [mako_item(base + "/VOD-%d.htm" % n, "e%d" % n) for n in range(4)]
+
+    assert len(mako._fold_into_seasons(entries)) == 4
