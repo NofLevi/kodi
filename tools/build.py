@@ -86,6 +86,53 @@ def build_index():
     return index, digest
 
 
+PAGE = """<!doctype html>
+<html><head><meta charset="utf-8"><title>%(title)s</title></head>
+<body>
+<h1>%(title)s</h1>
+%(rows)s
+</body></html>
+"""
+
+
+def write_listings():
+    """An index.html in every folder, so Kodi's own file browser can walk it.
+
+    This is what turns the published site into a Kodi *source*. Kodi browses
+    HTTP by fetching the folder and reading the `<a href>` links out of
+    whatever comes back - it has no other way to know what is there - and
+    Cloudflare Pages serves no directory listing at all, so asking it for
+    /zips/ is a 404 and the whole "add a source, install from zip" route is
+    closed.
+
+    That route is the one that matters on a television. The alternative is a
+    browser or a file manager or adb on a device driven by a remote control;
+    this way the address is typed once and Kodi does the rest.
+
+    Plain anchors on purpose. Kodi is not a browser and reads the markup with
+    a regular expression, so anything clever here is a listing it cannot
+    read.
+    """
+    written = []
+    for folder, _dirs, _files in os.walk(OUTPUT):
+        entries = sorted(os.listdir(folder))
+        rows = []
+        for name in entries:
+            if name == "index.html":
+                continue
+            suffix = "/" if os.path.isdir(os.path.join(folder, name)) else ""
+            rows.append('<a href="%s%s">%s%s</a><br>' % (name, suffix,
+                                                         name, suffix))
+        here = os.path.relpath(folder, OUTPUT).replace("\\", "/")
+        title = "Katan repository" + ("" if here == "." else " - " + here)
+        page = PAGE % {"title": title, "rows": "\n".join(rows)}
+        path = os.path.join(folder, "index.html")
+        with io.open(path, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(page)
+        written.append(path)
+    return written
+
+
 def copy_assets(addon_id):
     """Kodi shows the icon and changelog from the repository, not the zip."""
     source = os.path.join(ROOT, addon_id)
@@ -142,6 +189,10 @@ def main():
 
     index, digest = build_index()
     print("wrote %s (md5 %s)" % (os.path.relpath(index, ROOT), digest))
+
+    listings = write_listings()
+    print("wrote %d directory listings, so Kodi can browse it as a source"
+          % len(listings))
     return 0
 
 

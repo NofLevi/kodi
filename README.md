@@ -51,6 +51,22 @@ Add network location…** is fiddlier than downloading first, so download first.
 The awkward part is getting a file onto a device you drive with a remote.
 Three ways, easiest first.
 
+**With Kodi alone — no browser, no file manager, no cable.** This is the
+easiest route on a television and the one to use:
+
+> **Settings → File manager → Add source → &lt;None&gt; →**
+> type `https://kodi-katan.pages.dev` **→ name it `Katan` → OK**
+
+then
+
+> **Add-ons → Install from zip file → Katan → zips → repository.katan →**
+> the `.zip`
+
+One address typed once, and Kodi fetches everything itself. This works
+because the published site carries a plain listing in every folder — Kodi
+browses HTTP by reading the links out of the page, and without one it cannot
+see what is there.
+
 **With a browser on the device.** Install a file manager that can download
 (*Downloader* by AFTVnews is the usual one on Fire TV), fetch the repository
 zip URL above, then follow the Windows steps 2–4.
