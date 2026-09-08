@@ -498,8 +498,13 @@ def _filename_key(key):
 
     Falling back to "x" would give every Hebrew title the same filename, so a
     title with no ASCII in it gets a hash of itself instead.
+
+    Lowercased for the same reason it is stripped: Windows treats two names
+    differing only in case as one file and Android treats them as two, so a
+    key whose case ever varies would write one subtitle on a PC and two on a
+    television box, and the second would never be found again.
     """
-    safe = "".join(c for c in key
+    safe = "".join(c for c in key.lower()
                    if (c.isalnum() and c.isascii()) or c in "-_")[:40]
     if safe:
         return safe

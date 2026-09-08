@@ -1,17 +1,23 @@
 name: end to end
 
-# Two jobs on purpose, because they answer different questions and only one of
-# them can be broken by a commit.
+# This add-on runs on three very different machines: a Windows PC, a BYINTEK
+# LOVE U4 projector on Android 9, and a Mi Box. The Python is identical on all
+# three - `<platform>all</platform>`, no compiled anything - so what differs is
+# never the logic. It is the ground underneath it: the filesystem, the path
+# rules, the text encoding.
 #
-#   `suite`  - the stubs. Deterministic, offline, and a failure here is ours.
-#   `live`   - the real services. A failure here is usually somebody else's
-#              outage, and it still has to be seen: AniList going dark,
-#              SubSource moving behind a login and TorBox growing a device flow
-#              were all invisible to the unit suite and all changed what this
-#              add-on could do.
+# Windows forbids characters Android allows and compares filenames without
+# case. Android is case sensitive and allows nearly anything. A subtitle
+# written under one name and read back under another works on one and not the
+# other, and the symptom is a subtitle that silently never appears. A run on
+# one operating system says nothing about the other, so every check that can
+# differ runs on both.
 #
-# Neither job stops at the first problem. A run that dies on the third check
-# says nothing about the rest, and the point is to come back with the list.
+# What no runner can prove is the part that is about the hardware: hardware
+# HEVC decode, a gigabyte of RAM shared with Android, and slow eMMC storage.
+# Tools -> Device report measures those on whatever box it runs on, and
+# `tools/deploy_android.py` puts the add-on there over adb. That is the step
+# that has to be done by hand, and it is the one still outstanding.
 
 on:
   push:
@@ -24,26 +30,44 @@ on:
   workflow_dispatch:
 
 jobs:
-  suite:
-    name: unit suite and packaging
-    # Pinned, not `ubuntu-latest`. Kodi 21 ships Python 3.8 and that is what
-    # this has to be tested on, and 3.8 is past end of life: the 24.04 image
-    # that `ubuntu-latest` now points at has no build of it, so setup-python
-    # fails outright with "version not found" before a single test runs.
-    runs-on: ubuntu-22.04
+  # --------------------------------------------------------------------
+  # Everything that can differ between a PC and a television box, on both.
+  # --------------------------------------------------------------------
+  platforms:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One failing platform must not cancel the other. Knowing it is broken
+      # on Windows *and fine on Linux* is most of the diagnosis.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows
+            # A Windows console is cp1252 unless told otherwise, and the
+            # catalogue is half Hebrew. Without this the tools raise
+            # UnicodeEncodeError printing a title, which is a property of the
+            # console rather than of the add-on - twice mistaken for a bug.
+            encoding: "1"
+          - os: ubuntu-22.04
+            label: linux (stands in for Android)
+            encoding: "0"
+
     steps:
       - uses: actions/checkout@v4
 
-      # Kodi 21 ships Python 3.8, so that is what the add-on has to run on.
-      # Testing on anything newer would let a walrus or an f-string with an
-      # equals sign through, and the symptom in Kodi is a blank screen.
+      # 3.8, because that is what Kodi 21 ships on every one of these boxes.
+      # Testing on anything newer lets syntax through that Kodi reports as a
+      # blank screen. It is also why the runner is pinned: 3.8 is past end of
+      # life and the 24.04 image `ubuntu-latest` now points at has no build of
+      # it, so setup-python fails before a single test runs.
       - uses: actions/setup-python@v5
         with:
           python-version: "3.8"
 
-      # The only thing that is not in the standard library. The add-on itself
-      # has no required dependencies at all - that is deliberate and enforced
-      # by a test - so this is the test runner and nothing else.
+      # The only thing outside the standard library. The add-on itself has no
+      # required dependencies at all - that is deliberate and enforced by a
+      # test - so this is the test runner and nothing else.
       - name: pytest
         run: python -m pip install --disable-pip-version-check pytest
 
@@ -55,25 +79,29 @@ jobs:
           python tools/build.py --check
           python tools/build.py
 
-      - name: everything that needs no network
-        run: python tools/e2e.py --offline
+      # The zip has to be built first: one of these opens it and checks no
+      # member carries a backslash or collides with another under case
+      # folding, both of which unpack differently on Android than on Windows.
+      - name: filesystem, paths and encoding
+        env:
+          PYTHONUTF8: ${{ matrix.encoding }}
+        run: python tools/e2e.py --offline --json e2e-offline.json
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: repository
-          path: repo/
+          name: offline-${{ matrix.label }}
+          path: e2e-offline.json
 
+  # --------------------------------------------------------------------
+  # The live services, once. They do not vary by operating system, and
+  # asking somebody else's API the same question twice is rude.
+  # --------------------------------------------------------------------
   live:
     name: against the live services
-    # Pinned, not `ubuntu-latest`. Kodi 21 ships Python 3.8 and that is what
-    # this has to be tested on, and 3.8 is past end of life: the 24.04 image
-    # that `ubuntu-latest` now points at has no build of it, so setup-python
-    # fails outright with "version not found" before a single test runs.
     runs-on: ubuntu-22.04
-    # A service having a bad day must not turn the whole repository red, or
-    # the red stops meaning anything. The report is still written, and the
-    # summary below says what failed.
+    # A service having a bad day must not turn the repository red, or the red
+    # stops meaning anything. The report is still written either way.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -82,7 +110,6 @@ jobs:
           python-version: "3.8"
 
       - name: end to end
-        id: e2e
         run: python tools/e2e.py --json e2e.json
 
       - name: what it found

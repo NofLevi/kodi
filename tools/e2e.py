@@ -170,6 +170,159 @@ def _channels():
 
 
 # --------------------------------------------------------------------------
+# the things that differ between a PC and a television box
+#
+# The add-on is pure Python and runs the same code everywhere, so what varies
+# is not the logic but the ground underneath it: the filesystem, the path
+# rules and the text encoding. Those are exactly what a run on one operating
+# system cannot tell you about the other.
+#
+# Windows forbids characters Android allows and compares filenames without
+# case; Android is case sensitive and allows nearly anything. A subtitle
+# written as one name and read back as another works on one and not the other,
+# and the symptom is a subtitle that silently never appears.
+# --------------------------------------------------------------------------
+
+
+@check("subtitle names survive this filesystem", "platform", network=False)
+def _subtitle_names():
+    from katan import kodi
+    from katan.subs import auto
+
+    folder = os.path.join(kodi.profile_path(), "platform-check")
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
+
+    # A Hebrew title, a Japanese one and a punctuation-heavy release name.
+    # str.isalnum() is true for Hebrew and Japanese letters, so an ASCII strip
+    # that looks right strips nothing at all from any of these.
+    titles = [u"\u05d4\u05d7\u05d1\u05e8\u05d9\u05dd \u05e9\u05dc \u05e0\u05d0\u05d5\u05e8",
+              u"\u9b3c\u6ec5\u306e\u5203",
+              u'A: "Film" / Part 2 <one> | two?']
+    written = []
+    for title in titles:
+        name = auto.name_for({"type": "movie", "title": title, "ids": {}}, "he")
+        path = os.path.join(folder, name)
+        try:
+            with io.open(path, "w", encoding="utf-8") as handle:
+                handle.write(u"1\n00:00:01,000 --> 00:00:02,000\n\u05e9\u05dc\u05d5\u05dd\n")
+        except (OSError, ValueError) as error:
+            raise AssertionError("%r could not be written as %r: %s"
+                                 % (title[:14], name, str(error)[:60]))
+        if not os.path.isfile(path):
+            raise AssertionError("%r wrote to %r and it is not there"
+                                 % (title[:14], name))
+        written.append(name)
+
+    if len(set(written)) != len(written):
+        raise AssertionError("two different titles produced the same filename: %s"
+                             % ", ".join(written))
+    return "%d names, longest %d characters" % (len(written),
+                                                max(len(n) for n in written))
+
+
+@check("filenames do not rely on case", "platform", network=False)
+def _case_sensitivity():
+    """A name that differs only in case is a different file on Android.
+
+    Windows would hand back the first one and nobody would notice until the
+    add-on reached a television box, where the second write lands somewhere
+    else and the subtitle is simply never found.
+    """
+    from katan import kodi
+    from katan.subs import auto
+
+    folder = os.path.join(kodi.profile_path(), "platform-check")
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
+
+    lower = auto.name_for({"type": "movie", "ids": {"imdb": "tt0137523"}}, "he")
+    upper = auto.name_for({"type": "movie", "ids": {"imdb": "TT0137523"}}, "he")
+    if lower != upper:
+        raise AssertionError(
+            "the same film produced %r and %r, which are one file on Windows "
+            "and two on Android" % (lower, upper))
+    return "%r either way" % lower
+
+
+@check("the cache works under an awkward profile path", "platform",
+       network=False)
+def _awkward_profile():
+    """Kodi's userdata path is not ours to choose.
+
+    On Android it sits under /storage/emulated/0/Android/data, on Windows
+    under a user folder that very often has a space and sometimes a name in
+    another script.
+    """
+    from katan import cache, kodi
+
+    original = kodi.profile_path
+    awkward = os.path.join(WORK, u"a folder \u05e2\u05d1\u05e8\u05d9\u05ea (2)")
+    try:
+        if not os.path.isdir(awkward):
+            os.makedirs(awkward)
+        kodi.profile_path = lambda: awkward
+        cache.close()
+        cache.set("platform|probe", {"value": u"\u05e9\u05dc\u05d5\u05dd"}, 60)
+        back = cache.get("platform|probe")
+        if not back or back.get("value") != u"\u05e9\u05dc\u05d5\u05dd":
+            raise AssertionError("wrote to the cache and read back %r" % (back,))
+    finally:
+        cache.close()
+        kodi.profile_path = original
+        cache.close()
+    return "sqlite opened under %r" % os.path.basename(awkward)
+
+
+@check("the built zip is portable", "platform", network=False)
+def _zip_portable():
+    """A zip is unpacked by Kodi on whatever box installed it.
+
+    Two things make one fail on a television box and not on the machine that
+    built it: a backslash in a member name, which Android reads as part of the
+    filename rather than a folder, and two members differing only in case,
+    which silently overwrite each other on Windows and not on Android.
+    """
+    import zipfile
+
+    target = os.path.join(ROOT, "repo", "zips", "plugin.video.katan")
+    zips = sorted(f for f in os.listdir(target)) if os.path.isdir(target) else []
+    zips = [f for f in zips if f.endswith(".zip")]
+    if not zips:
+        raise AssertionError("no built zip in repo/zips - run tools/build.py")
+
+    with zipfile.ZipFile(os.path.join(target, zips[-1])) as archive:
+        names = archive.namelist()
+    backslashes = [n for n in names if "\\" in n]
+    if backslashes:
+        raise AssertionError("%d members carry a backslash, e.g. %r"
+                             % (len(backslashes), backslashes[0]))
+    folded = {}
+    for name in names:
+        folded.setdefault(name.lower(), []).append(name)
+    clashes = [v for v in folded.values() if len(v) > 1]
+    if clashes:
+        raise AssertionError("members differing only in case: %s" % clashes[0])
+    return "%s, %d members" % (zips[-1], len(names))
+
+
+@check("Hebrew reaches the log on this platform", "platform", network=False)
+def _log_encoding():
+    """Writing a Hebrew title to the log must not raise.
+
+    Not hypothetical: the tools in this folder crashed twice with
+    UnicodeEncodeError printing exactly these titles, because a Windows
+    console defaults to cp1252 while Android is UTF-8 throughout.
+    """
+    from katan import kodi
+
+    title = u"\u05d4\u05d7\u05d1\u05e8\u05d9\u05dd \u05e9\u05dc \u05e0\u05d0\u05d5\u05e8 - \u9b3c\u6ec5\u306e\u5203"
+    kodi.log("platform check: %s" % title)
+    kodi.log_error("platform check: %s" % title)
+    return "logged %d characters without raising" % len(title)
+
+
+# --------------------------------------------------------------------------
 # the services it depends on
 # --------------------------------------------------------------------------
 
