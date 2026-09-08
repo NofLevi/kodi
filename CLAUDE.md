@@ -387,7 +387,7 @@ add-on that cannot start.
 
 ## End to end, and what CI actually checks
 
-    python tools/e2e.py             fifteen checks against the live services
+    python tools/e2e.py             twenty checks, live and offline
     python tools/e2e.py --offline   only the ones that need no network
     python tools/e2e.py --json out.json
 
@@ -413,11 +413,46 @@ the wrong reason. And `cached_only` has to be turned off, because it ships on:
 with no debrid account, which is what CI has, every source is filtered away and
 a perfectly healthy search reports "no sources for Fight Club".
 
-`.github/workflows/e2e.yml` runs the unit suite, the packaging check and the
-offline checks on every push, and the live checks on a schedule as well - drift
-is only visible if something looks. Both jobs run on **Python 3.8**, which is
-what Kodi 21 ships, so a walrus or a newer f-string cannot reach a device. The
-live job is `continue-on-error` and writes its findings into the run summary.
+### Why the workflow is a matrix
+
+This add-on runs on three very different machines - a Windows PC, the U4
+projector on Android 9, a Mi Box - and the Python is identical on all three.
+`<platform>all</platform>`, no compiled anything. So what differs is never the
+logic; it is the ground underneath it, and a run on one operating system says
+nothing about the other:
+
+* **Windows forbids characters Android allows**, and compares filenames
+  **without case**. Android is case sensitive and allows nearly anything. A
+  subtitle written under one name and read back under another works on one and
+  not the other, and the symptom is a subtitle that silently never appears.
+  `_filename_key` lowercases for exactly this reason, not for tidiness.
+* **A Windows console is cp1252** and half this catalogue is Hebrew. The tools
+  in `tools/` raised `UnicodeEncodeError` printing a title twice during this
+  work, which is a property of the console rather than of the add-on - and was
+  mistaken for a bug both times. The Windows leg sets `PYTHONUTF8`.
+* **A zip built on one unpacks on the other.** A backslash in a member name is
+  a folder on Windows and part of the filename on Android; two members
+  differing only in case silently overwrite each other on Windows and do not
+  on Android.
+
+So the `platforms` job is a matrix over `windows-latest` and `ubuntu-22.04`,
+running the suite, the packaging check and every offline check on both, with
+`fail-fast: false` - knowing something is broken on Windows *and fine on
+Linux* is most of the diagnosis. Linux stands in for Android: same Python,
+same case-sensitive filesystem, same separators. The `live` job runs once,
+because the services do not vary by operating system and asking somebody
+else's API the same question twice is rude.
+
+Both legs use **Python 3.8**, which is what Kodi 21 ships, so a walrus or a
+newer f-string cannot reach a device. The runners are pinned rather than
+`latest` because 3.8 is past end of life and the 24.04 image has no build of
+it - `setup-python` fails before a single test runs.
+
+**What no runner can prove** is the part that is about the hardware: hardware
+HEVC decode, a gigabyte of RAM shared with Android, slow eMMC storage. Tools ->
+Device report measures those on whatever box it runs on, and
+`tools/deploy_android.py` puts the add-on there over adb. That step is by hand
+and is still outstanding.
 
 ## Integration testing
 
