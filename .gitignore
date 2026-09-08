@@ -112,3 +112,6 @@ survey.jsonl
 .bench-*.json
 .e2e/
 e2e.json
+
+# the Cloudflare deploy hook is a credential: holding it means being able to publish
+.deploy-hook
