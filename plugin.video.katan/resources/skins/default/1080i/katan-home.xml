@@ -187,6 +187,22 @@
             <visible>String.IsEqual(Window.Property(katan.section),live)</visible>
         </control>
 
+        <!-- The version, bottom left, out of the way of everything. Worth
+             having on screen because the first question about any update is
+             "did it actually take", and the answer used to need a settings
+             dialog or the log. Dim on purpose: it is for glancing at, not
+             for reading. -->
+        <control type="label">
+            <left>20</left>
+            <top>1030</top>
+            <width>400</width>
+            <height>30</height>
+            <font>font12</font>
+            <textcolor>60FFFFFF</textcolor>
+            <shadowcolor>black</shadowcolor>
+            <label>$INFO[Window.Property(katan.version)]</label>
+        </control>
+
         <control type="grouplist" id="9019">
             <left>20</left>
             <top>400</top>
