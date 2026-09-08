@@ -345,6 +345,19 @@ def _render_search(handle, query):
 # --------------------------------------------------------------------------
 
 
+def _kids_label():
+    """What pressing it will *do*, not what it is about.
+
+    "Kids mode" is a blind toggle: it says nothing about the current state, so
+    the only way to find out was to press it - which replaces the entire
+    catalogue with the kid-safe one and, if a PIN has been set, then wants the
+    PIN to undo. It was switched on by accident twice in one evening.
+    """
+    from .. import kids
+
+    return 32518 if kids.enabled() else 32517
+
+
 def tool_entries(group=""):
     """Everything Tools offers, as (string id, url, is_group).
 
@@ -369,7 +382,7 @@ def tool_entries(group=""):
         (32260, router.url_for("setup"), False),
         (32396, router.url_for("accounts"), False),
         (32261, router.url_for("open_settings"), False),
-        (32226, router.url_for("kids_toggle"), False),
+        (_kids_label(), router.url_for("kids_toggle"), False),
         (32506, router.url_for("check_update"), False),
         (32516, router.url_for("tools", group="maintenance"), True),
     ]
