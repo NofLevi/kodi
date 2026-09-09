@@ -86,6 +86,7 @@ DEFAULTS = {
     "subs.embedded_first": "true",
     "subs.hash_match": "true",
     "subs.threshold": "70",
+    "subs.consensus": "true",
     "subs.provider.wizdom": "true",
     "subs.provider.opensubtitles": "true",
     "subs.provider.opensubtitles_rest": "true",

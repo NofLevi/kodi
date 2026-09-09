@@ -546,6 +546,10 @@
                     <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="subs.consensus" type="boolean" label="30320">
+                    <level>2</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="subs.provider.bsplayer" type="boolean"
                          label="30319">
                     <level>2</level><default>true</default>

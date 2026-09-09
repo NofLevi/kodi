@@ -1572,3 +1572,7 @@ msgstr ""
 msgctxt "#32521"
 msgid "רצועות שמע: %s"
 msgstr ""
+
+msgctxt "#30320"
+msgid "השוואת כתוביות לפני הבחירה"
+msgstr ""
