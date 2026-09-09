@@ -509,6 +509,21 @@ kind** - AniList going dark, SubSource moving behind a login, TorBox growing a
 device flow it did not have, an anime episode addressed at a season number
 nobody indexes.
 
+One check is not like the others. **`tests/data/baseline-plugin.video.katan.zip`
+is the real 0.0.2 tree**, taken with `git archive` from the commit that
+released it, and it is **never regenerated**. `an old install upgrades to what
+is published` unpacks it as an installed add-on, puts keys and a subtitle in
+the profile beside it, and then runs the flow a viewer runs - `check`,
+`download`, `apply` - against whatever is live. Freezing the baseline is the
+point: the distance between it and the current release grows with every
+change, so the question gets harder every month instead of staying the easy
+one. Regenerating it would quietly turn the only real upgrade test back into
+0.0.3 over 0.0.3.
+
+It runs `check()` rather than fetching the zip itself, because `check()` is
+where the version comparison and the *derived* zip URL live, and those are
+what stop working silently.
+
 **It never stops at the first failure.** A run that dies on check three says
 nothing about checks four to fifteen, and the whole point is to come back with
 the list. Checks are marked required or not: a required failure is a broken
