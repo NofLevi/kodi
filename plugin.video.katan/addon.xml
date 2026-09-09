@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.katan"
        name="Katan"
-       version="0.0.3"
+       version="0.0.4"
        provider-name="katan">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -29,14 +29,10 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>v0.0.3
-- The published zip has to be the release, byte for byte
-- Disconnect Cloudflare from the repository
-- The live job has to build what it inspects
-- A tag is the only thing that publishes
-- Windows CI has been dark since it was written
-- Release 0.0.2
-- Install onto an Android box over its own FTP server
-- A way to publish by hand, since the dashboard has none</news>
+        <news>v0.0.4
+- The upgrade gets its own pipeline, on both platforms, from 0.0.1
+- Upgrade from a real old release, frozen, to whatever is live
+- Test the upgrade against a rewrite, and against the real published zip
+- The zip is a function of the source alone</news>
     </extension>
 </addon>
