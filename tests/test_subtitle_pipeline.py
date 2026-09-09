@@ -358,3 +358,48 @@ def test_an_english_file_labelled_hebrew_is_refused(monkeypatch,
     assert real.download_candidate(entry) != [], \
         "without a language to check it is taken as given"
     assert real.download_candidate(entry, expect_language="he") == []
+
+
+def test_the_same_subtitle_arriving_twice_is_counted_once(monkeypatch,
+                                                          settings_module):
+    """Asking by hash and asking by title are different questions with
+    overlapping answers.
+
+    A duplicate costs more than it looks: `outlook` weighs every candidate
+    against every source when the picker opens - 240 sources against 32
+    candidates on a real search - so one extra candidate is one extra
+    comparison per source, on a projector with a gigabyte of RAM.
+    """
+    from katan.subs import auto
+
+    same = {"provider": "opensubtitles_rest", "language": "he",
+            "release": "Silo.S01E01.1080p-PSA", "download": "https://dl/1"}
+    other = {"provider": "wizdom", "language": "he", "release": "other",
+             "download": "https://dl/2"}
+
+    class Fake(object):
+        @staticmethod
+        def search(*args, **kwargs):
+            return [dict(same), dict(same), dict(other)]
+
+    monkeypatch.setattr(auto, "_providers", lambda: [("wizdom", Fake)])
+    found = auto.search_candidates({"type": "movie", "ids": {}}, ["he"])
+    links = [c["download"] for c in found]
+    assert links == ["https://dl/1", "https://dl/2"], links
+
+
+def test_a_candidate_with_no_link_is_still_kept(monkeypatch, settings_module):
+    """Deduping on a missing key would collapse them all into one."""
+    from katan.subs import auto
+
+    rows = [{"provider": "x", "language": "he", "release": "a", "download": ""},
+            {"provider": "x", "language": "he", "release": "b", "download": ""}]
+
+    class Fake(object):
+        @staticmethod
+        def search(*args, **kwargs):
+            return [dict(r) for r in rows]
+
+    monkeypatch.setattr(auto, "_providers", lambda: [("wizdom", Fake)])
+    found = auto.search_candidates({"type": "movie", "ids": {}}, ["he"])
+    assert len(found) == 2

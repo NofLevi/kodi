@@ -155,8 +155,22 @@ def search_candidates(meta, languages, video_hash=""):
         workers=3, deadline=10.0)
 
     candidates = []
+    seen = set()
     for entries in found.values():
-        candidates.extend(entries or [])
+        for candidate in entries or []:
+            # One subtitle can arrive twice: asking by hash and asking by
+            # title are different questions with overlapping answers, and two
+            # providers can serve the same file. A duplicate costs more than
+            # it looks - `outlook` weighs *every* candidate against *every*
+            # source when the picker opens, so one extra candidate is one
+            # extra comparison per source, and this add-on exists to run on a
+            # projector with a gigabyte of RAM.
+            key = candidate.get("download") or ""
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            candidates.append(candidate)
     return candidates
 
 
