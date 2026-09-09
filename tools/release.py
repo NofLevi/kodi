@@ -7,8 +7,8 @@
 
 Work happens on `development`. A release is a **tag**, which is the only thing
 that publishes: `.github/workflows/release.yml` runs the suite, cuts the GitHub
-release and fires the Cloudflare deploy hook. Pushing code - to either branch -
-never reaches a television.
+release and uploads the built repository to Cloudflare Pages. Pushing code -
+to either branch - never reaches a television.
 
 The tag also fixes the changelog. `last_tag()` below asks `git describe`, and
 until tags existed it always answered nothing, so the news was silently the
@@ -186,7 +186,7 @@ def main():
     print('    git tag -a v%s -m "Release %s"' % (new, new))
     print("    git push origin main --follow-tags")
     print("\nThe tag is what publishes - it runs the suite, cuts the GitHub")
-    print("release and fires the deploy hook. Pushing main alone does nothing,")
+    print("release and uploads to Pages. Pushing main alone does nothing,")
     print("and an unannotated tag is not pushed by --follow-tags.")
     return 0
 

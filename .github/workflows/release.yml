@@ -1,17 +1,22 @@
 name: release
 
-# A tag is the only thing that publishes.
+# A tag is the only thing that publishes, and now that is true by
+# construction rather than by configuration.
 #
-# Pushing code never reaches a television: Cloudflare's automatic deployments
-# are paused and the deploy hook is held here as a secret rather than in a file
-# on one laptop, so a release can be cut from any machine that can push a tag.
+# Cloudflare is **not connected to the repository**. It never sees a push, so
+# it cannot record one, and a deployment exists only because this workflow
+# uploaded one. That is what finally emptied a deployment list in which almost
+# nothing was a release: pausing automatic deployments stopped the builds but
+# not the rows, because Cloudflare logs every push to a repository it watches
+# whatever it decides to do about it.
 #
-# Cloudflare builds `repo/` itself from tools/build.py, so what is published is
-# the build of the commit being released rather than a folder somebody
-# remembered to commit. That is why the last step polls the live index: the
-# add-on's whole update story rests on that one file being right, and until now
-# nothing checked it. A green build that published nothing is the failure this
-# catches.
+# `repo/` is built here, three steps up, and uploaded directly - so what is
+# published is the build of the commit being released rather than a folder
+# somebody remembered to commit.
+#
+# The last step polls the live index because the add-on's whole update story
+# rests on that one file being right, and nothing used to check it. A green
+# build that published nothing is the failure this catches.
 
 on:
   push:
@@ -78,17 +83,16 @@ jobs:
             repo/zips/repository.katan/*.zip \
             --title "$GITHUB_REF_NAME" --notes-file notes.md
 
-      # Cloudflare has no "deploy the newest commit" button; a deploy hook is
-      # the answer it gives for exactly this. The URL is a credential - anyone
-      # holding it can publish - so it lives in repository secrets.
+      # Direct upload: the folder built two steps up is pushed straight to
+      # Pages. Cloudflare is no longer connected to the repository at all, so
+      # it never sees a push and a deployment can only exist because this ran.
       - name: publish
         env:
-          HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -z "$HOOK" ]; then
-            echo "CLOUDFLARE_DEPLOY_HOOK is not set" >&2; exit 1
-          fi
-          curl -fsS -X POST -d '' "$HOOK"
+          npx --yes wrangler@4 pages deploy repo \
+            --project-name=kodi-katan --branch=main --commit-dirty=true
 
       # The only automated proof a release reached the devices. Everything
       # above can pass while the site still serves the previous version.

@@ -368,16 +368,20 @@ the branch is not what publishes - **a tag is**, and nothing else is.
     git push origin main              nothing happens
     git push --follow-tags            .github/workflows/release.yml runs
 
-`release.yml` fires on `v*`, runs the suite, cuts the GitHub release with both
-zips attached, POSTs the Cloudflare deploy hook, and then **polls the live
-index until it serves the tagged version**. That last step is the only
+`release.yml` fires on `v*`: it runs the suite, checks the tag against
+`addon.xml`, builds `repo/`, cuts the GitHub release with both zips attached,
+**uploads the folder to Pages with `wrangler pages deploy`**, and then polls
+the live index until it serves the tagged version. That last step is the only
 automated proof a release reached the devices; everything before it can pass
 while the site still serves the previous version.
 
-The hook URL lives as the `CLOUDFLARE_DEPLOY_HOOK` repository secret as well as
-in a local `.deploy-hook`, which is what lets a release be cut from a machine
-that has never held the file. `tools/deploy.py` is the same POST by hand, for
-when the workflow failed after the release was already created.
+Publishing needs `CLOUDFLARE_API_TOKEN` (Account -> Pages -> Edit) and
+`CLOUDFLARE_ACCOUNT_ID`, held as repository secrets and, for `tools/deploy.py`,
+as gitignored `.cf-token` and `.cf-account`. Secrets rather than a file on one
+laptop is what lets a release be cut from either machine. `deploy.py` is the
+same build-and-upload by hand, for when the workflow failed after the release
+was already created; it builds rather than uploading whatever is sitting in
+`repo/`, because nothing keeps that folder current any more.
 
 CI runs on both branches, because a release that fails its own checks is the
 one failure that reaches a television.
@@ -407,44 +411,47 @@ possible and the only lever is discoverability. `NofLevi/kodi` stays private;
 **Cloudflare Pages publishes only the `repo/` folder** at an unguessable
 `pages.dev` address - **kodi-katan.pages.dev**.
 
-    Framework preset        None
-    Build command           python tools/build.py
-    Build output directory  repo
-    Root directory          /
-    Production branch       main
-    Preview branches        None          <- not optional
-    Automatic deployments   paused        <- the hook is the trigger
+**The project is not connected to the repository, and that is the point.** It
+was, and every push wrote a row into the deployment list - `main`, `development`,
+each one reading "No deployment available" with a skip icon. Those are not
+builds. Cloudflare records every push to a repository it watches and then says
+what it decided, so pausing automatic deployments stopped the *builds* and not
+the *rows*, and neither did branch control, preview branches set to `None`, or
+build watch paths. Nothing suppresses them, because they are the log of a
+decision rather than the result of one.
 
-**`repo/` is not in the repository.** Cloudflare builds it, from
-`tools/build.py`, on the commit it is publishing - Pages ships Python and
-`build.py` is standard library only, so nothing is pinned. It used to be
+Disconnecting the repository is the only thing that does, and it works:
+Cloudflare never sees the push, so there is nothing to record. A deployment now
+exists **if and only if** somebody published one.
+
+Cloudflare's documentation says *"If you deploy using the Git integration, you
+cannot switch to Direct Upload later"*, which was read here as closing the
+door and does not. That sentence is about *switching*; the dashboard's
+**Disconnect** button on the Git repository card is a different thing, and
+after pressing it `wrangler pages deploy` is accepted. Measured, in this
+order: `Git Provider` went `Yes` -> `No`, the upload succeeded, and
+`kodi-katan.pages.dev` served the same index on the same hostname.
+
+That the hostname survived is what made this safe to try at all. It is baked
+into every installed copy of `repository.katan`, so a project that had to be
+*recreated* rather than converted would have stranded every device, and the
+whole thing would have been a shorter list bought with a broken update path.
+
+    Framework preset        None
+    Git repository          disconnected  <- the whole trick
+    Production branch       main
+    Build command           n/a           - nothing builds on Cloudflare now
+    Build output directory  n/a
+
+**`repo/` is not in the repository either.** It is built - by `release.yml`,
+or by `tools/build.py` under `deploy.py` - and uploaded. It used to be
 committed, and that was a trap with a sharp edge: `release.py` tells you to
 `git commit -am`, and **`-a` stages only tracked files**, while every release
 produces a zip under a filename that has never existed before. So the index
 could name a zip that was never pushed. Nothing in CI could catch it either,
 because `e2e.yml` runs `build.py` and overwrites `repo/` in the checkout before
-anything looks at it. Building on Cloudflare removes the class rather than
-guarding it, and a failed build leaves the previous deployment serving.
-
-**Preview branches is the setting people miss, including me.** Production
-branch only says which branch is *production*; on its own, Cloudflare still
-builds a **preview** for every push to every other branch. So with it left at
-the default, every push to `development` deploys - the exact thing the branch
-split exists to prevent. It is under Settings, called *Branch control* on newer
-accounts and *Configure preview deployments* on older ones, and the value
-wanted is `None`.
-
-**The deployment list will still show rows that are not deployments**, reading
-"No deployment available", one per push to a watched repository. That is
-Cloudflare recording a decision it made, not a build: they consume nothing from
-the 500-builds-a-month allowance, and no setting suppresses them. The only way
-to stop them existing is a project that was **never** connected to Git, and
-Pages cannot convert one - *"If you deploy using the Git integration, you
-cannot switch to Direct Upload later."* A new project means a new `pages.dev`
-name, and that name is baked into every installed copy of `repository.katan`.
-**So this was looked at and deliberately left alone**: the price of a shorter
-list is stranding every device, and the list of releases people should actually
-read is the GitHub releases page, which `release.yml` writes.
+anything looks at it. Building at publish time removes the class rather than
+guarding it.
 
 The first project was wired to `development` instead of `main`, which is the
 same fault the other way round: three pushes to `main` published nothing
