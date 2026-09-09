@@ -1298,7 +1298,7 @@ msgid "Hidden gem series"
 msgstr ""
 
 msgctxt "#32460"
-msgid "Scan a code with your phone"
+msgid "Scan a code, or open a link and type it"
 msgstr ""
 
 msgctxt "#32461"
