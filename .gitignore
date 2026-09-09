@@ -115,3 +115,9 @@ e2e.json
 
 # the Cloudflare deploy hook is a credential: holding it means being able to publish
 .deploy-hook
+
+# Cloudflare builds this itself, from tools/build.py, on the commit it is
+# publishing. Committing it instead meant `git commit -am` could not stage the
+# new release zip - a new filename every time, and -a stages only tracked
+# files - so the index could name a zip that was never pushed.
+repo/

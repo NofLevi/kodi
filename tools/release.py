@@ -5,9 +5,15 @@
     python tools/release.py --minor    0.1.4 -> 0.2.0
     python tools/release.py --dry-run  say what would change, write nothing
 
-Work happens on `development`. A release is a merge to `main`, which is the
-only branch Cloudflare watches - so pushing code never publishes anything and
-merging always does.
+Work happens on `development`. A release is a **tag**, which is the only thing
+that publishes: `.github/workflows/release.yml` runs the suite, cuts the GitHub
+release and fires the Cloudflare deploy hook. Pushing code - to either branch -
+never reaches a television.
+
+The tag also fixes the changelog. `last_tag()` below asks `git describe`, and
+until tags existed it always answered nothing, so the news was silently the
+last eight commits rather than what had actually shipped since the last
+release.
 
 Why this exists at all: Kodi only offers an update when the version in the
 repository index is higher than the one installed. The version sat at 0.1.0
@@ -176,8 +182,12 @@ def main():
     print("\nreleased %s. Now:" % new)
     print('    git commit -am "Release %s"' % new)
     print("    git push origin development")
-    print("    git checkout main && git merge development && git push origin main")
-    print("\nCloudflare watches main alone, so the merge is what republishes.")
+    print("    git checkout main && git merge development")
+    print('    git tag -a v%s -m "Release %s"' % (new, new))
+    print("    git push origin main --follow-tags")
+    print("\nThe tag is what publishes - it runs the suite, cuts the GitHub")
+    print("release and fires the deploy hook. Pushing main alone does nothing,")
+    print("and an unannotated tag is not pushed by --follow-tags.")
     return 0
 
 

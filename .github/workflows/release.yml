@@ -1,0 +1,124 @@
+name: release
+
+# A tag is the only thing that publishes.
+#
+# Pushing code never reaches a television: Cloudflare's automatic deployments
+# are paused and the deploy hook is held here as a secret rather than in a file
+# on one laptop, so a release can be cut from any machine that can push a tag.
+#
+# Cloudflare builds `repo/` itself from tools/build.py, so what is published is
+# the build of the commit being released rather than a folder somebody
+# remembered to commit. That is why the last step polls the live index: the
+# add-on's whole update story rests on that one file being right, and until now
+# nothing checked it. A green build that published nothing is the failure this
+# catches.
+
+on:
+  push:
+    tags: ["v*"]
+  # For re-firing a publish that failed after the release was created.
+  workflow_dispatch:
+
+permissions:
+  contents: write        # gh release create
+
+jobs:
+  release:
+    name: publish ${{ github.ref_name }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.8, because that is what Kodi 21 ships. Pinned runner: 3.8 is past end
+      # of life and the 24.04 image has no build of it.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: pytest
+        run: python -m pip install --disable-pip-version-check pytest
+
+      # A release that fails its own checks is the one failure that reaches a
+      # television, so this runs before anything is published.
+      - name: the whole suite
+        run: python -m pytest tests -q
+
+      - name: build the repository
+        run: |
+          python tools/build.py --check
+          python tools/build.py
+
+      # A tag pointing at a commit whose addon.xml says something else would
+      # publish one version under another version's name.
+      - name: the tag is the version
+        run: |
+          python - <<'PY'
+          import os, sys, xml.etree.ElementTree as ET
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          got = ET.parse("plugin.video.katan/addon.xml").getroot().get("version")
+          if tag != got:
+              sys.exit("tag %s but addon.xml says %s" % (tag, got))
+          print("releasing %s" % got)
+          PY
+
+      # The list of releases somebody actually reads, with the zips attached as
+      # a second copy. `gh` is on the runner already, so no action is added.
+      - name: the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY' > notes.md
+          import xml.etree.ElementTree as ET
+          news = ET.parse("plugin.video.katan/addon.xml").find(
+              ".//news")
+          print((news.text or "").strip() if news is not None else "")
+          PY
+          gh release create "$GITHUB_REF_NAME" \
+            repo/zips/plugin.video.katan/*.zip \
+            repo/zips/repository.katan/*.zip \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md
+
+      # Cloudflare has no "deploy the newest commit" button; a deploy hook is
+      # the answer it gives for exactly this. The URL is a credential - anyone
+      # holding it can publish - so it lives in repository secrets.
+      - name: publish
+        env:
+          HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "CLOUDFLARE_DEPLOY_HOOK is not set" >&2; exit 1
+          fi
+          curl -fsS -X POST -d '' "$HOOK"
+
+      # The only automated proof a release reached the devices. Everything
+      # above can pass while the site still serves the previous version.
+      - name: the site is serving it
+        run: |
+          python - <<'PY'
+          import os, sys, time, urllib.request, xml.etree.ElementTree as ET
+
+          INDEX = "https://kodi-katan.pages.dev/addons.xml"
+          want = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          deadline = time.time() + 300           # a Pages build is ~1 minute
+
+          seen = "nothing yet"
+          while time.time() < deadline:
+              time.sleep(15)
+              try:
+                  # A bare urllib request to this CDN is answered 403 without
+                  # a User-Agent, which is what tools/e2e.py found too.
+                  request = urllib.request.Request(
+                      INDEX, headers={"User-Agent": "katan-release"})
+                  body = urllib.request.urlopen(request, timeout=20).read()
+                  root = ET.fromstring(body)
+                  node = root.find("./addon[@id='plugin.video.katan']")
+                  seen = node.get("version") if node is not None else "no addon"
+              except Exception as error:
+                  seen = "%s: %s" % (type(error).__name__, error)
+                  continue
+              if seen == want:
+                  print("kodi-katan.pages.dev is serving %s" % want)
+                  sys.exit(0)
+              print("still %s, waiting for %s" % (seen, want))
+          sys.exit("the site never served %s (last saw %s)" % (want, seen))
+          PY
