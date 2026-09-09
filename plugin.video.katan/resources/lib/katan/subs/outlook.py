@@ -59,8 +59,12 @@ def cache_key(meta):
                           meta.get("season"), meta.get("episode"))
 
 
-def candidates(meta, refresh=False):
+def candidates(meta, refresh=False, strict=False):
     """Every Hebrew subtitle any provider has for this title.
+
+    ``strict`` lets the source-cache schema migration distinguish a genuine
+    empty catalogue answer from a failed request. Ordinary UI callers keep the
+    historical best-effort empty-list behavior.
 
     Deliberately independent of the source list: it needs only the title, so
     it can be asked at the same time as the source providers rather than
@@ -79,6 +83,8 @@ def candidates(meta, refresh=False):
                  if c.get("language") == wanted]
     except Exception:
         kodi.log_exception("could not look up subtitles")
+        if strict:
+            raise
         found = []
     cache.set(key, found, TTL)
     return found
@@ -95,7 +101,7 @@ def annotate(meta, sources, found=None):
     if not sources:
         return sources
     if found is None:
-        found = candidates(meta)
+        found = candidates(meta, strict=True)
     for source in sources:
         entry = _for_one(meta, source, found)
         source["subs_kind"] = entry["kind"]

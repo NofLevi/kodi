@@ -94,6 +94,55 @@ def test_a_second_search_comes_from_the_cache(twenty_sources):
     assert twenty_sources.calls == 1, "the providers should run once"
 
 
+def test_a_legacy_cached_source_gets_subtitle_accuracy(monkeypatch, registry):
+    """An upgrade must not leave the picker blank until a 20-minute cache expires."""
+    from katan import cache
+
+    old = make("A.Film.1994.1080p.WEB-DL.x264-GRP", info_hash="a" * 40)
+    assert "subs_kind" not in old
+    cache.set(aggregator.cache_key(META), [old], aggregator.TTL_RESULTS)
+    registry({"a" * 40})
+
+    calls = []
+
+    def annotate(sources, meta):
+        calls.append(1)
+        for source in sources:
+            source["subs_kind"] = "external"
+            source["subs_score"] = 82
+        return True
+
+    monkeypatch.setattr(aggregator, "_apply_subtitles", annotate)
+    found = aggregator.find(META)
+    assert found[0]["subs_kind"] == "external"
+    assert found[0]["subs_score"] == 82
+    aggregator.find(META)
+    assert len(calls) == 1, "the upgraded cache must not be annotated again"
+
+
+def test_a_failed_legacy_cache_upgrade_is_not_persisted(
+        monkeypatch, registry):
+    """A provider failure must not renew stale sources or create a retry loop."""
+    from katan import cache
+    from katan.subs import auto
+
+    old = make("A.Film.1994.1080p.WEB-DL.x264-GRP", info_hash="a" * 40)
+    cache.set(aggregator.cache_key(META), [old], aggregator.TTL_RESULTS)
+    registry({"a" * 40})
+
+    def fail(*args, **kwargs):
+        raise IOError("subtitle catalogue unavailable")
+
+    monkeypatch.setattr(auto, "search_candidates", fail)
+    writes = []
+    monkeypatch.setattr(cache, "set",
+                        lambda *args, **kwargs: writes.append(args))
+
+    found = aggregator.find(META)
+    assert "subs_kind" not in found[0]
+    assert writes == [], "an incomplete migration must not renew the cache TTL"
+
+
 def test_forcing_a_search_ignores_the_cache(twenty_sources):
     aggregator.find(META)
     aggregator.find(META, force=True)
