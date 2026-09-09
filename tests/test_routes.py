@@ -466,3 +466,57 @@ def test_an_episode_with_no_show_id_falls_back_rather_than_vanishing():
     sources = [url for label, url in listing.context_menu(episode)
                if "action=sources" in url]
     assert sources and "tmdb=4242" in sources[0]
+
+
+# --------------------------------------------------------------------------
+# a directory route reached without a directory
+# --------------------------------------------------------------------------
+
+def test_accounts_shows_something_when_run_without_a_handle(monkeypatch,
+                                                            settings_module):
+    """Every way into this screen is RunPlugin, which has no handle.
+
+    The settings dialog's Accounts button and the dashboard's Tools list both
+    used RunPlugin, so `handle` was -1 and every row went into a directory
+    that did not exist. `add_directory` on -1 is a silent no-op, so pressing
+    it did nothing whatsoever - not intermittently, ever - and the only clue
+    was that the same screen worked when reached as a directory.
+    """
+    import xbmcplugin
+    from katan import kodi
+    from katan.ui import handlers
+
+    monkeypatch.setattr("katan.debrid.registry.account_summary", lambda: [])
+
+    shown = {}
+    monkeypatch.setattr(kodi, "select",
+                        lambda labels, heading="", **kw:
+                        shown.setdefault("labels", labels) is None or -1)
+
+    xbmcplugin.reset()
+    kodi.set_plugin_handle(-1)
+    handlers.accounts({})
+
+    assert shown.get("labels"), "nothing was offered at all"
+    # Trakt, TMDB, OpenSubtitles, AI and "add a debrid service" at the least.
+    assert len(shown["labels"]) >= 5, shown["labels"]
+    assert not xbmcplugin.ENDED, "it ended a directory that does not exist"
+
+
+def test_accounts_is_still_a_directory_when_it_has_one(monkeypatch,
+                                                       settings_module):
+    """The directory listing route still works the way it always did."""
+    import xbmcplugin
+    from katan import kodi
+    from katan.ui import handlers
+
+    monkeypatch.setattr("katan.debrid.registry.account_summary", lambda: [])
+    monkeypatch.setattr(kodi, "select",
+                        lambda *a, **k: pytest.fail("asked instead of listing"))
+
+    xbmcplugin.reset()
+    kodi.set_plugin_handle(9)
+    handlers.accounts({})
+
+    assert xbmcplugin.ITEMS, "no rows were added to the directory"
+    assert xbmcplugin.ENDED, "the directory was left hanging"

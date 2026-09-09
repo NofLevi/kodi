@@ -1109,9 +1109,15 @@ def test_the_rail_button_reaches_everything_tools_offers(monkeypatch,
                              in handlers.tool_entries(url.rsplit("group=", 1)[-1]))
         else:
             reachable.append(url)
-    for action in ("check_update", "accounts", "diagnostics", "clear_cache",
+    for action in ("check_update", "diagnostics", "clear_cache",
                    "open_settings", "kids_toggle"):
         assert any("action=%s" % action in url for url in reachable),             "%s is not reachable from the dashboard" % action
+
+    # Accounts is deliberately absent. It is in the settings dialog, where
+    # every service also has its own connect button, so a Tools entry would
+    # repeat what is one press away.
+    assert not any("action=accounts" in url for url in reachable), \
+        "Accounts is back in Tools; it belongs in the settings dialog"
 
 
 def test_a_group_opens_another_list_rather_than_a_directory(monkeypatch,

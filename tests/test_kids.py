@@ -338,15 +338,26 @@ def test_a_settings_change_still_refills_everything(monkeypatch):
 # --------------------------------------------------------------------------
 
 
-def _kiosk(monkeypatch, settings_module, on_kodi_home=True, playing=False):
-    """A service with "stay in Katan" on and Kodi's state under control."""
+def _kiosk(monkeypatch, settings_module, on_kodi_home=True, playing=False,
+           player_on_screen=False):
+    """A service with "stay in Katan" on and Kodi's state under control.
+
+    `playing` and `player_on_screen` are separate on purpose: audio can carry
+    on behind Kodi's home screen, and conflating the two is what stopped this
+    working in the one case that mattered.
+    """
     import xbmc
     from katan import background, kodi
 
     settings_module.set("ui.stay_in_katan", "true")
-    monkeypatch.setattr(xbmc, "getCondVisibility", lambda condition:
-                        (playing if condition == "Player.HasMedia"
-                         else on_kodi_home))
+    windows = {
+        "Window.IsActive(home)": on_kodi_home,
+        "Window.IsActive(fullscreenvideo)": player_on_screen,
+        "Window.IsActive(visualisation)": False,
+        "Player.HasMedia": playing,
+    }
+    monkeypatch.setattr(xbmc, "getCondVisibility",
+                        lambda condition: windows.get(condition, False))
     ran = []
     monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
     return background.Service(), ran
@@ -378,13 +389,34 @@ def test_it_does_nothing_when_the_switch_is_off(monkeypatch, settings_module):
     assert not ran
 
 
-def test_it_does_not_interrupt_something_playing(monkeypatch,
-                                                 settings_module):
+def test_it_does_not_interrupt_the_player_on_screen(monkeypatch,
+                                                    settings_module):
+    """Watching something is left alone."""
     import time
-    service, ran = _kiosk(monkeypatch, settings_module, playing=True)
+    service, ran = _kiosk(monkeypatch, settings_module, on_kodi_home=False,
+                          playing=True, player_on_screen=True)
     service.left_at = time.time() - 10
     service.keep_katan_open()
     assert not ran
+
+
+def test_audio_playing_behind_kodis_home_still_brings_katan_back(
+        monkeypatch, settings_module):
+    """The case this was disabled for, and the one where it is needed most.
+
+    Play an episode from a VOD folder, press back twice, and you are on
+    Kodi's home screen with the programme still audible behind it. The old
+    guard asked "is anything playing" and gave up - so the viewer was left on
+    the screen this add-on exists to replace, with no way back. Playing is not
+    watching: if the player were in front of you, Kodi's home would not be the
+    active window.
+    """
+    import time
+    service, ran = _kiosk(monkeypatch, settings_module, on_kodi_home=True,
+                          playing=True, player_on_screen=False)
+    service.left_at = time.time() - 10
+    service.keep_katan_open()
+    assert ran and "plugin.video.katan" in ran[0],         "stranded on Kodi's home because something was still playing"
 
 
 def test_being_anywhere_else_is_left_alone(monkeypatch, settings_module):
