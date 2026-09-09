@@ -122,3 +122,19 @@ def test_the_build_can_name_an_output_folder_on_another_drive():
         else "/somewhere/else/out.zip"
     assert build.shown(foreign)
     assert build.shown(os.path.join(ROOT, "repo", "addons.xml"))
+
+
+def test_the_zip_is_a_function_of_the_source_alone(built):
+    """Two builds of the same source must be the same bytes.
+
+    A zip records each member's mtime, so CI's 0.0.3 and a local 0.0.3 had
+    different checksums while holding the same 123 files - which makes "the
+    release and the published zip are the same" impossible to check, and that
+    is the one thing worth being able to check about a release. Every member
+    carries one fixed timestamp instead.
+    """
+    with zipfile.ZipFile(built) as archive:
+        stamps = {i.date_time for i in archive.infolist()}
+    assert stamps == {(1980, 1, 1, 0, 0, 0)}, \
+        "members carry their mtime, so the zip is not reproducible: %s" % (
+            sorted(stamps)[:3],)

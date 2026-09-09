@@ -28,6 +28,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT = os.path.join(ROOT, "repo")
 ADDONS = ["plugin.video.katan", "repository.katan"]
 
+# One timestamp for every member, so the zip is a function of the source and
+# nothing else. A zip normally records each file's mtime, which means two
+# builds of identical source differ - and they did: CI's 0.0.3 and a local
+# 0.0.3 had different checksums while containing the same 123 files. That
+# makes "the release and the published zip are the same" unverifiable, which
+# is the one thing worth being able to check about a release. 1980 is the
+# earliest a zip can express, and Kodi reads none of this.
+EPOCH = (1980, 1, 1, 0, 0, 0)
+
 # Nothing here belongs in a shipped add-on.
 EXCLUDE_DIRS = {"__pycache__", ".git", ".pytest_cache", ".idea", ".vscode"}
 EXCLUDE_SUFFIXES = (".pyc", ".pyo", ".orig", ".rej", ".log", ".tmp")
@@ -72,13 +81,17 @@ def build_zip(addon_id, version):
 
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
         for folder, dirs, files in os.walk(source):
-            dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
+            dirs[:] = sorted(d for d in dirs if d not in EXCLUDE_DIRS)
             for name in sorted(files):
                 if not should_include(folder, name):
                     continue
                 full = os.path.join(folder, name)
                 relative = os.path.relpath(full, ROOT)
-                archive.write(full, relative.replace(os.sep, "/"))
+                info = zipfile.ZipInfo(relative.replace(os.sep, "/"), EPOCH)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o644 << 16
+                with open(full, "rb") as handle:
+                    archive.writestr(info, handle.read())
     return target
 
 
