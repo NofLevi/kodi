@@ -436,6 +436,104 @@ def _release_downloadable():
     return "%s, %d KB" % (published, len(head.content) // 1024)
 
 
+@check("the published release actually installs", "updates")
+def _published_release_installs():
+    """Download what is on the site and install it, rather than trusting it.
+
+    Everything else about updates is checked against a zip this machine built.
+    This is the one that asks the question the viewer asks: the bytes actually
+    being served, unpacked over an actual installed copy, with actual keys
+    beside it - do the keys survive and does the version move.
+
+    Installed into a temporary tree, never over the real add-on - and that
+    sentence is why the guard below exists. `boot()` sets `kodi.addon_path`
+    to the real add-on so the bundled channel data can be read, and
+    `updater.apply` replaces whatever that function points at. Pointing the
+    stub's addon somewhere else is not enough, because nothing here reads the
+    stub; the module-level function is what has to move, and it has to move
+    back. Writing this the obvious way unpacked the published release over
+    the working tree.
+    """
+    import shutil
+    import tempfile
+    import xml.etree.ElementTree as ET
+
+    from katan import http, kodi, updater
+
+    published = ""
+    response = http.get(updater.index_url(), timeout=(5, 12))
+    for node in ET.fromstring(response.content).findall("addon"):
+        if node.get("id") == updater.ADDON_ID:
+            published = node.get("version") or ""
+    if not published:
+        raise AssertionError("the index does not list %s" % updater.ADDON_ID)
+
+    base = updater.index_url().rsplit("/", 1)[0]
+    zip_url = "%s/zips/%s/%s-%s.zip" % (base, updater.ADDON_ID,
+                                        updater.ADDON_ID, published)
+    body = http.get(zip_url, timeout=(5, 30))
+    if body is None or body.status_code != 200:
+        raise AssertionError("%s answered %s" % (zip_url, body and body.status_code))
+
+    sandbox = tempfile.mkdtemp(prefix="katan-e2e-install-")
+    was_addon_path = kodi.addon_path
+    was_profile_path = kodi.profile_path
+    try:
+        addons = os.path.join(sandbox, "addons")
+        installed = os.path.join(addons, updater.ADDON_ID)
+        profile = os.path.join(sandbox, "addon_data", updater.ADDON_ID)
+        os.makedirs(installed)
+        os.makedirs(profile)
+        # An installed copy that is plainly older, and a key beside it.
+        io.open(os.path.join(installed, "addon.xml"), "w",
+                encoding="utf-8").write(
+                    '<addon id="%s" version="0.0.0"/>' % updater.ADDON_ID)
+        io.open(os.path.join(profile, "settings.xml"), "w",
+                encoding="utf-8").write(
+                    '<settings version="2"><setting id="tmdb.apikey">'
+                    'KEEP-ME</setting></settings>')
+
+        release = os.path.join(sandbox, "release.zip")
+        with io.open(release, "wb") as handle:
+            handle.write(body.content)
+        if not updater._is_sane_zip(release):
+            raise AssertionError("the published zip failed its own sanity check")
+
+        kodi.addon_path = lambda: installed
+        kodi.profile_path = lambda: profile
+        # The guard, not a formality: apply() deletes and replaces whatever
+        # addon_path names, so it must be provably inside the sandbox before
+        # it is allowed to run.
+        target = os.path.normpath(kodi.addon_path())
+        if not target.startswith(os.path.normpath(sandbox) + os.sep):
+            raise AssertionError("refusing to install over %s" % target)
+
+        if updater.apply(release) is not True:
+            raise AssertionError("installing the published release failed")
+
+        landed = ET.parse(os.path.join(installed, "addon.xml")).getroot().get(
+            "version")
+        if landed != published:
+            raise AssertionError("installed %s after publishing %s"
+                                 % (landed, published))
+        kept = io.open(os.path.join(profile, "settings.xml"),
+                       encoding="utf-8").read()
+        if "KEEP-ME" not in kept:
+            raise AssertionError("the update took the viewer's key with it")
+        leftovers = [n for n in os.listdir(addons) if n != updater.ADDON_ID]
+        if leftovers:
+            raise AssertionError("left behind: %s" % leftovers)
+    finally:
+        # Restored before anything else runs: every later check reads the
+        # bundled channel and VOD data through these.
+        kodi.addon_path = was_addon_path
+        kodi.profile_path = was_profile_path
+        shutil.rmtree(sandbox, ignore_errors=True)
+
+    return "0.0.0 -> %s, %d KB, key intact" % (published,
+                                               len(body.content) // 1024)
+
+
 @check("a version that does not exist is refused, not invented", "updates")
 def _missing_release_is_a_404():
     """The check above only means something if a miss can be told apart.

@@ -544,3 +544,172 @@ def test_the_whole_upgrade_runs_over_http(tmp_path, monkeypatch):
     assert (installed / "resources" / "lib" / "katan" / "updater.py").is_file()
     leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
     assert not leftovers, "left behind %s" % leftovers
+
+
+# --------------------------------------------------------------------------
+# a release that changes a great deal, which is the case nobody rehearses
+# --------------------------------------------------------------------------
+
+def _install(tmp_path):
+    """A real installed copy with real user state beside it."""
+    import shutil
+
+    import xbmcaddon
+    from katan import kodi
+
+    addons = tmp_path / "addons"
+    addons.mkdir()
+    installed = addons / "plugin.video.katan"
+    profile = tmp_path / "addon_data" / "plugin.video.katan"
+    profile.mkdir(parents=True)
+    shutil.copytree(ADDON_DIR, str(installed))
+
+    (profile / "settings.xml").write_text(
+        '<settings version="2">\n'
+        '  <setting id="tmdb.apikey">MY-TMDB-KEY</setting>\n'
+        '  <setting id="torbox.apikey">MY-TORBOX-KEY</setting>\n'
+        "</settings>\n", encoding="utf-8")
+    (profile / "subtitles").mkdir()
+    (profile / "subtitles" / "kept.he.srt").write_text("1\n", encoding="utf-8")
+    (profile / "cache.db").write_bytes(b"SQLite format 3\x00")
+
+    xbmcaddon.reset(str(profile), str(installed))
+    kodi.refresh_addon()
+    return addons, installed, profile
+
+
+def _release(tmp_path, version, drop=(), add=(), name="release.zip"):
+    """A release zip built from the real tree, with files taken out and put in.
+
+    Built by hand rather than with tools/build.py because the point is to
+    describe a release that differs a lot from the installed one, and the
+    builder can only describe the tree as it is.
+    """
+    import xml.etree.ElementTree as ET
+
+    current = ET.parse(os.path.join(ADDON_DIR, "addon.xml")).getroot().get(
+        "version")
+    drop = set(drop)
+    path = str(tmp_path / name)
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for folder, dirs, files in os.walk(ADDON_DIR):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for entry in files:
+                full = os.path.join(folder, entry)
+                relative = os.path.relpath(full, ADDON_DIR).replace(os.sep, "/")
+                if relative in drop:
+                    continue
+                arc = "plugin.video.katan/" + relative
+                if relative == "addon.xml":
+                    with io.open(full, encoding="utf-8") as handle:
+                        archive.writestr(arc, handle.read().replace(
+                            'version="%s"' % current,
+                            'version="%s"' % version, 1))
+                else:
+                    archive.write(full, arc)
+        for relative, body in add:
+            archive.writestr("plugin.video.katan/" + relative, body)
+    return path
+
+
+def test_a_release_that_changes_a_great_deal_still_lands(tmp_path):
+    """Every upgrade so far has been one patch version and a few files.
+
+    A rewrite is the case that has never been rehearsed, and it is the one
+    where the interesting failure lives: a module the new release dropped is
+    still on disk, still importable, and still shadowing whatever replaced it.
+    `apply` renames the folder rather than merging into it, so removal is by
+    construction - but nothing here had ever checked that, and "by
+    construction" is exactly the kind of claim that stops being true quietly.
+    """
+    from katan import updater
+
+    addons, installed, profile = _install(tmp_path)
+
+    # Take out a whole subsystem and put a differently shaped one back.
+    lib = os.path.join("resources", "lib", "katan")
+    doomed = sorted(
+        os.path.join(lib, "subs", name).replace(os.sep, "/")
+        for name in os.listdir(os.path.join(ADDON_DIR, lib, "subs"))
+        if name.endswith(".py"))
+    assert len(doomed) > 5, "expected a subsystem worth deleting"
+
+    newcomers = [("resources/lib/katan/captions/__init__.py", "X = 1\n")]
+    newcomers += [("resources/lib/katan/captions/part%02d.py" % i,
+                   "VALUE = %d\n" % i) for i in range(40)]
+
+    zip_path = _release(tmp_path, "3.0.0", drop=doomed, add=newcomers)
+    assert updater.apply(zip_path) is True
+
+    import xml.etree.ElementTree as ET
+    landed = ET.parse(str(installed / "addon.xml")).getroot().get("version")
+    assert landed == "3.0.0", "a major jump did not land"
+
+    for relative in doomed:
+        assert not (installed / relative).exists(), \
+            "%s survived a release that dropped it" % relative
+    for relative, _body in newcomers:
+        assert (installed / relative).is_file(), \
+            "%s never arrived" % relative
+    # The folder itself survives - its subpackages were not dropped - but
+    # nothing that was taken out may still be sitting in it.
+    survivors = [n for n in os.listdir(
+        str(installed / "resources" / "lib" / "katan" / "subs"))
+        if n.endswith(".py")]
+    assert not survivors, "dropped modules still on disk: %s" % survivors
+
+    # And the whole reason any of this is careful.
+    kept = (profile / "settings.xml").read_text(encoding="utf-8")
+    assert "MY-TMDB-KEY" in kept and "MY-TORBOX-KEY" in kept
+    assert (profile / "subtitles" / "kept.he.srt").is_file()
+    assert (profile / "cache.db").read_bytes().startswith(b"SQLite format 3")
+
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    assert not leftovers, "staging or backup left behind: %s" % leftovers
+
+
+def test_a_swap_that_fails_puts_the_installed_copy_back(tmp_path, monkeypatch):
+    """The rollback exists and has never been made to run.
+
+    Everything else refuses a bad release before touching the installed copy.
+    This is the other failure: the zip is fine, the old folder has already
+    been renamed out of the way, and putting the new one in place is what
+    fails - a projector with no space left, or Android holding a file open.
+    Getting that wrong leaves no add-on at all rather than an old one.
+    """
+    from katan import updater
+
+    addons, installed, profile = _install(tmp_path)
+    before = sorted(os.listdir(str(installed)))
+
+    real_rename = os.rename
+    calls = []
+
+    def rename(source, destination):
+        calls.append(source)
+        # The first rename moves the installed copy aside; the second puts
+        # the new one in. Fail that one, exactly as a full disk would.
+        if len(calls) == 2:
+            raise OSError(28, "No space left on device")
+        return real_rename(source, destination)
+
+    monkeypatch.setattr(os, "rename", rename)
+
+    zip_path = _release(tmp_path, "3.0.0")
+    assert updater.apply(zip_path) is False, "a failed swap reported success"
+
+    # Without this the test passes for the wrong reason: any earlier refusal
+    # also returns False and leaves the installed copy alone, and then this
+    # proves nothing about the rollback it is named after.
+    assert len(calls) >= 3, (
+        "the swap was never reached, so no rollback happened: %d renames"
+        % len(calls))
+
+    assert installed.is_dir(), "the add-on is gone entirely"
+    assert sorted(os.listdir(str(installed))) == before, \
+        "the installed copy came back changed"
+    assert (profile / "settings.xml").read_text(encoding="utf-8").count(
+        "MY-TMDB-KEY") == 1
+
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    assert not leftovers, "left behind after a failure: %s" % leftovers
