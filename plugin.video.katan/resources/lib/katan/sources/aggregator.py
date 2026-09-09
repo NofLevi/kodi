@@ -92,6 +92,17 @@ def _ranked(meta, prefetch=False, force=False):
     if not force:
         hit = cache.get(key)
         if hit is not None:
+            # Source rows cached by an older add-on version predate subtitle
+            # outlook fields. Without upgrading them, the picker draws an empty
+            # subtitle line for up to twenty minutes after an update even though
+            # fresh searches show a percentage. Annotate and re-rank once, then
+            # persist the upgraded shape so subsequent opens remain free.
+            if hit and any("subs_kind" not in source for source in hit):
+                migrated = _apply_subtitles(hit, meta)
+                if migrated and all("subs_kind" in source for source in hit):
+                    hit, _rejected = scoring.rank_all(
+                        hit, meta, _runtime_hours(meta))
+                    cache.set(key, hit, TTL_RESULTS)
             return hit if prefetch else _recheck_cached(hit, meta)
 
     providers = _enabled_providers(meta)
@@ -298,8 +309,10 @@ def _apply_subtitles(sources, meta):
     try:
         from ..subs import outlook
         outlook.annotate(meta, sources)
+        return True
     except Exception:
         kodi.log_exception("could not work out the subtitle outlook")
+        return False
 
 
 def _apply_meta(sources, meta):
