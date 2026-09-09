@@ -533,6 +533,50 @@ trailing separator, so the backup was written *inside* the folder being
 replaced - was a Windows error 87, and a Linux-only run would never have
 produced it. `python tools/e2e.py --only upgrade` is the same thing by hand.
 
+### Two channels: stable, and the branch
+
+`update.channel` is `stable` or `test`, at expert level in the settings.
+Stable is the last release, at `kodi-katan.pages.dev`. Test is whatever
+`development` was last built into, at **`kodi-katan-dev.pages.dev`** - a
+second Pages project rather than a folder or a branch alias on the first, and
+both of those were tried:
+
+* A direct upload **replaces the whole site**, so two channels sharing one
+  project would overwrite each other every time either published.
+* Pages puts branch aliases behind **Cloudflare Access**. Measured:
+  `development.kodi-katan.pages.dev/addons.xml` answers `302` to
+  `cloudflareaccess.com`, so Kodi - which fetches anonymously and follows
+  nothing useful - sees no index at all.
+
+A test build is versioned as a pre-release of what is current -
+`0.0.4~dev.12` - which is what Kodi's own comparison expects and sorts
+*below* the release it previews. Two consequences the comparison had to
+learn, because both are invisible under a greater-than:
+
+* `parse_version` reads three numbers, so `0.0.5~dev.11` and `0.0.5~dev.12`
+  compare **equal** and the second would never be offered.
+* Going back to stable means installing something numerically **older**, and
+  refusing that would strand anyone who ever tried a test build on it.
+
+So on the test channel *any difference* is an update, because a test build is
+"what the branch is now" rather than "a newer version". The stable channel
+keeps the greater-than, and a test asserts it does.
+
+`.github/workflows/testbuild.yml` publishes one, **by hand only**. Not on
+every push: a test build is a deployment, and a deployment list in which
+almost nothing was asked for is exactly what the Cloudflare disconnect was
+for.
+
+### Releases are deliberate
+
+A release reaches televisions and cannot be taken back from a box that
+already took it, so it happens when somebody says so and not when a branch
+moves. `main` moving is not a release; a tag is. Nothing here bumps a version
+on its own.
+
+The corollary is that `main` and the published version can differ, and that
+is fine - `main` is what will be released next, the tag is what was.
+
 ### One release is one number
 
 The version appears in six places: both `addon.xml` files, the `<news>` field,

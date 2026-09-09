@@ -713,3 +713,86 @@ def test_a_swap_that_fails_puts_the_installed_copy_back(tmp_path, monkeypatch):
 
     leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
     assert not leftovers, "left behind after a failure: %s" % leftovers
+
+
+# --------------------------------------------------------------------------
+# the test channel: what the branch is now, not what was released
+# --------------------------------------------------------------------------
+
+def _index(version):
+    return ('<?xml version="1.0" encoding="UTF-8"?><addons>'
+            '<addon id="plugin.video.katan" version="%s"/></addons>'
+            % version).encode("utf-8")
+
+
+class _Answer(object):
+    status_code = 200
+
+    def __init__(self, content):
+        self.content = content
+
+
+@pytest.mark.parametrize("channel,expected", [
+    ("stable", "kodi-katan.pages.dev"),
+    ("test", "kodi-katan-dev.pages.dev"),
+])
+def test_the_channel_chooses_the_index(settings_module, channel, expected):
+    from katan import updater
+
+    settings_module.set("update.channel", channel)
+    assert expected in updater.index_url()
+
+
+def test_an_explicit_url_still_beats_the_channel(settings_module):
+    """`update.url` is the escape hatch for the host moving. It has to win."""
+    from katan import updater
+
+    settings_module.set("update.channel", "test")
+    settings_module.set("update.url", "https://elsewhere.example/addons.xml")
+    assert updater.index_url() == "https://elsewhere.example/addons.xml"
+
+
+@pytest.mark.parametrize("installed,published,offered", [
+    # Two test builds in a row sort *equal* under parse_version, because the
+    # pre-release tag is past the three numbers it reads. A greater-than would
+    # never offer the second one.
+    ("0.0.5~dev.11", "0.0.5~dev.12", True),
+    # And going back to stable means installing something numerically older,
+    # which a greater-than would refuse outright, stranding anyone who tried
+    # a test build on that test build for ever.
+    ("0.0.5~dev.12", "0.0.4", True),
+    # The same build is not an update.
+    ("0.0.5~dev.12", "0.0.5~dev.12", False),
+])
+def test_the_test_channel_offers_any_difference(settings_module, monkeypatch,
+                                                installed, published, offered):
+    import xbmcaddon
+
+    from katan import http, kodi, updater
+
+    settings_module.set("update.channel", "test")
+    xbmcaddon.INFO["version"] = installed
+    kodi.refresh_addon()
+    monkeypatch.setattr(http, "get",
+                        lambda *a, **k: _Answer(_index(published)))
+
+    result = updater.check()
+    assert bool(result) is offered, \
+        "installed %s, published %s" % (installed, published)
+    if offered:
+        assert result[0] == published
+        assert "kodi-katan-dev.pages.dev" in result[1]
+
+
+def test_the_stable_channel_still_refuses_to_go_backwards(settings_module,
+                                                          monkeypatch):
+    """The looser rule must not leak into the channel most people are on."""
+    import xbmcaddon
+
+    from katan import http, kodi, updater
+
+    settings_module.set("update.channel", "stable")
+    xbmcaddon.INFO["version"] = "0.0.9"
+    kodi.refresh_addon()
+    monkeypatch.setattr(http, "get", lambda *a, **k: _Answer(_index("0.0.4")))
+    assert updater.check() is None

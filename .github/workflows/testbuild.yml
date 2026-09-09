@@ -1,0 +1,126 @@
+name: test build
+
+# A build of the branch, for trying something on a real box before it is a
+# release. Kodi installs it through Settings -> Update channel -> test.
+#
+# **By hand only.** Not on every push: a test build is a deployment, and a
+# deployment list in which almost nothing was asked for is the thing this
+# project already spent a day getting rid of. Ask for one when you want to
+# try something on the projector.
+#
+# It publishes to a *second* Pages project, kodi-katan-dev.pages.dev, and not
+# to a folder or a branch alias on the first. A direct upload replaces the
+# whole site, so a shared project would have the two channels overwriting
+# each other, and Pages puts branch aliases behind Cloudflare Access - which
+# answers 302 to a login page, so Kodi sees no index at all. Measured, not
+# assumed: development.kodi-katan.pages.dev redirects to cloudflareaccess.com.
+#
+# The version is the released one with a pre-release tag - 0.0.4~dev.12 -
+# which sorts *below* the release it is a preview of, so a box on the test
+# channel is offered the real 0.0.4 the moment it switches back to stable.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "branch or commit to build"
+        default: development
+        required: false
+
+jobs:
+  testbuild:
+    name: build ${{ inputs.ref }} and publish it to the test channel
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: pytest
+        run: python -m pip install --disable-pip-version-check pytest
+
+      # A test build is for trying a change, not for finding out the suite is
+      # red. It is still the code that goes on a television.
+      - name: the whole suite
+        run: python -m pytest tests -q
+
+      # Written into both manifests and never committed - this checkout is
+      # thrown away. `set_version` is the same function release.py uses, so
+      # there is one implementation of "write a version into an addon.xml".
+      - name: version it as a pre-release of what is current
+        id: stamp
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, sys
+          sys.path.insert(0, "tools")
+          import build, release
+
+          current = release.current_version(build.ADDONS[0])
+          version = "%s~dev.%s" % (current, os.environ["GITHUB_RUN_NUMBER"])
+          for addon in build.ADDONS:
+              release.set_version(addon, version)
+          print("version=%s" % version)
+          PY
+
+      - name: build the repository
+        run: python tools/build.py
+
+      - name: publish to the test channel
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4 pages deploy repo \
+            --project-name=kodi-katan-dev --branch=main --commit-dirty=true
+
+      # The same proof the release workflow takes: the site is serving this
+      # build, and the zip beside the index is the one just built.
+      - name: the test channel is serving it
+        env:
+          WANT: ${{ steps.stamp.outputs.version }}
+        run: |
+          python - <<'PY'
+          import hashlib, os, sys, time, urllib.parse, urllib.request
+          import xml.etree.ElementTree as ET
+
+          INDEX = "https://kodi-katan-dev.pages.dev/addons.xml"
+          want = os.environ["WANT"]
+          deadline = time.time() + 300
+
+          seen = "nothing yet"
+          while time.time() < deadline:
+              time.sleep(10)
+              try:
+                  request = urllib.request.Request(
+                      INDEX, headers={"User-Agent": "katan-testbuild"})
+                  body = urllib.request.urlopen(request, timeout=20).read()
+                  node = ET.fromstring(body).find(
+                      "./addon[@id='plugin.video.katan']")
+                  seen = node.get("version") if node is not None else "no addon"
+              except Exception as error:
+                  seen = "%s: %s" % (type(error).__name__, error)
+                  continue
+              if seen == want:
+                  break
+              print("still %s, waiting for %s" % (seen, want))
+          else:
+              sys.exit("the test channel never served %s (last saw %s)"
+                       % (want, seen))
+
+          name = "plugin.video.katan-%s.zip" % want
+          local = os.path.join("repo", "zips", "plugin.video.katan", name)
+          mine = hashlib.md5(open(local, "rb").read()).hexdigest()
+          request = urllib.request.Request(
+              "https://kodi-katan-dev.pages.dev/zips/plugin.video.katan/"
+              + urllib.parse.quote(name),
+              headers={"User-Agent": "katan-testbuild"})
+          published = urllib.request.urlopen(request, timeout=60).read()
+          if hashlib.md5(published).hexdigest() != mine:
+              sys.exit("%s is not the zip this run built" % name)
+          print("test channel is serving %s, %d KB" % (want,
+                                                       len(published) / 1024))
+          PY

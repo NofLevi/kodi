@@ -1588,3 +1588,11 @@ msgstr ""
 msgctxt "#32519"
 msgid "%d episodes"
 msgstr ""
+
+msgctxt "#30316"
+msgid "Update channel"
+msgstr ""
+
+msgctxt "#30317"
+msgid "Stable installs the last release. Test installs the latest build of the development branch, which may be broken - switch back to stable to return to the released version."
+msgstr ""

@@ -846,6 +846,19 @@
                     <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="update.channel" type="string" label="30316"
+                         help="30317">
+                    <level>2</level><default>stable</default>
+                    <constraints>
+                        <options>
+                            <option>stable</option>
+                            <option>test</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>30316</heading>
+                    </control>
+                </setting>
                 <setting id="update.url" type="string" label="30302" help="30303">
                     <level>2</level><default/>
                     <constraints><allowempty>true</allowempty></constraints>

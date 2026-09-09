@@ -132,6 +132,7 @@ DEFAULTS = {
     "ui.start_on_boot": "false",
     "update.check_on_start": "false",
     "update.url": "",
+    "update.channel": "stable",
     # And once in, stay in: back on the home screen does nothing rather than
     # dropping out to the Kodi interface this add-on replaces. The settings
     # button in the top bar is the way back out.
