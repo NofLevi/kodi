@@ -68,12 +68,21 @@ def rate(candidate, target, video_hash=""):
     `score_candidate` from writing its answer into a candidate that the next
     source would reuse. A function that returns its answer needs no copy.
     """
-    if candidate.get("hash_match") or (
-            video_hash and candidate.get("moviehash") == video_hash):
-        return 100, "hash"
-
     name = candidate.get("release") or candidate.get("name") or ""
     parsed = release.parse(name)
+
+    if candidate.get("hash_match") or (
+            video_hash and candidate.get("moviehash") == video_hash):
+        # A hash is the strongest evidence there is, and it still loses to a
+        # release name that says, in as many words, that this is a different
+        # episode. Both happen: OpenSubtitles' index has one Breaking Bad
+        # S01E01 hash registered against S01E07, against The Vampire Diaries
+        # and against a Bollywood film, every row claiming `moviehash`.
+        # Returning 100 here first meant the wrong-episode check below could
+        # never run, so the worst kind of mismatch scored the highest mark
+        # available.
+        if not _contradicts_episode(parsed, target):
+            return 100, "hash"
     total = WEIGHT_TITLE
     reasons = []
 
@@ -126,6 +135,23 @@ def rate(candidate, target, video_hash=""):
         total += min(6, int(candidate["downloads"]) // 500)
 
     return max(0, min(100, total)), ", ".join(reasons) or "title only"
+
+
+def _contradicts_episode(parsed, target):
+    """Does this name state an episode, and a different one from ours?
+
+    Only a contradiction counts. A name that says nothing about episodes -
+    "Episode 01 - Pilot.srt", or a bare hash upload - is not evidence against
+    itself, and treating silence as disagreement would throw away most of the
+    genuine hash matches there are.
+    """
+    if target.get("type") != "episode":
+        return False
+    if not (parsed["season"] or parsed["episode"] or parsed["absolute"]):
+        return False
+    return not release.matches_episode(parsed, int(target.get("season") or 0),
+                                       int(target.get("episode") or 0),
+                                       target.get("absolute"))
 
 
 def explain(candidate):

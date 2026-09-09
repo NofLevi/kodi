@@ -264,3 +264,53 @@ def test_a_good_match_actually_clears_the_default_threshold():
     from katan import settings
     assert scored("The.Film.2024.1080p.BluRay.x264-OTHER") >= \
         settings.get_int("subs.threshold", 70)
+
+
+# --------------------------------------------------------------------------
+# a hash match that is somebody else's file
+# --------------------------------------------------------------------------
+
+def test_a_hash_match_for_a_different_episode_is_not_a_hundred():
+    """Measured against the live index, not imagined.
+
+    One real Breaking Bad S01E01 file hash is registered at OpenSubtitles
+    against S01E07, against The Vampire Diaries and against a Bollywood film -
+    every row claiming `MatchedBy: moviehash`. `rate` returned 100 for a hash
+    before the wrong-episode check ran, so the worst kind of mismatch scored
+    the highest mark available and won.
+    """
+    from katan.subs import matcher
+
+    target = {"type": "episode", "season": 1, "episode": 1,
+              "release": "Breaking.Bad.S01E01.1080p.WEB.x264-GRP"}
+    right = matcher.rate({"release": "Breaking.Bad.S01E01.720p.HDTV.x264-BiA",
+                          "hash_match": True}, target)
+    wrong = matcher.rate({"release": "Breaking.Bad.S01E07.HDTV.XviD-LOL.avi",
+                          "hash_match": True}, target)
+    assert right == (100, "hash")
+    assert wrong[0] == 0, wrong
+
+
+def test_a_hash_match_that_says_nothing_is_still_a_hundred():
+    """Silence is not a contradiction.
+
+    Genuine hash uploads are often named "Episode 01 - Pilot.srt" or worse,
+    and treating a name that states no episode as disagreement would throw
+    away most of the real hash matches there are.
+    """
+    from katan.subs import matcher
+
+    target = {"type": "episode", "season": 1, "episode": 1,
+              "release": "Breaking.Bad.S01E01.1080p.WEB.x264-GRP"}
+    for name in ("Episode 01 - Pilot.srt", "subtitle.srt", ""):
+        score, reason = matcher.rate({"release": name, "hash_match": True},
+                                     target)
+        assert (score, reason) == (100, "hash"), name
+
+
+def test_a_film_hash_match_is_unaffected():
+    from katan.subs import matcher
+
+    target = {"type": "movie", "release": "Fight.Club.1999.1080p.BluRay-GRP"}
+    assert matcher.rate({"release": "anything at all", "hash_match": True},
+                        target) == (100, "hash")

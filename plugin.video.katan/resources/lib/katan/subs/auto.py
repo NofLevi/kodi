@@ -136,6 +136,11 @@ def search_candidates(meta, languages, video_hash=""):
         def call():
             if name == "opensubtitles":
                 return module.search(meta, target, languages, video_hash)
+            if name == "opensubtitles_rest":
+                # It can answer a hash query too, and that is where the only
+                # score-100 evidence comes from.
+                return module.search(meta, target, languages, video_hash,
+                                     meta.get("stream_size") or 0)
             if name == "bsplayer":
                 # Hash *and* size: the service answers HTTP 500 to an empty
                 # hash rather than returning nothing, so the provider checks

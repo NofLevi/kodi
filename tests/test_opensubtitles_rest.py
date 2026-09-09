@@ -99,12 +99,15 @@ def test_results_become_candidates(monkeypatch, provider):
              "SubDownloadsCnt": "nonsense", "MatchedBy": "fulltext"},
             {"MovieReleaseName": "no link here"}]
     _asked(monkeypatch, provider, rows)
-    found = provider.search({"type": "movie", "title": "x", "ids": {}},
-                            None, ["he"])
+    found = provider.search({"type": "movie", "title": "x",
+                             "ids": {"imdb": "tt0137523"}}, None, ["he"])
     assert len(found) == 2, "the entry with no download link must be dropped"
     assert found[0]["release"] == "Silo.S01E01.1080p-PSA"
     assert found[0]["downloads"] == 284908
-    assert found[0]["hash_match"] is True
+    # These rows carry no id of their own, so nothing can be verified and
+    # nothing is claimed - `moviehash` alone is not enough, because the index
+    # has one file's hash filed under three different programmes.
+    assert found[0]["hash_match"] is False
     # A count that is not a number must not take the search down with it.
     assert found[1]["downloads"] == 0
     assert found[1]["hash_match"] is False
@@ -270,3 +273,79 @@ def test_it_is_registered_and_gets_the_size(settings_module):
     assert settings_module.get_bool("subs.provider.bsplayer")
     assert "bsplayer" in auto._modules()
     assert "bsplayer" in [name for name, _m in auto._providers()]
+
+
+# --------------------------------------------------------------------------
+# whose file is this hash filed under?
+# --------------------------------------------------------------------------
+
+def _hash_rows():
+    """The real answer for one Breaking Bad S01E01 hash, trimmed."""
+    return [
+        {"MovieReleaseName": "The Vampire Diaries S01E01", "MatchedBy": "moviehash",
+         "SubDownloadLink": "https://dl/vd", "SeriesIMDBParent": "1405406",
+         "IDMovieImdb": "1486497"},
+        {"MovieReleaseName": "Kabhi Alvida Naa Kehna", "MatchedBy": "moviehash",
+         "SubDownloadLink": "https://dl/ka", "SeriesIMDBParent": "0",
+         "IDMovieImdb": "449999"},
+        {"MovieReleaseName": "Breaking.Bad.S01E01.720p.HDTV-BiA",
+         "MatchedBy": "moviehash", "SubDownloadLink": "https://dl/bb",
+         "SeriesIMDBParent": "903747", "IDMovieImdb": "959621"},
+    ]
+
+
+def test_another_programme_filed_under_our_hash_is_dropped(monkeypatch,
+                                                           provider):
+    """Uploaders mis-register hashes, and the index keeps every claim.
+
+    Without this the first row wins at 100 - above every other kind of
+    evidence - and the viewer gets The Vampire Diaries over Breaking Bad.
+    """
+    _asked(monkeypatch, provider, _hash_rows())
+    meta = {"type": "episode", "title": "Breaking Bad", "season": 1,
+            "episode": 1, "ids": {"imdb": "tt0903747"}}
+    found = provider.search(meta, None, ["en"])
+    names = [c["release"] for c in found]
+    assert not any("Vampire" in n for n in names), names
+    assert any("Breaking.Bad" in n for n in names), names
+
+
+def test_only_a_verified_row_may_claim_a_hash_match(monkeypatch, provider):
+    """Episodes are filed under the episode's imdb and we hold the show's, so
+    SeriesIMDBParent is the field that compares."""
+    _asked(monkeypatch, provider, _hash_rows())
+    meta = {"type": "episode", "title": "Breaking Bad", "season": 1,
+            "episode": 1, "ids": {"imdb": "tt0903747"}}
+    found = provider.search(meta, None, ["en"])
+    for candidate in found:
+        if "Breaking.Bad" in candidate["release"]:
+            assert candidate["hash_match"] is True
+        else:
+            assert candidate["hash_match"] is False, candidate["release"]
+
+
+def test_with_no_id_of_our_own_nothing_is_claimed(monkeypatch, provider):
+    """Unverifiable is not the same as verified. 100 is too high for a maybe."""
+    _asked(monkeypatch, provider, _hash_rows())
+    meta = {"type": "episode", "title": "Breaking Bad", "season": 1,
+            "episode": 1, "ids": {}}
+    found = provider.search(meta, None, ["en"])
+    assert len(found) == 3, "nothing can be excluded without an id either"
+    assert not any(c["hash_match"] for c in found)
+
+
+def test_a_hash_is_asked_about_as_well_as_a_title(monkeypatch, provider):
+    """Two different questions, and the hash one is the valuable one."""
+    urls = []
+
+    def get_json(url, default=None, **kwargs):
+        urls.append(url)
+        return []
+
+    monkeypatch.setattr(provider.http, "get_json", get_json)
+    provider.search({"type": "episode", "title": "silo", "season": 1,
+                     "episode": 1, "ids": {}}, None, ["en"],
+                    "ff73982902e896f2", 478600575)
+    assert any("moviehash-ff73982902e896f2" in u for u in urls), urls
+    assert any("moviebytesize-478600575" in u for u in urls), urls
+    assert any("query-silo" in u for u in urls), urls
