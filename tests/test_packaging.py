@@ -134,7 +134,16 @@ def test_the_zip_is_a_function_of_the_source_alone(built):
     carries one fixed timestamp instead.
     """
     with zipfile.ZipFile(built) as archive:
-        stamps = {i.date_time for i in archive.infolist()}
+        entries = archive.infolist()
+    stamps = {i.date_time for i in entries}
     assert stamps == {(1980, 1, 1, 0, 0, 0)}, \
         "members carry their mtime, so the zip is not reproducible: %s" % (
             sorted(stamps)[:3],)
+
+    # And the same across machines, which took a second fix. With the
+    # timestamps pinned, a Windows build and CI's Linux build still differed
+    # while every one of their 123 members was identical: ZipInfo takes
+    # create_system from the machine it runs on, 0 for Windows and 3 for Unix.
+    systems = {i.create_system for i in entries}
+    assert systems == {3}, \
+        "the zip records the build machine's platform: %s" % sorted(systems)

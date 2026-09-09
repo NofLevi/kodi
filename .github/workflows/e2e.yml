@@ -21,10 +21,12 @@ name: end to end
 
 on:
   push:
-    # development is where the work happens; main only moves on a release, and
-    # a release that fails its own checks is the one failure that reaches a
-    # television.
-    branches: [main, development]
+    # `development` only. A merge to `main` is a fast-forward of commits this
+    # has already run against, so running again on `main` was two identical
+    # jobs on identical code - and with two workflows watching both branches,
+    # one release produced five runs. The release itself re-runs the whole
+    # suite before it publishes, which is the check that actually matters.
+    branches: [development]
   pull_request:
   schedule:
     # Every morning. The live services are what drifts, and drift is only

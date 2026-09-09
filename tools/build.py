@@ -90,6 +90,11 @@ def build_zip(addon_id, version):
                 info = zipfile.ZipInfo(relative.replace(os.sep, "/"), EPOCH)
                 info.compress_type = zipfile.ZIP_DEFLATED
                 info.external_attr = 0o644 << 16
+                # ZipInfo picks this from the machine it runs on - 0 for
+                # Windows, 3 for Unix - so the same source produced two
+                # different zips whose every member was identical. Pinned to
+                # Unix, which is what the television boxes are.
+                info.create_system = 3
                 with open(full, "rb") as handle:
                     archive.writestr(info, handle.read())
     return target
