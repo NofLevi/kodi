@@ -109,3 +109,73 @@ def test_sync_is_fast_enough_for_a_weak_device():
     sync.fit(late, reference)
     elapsed = time.time() - started
     assert elapsed < 2.5, "alignment took %.2fs" % elapsed
+
+
+# --------------------------------------------------------------------------
+# splits: an advert break, a recap left in, a different cut
+# --------------------------------------------------------------------------
+
+
+def test_finds_a_mid_file_jump():
+    """The case a single offset cannot fix, and the one a survey found.
+
+    A subtitle that is 2s late for the first half and 122s late for the second
+    is not drifting - the file it was made for has two minutes the video does
+    not, or the other way round. alass exists for this; so does fit_segments.
+    """
+    reference = make_cues(count=600)
+    half = len(reference) // 2
+    broken = ([c.shifted(2.0) for c in reference[:half]]
+              + [c.shifted(122.0) for c in reference[half:]])
+
+    fixed, report = sync.synchronise(broken, reference)
+    assert report["segments"] > 1, "no split found"
+    assert report["applied"] is True
+    assert abs(fixed[0].start - reference[0].start) < 0.5
+    assert abs(fixed[-1].start - reference[-1].start) < 0.5
+
+
+def test_a_clean_subtitle_is_not_split():
+    """A splitter that finds structure in a good file is worse than none."""
+    reference = make_cues(count=600)
+    late = [c.shifted(6.0) for c in reference]
+    fixed, report = sync.synchronise(late, reference)
+    assert report["segments"] == 1
+    assert abs(fixed[0].start - reference[0].start) < 0.2
+
+
+def test_an_unrelated_subtitle_is_never_segmented():
+    """Segmenting noise would let a wrong episode be shifted into place."""
+    reference = make_cues(count=600, seed=1)
+    unrelated = make_cues(count=600, seed=99, start=40.0)
+    segments = sync.fit_segments(unrelated, reference)
+    assert len(segments) == 1
+
+
+def test_segments_cover_every_cue_exactly_once():
+    reference = make_cues(count=600)
+    half = len(reference) // 2
+    broken = ([c.shifted(2.0) for c in reference[:half]]
+              + [c.shifted(122.0) for c in reference[half:]])
+    segments = sync.fit_segments(broken, reference, 0.0, 1.0)
+    assert segments[0][0] == 0
+    assert segments[-1][1] == len(broken) - 1
+    for before, after in zip(segments, segments[1:]):
+        assert after[0] == before[1] + 1
+    assert len(sync.apply_segments(broken, 0.0, 1.0, segments)) == len(broken)
+
+
+def test_a_short_subtitle_is_never_segmented():
+    """Too few cues to say anything, so it says nothing."""
+    assert len(sync.fit_segments(make_cues(count=20), make_cues(count=20))) == 1
+
+
+def test_segmenting_stays_inside_its_budget():
+    """The whole point is that this costs a fraction of the global fit."""
+    import time
+    reference = make_cues(count=1400)
+    late = [c.shifted(23.0) for c in reference]
+    started = time.time()
+    sync.fit_segments(late, reference, -23.0, 1.0)
+    elapsed = time.time() - started
+    assert elapsed < 1.0, "segmenting took %.2fs" % elapsed
