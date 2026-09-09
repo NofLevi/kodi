@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.katan"
        name="Katan"
-       version="0.0.4"
+       version="0.0.1"
        provider-name="katan">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -29,10 +29,8 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>v0.0.4
-- The upgrade gets its own pipeline, on both platforms, from 0.0.1
-- Upgrade from a real old release, frozen, to whatever is live
-- Test the upgrade against a rewrite, and against the real published zip
-- The zip is a function of the source alone</news>
+        <news>v0.0.1
+- A test channel: install the branch instead of the release
+- One commit, one run each; one source, one zip</news>
     </extension>
 </addon>

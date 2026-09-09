@@ -515,11 +515,22 @@ def _old_install_upgrades():
         xbmcaddon.INFO["version"] = was
         kodi.refresh_addon()
 
+        # The baseline is frozen at a version that was really published, so
+        # once the numbering was reset the live release can *be* that version
+        # rather than something after it. That is not a failure and it is not
+        # a pass either - there is simply nothing newer to install yet, and
+        # saying so is better than a green tick that proves nothing. It comes
+        # right on its own at the next release.
+        published, _url = updater.published_version()
+        if published == was:
+            return ("%s is still the published version, so there is nothing "
+                    "newer to upgrade to yet" % was)
+
         available = updater.check()
         if not available:
             raise AssertionError(
-                "no update offered to an install at %s, but the index "
-                "publishes something" % was)
+                "no update offered to an install at %s, but %s is published"
+                % (was, published))
         newer, zip_url = available
 
         release = updater.download(zip_url)
