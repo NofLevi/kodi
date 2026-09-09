@@ -333,3 +333,84 @@ def test_an_empty_subtitle_is_not_a_language():
 
     assert srt.detect_script([]) == ""
     assert srt.looks_hebrew([]) is False
+
+
+# --------------------------------------------------------------------------
+# SubStation Alpha, which is what anime subtitles usually are
+# --------------------------------------------------------------------------
+
+SSA = r"""[Script Info]
+Title: Something
+ScriptType: v4.00+
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize
+Style: Default,Arial,20
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.78,0:00:05.16,Default,,0,0,0,,Dive Massively\NOnline Game.
+Dialogue: 0,0:00:05.16,0:00:08.66,Default,,0,0,0,,{\i1}Also known as a DMMO-RPG.{\i0}
+Dialogue: 0,0:00:08.67,0:00:13.88,Default,,0,0,0,,A line, with a comma in it.
+Comment: 0,0:00:20.00,0:00:22.00,Default,,0,0,0,,not dialogue
+"""
+
+
+def test_substation_alpha_is_parsed():
+    """Refusing it threw away real subtitles.
+
+    Over a survey, *every* download that failed to parse was SSA - and half of
+    what OpenSubtitles returns for Overlord is. It is the house format for
+    anime, which is the part of the catalogue that can least afford to lose a
+    provider.
+    """
+    from katan.subs import srt
+
+    cues = srt.parse(SSA)
+    assert len(cues) == 3, [c.text for c in cues]
+    assert abs(cues[0].start - 0.78) < 0.01
+    assert abs(cues[0].end - 5.16) < 0.01
+    # Centiseconds, not milliseconds: reading .78 as 0.078s would shift every
+    # cue by most of a second.
+    assert abs(cues[2].end - 13.88) < 0.01
+
+
+def test_ssa_text_is_cleaned_up():
+    from katan.subs import srt
+
+    cues = srt.parse(SSA)
+    # A hard break is a literal backslash-N in the file, not an escape.
+    assert cues[0].text == "Dive Massively\nOnline Game."
+    # Override tags are styling, not words.
+    assert cues[1].text == "Also known as a DMMO-RPG."
+    # Text is the last column and may hold commas of its own.
+    assert cues[2].text == "A line, with a comma in it."
+
+
+def test_a_comment_line_is_not_a_cue():
+    from katan.subs import srt
+
+    assert all("not dialogue" not in c.text for c in srt.parse(SSA))
+
+
+def test_srt_still_parses_as_srt():
+    """The detector must not claim ordinary files."""
+    from katan.subs import srt
+
+    text = "1\n00:00:01,000 --> 00:00:02,000\nhello\n\n"
+    assert not srt._looks_like_ssa(text)
+    cues = srt.parse(text)
+    assert len(cues) == 1 and cues[0].text == "hello"
+
+
+def test_the_column_order_is_read_not_assumed():
+    """Some files carry extra columns; index 9 would then be a style name."""
+    from katan.subs import srt
+
+    odd = (u"[Events]\n"
+           u"Format: Start, End, Text\n"
+           u"Dialogue: 0:00:01.00,0:00:02.50,hello there\n")
+    cues = srt.parse(odd)
+    assert len(cues) == 1
+    assert cues[0].text == "hello there"
+    assert abs(cues[0].start - 1.0) < 0.01
