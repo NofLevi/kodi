@@ -28,9 +28,17 @@ import re
 
 from ... import cache, http, kodi, router
 from ...meta import items
+from .. import kaltura
 
 API = "https://api.frp1.ott.kaltura.com/api_v3"
 PARTNER = 5031
+
+# Not the same partner, and not interchangeable. 5031 is Reshet's *OTT*
+# account, which is the layer that inserts the adverts; 2748741 is the plain
+# Kaltura account the broadcaster's own website plays from. Passing the OTT id
+# to cdnapisec resolves nothing at all.
+WEB_PARTNER = 2748741
+SITE = "https://13tv.co.il"
 API_VERSION = "5.4.0"
 
 # Kaltura calls the shapes of its catalogue "asset structs". These ids are
@@ -265,9 +273,27 @@ def stream(ref, mode=""):
     # Prefer a source with no DRM attached. Reshet offers FairPlay on the same
     # asset for Apple clients, and picking a clear one when there is a choice
     # costs nothing and avoids a stream Kodi cannot open.
-    for source in sources:
-        if not source.get("drm") and source.get("url"):
-            return source["url"], True
+    clear = [s for s in sources if not s.get("drm") and s.get("url")]
+
+    # Every one of these URLs is server-side ad insertion: the OTT endpoint
+    # answers with hub13.g-mana.live, which splices adverts into the same HLS
+    # timeline as the programme. Measured on one episode, the player showed
+    # fifteen chapters and opened on an advert. The entry underneath is on
+    # plain Kaltura with nothing inserted, and its id is already here - the
+    # source's externalId is `<entry>_<flavour>` - so this costs one request
+    # and no change to how anything is listed.
+    for source in clear or sources:
+        entry = kaltura.entry_id(source.get("externalId"))
+        if not entry:
+            continue
+        url, adaptive = kaltura.playback_url(entry, WEB_PARTNER, SITE)
+        if url:
+            kodi.log("reshet: %s without the ad insertion" % entry)
+            return url, adaptive
+        break
+
+    if clear:
+        return clear[0]["url"], True
 
     url = sources[0].get("url") or ""
     if url:
