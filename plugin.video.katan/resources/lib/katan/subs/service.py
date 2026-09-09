@@ -104,8 +104,11 @@ def _search(handle, params):
 
     inside = embedded.candidates(languages)
 
-    video_hash = auto.video_hash_for(meta)
-    found = auto.search_candidates(meta, languages, video_hash)
+    # Started, not waited for: the providers that want the hash wait inside
+    # their own task, and the rest are asking while it is still being read.
+    get_hash = auto.video_hash_later(meta)
+    found = auto.search_candidates(meta, languages, get_hash)
+    video_hash = get_hash()
     target = matcher.target_from(meta)
     ranked = matcher.rank(found, target, video_hash, languages) if found else []
 

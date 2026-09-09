@@ -403,3 +403,80 @@ def test_a_candidate_with_no_link_is_still_kept(monkeypatch, settings_module):
     monkeypatch.setattr(auto, "_providers", lambda: [("wizdom", Fake)])
     found = auto.search_candidates({"type": "movie", "ids": {}}, ["he"])
     assert len(found) == 2
+
+
+# --------------------------------------------------------------------------
+# the file hash costs the search nothing
+# --------------------------------------------------------------------------
+
+
+def test_the_hash_is_computed_alongside_the_search_not_before_it(monkeypatch,
+                                                                settings_module):
+    """A second spent hashing is a second of a playing film with no subtitles.
+
+    Three of a dozen providers want the hash. Running it first made every
+    other provider wait for it; now it runs while they work, and only the
+    three that need it wait at all.
+    """
+    import time
+    from katan.subs import auto, hasher
+
+    settings_module.set("subs.hash_match", True)
+
+    def slow_hash(url, timeout=None):
+        time.sleep(0.4)
+        return "abcdef0123456789", 12345
+
+    def slow_provider(*args, **kwargs):
+        time.sleep(0.4)
+        return []
+
+    monkeypatch.setattr(hasher, "hash_stream", slow_hash)
+    monkeypatch.setattr(auto, "_providers",
+                        lambda: [("wizdom", _FakeProvider(slow_provider)),
+                                 ("subsource", _FakeProvider(slow_provider))])
+
+    meta = {"title": "Dune", "year": 2021, "kind": "movie",
+            "stream_url": "http://example.invalid/f.mkv", "ids": {}}
+    started = time.time()
+    get_hash = auto.video_hash_later(meta)
+    auto.search_candidates(meta, ["he", "en"], get_hash)
+    elapsed = time.time() - started
+
+    assert get_hash() == "abcdef0123456789"
+    assert elapsed < 0.75, "hash and search were serialised (%.2fs)" % elapsed
+
+
+def test_a_provider_that_wants_the_hash_still_gets_it(monkeypatch,
+                                                      settings_module):
+    """Overlapping must not mean asking without the thing that was computed."""
+    from katan.subs import auto, hasher
+
+    settings_module.set("subs.hash_match", True)
+    monkeypatch.setattr(hasher, "hash_stream",
+                        lambda url, timeout=None: ("beef", 999))
+
+    seen = {}
+
+    def remember(meta, target, languages, video_hash="", size=0):
+        seen["hash"], seen["size"] = video_hash, size
+        return []
+
+    monkeypatch.setattr(auto, "_providers",
+                        lambda: [("bsplayer", _FakeProvider(remember))])
+
+    meta = {"title": "Dune", "year": 2021, "kind": "movie",
+            "stream_url": "http://example.invalid/f.mkv", "ids": {}}
+    auto.search_candidates(meta, ["he"], auto.video_hash_later(meta))
+    assert seen == {"hash": "beef", "size": 999}
+
+
+def test_a_stream_that_cannot_be_hashed_does_not_hold_the_search_up():
+    """No stream url, no thread, no wait - the common case for local files."""
+    from katan.subs import auto
+    assert auto.video_hash_later({"title": "Dune"})() == ""
+
+
+class _FakeProvider(object):
+    def __init__(self, search):
+        self.search = search
