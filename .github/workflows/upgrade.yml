@@ -21,11 +21,10 @@ name: upgrade
 # was a Windows error 87 that a Linux run would never have produced. Linux
 # stands in for Android here, same as in the end-to-end matrix.
 
+# Not on push, for the same reason as e2e.yml: this downloads a real release
+# from the live site, which is not a thing to do after every commit. The cron
+# and the button remain.
 on:
-  push:
-    # `development` only; `main` is a fast-forward of what already ran here.
-    branches: [development]
-  pull_request:
   schedule:
     # Daily. What this checks is mostly not our code - it is whether the
     # published release is still there and still installable.
