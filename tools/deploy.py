@@ -122,7 +122,20 @@ def stamped(version):
     return swap()
 
 
-def upload(directory, project, token, account):
+def upload(directory, project, token, account, message):
+    """Upload the built folder to a Pages project, saying what it is.
+
+    `--branch=main` is not a git connection - neither project has one. On a
+    direct-upload project the branch is only a label, and it is what decides
+    production against preview: the production branch is `main`, so anything
+    else becomes a preview, and previews sit behind Cloudflare Access where
+    Kodi cannot read them.
+
+    `--commit-message` matters for the same "say what this is" reason. Left
+    off, wrangler labels the deployment with whatever the local HEAD commit
+    happens to be - which put "A test channel: install the branch instead of
+    the release" on a *stable* deployment that had nothing to do with it.
+    """
     environment = dict(os.environ,
                        CLOUDFLARE_API_TOKEN=token,
                        CLOUDFLARE_ACCOUNT_ID=account)
@@ -130,7 +143,8 @@ def upload(directory, project, token, account):
     # has no package.json to put it in.
     return subprocess.call(
         ["npx", "--yes", "wrangler@4", "pages", "deploy", directory,
-         "--project-name=" + project, "--branch=main", "--commit-dirty=true"],
+         "--project-name=" + project, "--branch=main", "--commit-dirty=true",
+         "--commit-message=" + message],
         cwd=ROOT, env=environment, shell=(os.name == "nt"))
 
 
@@ -164,7 +178,9 @@ def main():
                                cwd=ROOT) != 0:
                 print("the build failed, nothing uploaded")
                 return 1
-            return upload(OUTPUT, TEST_PROJECT, token, account)
+            return upload(OUTPUT, TEST_PROJECT, token, account,
+                          "Katan %s - test channel, built by hand from "
+                          "this working tree" % label)
 
     found = problems()
     for problem in found:
@@ -188,7 +204,9 @@ def main():
         print("the build failed, nothing uploaded")
         return 1
 
-    return upload(OUTPUT, PROJECT, token, account)
+    return upload(OUTPUT, PROJECT, token, account,
+                  "Katan %s - stable release, published by hand"
+                  % version())
 
 
 if __name__ == "__main__":

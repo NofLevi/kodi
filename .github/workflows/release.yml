@@ -111,7 +111,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx --yes wrangler@4 pages deploy repo \
-            --project-name=kodi-katan --branch=main --commit-dirty=true
+            --project-name=kodi-katan --branch=main --commit-dirty=true \
+            --commit-message="Katan $GITHUB_REF_NAME - stable release, $GITHUB_SHA"
 
       # The only automated proof a release reached the devices. Everything
       # above can pass while the site still serves the previous version.
