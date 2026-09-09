@@ -57,7 +57,40 @@ LANGUAGE_PATTERNS = {
     "he": r"\b(hebsub|hebsubs|hebrew|heb|hebdub|\u05e2\u05d1\u05e8\u05d9\u05ea)\b",
     "en": r"\b(english|eng)\b",
     "multi": r"\b(multi|multisub|multisubs|dual|dual-?audio)\b",
+    # The rest are here so a release can be *recognised as foreign*, which is
+    # a different job from preferring Hebrew. Without them
+    # "Mousetrap.Identita.Rubata.1x02.Episodio.02.ITA.KOR.1080p..." parsed to
+    # no languages at all, so nothing could rank it below the releases
+    # somebody could actually watch - and an Italian dub of a Korean series
+    # was picked automatically for a viewer who reads neither.
+    #
+    # Three-letter codes only, where they are conventional in release names.
+    # The two-letter ones are not usable here: "it", "de" and "es" collide
+    # with ordinary words in titles.
+    "it": r"\b(ita|italian|italiano)\b",
+    "es": r"\b(spa|esp|spanish|castellano|latino)\b",
+    "fr": r"\b(fre|fra|french|truefrench|vostfr)\b",
+    "de": r"\b(ger|deu|german|deutsch)\b",
+    "ru": r"\b(rus|russian)\b",
+    "pt": r"\b(por|portuguese|dublado)\b",
+    "tr": r"\b(tur|turkish)\b",
+    "pl": r"\b(pol|polish|lektor)\b",
+    "ar": r"\b(ara|arabic)\b",
+    "ko": r"\b(kor|korean)\b",
+    "ja": r"\b(jpn|japanese)\b",
+    "zh": r"\b(chi|chs|cht|chinese|mandarin)\b",
+    "hi": r"\b(hin|hindi)\b",
+    "nl": r"\b(dut|nld|dutch)\b",
+    "cs": r"\b(cze|ces|czech)\b",
+    "hu": r"\b(hun|hungarian)\b",
+    "ro": r"\b(rum|ron|romanian)\b",
+    "uk": r"\b(ukr|ukrainian)\b",
 }
+
+# The two that mean "this may still be for you" when something foreign is also
+# named. Everything else in the table above is a claim that the release is in
+# a particular language.
+NEUTRAL_LANGUAGES = ("multi", "en")
 
 # Anime publishes the same episode twice - Japanese audio with subtitles, and
 # an English dub - and the release name is the only place that says which. Two

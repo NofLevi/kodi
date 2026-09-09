@@ -507,3 +507,81 @@ def test_a_site_stamp_does_not_make_a_second_row():
              size=3790000000, info_hash="b" * 40),
     ])
     assert len(merged) == 1
+
+
+# --------------------------------------------------------------------------
+# a release that says what language it is in
+# --------------------------------------------------------------------------
+
+def _scored(title, **extra):
+    from katan.sources import scoring
+    from katan.utils import release
+
+    parsed = release.parse(title)
+    source = {"title": title, "resolution": parsed["resolution"],
+              "codec": parsed["codec"], "languages": parsed["languages"],
+              "group": parsed["group"], "size": 2 * 1024 ** 3, "seeders": 50}
+    source.update(extra)
+    return scoring.score(source, scoring.Preferences(), 1.0)
+
+
+def test_a_foreign_release_loses_to_an_ordinary_one(settings_module):
+    """This picked an Italian dub of a Korean series and played it.
+
+    "Mousetrap.Identita.Rubata.1x02.Episodio.02.ITA.KOR..." parsed to no
+    languages at all, because the table only knew Hebrew, English and multi -
+    so nothing could rank it below the releases somebody could actually watch,
+    and autoplay took it. The viewer got Italian audio and two Italian
+    subtitle tracks out of the file.
+    """
+    settings_module.set("subs.languages", "he,en")
+    foreign = _scored("Mousetrap.Identita.Rubata.1x02.Episodio.02.ITA.KOR."
+                      "1080p.NFRip.AAC.x265-Pir8")
+    ordinary = _scored("Mousetrap.S01E02.1080p.WEB.h264-ETHEL")
+    assert foreign < ordinary, "%s vs %s" % (foreign, ordinary)
+
+
+def test_a_release_claiming_nothing_is_not_penalised(settings_module):
+    """Most releases name no language, and an empty list means "not stated".
+
+    Reading it as "not English" would push the ordinary case below everything
+    and invert the whole ranking.
+    """
+    from katan.sources import scoring
+
+    settings_module.set("subs.languages", "he,en")
+    plain = {"title": "Silo.S01E01.1080p.WEB.H264-CAKES", "languages": [],
+             "resolution": "1080p", "size": 2 * 1024 ** 3, "seeders": 50}
+    assert not scoring._wrong_language(plain, scoring.Preferences())
+
+
+@pytest.mark.parametrize("languages,penalised", [
+    (["it", "ko"], True),
+    (["es"], True),
+    (["tr"], True),
+    # Neutral: a multi-audio release usually carries the original track, and
+    # English is readable by anyone who got this far.
+    (["multi"], False),
+    (["en"], False),
+    (["it", "en"], False),
+    # Hebrew is always acceptable - it is why this add-on exists.
+    (["he"], False),
+    (["he", "ru"], False),
+    ([], False),
+])
+def test_which_language_claims_count_as_wrong(settings_module, languages,
+                                              penalised):
+    from katan.sources import scoring
+
+    settings_module.set("subs.languages", "he,en")
+    source = {"title": "x", "languages": languages}
+    assert scoring._wrong_language(source, scoring.Preferences()) is penalised
+
+
+def test_the_language_list_is_the_viewers_own(settings_module):
+    """Somebody who reads Spanish should not have Spanish ranked down."""
+    from katan.sources import scoring
+
+    settings_module.set("subs.languages", "es")
+    source = {"title": "x", "languages": ["es"]}
+    assert not scoring._wrong_language(source, scoring.Preferences())
