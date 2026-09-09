@@ -151,6 +151,28 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   correlation, then AI translation of the best English match. Wizdom and
   SubSource are anonymous; Ktuvit is a members' site, so it is off until an
   account is entered and is asked after the faster sources.
+
+  **The file hash pays off 10% of the time and is worth keeping anyway**,
+  which is not obvious and was nearly dropped for it. Measured over 147 titles
+  with candidates, fifteen had a hash match: five where the match was itself in
+  the wanted language, so the viewer got a subtitle that is right by
+  construction, and ten where it was in another language and therefore the
+  only *ruler* this add-on owns. Four of those ten caught a name-matched
+  subtitle that did not fit at all - fits of 0.12 to 0.27 - which were then
+  left at their original timing rather than confidently shifted somewhere
+  worse. Nothing else can catch that: `reference_cues` accepts a hash match
+  and nothing else, so with no hash `sync.py` never runs and the release name
+  is the whole judgement.
+
+  What it is *not* worth is being waited for. It is a HEAD and two 64 KB
+  ranged requests against the debrid CDN, about a second, and it used to run
+  to completion before the first provider was asked - a second of an
+  already-playing film with no subtitles on it. `video_hash_later` starts it
+  and hands back a getter; the nine providers that never look at a hash are
+  asking while it is still being read, and only the three that need it wait.
+  It is one thread rather than a task in the search pool, because a task that
+  waits inside the pool for another task in the same pool deadlocks as soon as
+  every worker is a waiter.
 * **Anime publishes the same episode twice** - Japanese audio with subtitles,
   and an English dub - and the release name is the only place that says which.
   Two rows of the same resolution, size and group were indistinguishable in
