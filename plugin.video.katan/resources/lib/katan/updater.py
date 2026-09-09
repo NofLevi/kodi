@@ -68,20 +68,25 @@ def installed_version():
     return kodi.addon_version()
 
 
-def check():
-    """Return (latest_version, zip_url) when an update exists, else None."""
+def published_version():
+    """What the current channel is publishing: (version, zip_url).
+
+    Separate from `check` because "what is out there" and "should this box
+    install it" are different questions, and the second is the only one with
+    an opinion in it. Returns ("", "") when the index cannot be read.
+    """
     url = index_url()
     response = http.get(url, timeout=(5, 12), retries=1)
     if response is None or response.status_code >= 400:
         kodi.log("update check failed: %s"
                  % (response.status_code if response else "no response"))
-        return None
+        return "", ""
 
     try:
         root = ET.fromstring(response.content)
     except ET.ParseError:
         kodi.log_error("the update index is not valid XML")
-        return None
+        return "", ""
 
     latest = ""
     for node in root.findall("addon"):
@@ -90,6 +95,16 @@ def check():
             break
     if not latest:
         kodi.log("the update index does not list %s" % ADDON_ID)
+        return "", ""
+
+    base = url.rsplit("/", 1)[0]
+    return latest, "%s/zips/%s/%s-%s.zip" % (base, ADDON_ID, ADDON_ID, latest)
+
+
+def check():
+    """Return (latest_version, zip_url) when an update exists, else None."""
+    latest, zip_url = published_version()
+    if not latest:
         return None
 
     installed = installed_version()
@@ -104,8 +119,7 @@ def check():
     elif parse_version(latest) <= parse_version(installed):
         return None
 
-    base = url.rsplit("/", 1)[0]
-    return latest, "%s/zips/%s/%s-%s.zip" % (base, ADDON_ID, ADDON_ID, latest)
+    return latest, zip_url
 
 
 def download(zip_url, progress=None):
