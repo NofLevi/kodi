@@ -1600,3 +1600,7 @@ msgstr ""
 msgctxt "#32520"
 msgid "Use my own Trakt application"
 msgstr ""
+
+msgctxt "#30318"
+msgid "OpenSubtitles (no account needed)"
+msgstr ""

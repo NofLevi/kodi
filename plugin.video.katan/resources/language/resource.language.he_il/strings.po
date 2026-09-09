@@ -1560,3 +1560,7 @@ msgstr ""
 msgctxt "#32520"
 msgid "השתמשו באפליקציית Trakt שלי"
 msgstr ""
+
+msgctxt "#30318"
+msgid "OpenSubtitles (ללא צורך בחשבון)"
+msgstr ""
