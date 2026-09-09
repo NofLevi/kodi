@@ -104,3 +104,21 @@ def test_the_published_site_can_say_a_file_is_missing(built):
         listing = os.path.join(folder, "index.html")
         if os.path.isfile(listing):
             assert "404.html" not in open(listing, encoding="utf-8").read()
+
+
+def test_the_build_can_name_an_output_folder_on_another_drive():
+    """Windows os.path.relpath raises across drives, and --out is a tempdir.
+
+    CI checks out on D: and pytest's tmpdir is on C:, so a line that does
+    nothing but print a filename raised ValueError and took every packaging
+    test with it - and, because the suite runs first, the packaging check and
+    the offline end-to-end run never happened on Windows at all. The whole
+    half of the matrix was dark and the run had been red for days.
+    """
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import build
+
+    foreign = "Z:" + os.sep + "a" + os.sep + "out.zip" if os.name == "nt" \
+        else "/somewhere/else/out.zip"
+    assert build.shown(foreign)
+    assert build.shown(os.path.join(ROOT, "repo", "addons.xml"))
