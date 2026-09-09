@@ -37,7 +37,10 @@ from . import sync
 # Two can only say "these agree" or "these differ"; three can say which one is
 # the odd one out, which is the answer worth having.
 MAX_CANDIDATES = 3
-LOW_MEMORY_CANDIDATES = 2
+# Three compressed subtitle files are still only tens of kilobytes and are the
+# minimum that can establish a majority. Saving one download here removes the
+# proof entirely, so weak devices keep the same bounded evidence budget.
+LOW_MEMORY_CANDIDATES = 3
 
 # Above this the name is decisive on its own - an identical release name or a
 # verified hash - and spending two more downloads to confirm it is waste.
@@ -48,6 +51,9 @@ DECISIVE_SCORE = 90
 # correction; agreement is a stronger claim than that and is held to it.
 AGREE_CONFIDENCE = 0.55
 AGREE_SECONDS = 2.0
+# A pair that needs framerate conversion describes compatible content, but not
+# the same video timeline; using it as the majority clock would introduce drift.
+AGREE_SCALE_DELTA = 0.0005
 
 
 def wanted(top_score, has_reference):
@@ -103,11 +109,13 @@ def agree(left, right):
     this purpose, and cheap: about 50ms for a feature-length pair.
     """
     try:
-        offset, _scale, confidence = sync.fit(left, right)
+        offset, scale, confidence = sync.fit(left, right)
     except Exception:
         kodi.log_exception("comparing two subtitles failed")
         return False, 0.0, 0.0
-    agreed = (confidence >= AGREE_CONFIDENCE and abs(offset) <= AGREE_SECONDS)
+    agreed = (confidence >= AGREE_CONFIDENCE
+              and abs(offset) <= AGREE_SECONDS
+              and abs(scale - 1.0) <= AGREE_SCALE_DELTA)
     return agreed, confidence, offset
 
 
@@ -159,3 +167,70 @@ def choose(fetched):
                                      "supported": most}
     return usable[0][0], usable[0][1], {"reason": "unreachable",
                                         "supported": 0}
+
+
+def _independent(left, right):
+    """Different catalogues, or named uploaders inside one catalogue."""
+    left_provider = left.get("provider", "")
+    right_provider = right.get("provider", "")
+    if not left_provider or not right_provider:
+        return False
+    if left_provider != right_provider:
+        return True
+    left_uploader = left.get("uploader", "")
+    right_uploader = right.get("uploader", "")
+    return bool(left_uploader and right_uploader
+                and left_uploader != right_uploader)
+
+
+def verification_candidates(candidates, wanted, limit):
+    """Spend a tiny download budget on independent timing evidence.
+
+    Keep the best target-language file, then prefer one candidate per other
+    language. Different languages are independent subtitle timelines and give
+    more evidence than near-duplicate uploads in the requested language.
+    """
+    if limit <= 0:
+        return []
+    target = [candidate for candidate in candidates
+              if candidate.get("language") == wanted]
+    other_languages = [candidate for candidate in candidates
+                       if candidate.get("language")
+                       and candidate.get("language") != wanted]
+    # Cross-language proof needs a target plus two independent references.
+    # Select the pair jointly: the first row per language can be a correlated
+    # upload while a valid independent alternative sits immediately below it.
+    if target and limit >= 3:
+        for left_index, left in enumerate(other_languages):
+            for right in other_languages[left_index + 1:]:
+                if (left.get("language") != right.get("language")
+                        and _independent(left, right)):
+                    return [target[0], left, right]
+    return distinct(candidates, wanted, limit)
+
+
+def timeline_reference(fetched, wanted):
+    """A reference timeline proved by two agreeing non-target languages.
+
+    Two independent languages agreeing is evidence about the video cut without
+    decoding audio. One other-language file alone is still only a guess.
+    """
+    others = [(candidate, cues) for candidate, cues in fetched
+              if cues and candidate.get("language") != wanted]
+    support = [0] * len(others)
+    for left in range(len(others)):
+        for right in range(left + 1, len(others)):
+            if not _independent(others[left][0], others[right][0]):
+                continue
+            agreed, _confidence, _offset = agree(others[left][1], others[right][1])
+            if agreed:
+                support[left] += 1
+                support[right] += 1
+    if not support or max(support) == 0:
+        return None, [], {"reason": "no cross-language agreement", "supported": 0}
+    winner = max(range(len(others)),
+                 key=lambda index: (support[index],
+                                    others[index][0].get("score", 0)))
+    candidate, cues = others[winner]
+    return candidate, cues, {"reason": "cross-language timeline",
+                              "supported": support[winner]}

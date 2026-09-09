@@ -38,9 +38,10 @@ def pipeline(monkeypatch, settings_module):
     })
 
     state = {"candidates": [], "downloads": {}, "downloaded": [],
-             "expected": []}
+             "expected": [], "searched_languages": []}
 
     def fake_search(meta, languages, video_hash=""):
+        state["searched_languages"].append(list(languages))
         return list(state["candidates"])
 
     def fake_download(candidate, expect_language=None):
@@ -128,6 +129,65 @@ def test_english_is_translated_when_no_hebrew_is_good_enough(pipeline, monkeypat
     cues = srt.read(path)
     assert cues[0].text.startswith("HE ")
     assert cues[0].start == 0.0, "translation must not move timings"
+
+
+
+
+def test_automatic_search_keeps_primary_language_request_bounded(pipeline):
+    """Optional timing evidence must not delay or discard the primary search."""
+    auto.find_and_prepare(MOVIE, ["he", "en"])
+    assert pipeline["searched_languages"] == [["he", "en"]]
+
+
+
+def test_optional_timing_evidence_is_one_non_hash_language(
+        monkeypatch, settings_module):
+    """The fallback cannot repeat six serial REST requests behind one deadline."""
+    from katan.subs import auto
+    from katan.subs.providers import opensubtitles_rest
+
+    calls = []
+
+    def search(meta, target, languages, video_hash="", video_size=0):
+        calls.append((list(languages), video_hash, video_size))
+        return []
+
+    monkeypatch.setattr(opensubtitles_rest, "search", search)
+    auto.search_timing_evidence(MOVIE, ["he", "en"], "file-hash")
+    assert calls == [(["es"], "", 0)]
+
+
+def test_two_other_languages_verify_and_retime_the_requested_subtitle(
+        pipeline, settings_module, monkeypatch):
+    """Three tiny subtitle files replace expensive audio analysis."""
+    settings_module.set("subs.languages", "he,en,es")
+    hebrew = "Dune.Part.Two.2024.1080p.WEB-DL.H264-HEB"
+    english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-ENG"
+    spanish = "Dune.Part.Two.2024.1080p.WEB-DL.H264-SPA"
+    pipeline["candidates"] = [
+        candidate(hebrew, language="he", provider="wizdom"),
+        candidate(english, language="en", provider="opensubtitles_rest",
+                  uploader="alice"),
+    ]
+    monkeypatch.setattr(
+        auto, "search_timing_evidence",
+        lambda meta, languages, video_hash="": [
+            candidate(spanish, language="es", provider="opensubtitles_rest",
+                      uploader="bob")],
+        raising=False)
+    pipeline["downloads"][hebrew] = srt_bytes(count=80, offset=90.0,
+                                               text="hebrew")
+    pipeline["downloads"][english] = srt_bytes(count=80, offset=0.0,
+                                                text="english")
+    pipeline["downloads"][spanish] = srt_bytes(count=80, offset=0.2,
+                                                text="spanish")
+
+    path, report = auto.find_and_prepare(MOVIE, ["he", "en"])
+
+    assert report["synchronised"] is True
+    assert report["timing_evidence"] == "cross-language consensus"
+    assert abs(srt.read(path)[0].start) < 0.3
+    assert len(pipeline["downloaded"]) == 3
 
 
 def test_a_hash_matched_reference_re_times_the_chosen_subtitle(pipeline):

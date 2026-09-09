@@ -176,6 +176,7 @@ def _fetch(meta, language, parts):
             entry.get("MovieReleaseName") or entry.get("SubFileName") or "",
             link,
             downloads=_number(entry.get("SubDownloadsCnt")),
+            uploader=str(entry.get("UserNickName") or "").strip(),
             # A hash match is the strongest evidence there is and the matcher
             # scores it at 100 - so it is only claimed when the row is also
             # filed under the title we are watching. Unverifiable means not
