@@ -40,6 +40,10 @@ SKIP_DIRS = {"__pycache__", ".git", ".pytest_cache"}
 SKIP_SUFFIX = (".pyc", ".pyo", ".orig", ".rej", ".log", ".tmp")
 
 
+SITE = "https://kodi-katan.pages.dev"
+AGENT = "Kodi/21.3 (Android) Katan/installer"
+
+
 def local_files(addon_id):
     """Every file that belongs in the installed add-on, as (local, relative)."""
     base = os.path.join(ROOT, addon_id)
@@ -51,6 +55,51 @@ def local_files(addon_id):
             full = os.path.join(folder, name)
             relative = os.path.relpath(full, base).replace(os.sep, "/")
             yield full, relative
+
+
+def fetch_release(into):
+    """Unpack what the site publishes, so the box gets the release itself.
+
+    The working tree is ahead of the release more often than not, and a box
+    running something that was never published is a box whose bug reports
+    cannot be reproduced from a tag. This asks the site what the current
+    version is rather than assuming, because the answer is what every other
+    device would install.
+    """
+    import urllib.request
+    import xml.etree.ElementTree as ET
+    import zipfile
+
+    def get(path):
+        request = urllib.request.Request(SITE + path,
+                                         headers={"User-Agent": AGENT})
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.read()
+
+    index = ET.fromstring(get("/addons.xml"))
+    versions = {}
+    for addon_id in ADDONS:
+        version = [n.get("version") for n in index
+                   if n.get("id") == addon_id][0]
+        blob = get("/zips/%s/%s-%s.zip" % (addon_id, addon_id, version))
+        archive = zipfile.ZipFile(io.BytesIO(blob))
+        if archive.testzip() is not None:
+            raise SystemExit("the published %s is corrupt" % addon_id)
+        archive.extractall(into)
+        with io.open(os.path.join(into, "%s-%s.zip" % (addon_id, version)),
+                     "wb") as handle:
+            handle.write(blob)          # kept, to leave in Download as well
+        versions[addon_id] = version
+    return versions
+
+
+def release_files(staging, addon_id):
+    base = os.path.join(staging, addon_id)
+    for folder, dirs, files in os.walk(base):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in sorted(files):
+            full = os.path.join(folder, name)
+            yield full, os.path.relpath(full, base).replace(os.sep, "/")
 
 
 def ensure(ftp, path, made):
@@ -74,12 +123,24 @@ def main():
                         default=os.environ.get("KATAN_FTP_PASSWORD", ""))
     parser.add_argument("--kodi", default=KODI,
                         help="Kodi's .kodi directory on the device")
+    parser.add_argument("--release", action="store_true",
+                        help="install what the site publishes, not this tree")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
+    staging = ""
+    if args.release:
+        import tempfile
+        staging = tempfile.mkdtemp(prefix="katan-release-")
+        versions = fetch_release(staging)
+        print("the published release: %s"
+              % ", ".join("%s %s" % pair for pair in sorted(versions.items())))
+
     plan = []
     for addon_id in ADDONS:
-        for full, relative in local_files(addon_id):
+        found = (release_files(staging, addon_id) if args.release
+                 else local_files(addon_id))
+        for full, relative in found:
             plan.append((full, "%s/addons/%s/%s"
                          % (args.kodi, addon_id, relative)))
     total = sum(os.path.getsize(full) for full, _ in plan)
@@ -107,19 +168,19 @@ def main():
             if sent % 25 == 0 or sent == len(plan):
                 print("  %d/%d" % (sent, len(plan)))
 
-        # A zip in Download as well, so "Install from zip file" stays open.
-        for addon_id in ADDONS:
-            import xml.etree.ElementTree as ET
-            version = ET.parse(os.path.join(ROOT, addon_id,
-                                            "addon.xml")).getroot().get("version")
-            zip_path = os.path.join(ROOT, "repo", "zips", addon_id,
-                                    "%s-%s.zip" % (addon_id, version))
-            if os.path.isfile(zip_path):
-                with io.open(zip_path, "rb") as handle:
-                    ftp.storbinary("STOR /device/Download/%s"
-                                   % os.path.basename(zip_path), handle)
-                print("  also left %s in Download"
-                      % os.path.basename(zip_path))
+        # And take the zips out of Download. The add-on is installed
+        # directly, so a zip left there installs nothing - it only waits
+        # to be found months later and used to install a version that has
+        # long since been superseded, silently downgrading the box.
+        for name in sorted(n.rsplit("/", 1)[-1]
+                           for n in ftp.nlst("/device/Download")):
+            if not name.endswith(".zip"):
+                continue
+            if not (name.startswith("plugin.video.katan")
+                    or name.startswith("repository.katan")):
+                continue                # somebody else's file, leave it alone
+            ftp.delete("/device/Download/" + name)
+            print("  removed %s from Download" % name)
     finally:
         try:
             ftp.quit()
