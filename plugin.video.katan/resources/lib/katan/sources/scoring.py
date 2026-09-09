@@ -38,6 +38,18 @@ WEIGHT_PROPER = 15.0
 # still beats nothing when a foreign release is all there is.
 WEIGHT_WRONG_LANGUAGE = -400.0
 
+# Spanish, Turkish and Italian dramas are watched in this house, in their own
+# language with Hebrew subtitles. For those, the release that names the show's
+# own language is the one somebody actually wants - an English redub of a
+# Turkish serial is a worse answer even though English is on the readable
+# list. Small on purpose: it settles a tie and loses to resolution, to being
+# cached, and to a remembered group.
+#
+# It does nothing at all for an English-language show, because it only applies
+# when the original language is *not* one the viewer reads - which is the whole
+# definition of the case it is for.
+WEIGHT_ORIGINAL_LANGUAGE = 60.0
+
 # A SeaDex recommendation outranks every quality signal except being cached,
 # and deliberately so. For anime the release group is the quality: two 1080p
 # encodes of the same episode can differ by a botched encode or the wrong audio
@@ -73,6 +85,9 @@ class Preferences(object):
         # uses. A release naming none of these and no neutral tag is one they
         # would have to watch in a language they did not ask for.
         self.languages = tuple(settings.get_list("subs.languages") or ("en",))
+        # Filled in by `rank` from the title in hand, because it is a property
+        # of what is being watched rather than of the settings.
+        self.original_language = ""
         self.size_preference = settings.get("sources.size_preference", "balanced")
         self.results = settings.get_int("sources.results")
         self.max_rank = settings.resolution_rank(self.max_resolution)
@@ -162,8 +177,10 @@ def score(source, prefs, runtime_hours=2.0, remembered=None, preferred=None):
     if prefs.prefer_hebrew and "he" in (source.get("languages") or []):
         total += WEIGHT_HEBREW
 
-    if _wrong_language(source, prefs):
+    if _wrong_language(source, prefs, prefs.original_language):
         total += WEIGHT_WRONG_LANGUAGE
+    elif _is_the_original(source, prefs):
+        total += WEIGHT_ORIGINAL_LANGUAGE
 
     total += WEIGHT_SIZE_FIT * _size_fit(source, prefs, runtime_hours)
 
@@ -176,7 +193,7 @@ def score(source, prefs, runtime_hours=2.0, remembered=None, preferred=None):
     return total
 
 
-def _wrong_language(source, prefs):
+def _wrong_language(source, prefs, original=""):
     """True when a release advertises a language and none of them is readable.
 
     Deliberately narrow, because most releases name no language at all and
@@ -188,12 +205,37 @@ def _wrong_language(source, prefs):
     original track too, and an English tag is readable by anyone who got this
     far. Hebrew is always acceptable whatever the language list says, since it
     is the reason this add-on exists.
+
+    **And a show's own language is never the wrong language.** Spanish,
+    Turkish and Italian dramas are watched here, in Spanish, Turkish and
+    Italian, with Hebrew subtitles - and without this the rule read every
+    honest release of them as unwatchable and ranked an English dub above the
+    original. Nothing was ever removed, because the language rule only sorts
+    and `rejection_reason` is what filters; but "TURKISH" sinking below an
+    English redub is the wrong answer for the person actually watching.
+    `original` is TMDB's `original_language` for the title in hand.
     """
     languages = source.get("languages") or []
     if not languages:
         return False
     acceptable = set(prefs.languages) | set(release.NEUTRAL_LANGUAGES) | {"he"}
+    if original:
+        acceptable.add(original)
     return not (set(languages) & acceptable)
+
+
+def _is_the_original(source, prefs):
+    """A foreign-language show, in its own language, as the viewer wants it.
+
+    Only when the show's language is one the viewer does *not* read: for an
+    English series every release is "the original" and saying so would be a
+    bonus applied to everything, which is the same as no bonus and only
+    slower.
+    """
+    original = prefs.original_language
+    if not original or original in prefs.languages:
+        return False
+    return original in (source.get("languages") or [])
 
 
 def _size_fit(source, prefs, runtime_hours):
@@ -258,6 +300,10 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
     """Filter, score and sort. Returns (kept, rejection counts)."""
     prefs = Preferences()
     meta = meta or {}
+    # A Turkish drama is in Turkish, and that is not a foreign-language
+    # release - it is the only honest one there is.
+    item = meta.get("item") or meta
+    prefs.original_language = (item.get("original_language") or "").strip()
     remembered = remembered_group(meta)
     preferred = preferred_hashes(meta)
 
