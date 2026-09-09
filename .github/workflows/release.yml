@@ -122,7 +122,33 @@ jobs:
                   continue
               if seen == want:
                   print("kodi-katan.pages.dev is serving %s" % want)
-                  sys.exit(0)
+                  break
               print("still %s, waiting for %s" % (seen, want))
-          sys.exit("the site never served %s (last saw %s)" % (want, seen))
+          else:
+              sys.exit("the site never served %s (last saw %s)"
+                       % (want, seen))
+
+          # The index saying 0.0.3 and the zip beside it being 0.0.2 is a
+          # release nobody could install and every check above would pass.
+          # An upload is many files and any one of them can be the stale one,
+          # so compare the bytes rather than the name.
+          import hashlib
+
+          name = "plugin.video.katan-%s.zip" % want
+          local = os.path.join("repo", "zips", "plugin.video.katan", name)
+          mine = hashlib.md5(open(local, "rb").read()).hexdigest()
+
+          request = urllib.request.Request(
+              "https://kodi-katan.pages.dev/zips/plugin.video.katan/" + name,
+              headers={"User-Agent": "katan-release"})
+          published = urllib.request.urlopen(request, timeout=60).read()
+          theirs = hashlib.md5(published).hexdigest()
+
+          if not published.startswith(b"PK"):
+              sys.exit("the published %s is not a zip" % name)
+          if mine != theirs:
+              sys.exit("%s differs: built %s, published %s"
+                       % (name, mine, theirs))
+          print("%s is byte for byte what this release built (%s, %d KB)"
+                % (name, mine, len(published) / 1024))
           PY
