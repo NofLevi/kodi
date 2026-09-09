@@ -1612,3 +1612,7 @@ msgstr ""
 msgctxt "#32521"
 msgid "Audio tracks: %s"
 msgstr ""
+
+msgctxt "#30320"
+msgid "Compare subtitles before choosing one"
+msgstr ""

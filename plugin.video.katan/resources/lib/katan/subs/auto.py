@@ -201,10 +201,11 @@ def find_and_prepare(meta, languages, player=None):
                  % (wanted, matcher.explain(winner),
                     (winner.get("release") or "")[:60]))
     if winner and winner.get("accepted"):
-        cues = download_candidate(winner, expect_language=wanted)
+        winner, cues, report = _best_supported(
+            winner, candidates, wanted, languages, winners, report)
         if cues:
             cues, report = verify_and_sync(cues, winners, languages, report)
-            report["reason"] = winner.get("reason", "")
+            report["reason"] = report.get("reason") or winner.get("reason", "")
             return store(meta, wanted, cues), report
 
     path, report = translate_fallback(meta, winners, languages, report, player)
@@ -296,6 +297,47 @@ def download_candidate(candidate, expect_language=None):
 # --------------------------------------------------------------------------
 # verification and re-timing
 # --------------------------------------------------------------------------
+
+
+def _best_supported(winner, candidates, wanted, languages, winners, report):
+    """The chosen subtitle, checked against its rivals when nothing else can.
+
+    A hash match settles this and is available 9% of the time. The other 91%
+    is decided by how much a filename resembles the release, and that predicts
+    timing poorly - measured, a score of 77 that was 176 seconds out and a
+    score of 62 that was perfect. Two subtitles from different uploaders that
+    agree on timing are almost certainly both right; the one that disagrees
+    with both is wrong. That is knowable with no hash and no video.
+
+    Falls back to the winner in every failure path, because this is a
+    tie-breaker and never a gate.
+    """
+    from . import consensus
+
+    has_reference = bool(reference_cues(winners, languages))
+    if not consensus.wanted(int(winner.get("score") or 0), has_reference):
+        return winner, download_candidate(winner, expect_language=wanted), report
+
+    picks = consensus.distinct(candidates, wanted, consensus.budget())
+    if len(picks) < 2:
+        return winner, download_candidate(winner, expect_language=wanted), report
+
+    fetched = []
+    for candidate in picks:
+        cues = download_candidate(candidate, expect_language=wanted)
+        if cues:
+            fetched.append((candidate, cues))
+    if not fetched:
+        return winner, [], report
+
+    chosen, cues, outcome = consensus.choose(fetched)
+    report["consensus"] = outcome.get("reason", "")
+    report["supported"] = outcome.get("supported", 0)
+    if chosen is not winner:
+        kodi.log("consensus preferred %s over the top-scored %s: %s"
+                 % (chosen.get("provider"), winner.get("provider"),
+                    outcome.get("reason")))
+    return chosen, cues, report
 
 
 def verify_and_sync(cues, winners, languages, report):
