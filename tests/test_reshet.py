@@ -219,3 +219,81 @@ def test_the_catalogue_routes_reshet_through_the_extractor(api):
     for entry in entries:
         assert entry["extra"]["module"] == "reshet"
         assert str(entry["extra"]["ref"]).isdigit()
+
+
+# --------------------------------------------------------------------------
+# the adverts, which are not in the stream anybody actually plays
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("external,expected", [
+    # What the OTT playback source really carries: entry, then flavour.
+    ("1_1p23hf83_1_fop805w6", "1_1p23hf83"),
+    # Several flavours of one entry, comma separated.
+    ("1_1p23hf83_1_fop805w6,1_1p23hf83_1_s6xebfi3", "1_1p23hf83"),
+    ("0_abc12345_1_zzz", "0_abc12345"),
+    # Anything else is refused rather than guessed: a wrong entry id does not
+    # fail, it plays somebody else's programme.
+    ("", ""),
+    (None, ""),
+    ("nonsense", ""),
+    ("_", ""),
+    ("x_1p23hf83_1_fop805w6", ""),
+])
+def test_the_kaltura_entry_is_read_off_the_playback_source(external, expected):
+    from katan.vod import kaltura
+
+    assert kaltura.entry_id(external) == expected
+
+
+def test_reshet_asks_plain_kaltura_rather_than_the_ad_inserting_endpoint(
+        monkeypatch):
+    """The OTT endpoint answers with server-side ad insertion.
+
+    hub13.g-mana.live splices the adverts into the same HLS timeline as the
+    programme - measured on one episode, fifteen chapters, opening on an
+    advert. There is no period to skip. The entry underneath is on plain
+    Kaltura with nothing inserted, and its id is already on the source we
+    have, so this costs one request and no change to how anything is listed.
+    """
+    from katan.vod import kaltura
+    from katan.vod.extractors import reshet
+
+    monkeypatch.setattr(reshet, "session", lambda refresh=False: "ks")
+    monkeypatch.setattr(reshet, "_call", lambda *a, **k: {"sources": [{
+        "url": "https://api.frp1.ott.kaltura.com/.../a.m3u8",
+        "externalId": "1_1p23hf83_1_fop805w6",
+        "format": "applehttp",
+    }]})
+
+    asked = {}
+
+    def clean(entry, partner, referer, prefer_dash=False):
+        asked.update(entry=entry, partner=partner)
+        return "https://cdnapisec.kaltura.com/p/2748741/.../a.m3u8", True
+
+    monkeypatch.setattr(kaltura, "playback_url", clean)
+
+    url, adaptive = reshet.stream("2507482")
+    assert asked["entry"] == "1_1p23hf83"
+    # 5031 is the OTT account and resolves nothing on cdnapisec.
+    assert asked["partner"] == 2748741
+    assert "cdnapisec" in url and adaptive
+
+
+def test_reshet_still_plays_when_the_clean_route_cannot_answer(monkeypatch):
+    """A viewer with adverts is better off than one with a black screen."""
+    from katan.vod import kaltura
+    from katan.vod.extractors import reshet
+
+    monkeypatch.setattr(reshet, "session", lambda refresh=False: "ks")
+    monkeypatch.setattr(reshet, "_call", lambda *a, **k: {"sources": [{
+        "url": "https://api.frp1.ott.kaltura.com/.../a.m3u8",
+        "externalId": "1_1p23hf83_1_fop805w6",
+        "format": "applehttp",
+    }]})
+    monkeypatch.setattr(kaltura, "playback_url",
+                        lambda *a, **k: ("", False))
+
+    url, adaptive = reshet.stream("2507482")
+    assert url.startswith("https://api.frp1.ott.kaltura.com/"), url
+    assert adaptive
