@@ -231,6 +231,20 @@ def _badge(source, outlook=None):
 
     if source.get("hdr"):
         bits.append("/".join(flag.upper() for flag in source["hdr"]))
+
+    # DUB, SUB or DUAL, which anime publishes as two separate releases of the
+    # same episode and the release name is the only place that says which.
+    # `release.parse` has read this into a `dub` field all along and
+    # `model.label` has rendered it all along - and `model.label` has no
+    # callers, so this has never once been on a screen. Two rows of the same
+    # resolution, size and group are indistinguishable without it, so choosing
+    # the dub meant starting one and backing out.
+    #
+    # Last, because it is the rarest: it is blank for everything that is not
+    # anime, deliberately, since "MULTI.SUBS" on a live-action film is a claim
+    # about its subtitles and says nothing about the audio.
+    if source.get("dub"):
+        bits.append(source["dub"].upper())
     return "   ".join(bits)
 
 

@@ -93,6 +93,7 @@ class KatanPlayer(xbmc.Player):
 
         self._scrobble("start", 0.0)
         self._apply_subtitles()
+        self._announce_audio_tracks()
         self._send_upnext()
 
     def onPlayBackPaused(self):
@@ -146,6 +147,33 @@ class KatanPlayer(xbmc.Player):
             pass
         except Exception:
             kodi.log_exception("automatic subtitles failed")
+
+    def _announce_audio_tracks(self):
+        """Say once when a file offers more than one audio language.
+
+        Nothing here chooses a track, and that is deliberate. Kodi already has
+        a perfectly good switcher in its own on-screen display; what it cannot
+        do is tell somebody there is anything to switch. A dual-audio anime
+        release plays whatever Kodi's default resolves to - often Japanese,
+        sometimes English - and a viewer with a remote has no reason to go
+        looking through an OSD menu for an alternative they do not know exists.
+
+        Only when there are two or more *languages*: a file with a stereo and
+        a 5.1 English track has two streams and one choice, and announcing that
+        would be noise on every film.
+        """
+        try:
+            from .subs import embedded
+            names = embedded.audio_languages()
+        except ImportError:
+            return
+        except Exception:
+            kodi.log_exception("could not read the audio tracks")
+            return
+        if len(names) < 2:
+            return
+        kodi.log("audio tracks: %s" % ", ".join(names))
+        kodi.notify(kodi.localize(32521, ", ".join(names)))
 
     def _send_upnext(self):
         """Tell the Up Next add-on what plays after this episode."""

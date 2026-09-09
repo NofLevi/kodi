@@ -210,3 +210,36 @@ def test_an_empty_list_still_says_something():
     window.onInit()
     assert window.getProperty("katan.sources.status"), \
         "an empty picker must explain itself, not just be blank"
+
+
+# --------------------------------------------------------------------------
+# DUB, SUB and DUAL, which were parsed and never once drawn
+# --------------------------------------------------------------------------
+
+def test_the_dub_reaches_the_badge():
+    """Anime publishes the same episode twice and the name is the only clue.
+
+    `release.parse` has read this into a `dub` field all along and
+    `model.label` has rendered it all along - but `model.label` has no callers,
+    and the picker builds its own label, so it had never been on a screen. Two
+    rows of the same resolution, size and group are indistinguishable without
+    it, so choosing the dub meant starting one and backing out.
+    """
+    from katan.ui import sources_window
+
+    for value, expected in (("dub", "DUB"), ("sub", "SUB"), ("dual", "DUAL")):
+        badge = sources_window._badge({"quality": "1080p", "dub": value})
+        assert expected in badge, "%r is not in %r" % (expected, badge)
+
+
+def test_no_dub_claim_adds_nothing():
+    """It is blank for everything that is not anime, and that is deliberate.
+
+    "MULTI.SUBS" on a live-action film is a claim about its subtitles and says
+    nothing at all about the audio, so an empty field must stay invisible
+    rather than becoming a third state on every row.
+    """
+    from katan.ui import sources_window
+
+    badge = sources_window._badge({"quality": "1080p", "dub": ""})
+    assert badge == "1080P", badge

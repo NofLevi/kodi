@@ -1608,3 +1608,7 @@ msgstr ""
 msgctxt "#30319"
 msgid "BSPlayer (matches the file exactly)"
 msgstr ""
+
+msgctxt "#32521"
+msgid "Audio tracks: %s"
+msgstr ""
