@@ -55,15 +55,34 @@ jobs:
 
       # A tag pointing at a commit whose addon.xml says something else would
       # publish one version under another version's name.
-      - name: the tag is the version
+      # One release is one number. The tag, both manifests, the changelog and
+      # the README all have to say it, or something downstream reads a version
+      # that was never published.
+      - name: the tag is the version, everywhere
         run: |
           python - <<'PY'
-          import os, sys, xml.etree.ElementTree as ET
+          import os, re, sys, xml.etree.ElementTree as ET
+
           tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
-          got = ET.parse("plugin.video.katan/addon.xml").getroot().get("version")
-          if tag != got:
-              sys.exit("tag %s but addon.xml says %s" % (tag, got))
-          print("releasing %s" % got)
+          wrong = []
+          for addon in ("plugin.video.katan", "repository.katan"):
+              got = ET.parse(addon + "/addon.xml").getroot().get("version")
+              if got != tag:
+                  wrong.append("%s/addon.xml says %s" % (addon, got))
+
+          news = ET.parse("plugin.video.katan/addon.xml").find(".//news")
+          first = (news.text or "").strip().splitlines()[0].strip() if news is not None else ""
+          if first != "v" + tag:
+              wrong.append("the changelog opens with %r" % first)
+
+          readme = open("README.md", encoding="utf-8").read()
+          linked = set(re.findall(r"repository\.katan-(\d+\.\d+\.\d+)\.zip", readme))
+          if linked - {tag}:
+              wrong.append("the README links to %s" % sorted(linked))
+
+          if wrong:
+              sys.exit("releasing v%s but: %s" % (tag, "; ".join(wrong)))
+          print("releasing %s, and everything agrees" % tag)
           PY
 
       # The list of releases somebody actually reads, with the zips attached as

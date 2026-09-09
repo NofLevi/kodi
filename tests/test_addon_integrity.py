@@ -763,3 +763,62 @@ def test_each_connect_button_names_a_service_that_exists():
         if found and found.group(1) not in known:
             unknown.append((node.get("id"), found.group(1)))
     assert not unknown, unknown
+
+
+# --------------------------------------------------------------------------
+# one release, one number
+# --------------------------------------------------------------------------
+
+def _version(addon_id):
+    return ET.parse(os.path.join(ROOT, addon_id,
+                                 "addon.xml")).getroot().get("version")
+
+
+def test_every_version_in_the_project_is_the_same_one():
+    """The number the viewer reads has to be the number that was published.
+
+    It appears in six places - both addon.xml files, the news field, the
+    README's download links, the repository index and the line at the bottom
+    of the home screen - and they were kept in step by hand. The repository
+    add-on was even bumped *independently*, which matched only because both
+    started at 0.0.1 and every release since had been a patch: one --minor
+    and the add-on would read 0.1.0 against the repository's 0.0.4, and after
+    that they could never agree again.
+    """
+    addon = _version("plugin.video.katan")
+    assert re.match(r"^\d+\.\d+\.\d+$", addon or ""), \
+        "the add-on version %r is not a version" % addon
+
+    assert _version("repository.katan") == addon, \
+        "repository.katan says %s, the add-on says %s" % (
+            _version("repository.katan"), addon)
+
+    news = ET.parse(os.path.join(ADDON_DIR, "addon.xml")).find(".//news")
+    assert news is not None and news.text, "no news field to show in Kodi"
+    assert news.text.strip().splitlines()[0].strip() == "v%s" % addon, \
+        "the changelog opens with %r, not v%s" % (
+            news.text.strip().splitlines()[0].strip(), addon)
+
+    readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
+    linked = set(re.findall(r"repository\.katan-(\d+\.\d+\.\d+)\.zip", readme))
+    assert linked <= {addon}, \
+        "the README links to %s, which is not %s" % (sorted(linked), addon)
+
+
+def test_the_screen_shows_the_version_kodi_installed():
+    """Not a literal anybody has to remember to change.
+
+    The label at the bottom of the home screen is the only version most
+    people will ever read, so it has to come from the installed add-on rather
+    than from a string in the source that a release could leave behind.
+    """
+    source = open(os.path.join(PACKAGE_ROOT, "ui", "home_window.py"),
+                  encoding="utf-8").read()
+    line = next((l for l in source.splitlines() if '"katan.version"' in l), "")
+    assert line, "nothing sets the katan.version property any more"
+    assert "addon_version()" in line, \
+        "the version label is not read from Kodi: %s" % line.strip()
+
+    skin = open(os.path.join(SKIN_DIR, "katan-home.xml"), encoding="utf-8").read()
+    assert "Window.Property(katan.version)" in skin, \
+        "the home skin no longer draws the version"

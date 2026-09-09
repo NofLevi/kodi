@@ -170,11 +170,16 @@ def main():
         return 1
 
     set_version(addon_id, new, news)
-    # The repository add-on carries its own version; bump it too so a change
-    # to its URLs actually reaches devices that already have it.
-    repo_version = bump(current_version(build.ADDONS[1]), "patch")
-    set_version(build.ADDONS[1], repo_version)
-    update_readme(repo_version)
+    # **The same version, not its own.** The repository add-on used to be
+    # patch-bumped independently, which matched only by luck - both started at
+    # 0.0.1 and every release since had been a patch. One `--minor` and the
+    # add-on would read 0.1.0 while the repository read 0.0.4, and after that
+    # they could never agree again. A release is one number: the zip, the
+    # index, the tag, the GitHub release and the line at the bottom of the
+    # home screen all say it, and `test_addon_integrity` fails if any of them
+    # disagrees.
+    set_version(build.ADDONS[1], new)
+    update_readme(new)
 
     if build.main() != 0:
         return 1

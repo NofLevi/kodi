@@ -1,0 +1,67 @@
+name: upgrade
+
+# Its own pipeline, because it asks its own question: can a box that has been
+# sitting on an old release get to the current one?
+#
+# `tests/data/baseline-plugin.video.katan.zip` is the real 0.0.1 tree, taken
+# with `git archive` from the commit that released it and never regenerated.
+# It is unpacked as an installed add-on, with keys and a subtitle in the
+# profile beside it, and then the flow a viewer runs - check, download,
+# apply - is run against whatever is live. Freezing the baseline is the
+# point: the distance between it and the current release grows with every
+# change, so this asks a harder question every month instead of the same easy
+# one.
+#
+# **On both operating systems**, which is not decoration. Replacing an add-on
+# is renames and open file handles, and that is precisely where Windows and
+# Android differ: Windows will not rename a directory something still holds,
+# and it compares paths without case. The one bug that broke the first real
+# update anybody attempted - `addon_path()` coming back with a trailing
+# separator, so the backup was written *inside* the folder being replaced -
+# was a Windows error 87 that a Linux run would never have produced. Linux
+# stands in for Android here, same as in the end-to-end matrix.
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+  schedule:
+    # Daily. What this checks is mostly not our code - it is whether the
+    # published release is still there and still installable.
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  upgrade:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Knowing it is broken on Windows *and fine on Linux* is most of the
+      # diagnosis, so neither leg may cancel the other.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: upgrade on windows
+          - os: ubuntu-22.04
+            label: upgrade on linux (stands in for Android)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.8, because that is what Kodi 21 ships on every one of these boxes.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: install the baseline, then upgrade to what is published
+        env:
+          # A Windows console is cp1252 and half this catalogue is Hebrew.
+          PYTHONUTF8: "1"
+        run: python tools/e2e.py --only upgrade --json upgrade.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: upgrade-${{ runner.os }}
+          path: upgrade.json
