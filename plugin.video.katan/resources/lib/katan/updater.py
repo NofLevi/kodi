@@ -29,11 +29,31 @@ ADDON_ID = "plugin.video.katan"
 # move without waiting for a release from the host that moved.
 DEFAULT_INDEX = "https://kodi-katan.pages.dev/addons.xml"
 
+# The test channel: whatever `development` was built into last, rather than
+# the last release. A second Pages project rather than a folder or a branch
+# alias on the first, for two reasons - a direct upload replaces the whole
+# site, so the two would overwrite each other, and Pages puts branch aliases
+# behind Cloudflare Access, which answers a 302 to a login page and is
+# therefore invisible to Kodi.
+TEST_INDEX = "https://kodi-katan-dev.pages.dev/addons.xml"
+
 VERSION = re.compile(r"^(\d+)(?:\.(\d+))?(?:\.(\d+))?")
 
 
+def on_test_channel():
+    return (settings.get("update.channel") or "stable").strip() == "test"
+
+
 def index_url():
-    return (settings.get("update.url") or DEFAULT_INDEX).strip()
+    """An explicit url wins, then the channel, then the released one.
+
+    `update.url` stays the final override so the host can move without
+    waiting for a release from the host that moved.
+    """
+    explicit = (settings.get("update.url") or "").strip()
+    if explicit:
+        return explicit
+    return TEST_INDEX if on_test_channel() else DEFAULT_INDEX
 
 
 def parse_version(text):
@@ -72,7 +92,16 @@ def check():
         kodi.log("the update index does not list %s" % ADDON_ID)
         return None
 
-    if parse_version(latest) <= parse_version(installed_version()):
+    installed = installed_version()
+    if on_test_channel():
+        # A test build is "what the branch is now", not "an upgrade". Its
+        # version sorts as a pre-release - 0.0.5~dev.12 - so two of them in a
+        # row compare equal under parse_version, and going back to stable
+        # means installing something numerically *older*. Neither would ever
+        # be offered by a greater-than. Any difference is the answer here.
+        if latest == installed:
+            return None
+    elif parse_version(latest) <= parse_version(installed):
         return None
 
     base = url.rsplit("/", 1)[0]
