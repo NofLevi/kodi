@@ -112,6 +112,13 @@ jobs:
         with:
           python-version: "3.8"
 
+      # `repo/` is not in the repository - Cloudflare builds it - and one
+      # offline check opens the built zip to prove no member name breaks on
+      # Android. Without this it fails for want of a file rather than for a
+      # defect, which is the red build nobody can fix.
+      - name: build the repository
+        run: python tools/build.py
+
       - name: end to end
         run: python tools/e2e.py --json e2e.json
 
