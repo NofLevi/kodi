@@ -8,7 +8,6 @@ from .. import kodi, settings
 
 TMDB_SIGNUP = "https://www.themoviedb.org/settings/api"
 GEMINI_SIGNUP = "https://aistudio.google.com/apikey"
-TRAKT_APPS = "https://trakt.tv/oauth/applications"
 OPENSUBTITLES_KEYS = "https://www.opensubtitles.com/en/consumers"
 
 
@@ -167,17 +166,12 @@ def step_trakt():
     application registered before anybody can sign in at all.
     """
     from ..meta import trakt
-    if not trakt.configured():
-        kodi.ok_dialog(kodi.localize(32323, TRAKT_APPS), kodi.localize(32312))
-        client_id = kodi.keyboard(settings.get("trakt.client_id"), "Client ID")
-        if not client_id:
-            return
-        secret = kodi.keyboard(settings.get("trakt.client_secret"), "Client Secret")
-        if secret is None:
-            return
-        settings.set_many({"trakt.client_id": client_id.strip(),
-                           "trakt.client_secret": secret.strip()})
 
+    # The chooser first, always. This used to demand a client id and secret
+    # before offering anything, so pressing Trakt opened a keyboard for two
+    # long strings - the exact barrier this screen exists to remove, and the
+    # reason nobody ever reached the link. Asking for an application is now
+    # part of whichever way in needs one, which `trakt.authorize` decides.
     if connect(trakt, kodi.localize(32312)):
         kodi.notify(kodi.localize(32325, settings.get("trakt.user")))
     else:

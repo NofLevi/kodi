@@ -29,6 +29,8 @@ _last_post = [0.0]
 # remove. Same trade as the TMDB key: an application credential in a public
 # repository is worth nothing on its own, since every token still needs a
 # viewer to approve it on Trakt's own site.
+APPLICATIONS = "https://trakt.tv/oauth/applications"
+
 BUNDLED_CLIENT_ID = ""
 BUNDLED_CLIENT_SECRET = ""
 
@@ -207,8 +209,14 @@ def authorize(method=None):
     """Run the device flow. True once the viewer has finished on their phone."""
     from ..ui import signin
 
-    if method == "key" and not _ask_for_application():
-        return False
+    # An application is needed either way - Trakt mints no credentials of its
+    # own the way Real-Debrid does - so this is asked when the viewer chose to
+    # supply one, and also when they chose the link and there is none to use.
+    # Without it `device_code` answers 401 invalid_client and the screen would
+    # fail for a reason it never gave.
+    if method == "key" or not configured():
+        if not _ask_for_application():
+            return False
 
     device = device_code()
     if not device:
@@ -239,15 +247,21 @@ def _ask_for_application():
     that somebody who has an application can say so before watching a sign-in
     fail for a reason the screen never gave.
     """
+    from .. import kodi
     from ..ui import signin
 
+    # Said once, before the two keyboards, because "client id" and "client
+    # secret" mean nothing to somebody who has not registered an application
+    # and does not know they were supposed to.
+    if not configured():
+        kodi.ok_dialog(kodi.localize(32323, APPLICATIONS), kodi.localize(32312))
+
     entered = signin.ask_for_key(
-        "Trakt client id", client_id(),
-        help_url="https://trakt.tv/oauth/applications")
+        "Trakt client id", client_id(), help_url=APPLICATIONS)
     if not entered:
         return False
     secret = signin.ask_for_key("Trakt client secret", client_secret(),
-                                help_url="https://trakt.tv/oauth/applications")
+                                help_url=APPLICATIONS)
     if not secret:
         return False
     settings.set("trakt.client_id", entered.strip())
