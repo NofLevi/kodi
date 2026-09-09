@@ -159,3 +159,114 @@ def test_it_is_asked_by_the_pipeline_and_ships_on(settings_module):
     assert "opensubtitles_rest" in names
     # Wizdom first: Hebrew-only and fast. This one before the keyed service.
     assert names.index("wizdom") < names.index("opensubtitles_rest")
+
+
+# --------------------------------------------------------------------------
+# BSPlayer, which answers only to a file hash
+# --------------------------------------------------------------------------
+
+BSPLAYER_LOGIN = (
+    '<?xml version="1.0"?><SOAP-ENV:Envelope><SOAP-ENV:Body>'
+    '<ns1:logInResponse><return xsi:type="ns1:SubtitlesResult">'
+    '<result xsi:type="xsd:string">200</result>'
+    '<status xsi:type="xsd:string">OK</status>'
+    '<data xsi:type="xsd:string">TOKEN123</data>'
+    "</return></ns1:logInResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>")
+
+BSPLAYER_SEARCH = (
+    '<?xml version="1.0"?><SOAP-ENV:Envelope><SOAP-ENV:Body>'
+    '<ns1:searchSubtitlesResponse><return>'
+    '<status xsi:type="xsd:string">OK</status><data>'
+    '<item><subID xsi:type="xsd:string">1</subID>'
+    '<subLang xsi:type="xsd:string">heb</subLang>'
+    '<subName xsi:type="xsd:string">Game.of.Thrones.S04E01.srt</subName>'
+    '<subDownloadsCnt xsi:type="xsd:string">910</subDownloadsCnt>'
+    '<subDownloadLink xsi:type="xsd:string">https://dl/1.gz</subDownloadLink>'
+    "</item>"
+    '<item><subLang xsi:type="xsd:string">eng</subLang>'
+    '<subName xsi:type="xsd:string">english.srt</subName>'
+    '<subDownloadsCnt xsi:type="xsd:string">x</subDownloadsCnt>'
+    '<subDownloadLink xsi:type="xsd:string">https://dl/2.gz</subDownloadLink>'
+    "</item>"
+    '<item><subLang xsi:type="xsd:string">heb</subLang>'
+    '<subName xsi:type="xsd:string">no link</subName></item>'
+    "</data></return></ns1:searchSubtitlesResponse>"
+    "</SOAP-ENV:Body></SOAP-ENV:Envelope>")
+
+
+class _Reply(object):
+    status_code = 200
+
+    def __init__(self, text):
+        self.text = text
+
+
+@pytest.fixture
+def bsplayer():
+    from katan.subs.providers import bsplayer as module
+    return module
+
+
+def test_no_hash_means_no_request_at_all(monkeypatch, bsplayer):
+    """An empty hash is an HTTP 500 here, not an empty result.
+
+    So there is nothing to learn by asking, and asking costs a round trip on
+    every playback where the hash could not be computed.
+    """
+    called = []
+    monkeypatch.setattr(bsplayer.http, "post",
+                        lambda *a, **k: called.append(a) or _Reply(""))
+    assert bsplayer.search({}, None, ["he"], "", 0) == []
+    assert bsplayer.search({}, None, ["he"], "abc", 0) == []
+    assert bsplayer.search({}, None, ["he"], "", 123) == []
+    assert not called, "it asked anyway"
+
+
+def test_a_hash_search_becomes_candidates(monkeypatch, bsplayer):
+    replies = [_Reply(BSPLAYER_LOGIN), _Reply(BSPLAYER_SEARCH)]
+    sent = []
+
+    def post(url, **kwargs):
+        sent.append(kwargs.get("data", b"").decode("utf-8"))
+        return replies.pop(0)
+
+    monkeypatch.setattr(bsplayer.http, "post", post)
+    found = bsplayer.search({}, None, ["he", "en"], "46e33be00464c12e",
+                            1929150976)
+
+    assert "46e33be00464c12e" in sent[1]
+    assert "1929150976" in sent[1]
+    assert "heb,eng" in sent[1]
+    assert "TOKEN123" in sent[1], "the session token was not carried over"
+
+    assert len(found) == 2, "the item with no download link must be dropped"
+    assert found[0]["language"] == "he"
+    assert found[0]["downloads"] == 910
+    # Everything here matched the file itself, which is the whole point.
+    assert all(c["hash_match"] for c in found)
+    assert found[1]["downloads"] == 0, "an unparseable count must not raise"
+
+
+def test_the_response_tags_carry_attributes(bsplayer):
+    """`<data>` matches nothing here; `<data[^>]*>` does.
+
+    Every tag comes back as `<data xsi:type="xsd:string">`, and a pattern
+    written without that reads every field as empty - which looks exactly like
+    the service returning nothing.
+    """
+    assert bsplayer._field("data", BSPLAYER_LOGIN) == "TOKEN123"
+    assert bsplayer._field("status", BSPLAYER_LOGIN) == "OK"
+
+
+def test_no_session_is_not_a_crash(monkeypatch, bsplayer):
+    monkeypatch.setattr(bsplayer.http, "post", lambda *a, **k: _Reply(""))
+    assert bsplayer.search({}, None, ["he"], "abc", 123) == []
+
+
+def test_it_is_registered_and_gets_the_size(settings_module):
+    """The size is the half that is easy to drop on the floor."""
+    from katan.subs import auto
+
+    assert settings_module.get_bool("subs.provider.bsplayer")
+    assert "bsplayer" in auto._modules()
+    assert "bsplayer" in [name for name, _m in auto._providers()]

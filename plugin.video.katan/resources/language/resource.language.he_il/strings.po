@@ -1564,3 +1564,7 @@ msgstr ""
 msgctxt "#30318"
 msgid "OpenSubtitles (ללא צורך בחשבון)"
 msgstr ""
+
+msgctxt "#30319"
+msgid "BSPlayer (התאמה מדויקת לקובץ)"
+msgstr ""

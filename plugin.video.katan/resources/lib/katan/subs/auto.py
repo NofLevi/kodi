@@ -96,10 +96,11 @@ _MODULES = {}
 
 def _modules():
     if not _MODULES:
-        from .providers import (ktuvit, opensubtitles, opensubtitles_rest,
-                                subsource, wizdom)
+        from .providers import (bsplayer, ktuvit, opensubtitles,
+                                opensubtitles_rest, subsource, wizdom)
         _MODULES.update({"wizdom": wizdom, "opensubtitles": opensubtitles,
                          "opensubtitles_rest": opensubtitles_rest,
+                         "bsplayer": bsplayer,
                          "subsource": subsource, "ktuvit": ktuvit})
     return _MODULES
 
@@ -118,8 +119,8 @@ def _providers():
     """
     modules = _modules()
     enabled = settings.enabled_subtitle_providers()
-    order = ["wizdom", "opensubtitles_rest", "opensubtitles", "ktuvit",
-             "subsource"]
+    order = ["wizdom", "bsplayer", "opensubtitles_rest", "opensubtitles",
+             "ktuvit", "subsource"]
     return [(name, modules[name]) for name in order
             if name in enabled and name in modules]
 
@@ -135,6 +136,12 @@ def search_candidates(meta, languages, video_hash=""):
         def call():
             if name == "opensubtitles":
                 return module.search(meta, target, languages, video_hash)
+            if name == "bsplayer":
+                # Hash *and* size: the service answers HTTP 500 to an empty
+                # hash rather than returning nothing, so the provider checks
+                # both and asks nothing when it has neither.
+                return module.search(meta, target, languages, video_hash,
+                                     meta.get("stream_size") or 0)
             return module.search(meta, target, languages)
         return call
 
@@ -222,7 +229,11 @@ def video_hash_for(meta):
     if not url:
         return ""
     started = time.time()
-    value, _size = hasher.hash_stream(url)
+    value, size = hasher.hash_stream(url)
+    # Kept, not discarded. BSPlayer matches on the pair and this is the only
+    # place the size is known - computing it again would mean a second HEAD
+    # against the stream for a number already in hand.
+    meta["stream_size"] = size
     if value:
         kodi.log("file hash %s computed in %d ms"
                  % (value, (time.time() - started) * 1000))
