@@ -30,6 +30,13 @@ WEIGHT_HEBREW = 90.0
 WEIGHT_REMEMBERED_GROUP = 140.0
 WEIGHT_SIZE_FIT = 60.0
 WEIGHT_PROPER = 15.0
+# Not a small nudge. A release that says it is Italian, for somebody who reads
+# Hebrew and English, is not a slightly worse option - it is one they cannot
+# watch, and autoplay picked exactly that: an Italian dub of a Korean series,
+# because "ITA.KOR" parsed to no languages at all and nothing could rank it
+# down. Large enough to lose to any ordinary release, small enough that it
+# still beats nothing when a foreign release is all there is.
+WEIGHT_WRONG_LANGUAGE = -400.0
 
 # A SeaDex recommendation outranks every quality signal except being cached,
 # and deliberately so. For anime the release group is the quality: two 1080p
@@ -62,6 +69,10 @@ class Preferences(object):
         self.allow_cam = settings.get_bool("sources.allow_cam", False)
         self.cached_only = settings.get_bool("sources.cached_only")
         self.prefer_hebrew = settings.get_bool("sources.prefer_hebrew")
+        # What the viewer reads, which is the same list the subtitle search
+        # uses. A release naming none of these and no neutral tag is one they
+        # would have to watch in a language they did not ask for.
+        self.languages = tuple(settings.get_list("subs.languages") or ("en",))
         self.size_preference = settings.get("sources.size_preference", "balanced")
         self.results = settings.get_int("sources.results")
         self.max_rank = settings.resolution_rank(self.max_resolution)
@@ -151,6 +162,9 @@ def score(source, prefs, runtime_hours=2.0, remembered=None, preferred=None):
     if prefs.prefer_hebrew and "he" in (source.get("languages") or []):
         total += WEIGHT_HEBREW
 
+    if _wrong_language(source, prefs):
+        total += WEIGHT_WRONG_LANGUAGE
+
     total += WEIGHT_SIZE_FIT * _size_fit(source, prefs, runtime_hours)
 
     if remembered and source.get("group") and source["group"] == remembered.get("group"):
@@ -160,6 +174,26 @@ def score(source, prefs, runtime_hours=2.0, remembered=None, preferred=None):
         total += WEIGHT_PROPER
 
     return total
+
+
+def _wrong_language(source, prefs):
+    """True when a release advertises a language and none of them is readable.
+
+    Deliberately narrow, because most releases name no language at all and
+    those must not be touched: an empty list means "nothing was claimed", not
+    "English". So this fires only when the release *says* what it is and the
+    answer is no use - "ITA.KOR" for somebody reading Hebrew and English.
+
+    "multi" and "en" are neutral: a multi-audio release usually carries the
+    original track too, and an English tag is readable by anyone who got this
+    far. Hebrew is always acceptable whatever the language list says, since it
+    is the reason this add-on exists.
+    """
+    languages = source.get("languages") or []
+    if not languages:
+        return False
+    acceptable = set(prefs.languages) | set(release.NEUTRAL_LANGUAGES) | {"he"}
+    return not (set(languages) & acceptable)
 
 
 def _size_fit(source, prefs, runtime_hours):
