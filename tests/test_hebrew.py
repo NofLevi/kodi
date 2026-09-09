@@ -287,3 +287,49 @@ def test_a_hebrew_search_term_makes_a_usable_cache_key():
     assert key
     assert key == cache.make_key("search", HEBREW_TITLE)
     assert key != cache.make_key("search", HEBREW_WORD)
+
+
+# --------------------------------------------------------------------------
+# which script a subtitle is actually written in
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text,expected", [
+    (u"\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd", "he"),
+    ("Hello there, sheriff", "en"),
+    (u"\u3053\u3093\u306b\u3061\u306f\u4e16\u754c", "ja"),
+    (u"\uc548\ub155\ud558\uc138\uc694", "ko"),
+    (u"\u041f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440", "ru"),
+    (u"\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645", "ar"),
+    # Nothing alphabetic to go on is "" rather than a guess.
+    ("12:34  ---  ?!", ""),
+])
+def test_the_script_a_subtitle_is_written_in(text, expected):
+    """A mislabelled upload is common and applying one is silent.
+
+    Measured on eighteen titles: The Godfather's best *Hebrew* candidate came
+    back written in Arabic. Script is not language - it cannot tell French
+    from Italian - but it tells Hebrew from Arabic from English, which is the
+    mistake that actually happens.
+    """
+    from katan.subs import srt
+
+    cues = [srt.Cue(1, 0.0, 2.0, text)]
+    assert srt.detect_script(cues) == expected
+
+
+def test_looks_hebrew_is_the_same_answer(monkeypatch):
+    """One implementation, so the two cannot drift apart."""
+    from katan.subs import srt
+
+    hebrew = [srt.Cue(1, 0.0, 2.0, u"\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd")]
+    arabic = [srt.Cue(1, 0.0, 2.0, u"\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645")]
+    assert srt.looks_hebrew(hebrew) is True
+    assert srt.looks_hebrew(arabic) is False
+    assert srt.detect_script(arabic) == "ar"
+
+
+def test_an_empty_subtitle_is_not_a_language():
+    from katan.subs import srt
+
+    assert srt.detect_script([]) == ""
+    assert srt.looks_hebrew([]) is False
