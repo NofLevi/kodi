@@ -180,18 +180,60 @@ def clamp_durations(cues):
     return out
 
 
+# Where each script lives in Unicode. Latin is last and deliberately widest,
+# because it is the fallback rather than a claim: a file with no Hebrew, no
+# Cyrillic and no kana is probably English, and "probably English" is all
+# anybody needs from it.
+_SCRIPTS = (
+    ("he", ((0x0590, 0x05F4),)),
+    ("ar", ((0x0600, 0x06FF), (0x0750, 0x077F))),
+    ("ru", ((0x0400, 0x04FF),)),
+    ("el", ((0x0370, 0x03FF),)),
+    # Kana is what separates Japanese from Chinese; both share the Han block,
+    # so Han alone is not evidence of either.
+    ("ja", ((0x3040, 0x30FF),)),
+    ("ko", ((0xAC00, 0xD7A3), (0x1100, 0x11FF))),
+    ("zh", ((0x4E00, 0x9FFF),)),
+    ("en", ((0x0041, 0x024F),)),
+)
+
+
+def detect_script(cues, sample=200, threshold=0.15):
+    """Which script this subtitle is actually written in, or "".
+
+    Not which language - a script cannot tell French from Italian - but it can
+    tell Hebrew from English, which is the mistake that matters here: a
+    mislabelled upload is common, and applying one silently gives the viewer
+    the wrong language with no clue why.
+
+    Returns the first script holding at least `threshold` of the letters, in
+    the order above, so Latin only wins when nothing else did.
+    """
+    if not cues:
+        return ""
+    counts = {}
+    total = 0
+    for cue in cues[:sample]:
+        for char in cue.text:
+            if not char.isalpha():
+                continue
+            total += 1
+            point = ord(char)
+            for code, ranges in _SCRIPTS:
+                if any(low <= point <= high for low, high in ranges):
+                    counts[code] = counts.get(code, 0) + 1
+                    break
+    if not total:
+        return ""
+    for code, _ranges in _SCRIPTS:
+        if float(counts.get(code, 0)) / total >= threshold:
+            return code
+    return ""
+
+
 def looks_hebrew(cues, threshold=0.15):
     """Is this actually Hebrew, or an English file mislabelled as Hebrew?"""
-    if not cues:
-        return False
-    hebrew = total = 0
-    for cue in cues[:200]:
-        for char in cue.text:
-            if char.isalpha():
-                total += 1
-                if u"\u0590" <= char <= u"\u05EA":
-                    hebrew += 1
-    return total > 0 and (float(hebrew) / total) >= threshold
+    return detect_script(cues, threshold=threshold) == "he"
 
 
 def duration(cues):
