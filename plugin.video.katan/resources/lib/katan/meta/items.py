@@ -69,6 +69,10 @@ def new_item(item_type, **fields):
         "ids": {},
         "title": "",
         "original_title": "",
+        # The language the thing was made in, which is not the same question
+        # as the language a viewer wants. A Turkish drama is in Turkish and
+        # that is not a foreign-language release, it is the only honest one.
+        "original_language": "",
         "year": 0,
         "plot": "",
         "tagline": "",
@@ -137,6 +141,7 @@ def from_tmdb_movie(data):
         ids={"tmdb": data["id"], "imdb": data.get("imdb_id") or ""},
         title=data.get("title") or data.get("original_title") or "",
         original_title=data.get("original_title") or "",
+        original_language=data.get("original_language") or "",
         year=_year(release),
         premiered=release,
         plot=data.get("overview") or "",
@@ -167,6 +172,7 @@ def from_tmdb_show(data):
         },
         title=data.get("name") or data.get("original_name") or "",
         original_title=data.get("original_name") or "",
+        original_language=data.get("original_language") or "",
         year=_year(first_air),
         premiered=first_air,
         plot=data.get("overview") or "",

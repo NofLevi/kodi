@@ -585,3 +585,72 @@ def test_the_language_list_is_the_viewers_own(settings_module):
     settings_module.set("subs.languages", "es")
     source = {"title": "x", "languages": ["es"]}
     assert not scoring._wrong_language(source, scoring.Preferences())
+
+
+# --------------------------------------------------------------------------
+# foreign-language drama, which is watched here in its own language
+# --------------------------------------------------------------------------
+
+def _score_for(title, original, languages="he,en"):
+    from katan.sources import scoring
+    from katan.utils import release
+
+    import katan.settings as settings_module
+    settings_module.set("subs.languages", languages)
+    parsed = release.parse(title)
+    source = {"title": title, "quality": parsed["resolution"],
+              "codec": parsed["codec"], "languages": parsed["languages"],
+              "group": parsed["group"], "size": 2 * 1024 ** 3, "seeders": 80}
+    prefs = scoring.Preferences()
+    prefs.original_language = original
+    return scoring.score(source, prefs, 1.0)
+
+
+def test_a_shows_own_language_is_never_the_wrong_language(settings_module):
+    """Spanish, Turkish and Italian dramas are watched here, in their own
+    language, with Hebrew subtitles.
+
+    The wrong-language rule read every honest release of them as unwatchable:
+    a Turkish serial scored -210 against +190 for an English redub of the same
+    episode, so the dub won. Nothing was ever *removed* - the rule only sorts,
+    and `rejection_reason` is what filters - but the answer was backwards for
+    the person actually watching.
+    """
+    turkish = _score_for("Kurulus.Osman.S05E01.TURKISH.1080p.WEB-DL.x264-GRP",
+                         original="tr")
+    dubbed = _score_for("Kurulus.Osman.S05E01.ENGLISH.DUB.1080p.WEB-DL.x264-GRP",
+                        original="tr")
+    assert turkish > dubbed, "%s vs %s" % (turkish, dubbed)
+
+
+@pytest.mark.parametrize("original,title", [
+    ("es", "La.Casa.de.Papel.S01E01.SPANISH.1080p.NF.WEB-DL-NTb"),
+    ("it", "Mare.Fuori.S01E01.ITALIAN.1080p.WEB-DL.x264-GRP"),
+    ("tr", "Kurulus.Osman.S05E01.TURKISH.1080p.WEB-DL.x264-GRP"),
+])
+def test_the_original_beats_an_untagged_release_of_a_foreign_show(
+        settings_module, original, title):
+    plain = _score_for("Some.Show.S01E01.1080p.WEB-DL.x264-GRP", original)
+    assert _score_for(title, original) > plain
+
+
+def test_an_english_show_is_untouched_by_any_of_this(settings_module):
+    """The preference applies only when the show's language is one the viewer
+    does not read. For an English series every release is "the original", and
+    a bonus applied to everything is the same as no bonus and only slower."""
+    plain = _score_for("Silo.S01E01.1080p.WEB.H264-CAKES", original="en")
+    tagged = _score_for("Silo.S01E01.ENGLISH.1080p.WEB.H264-CAKES",
+                        original="en")
+    italian = _score_for("Silo.S01E01.ITA.1080p.WEB.H264-CAKES", original="en")
+    assert plain == tagged
+    assert italian < plain, "an Italian dub of an English show still sinks"
+
+
+def test_the_original_language_reaches_the_item():
+    """It comes from TMDB and nothing carried it before."""
+    from katan.meta import items
+
+    movie = items.from_tmdb_movie({"id": 1, "title": "x",
+                                   "original_language": "tr"})
+    assert movie["original_language"] == "tr"
+    assert items.new_item("movie")["original_language"] == ""
