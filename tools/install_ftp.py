@@ -102,6 +102,27 @@ def release_files(staging, addon_id):
             yield full, os.path.relpath(full, base).replace(os.sep, "/")
 
 
+def remote_files(ftp, path):
+    """Every file under a remote folder. FTP has no walk, so this is one.
+
+    A folder and a zero-byte file look the same to `nlst`; `size` is what
+    tells them apart, and it fails on a directory.
+    """
+    try:
+        entries = sorted(ftp.nlst(path))
+    except ftplib.error_perm:
+        return
+    for entry in entries:
+        full = entry if entry.startswith("/") else "%s/%s" % (path, entry)
+        try:
+            ftp.size(full)
+        except ftplib.error_perm:
+            for deeper in remote_files(ftp, full):
+                yield deeper
+        else:
+            yield full
+
+
 def ensure(ftp, path, made):
     """mkdir -p, remembering what already exists so it is asked once."""
     if path in made or path in ("", "/"):
@@ -167,6 +188,24 @@ def main():
             sent += 1
             if sent % 25 == 0 or sent == len(plan):
                 print("  %d/%d" % (sent, len(plan)))
+
+        # An install replaces, so anything under the add-on that is not part
+        # of it goes. Copying over the top leaves the previous version's
+        # files behind - a module deleted upstream keeps working on the box
+        # alone, which is the hardest kind of difference to find. Kodi's own
+        # __pycache__ goes with them: bytecode of source that no longer
+        # exists has nothing to be invalidated against.
+        wanted = {remote for _full, remote in plan}
+        removed = 0
+        for addon_id in ADDONS:
+            root = "%s/addons/%s" % (args.kodi, addon_id)
+            for path in remote_files(ftp, root):
+                if path not in wanted:
+                    ftp.delete(path)
+                    removed += 1
+        if removed:
+            print("  removed %d file(s) that are not part of this version"
+                  % removed)
 
         # And take the zips out of Download. The add-on is installed
         # directly, so a zip left there installs nothing - it only waits
