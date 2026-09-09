@@ -139,7 +139,10 @@ def connect(client, name=""):
     from . import signin
 
     title = name or getattr(client, "label", "") or ""
-    method = signin.choose_method(title, getattr(client, "methods", ("key",)))
+    method = signin.choose_method(
+        title, getattr(client, "methods", ("key",)),
+        can_paste=hasattr(client, "authorize_with_key"),
+        overrides=getattr(client, "method_labels", None))
     if method is None:
         return False
 

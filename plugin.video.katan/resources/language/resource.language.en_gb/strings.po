@@ -1298,7 +1298,7 @@ msgid "Hidden gem series"
 msgstr ""
 
 msgctxt "#32460"
-msgid "Scan a code, or open a link and type it"
+msgid "Open a link on your phone, or scan a code"
 msgstr ""
 
 msgctxt "#32461"
@@ -1306,7 +1306,7 @@ msgid "Open a link and type a code"
 msgstr ""
 
 msgctxt "#32462"
-msgid "Type the key here"
+msgid "Type a key with the remote"
 msgstr ""
 
 msgctxt "#32463"
@@ -1558,7 +1558,7 @@ msgid "Done - you can close this"
 msgstr ""
 
 msgctxt "#32513"
-msgid "Paste it from your phone"
+msgid "Send a key from your phone"
 msgstr ""
 
 msgctxt "#32514"
@@ -1595,4 +1595,8 @@ msgstr ""
 
 msgctxt "#30317"
 msgid "Stable installs the last release. Test installs the latest build of the development branch, which may be broken - switch back to stable to return to the released version."
+msgstr ""
+
+msgctxt "#32520"
+msgid "Use my own Trakt application"
 msgstr ""

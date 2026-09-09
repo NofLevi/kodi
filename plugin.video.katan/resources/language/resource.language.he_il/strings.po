@@ -1258,7 +1258,7 @@ msgid "Hidden gem series"
 msgstr "סדרות שלא הכרתם"
 
 msgctxt "#32460"
-msgid "סרקו קוד, או פתחו קישור והקלידו אותו"
+msgid "פתחו קישור בטלפון, או סרקו קוד"
 msgstr "סריקת קוד עם הטלפון"
 
 msgctxt "#32461"
@@ -1266,7 +1266,7 @@ msgid "Open a link and type a code"
 msgstr "פתיחת קישור והזנת קוד"
 
 msgctxt "#32462"
-msgid "Type the key here"
+msgid "הקלידו מפתח עם השלט"
 msgstr "הזנת מפתח כאן"
 
 msgctxt "#32463"
@@ -1518,7 +1518,7 @@ msgid "Done - you can close this"
 msgstr "בוצע - אפשר לסגור"
 
 msgctxt "#32513"
-msgid "Paste it from your phone"
+msgid "שלחו מפתח מהטלפון"
 msgstr "הדביקו מהטלפון"
 
 msgctxt "#32514"
@@ -1555,4 +1555,8 @@ msgstr ""
 
 msgctxt "#30317"
 msgid "יציב מתקין את הגרסה האחרונה ששוחררה. בדיקה מתקין את הבנייה האחרונה של ענף הפיתוח, שעלולה להיות שבורה. חזרה ליציב מחזירה לגרסה ששוחררה."
+msgstr ""
+
+msgctxt "#32520"
+msgid "השתמשו באפליקציית Trakt שלי"
 msgstr ""

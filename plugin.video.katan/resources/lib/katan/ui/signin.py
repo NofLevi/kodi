@@ -40,23 +40,41 @@ SCAN = "scan"
 PASTE = "paste"
 
 
-def choose_method(title, methods):
-    """Ask how the viewer wants to sign in. Returns a method or None."""
-    # Marked, not chosen for them. Scanning is the least work by a distance -
-    # nothing typed and nothing copied - and saying so is more useful than
-    # silently running it, which leaves somebody looking at a QR code with no
-    # idea the other ways in exist.
+def choose_method(title, methods, can_paste=True, overrides=None):
+    """Ask how the viewer wants to sign in. Returns a method or None.
+
+    Each entry is named for what it makes the viewer *do*, because that is the
+    only thing they are choosing between. "Scan a code with your phone" was
+    the name of an entry whose own screen says "scan the code, or open the
+    address and enter the code below" - so the way in that needs no camera was
+    there, drawn beside the QR, and advertised nowhere.
+
+    `overrides` lets one service rename an entry that means something
+    different for it. Trakt's second way in is not a key, it is your own
+    registered application, and calling it "type your key" would be a lie.
+    """
     labels = {
+        # Marked, not chosen for them. It is the least work by a distance -
+        # nothing typed and nothing copied - and saying so is more useful than
+        # silently running it, which leaves somebody looking at a QR code with
+        # no idea the other ways in exist.
         SCAN: "%s   (%s)" % (kodi.localize(32460), kodi.localize(32515)),
         PASTE: kodi.localize(32513),
         KEY: kodi.localize(32462),
     }
+    for method, string_id in (overrides or {}).items():
+        labels[method] = kodi.localize(string_id)
+
     # A key that can be typed can be pasted from a phone instead, so PASTE is
     # offered wherever KEY is rather than being declared by every client. It
     # sits above KEY because typing thirty-two characters on a remote is the
     # worst thing this add-on asks anybody to do.
+    #
+    # Only where the client can actually take one, though: the paste path ends
+    # at `authorize_with_key`, and offering it to a service without that is an
+    # entry that crashes rather than one that signs you in.
     methods = tuple(methods)
-    if KEY in methods and PASTE not in methods:
+    if can_paste and KEY in methods and PASTE not in methods:
         methods = methods + (PASTE,)
     offered = [m for m in (SCAN, PASTE, KEY) if m in methods]
     if not offered:
