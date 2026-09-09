@@ -1,57 +1,60 @@
 # -*- coding: utf-8 -*-
-"""Publish `main` by hand, when the tag did not.
+"""Publish the repository by hand, when the tag did not.
 
 **This is the escape hatch, not the route.** Releases publish themselves:
 `git push origin main --follow-tags` runs `.github/workflows/release.yml`,
-which fires the same hook this does. Reach for this when that failed after the
-release was already created, or when there is a fix on `main` that should
-reach devices without a new version.
+which builds and uploads exactly as this does. Reach for this when that failed
+after the release was already created.
 
-Automatic deployments are paused, so pushing code publishes nothing, and
-Cloudflare's dashboard has no "deploy the newest commit" button: *Retry*
-rebuilds the commit that is already live, and resuming automatic deployments
-only helps the *next* push. The answer Cloudflare gives for exactly this is a
-**deploy hook** - a URL that builds one branch when something POSTs to it.
+Cloudflare is **not connected to the repository**, and that is the whole
+design. A Pages project that watches a Git repository records every push -
+"No deployment available" - whatever it decides to do about it, and no setting
+suppresses those rows. Disconnecting the repository is the only thing that
+does, and it turns the project into one that can only be published to by
+upload. So a deployment now exists if and only if somebody ran this or tagged
+a release.
 
-    Settings -> Builds & deployments -> Deploy hooks -> Add deploy hook
-    name it `release`, branch `main`
+Cloudflare's own documentation says a Git-connected project cannot be switched
+to Direct Upload, which is true of *switching* - the dashboard's Disconnect
+button is not that, and after pressing it `wrangler pages deploy` is accepted.
+The `pages.dev` hostname survives, which matters more than it sounds: it is
+baked into every installed copy of `repository.katan`, so a project that had
+to be recreated would strand every device.
 
-That URL is a credential - anyone holding it can deploy - so it never goes in
-the repository. This reads it from `CLOUDFLARE_DEPLOY_HOOK`, or from a
-`.deploy-hook` file beside the project, which `.gitignore` covers. The same URL
-is the `CLOUDFLARE_DEPLOY_HOOK` repository secret the workflow uses, which is
-what lets a release be cut from a machine that has never held the file.
+Credentials, neither of which goes in the repository:
 
-    python tools/deploy.py            publish main
-    python tools/deploy.py --dry-run  say what would happen, publish nothing
+    CLOUDFLARE_API_TOKEN     or `.cf-token`, an Account -> Pages -> Edit token
+    CLOUDFLARE_ACCOUNT_ID    or `.cf-account`
 
-What is left to check is only *which commit* gets built. Cloudflare now runs
-`tools/build.py` itself, on whatever is on `main` at the moment the hook is
-called, so the folder it serves is that commit's build by construction - the
-comparison against a committed `repo/` that used to live here was guarding a
-mistake that can no longer be made.
+    python tools/deploy.py            build, then upload
+    python tools/deploy.py --dry-run  say what would happen, upload nothing
+
+It builds rather than trusting what is on disk: `repo/` is not in the
+repository - Cloudflare used to build it and now nothing does unless asked -
+so publishing whatever happens to be sitting there is publishing an unknown.
 """
 from __future__ import print_function
 
 import io
-import json
 import os
 import subprocess
 import sys
-import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HOOK_FILE = os.path.join(ROOT, ".deploy-hook")
+OUTPUT = os.path.join(ROOT, "repo")
+PROJECT = "kodi-katan"
 
 
-def hook_url():
-    value = (os.environ.get("CLOUDFLARE_DEPLOY_HOOK") or "").strip()
+def secret(variable, filename):
+    """From the environment, or from a gitignored file beside the project."""
+    value = (os.environ.get(variable) or "").strip()
     if value:
         return value, "the environment"
-    if os.path.isfile(HOOK_FILE):
-        value = io.open(HOOK_FILE, encoding="utf-8").read().strip()
+    path = os.path.join(ROOT, filename)
+    if os.path.isfile(path):
+        value = io.open(path, encoding="utf-8").read().strip()
         if value:
-            return value, ".deploy-hook"
+            return value, filename
     return "", ""
 
 
@@ -61,70 +64,76 @@ def git(*args):
 
 
 def problems():
-    """Everything that would make this deployment publish the wrong commit.
-
-    The hook builds `origin/main`, so the only questions left are whether that
-    is the branch being looked at and whether the local one has been pushed.
-    """
+    """Everything that would publish something other than a release."""
     found = []
-
     try:
         branch = git("rev-parse", "--abbrev-ref", "HEAD")
     except Exception as error:
         return ["git is not answering: %s" % error]
     if branch != "main":
-        found.append("on %s, and the hook builds main" % branch)
+        found.append("on %s, and a release is cut from main" % branch)
+
+    if git("status", "--porcelain", "--", "plugin.video.katan",
+           "repository.katan"):
+        found.append("the add-on has uncommitted changes")
 
     try:
         git("diff", "--quiet", "main", "origin/main")
     except subprocess.CalledProcessError:
         found.append("main and origin/main differ - push first")
-
     return found
+
+
+def version():
+    import xml.etree.ElementTree as ET
+    return ET.parse(os.path.join(ROOT, "plugin.video.katan",
+                                 "addon.xml")).getroot().get("version")
 
 
 def main():
     dry = "--dry-run" in sys.argv
-    url, where = hook_url()
-    if not url:
-        print("no deploy hook. Create one in the Cloudflare dashboard:\n"
-              "  Settings -> Builds & deployments -> Deploy hooks\n"
-              "  name it `release`, branch `main`\n"
-              "then put the URL in CLOUDFLARE_DEPLOY_HOOK, or in %s"
-              % os.path.relpath(HOOK_FILE, ROOT))
+
+    token, token_from = secret("CLOUDFLARE_API_TOKEN", ".cf-token")
+    account, account_from = secret("CLOUDFLARE_ACCOUNT_ID", ".cf-account")
+    if not token or not account:
+        print("no Cloudflare credentials. Create a token at\n"
+              "  https://dash.cloudflare.com/profile/api-tokens\n"
+              "  Custom token -> Account -> Cloudflare Pages -> Edit\n"
+              "then put it in CLOUDFLARE_API_TOKEN or .cf-token, and the\n"
+              "account id in CLOUDFLARE_ACCOUNT_ID or .cf-account.")
         return 1
 
     found = problems()
     for problem in found:
         print("STOP  %s" % problem)
     if found:
-        print("\npublishing would build something other than what you are "
-              "looking at")
+        print("\npublishing would put something other than a release on the "
+              "site")
         return 1
 
-    version = ""
-    try:
-        import xml.etree.ElementTree as ET
-        version = ET.parse(os.path.join(ROOT, "plugin.video.katan",
-                                        "addon.xml")).getroot().get("version")
-    except Exception:
-        pass
-    print("publishing Katan %s from main (%s); Cloudflare builds it"
-          % (version, git("rev-parse", "--short", "HEAD")))
+    print("publishing Katan %s from main (%s), credentials from %s and %s"
+          % (version(), git("rev-parse", "--short", "HEAD"),
+             token_from, account_from))
 
     if dry:
-        print("dry run: the hook, from %s, was not called" % where)
+        print("dry run: nothing was built and nothing was uploaded")
         return 0
 
-    request = urllib.request.Request(url, data=b"", method="POST")
-    with urllib.request.urlopen(request, timeout=30) as response:
-        body = response.read().decode("utf-8", "replace")
-    print("Cloudflare answered HTTP %s" % response.status)
-    try:
-        print(json.dumps(json.loads(body), indent=2)[:400])
-    except ValueError:
-        print(body[:400])
-    return 0
+    if subprocess.call([sys.executable,
+                        os.path.join(ROOT, "tools", "build.py")],
+                       cwd=ROOT) != 0:
+        print("the build failed, nothing uploaded")
+        return 1
+
+    environment = dict(os.environ,
+                       CLOUDFLARE_API_TOKEN=token,
+                       CLOUDFLARE_ACCOUNT_ID=account)
+    # npx rather than a dependency: wrangler is 40 MB of Node and this project
+    # has no package.json to put it in.
+    return subprocess.call(
+        ["npx", "--yes", "wrangler@4", "pages", "deploy", OUTPUT,
+         "--project-name=" + PROJECT, "--branch=main", "--commit-dirty=true"],
+        cwd=ROOT, env=environment, shell=(os.name == "nt"))
 
 
 if __name__ == "__main__":
