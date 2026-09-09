@@ -387,8 +387,13 @@ same build-and-upload by hand, for when the workflow failed after the release
 was already created; it builds rather than uploading whatever is sitting in
 `repo/`, because nothing keeps that folder current any more.
 
-CI runs on both branches, because a release that fails its own checks is the
-one failure that reaches a television.
+**Nothing runs on a push.** `e2e.yml` and `upgrade.yml` fire on a daily cron
+and on the button, and that is all: they are the slow ones - a dozen live
+services, and a real release downloaded from the live site - and running them
+after every commit is a run for every small change nobody reads. What they
+watch for is *drift*, which happens on somebody else's schedule rather than on
+ours, so a daily check is the right shape. A release is still gated, because
+`release.yml` runs the whole suite itself before it publishes.
 
     python tools/release.py            patch bump, news, build, tag command
     python tools/release.py --minor    0.1.4 -> 0.2.0
