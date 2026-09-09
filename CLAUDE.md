@@ -567,6 +567,26 @@ every push: a test build is a deployment, and a deployment list in which
 almost nothing was asked for is exactly what the Cloudflare disconnect was
 for.
 
+### The tag is the only record of what was published
+
+Cloudflare is not connected to the repository any more, so **nothing on the
+Cloudflare side knows which commit a deployment came from**. A deployment is a
+folder of files somebody uploaded; that is the whole of what it is. So the tag
+is not bookkeeping, it is the only link between a version people are running
+and the source that produced it - and without it, "what is in 0.0.1?" has no
+answer a year from now.
+
+Which is why the tag is also the *trigger*: a release cannot happen without
+one, so the record cannot be forgotten. Two supports either side of it - every
+upload carries a `--commit-message` naming the version and the commit, and the
+GitHub release keeps the zips themselves. Left to itself wrangler labels a
+deployment with whatever the local `HEAD` happens to say, which is how a
+*stable* deployment came to be described as "A test channel: install the
+branch instead of the release".
+
+Publishing by hand with `tools/deploy.py` skips all of that, which is the
+price of it being the escape hatch. Tag afterwards.
+
 ### Releases are deliberate
 
 A release reaches televisions and cannot be taken back from a box that

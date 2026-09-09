@@ -73,9 +73,12 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VERSION: ${{ steps.stamp.outputs.version }}
+          REF: ${{ inputs.ref }}
         run: |
           npx --yes wrangler@4 pages deploy repo \
-            --project-name=kodi-katan-dev --branch=main --commit-dirty=true
+            --project-name=kodi-katan-dev --branch=main --commit-dirty=true \
+            --commit-message="Katan $VERSION - test channel, from $REF at $GITHUB_SHA"
 
       # The same proof the release workflow takes: the site is serving this
       # build, and the zip beside the index is the one just built.
