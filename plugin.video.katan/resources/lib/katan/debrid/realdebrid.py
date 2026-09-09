@@ -46,12 +46,16 @@ class RealDebrid(base.DebridService):
 
     # -- authorisation -----------------------------------------------------
 
-    # Real-Debrid has no typed key: the API token on its website is not a
-    # credential this flow can use, because the device flow mints a per-user
-    # client id and secret and the refresh depends on having both. So this
-    # service offers the two scan-or-link options and no third one, which is
-    # the whole point of the methods list being per service.
-    methods = ("scan",)
+    # This used to say Real-Debrid had no typed key, on the grounds that the
+    # device flow mints a per-user client id and secret and refreshing needs
+    # both. That is true of a *minted* token and not of the private one on
+    # real-debrid.com/apitoken, which does not expire: `token()` only tries to
+    # refresh when an expiry is stored, so a private token with none is simply
+    # used as it is. The effect of the old reading was that pressing
+    # Real-Debrid dropped you into a QR code with no way to see anything else.
+    methods = ("scan", "key")
+    key_url = "https://real-debrid.com/apitoken"
+    key_setting = "realdebrid.token"
 
     def credential_settings(self):
         # All five, because the device flow mints a client id and secret of
@@ -63,6 +67,44 @@ class RealDebrid(base.DebridService):
                 "realdebrid.client_secret"]
 
     def authorize(self, method=None):
+        if method == "key":
+            return self.authorize_with_key(None)
+        return self._device_flow()
+
+    def authorize_with_key(self, key=None):
+        """A private API token, typed or pasted, rather than a minted one.
+
+        The OAuth settings are cleared alongside: leaving a stale client id,
+        secret or expiry behind would have `token()` try to refresh a token
+        that was never minted, and fail in a way that looks like the account
+        going bad rather than like this.
+        """
+        from ..ui import signin
+
+        previous = {name: settings.get(name)
+                    for name in self.credential_settings()}
+        if key is None:
+            key = signin.ask_for_key("%s API token" % self.label,
+                                     settings.get("realdebrid.token"),
+                                     help_url=self.key_url)
+            if key is None:
+                return False
+
+        settings.set("realdebrid.token", key.strip())
+        for name in ("realdebrid.refresh", "realdebrid.client_id",
+                     "realdebrid.client_secret"):
+            settings.set(name, "")
+        settings.set("realdebrid.expires", "0")
+
+        if self.account_info():
+            return True
+        # Put back whatever was working before rather than leaving the viewer
+        # signed out because they mistyped a replacement token.
+        for name, value in previous.items():
+            settings.set(name, value)
+        return False
+
+    def _device_flow(self):
         from ..ui import signin
 
         payload = http.get_json("%s/device/code" % OAUTH,

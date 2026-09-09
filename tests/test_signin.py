@@ -554,3 +554,72 @@ def test_backing_out_of_the_question_signs_in_to_nothing(monkeypatch):
 
     assert wizard.connect(client) is False
     assert client.tried == []
+
+
+# --------------------------------------------------------------------------
+# every service offers a choice, and paste only where it works
+# --------------------------------------------------------------------------
+
+def _offered(monkeypatch, client):
+    """What the chooser puts on screen for one service, as method names."""
+    from katan.ui import signin
+
+    seen = {}
+
+    def select(labels, heading="", **kw):
+        seen["labels"] = labels
+        return -1
+
+    monkeypatch.setattr(signin.kodi, "select", select)
+    signin.choose_method(getattr(client, "label", "?"),
+                         getattr(client, "methods", ("key",)),
+                         can_paste=hasattr(client, "authorize_with_key"),
+                         overrides=getattr(client, "method_labels", None))
+    return seen.get("labels")
+
+
+@pytest.mark.parametrize("name", ["torbox", "realdebrid", "premiumize",
+                                  "alldebrid"])
+def test_every_debrid_service_offers_three_ways_in(monkeypatch, name):
+    """Pressing a service must show the options, not run the easiest one.
+
+    Real-Debrid used to declare one method and so was dropped straight into a
+    QR code, with the alternatives reachable only by cancelling out of it. Its
+    private API token on real-debrid.com/apitoken is a real second way in: it
+    does not expire, and `token()` only refreshes when an expiry is stored.
+    """
+    from katan.debrid import registry
+
+    client = registry.get(name)
+    assert client is not None, name
+    labels = _offered(monkeypatch, client)
+    assert labels and len(labels) == 3, "%s offered %s" % (name, labels)
+
+
+def test_trakt_offers_its_own_application_rather_than_a_key(monkeypatch):
+    """Trakt has no key to type, so naming one would send people hunting.
+
+    What it has is a registered application - an id and a secret - which is
+    how it works at all while BUNDLED_CLIENT_ID is empty. And no paste entry:
+    that path ends at `authorize_with_key`, which Trakt does not define, so
+    offering it would be an entry that crashes rather than one that signs in.
+    """
+    from katan.meta import trakt
+    from katan.ui import signin
+
+    labels = _offered(monkeypatch, trakt)
+    assert labels and len(labels) == 2, labels
+    assert not hasattr(trakt, "authorize_with_key")
+    assert trakt.method_labels.get(signin.KEY)
+
+
+def test_paste_is_not_offered_to_a_client_that_cannot_take_one(monkeypatch):
+    """The paste path ends at authorize_with_key. Without it, it is a crash."""
+    from katan.ui import signin
+
+    class Bare(object):
+        label = "Bare"
+        methods = ("scan", "key")
+
+    labels = _offered(monkeypatch, Bare())
+    assert len(labels) == 2, labels

@@ -192,9 +192,23 @@ label = "Trakt"
 methods = ("scan",)
 
 
+# Two ways in, and the second is not a key. Trakt needs a registered
+# application - a client id *and* secret - and BUNDLED_CLIENT_ID is empty until
+# somebody registers one, so "use my own application" is the way this works at
+# all today rather than an expert curiosity. It is named for that, because
+# calling it "type your key" would send people looking for a key that does not
+# exist. There is no paste entry: pasting only helps where a single string is
+# the credential, and `authorize_with_key` is deliberately not defined here.
+methods = ("scan", "key")
+method_labels = {"key": 32520}
+
+
 def authorize(method=None):
     """Run the device flow. True once the viewer has finished on their phone."""
     from ..ui import signin
+
+    if method == "key" and not _ask_for_application():
+        return False
 
     device = device_code()
     if not device:
@@ -215,6 +229,29 @@ def authorize(method=None):
     if not signed_in:
         return False
     sync_state()
+    return True
+
+
+def _ask_for_application():
+    """Your own Trakt application id and secret, from trakt.tv/oauth/applications.
+
+    Asked here rather than as a side effect of the device flow failing, so
+    that somebody who has an application can say so before watching a sign-in
+    fail for a reason the screen never gave.
+    """
+    from ..ui import signin
+
+    entered = signin.ask_for_key(
+        "Trakt client id", client_id(),
+        help_url="https://trakt.tv/oauth/applications")
+    if not entered:
+        return False
+    secret = signin.ask_for_key("Trakt client secret", client_secret(),
+                                help_url="https://trakt.tv/oauth/applications")
+    if not secret:
+        return False
+    settings.set("trakt.client_id", entered.strip())
+    settings.set("trakt.client_secret", secret.strip())
     return True
 
 
