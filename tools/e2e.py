@@ -777,9 +777,14 @@ def _channel_stream():
 # --------------------------------------------------------------------------
 
 
-def run(offline=False):
+def run(offline=False, only=""):
     results = []
-    for entry in CHECKS:
+    wanted = [e for e in CHECKS
+              if not only or only.lower() in e["name"].lower()
+              or only.lower() == e["area"].lower()]
+    if only and not wanted:
+        raise SystemExit("--only %r matches no check" % only)
+    for entry in wanted:
         if offline and entry["network"]:
             results.append(dict(entry, status="skipped", detail="offline",
                                 ms=0, run=None))
@@ -838,13 +843,22 @@ def main():
     parser.add_argument("--offline", action="store_true",
                         help="skip every check that needs the network")
     parser.add_argument("--json", help="also write the results to this file")
+    # So one concern can have a pipeline of its own. The upgrade runs on both
+    # operating systems, because replacing a folder is renames and open file
+    # handles and those are exactly where Windows and Android differ - the
+    # trailing-separator bug that broke the first real update was Windows
+    # only, and a Linux-only run would never have found it.
+    parser.add_argument("--only", default="",
+                        help="run only checks whose name contains this, "
+                             "or whose area is exactly this")
     args = parser.parse_args()
 
     boot()
-    say("Katan end to end, %d checks%s"
-        % (len(CHECKS), " (offline)" if args.offline else ""))
+    say("Katan end to end, %d checks%s%s"
+        % (len(CHECKS), " (offline)" if args.offline else "",
+           " matching %r" % args.only if args.only else ""))
     say("")
-    results = run(offline=args.offline)
+    results = run(offline=args.offline, only=args.only)
     code = report(results)
     if args.json:
         with io.open(args.json, "w", encoding="utf-8") as handle:

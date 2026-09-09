@@ -509,20 +509,46 @@ kind** - AniList going dark, SubSource moving behind a login, TorBox growing a
 device flow it did not have, an anime episode addressed at a season number
 nobody indexes.
 
-One check is not like the others. **`tests/data/baseline-plugin.video.katan.zip`
-is the real 0.0.2 tree**, taken with `git archive` from the commit that
-released it, and it is **never regenerated**. `an old install upgrades to what
-is published` unpacks it as an installed add-on, puts keys and a subtitle in
-the profile beside it, and then runs the flow a viewer runs - `check`,
-`download`, `apply` - against whatever is live. Freezing the baseline is the
-point: the distance between it and the current release grows with every
-change, so the question gets harder every month instead of staying the easy
-one. Regenerating it would quietly turn the only real upgrade test back into
-0.0.3 over 0.0.3.
+One check is not like the others, and it has a pipeline to itself.
+**`tests/data/baseline-plugin.video.katan.zip` is the real 0.0.1 tree**, taken
+with `git archive` from the commit that released it, and it is **never
+regenerated**. `an old install upgrades to what is published` unpacks it as an
+installed add-on, puts keys and a subtitle in the profile beside it, and then
+runs the flow a viewer runs - `check`, `download`, `apply` - against whatever
+is live. Freezing the baseline is the point: the distance between it and the
+current release grows with every change, so the question gets harder every
+month instead of staying the easy one. Regenerating it would quietly turn the
+only real upgrade test into the current release over itself.
 
 It runs `check()` rather than fetching the zip itself, because `check()` is
 where the version comparison and the *derived* zip URL live, and those are
 what stop working silently.
+
+`.github/workflows/upgrade.yml` runs it **on Windows and on Linux**, which is
+not decoration. Replacing an add-on is renames and open file handles, and that
+is exactly where the platforms differ: Windows will not rename a directory
+something still holds, and compares paths without case. The bug that broke the
+first real update anybody attempted - `addon_path()` coming back with a
+trailing separator, so the backup was written *inside* the folder being
+replaced - was a Windows error 87, and a Linux-only run would never have
+produced it. `python tools/e2e.py --only upgrade` is the same thing by hand.
+
+### One release is one number
+
+The version appears in six places: both `addon.xml` files, the `<news>` field,
+the README's download links, the repository index and the line at the bottom
+of the home screen. They used to be kept in step by hand, and the repository
+add-on was bumped **independently** - which agreed only because both started
+at 0.0.1 and every release since had been a patch. One `--minor` and the
+add-on reads 0.1.0 against the repository's 0.0.4, and after that they can
+never agree again.
+
+`release.py` now writes one number into both. `test_addon_integrity` fails if
+any of the six disagree, and `release.yml` refuses to publish a tag that does
+not match all of them. The label on the home screen is read from
+`kodi.addon_version()` rather than written down, so it is the version Kodi
+actually installed and not the one somebody remembered to update - which is
+the only version most people will ever see.
 
 **It never stops at the first failure.** A run that dies on check three says
 nothing about checks four to fifteen, and the whole point is to come back with
