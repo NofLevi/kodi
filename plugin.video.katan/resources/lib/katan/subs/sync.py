@@ -308,23 +308,40 @@ def synchronise(candidate, reference, minimum_confidence=MIN_CONFIDENCE):
         "reason": "",
     }
 
-    if confidence < minimum_confidence:
-        report["reason"] = "confidence below threshold"
-        return candidate, report
-
-    # Splits are checked before "already in sync", because a file cut
-    # differently is in sync for the first half and that is exactly how it
-    # gets away with being wrong.
+    # Splits are looked for before anything is decided, and *especially* when
+    # the global fit is weak. A file cut differently cannot score well
+    # globally - that is what a split is, no single offset explaining the
+    # whole file - so a low confidence is the strongest reason to look for one
+    # rather than a reason to stop. Gating this behind the threshold made it
+    # unreachable on every case it was written for: the three subtitles a
+    # survey caught being 176s, 129s and 13s out scored 0.33, 0.10 and 0.07.
     segments = fit_segments(candidate, reference, offset, scale)
     report["segments"] = len(segments)
     if len(segments) > 1:
-        report["applied"] = True
-        report["reason"] = "%d segments" % len(segments)
-        kodi.log("subtitle sync: %d segments, offsets %s"
-                 % (len(segments),
-                    ", ".join("%+.1fs" % (offset + local)
-                              for _f, _l, local in segments)))
-        return apply_segments(candidate, offset, scale, segments), report
+        fixed = apply_segments(candidate, offset, scale, segments)
+        # Measured, not assumed. Re-timing a subtitle piece by piece is the
+        # most dangerous thing in this module - given enough pieces anything
+        # can be fitted to anything - so the result has to earn the same
+        # threshold a single shift does, scored after the fact.
+        _lag, after = _best_offset(reference, fixed, COARSE_BIN_MS, 2.0)
+        report["confidence"] = round(after, 3)
+        if after >= minimum_confidence and after > confidence:
+            report["applied"] = True
+            report["reason"] = "%d segments" % len(segments)
+            kodi.log("subtitle sync: %d segments, offsets %s, %.2f -> %.2f"
+                     % (len(segments),
+                        ", ".join("%+.1fs" % (offset + local)
+                                  for _f, _l, local in segments),
+                        confidence, after))
+            return fixed, report
+        report["confidence"] = round(confidence, 3)
+        report["segments"] = 1
+        kodi.log("subtitle sync: %d segments scored %.2f against %.2f whole, "
+                 "so the pieces were dropped" % (len(segments), after, confidence))
+
+    if confidence < minimum_confidence:
+        report["reason"] = "confidence below threshold"
+        return candidate, report
 
     if abs(offset) < 0.05 and abs(scale - 1.0) < 1e-6:
         report["reason"] = "already in sync"

@@ -179,3 +179,44 @@ def test_segmenting_stays_inside_its_budget():
     sync.fit_segments(late, reference, -23.0, 1.0)
     elapsed = time.time() - started
     assert elapsed < 1.0, "segmenting took %.2fs" % elapsed
+
+
+def test_a_split_too_broken_to_score_globally_is_still_repaired():
+    """The case the threshold used to hide.
+
+    Three different offsets means no single shift explains more than a third
+    of the file, so the global confidence lands under MIN_CONFIDENCE and the
+    old code refused before it ever looked for a split. That is circular: a
+    file cut differently *cannot* score well as a whole.
+    """
+    reference = make_cues(count=900)
+    third = len(reference) // 3
+    broken = ([c.shifted(1.0) for c in reference[:third]]
+              + [c.shifted(97.0) for c in reference[third:third * 2]]
+              + [c.shifted(-64.0) for c in reference[third * 2:]])
+
+    _offset, _scale, whole = sync.fit(broken, reference)
+    assert whole < sync.MIN_CONFIDENCE, (
+        "test data is not broken enough (%.2f)" % whole)
+
+    fixed, report = sync.synchronise(broken, reference)
+    assert report["applied"] is True, report["reason"]
+    assert report["segments"] > 1
+    assert report["confidence"] > whole
+    assert abs(fixed[0].start - reference[0].start) < 0.5
+    assert abs(fixed[-1].start - reference[-1].start) < 0.5
+
+
+def test_pieces_that_do_not_beat_the_whole_are_dropped():
+    """Given enough pieces anything can be fitted to anything.
+
+    So the segmented result is re-scored after the fact and has to clear the
+    same threshold a single shift does. An unrelated subtitle must come back
+    untouched however many pieces it was cut into.
+    """
+    reference = make_cues(count=900, seed=1)
+    unrelated = make_cues(count=900, seed=77, start=51.0)
+    fixed, report = sync.synchronise(unrelated, reference)
+    assert report["applied"] is False
+    assert report["reason"] == "confidence below threshold"
+    assert [c.start for c in fixed] == [c.start for c in unrelated]
