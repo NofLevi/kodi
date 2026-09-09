@@ -225,8 +225,30 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   hashed store remain for whenever there is a reason to ask again.
 * `subs/sync.py` is the part that makes a subtitle actually fit. It correlates
   speech activity as big-integer bitmasks, which is fast enough to align a two
-  hour film in about 170 ms, and corrects both constant offset and PAL/NTSC
-  drift. Its score is chance corrected, so an unrelated subtitle is refused.
+  hour film in about 170 ms, and corrects constant offset, PAL/NTSC drift and
+  **splits**. Its score is chance corrected, so an unrelated subtitle is
+  refused.
+
+  The whole field agrees on the first half of this. ffsubsync discretises both
+  sides into 10 ms "is anyone talking" bins and finds the shift that maximises
+  overlap, using an FFT because the naive scan is quadratic; the big-integer
+  masks here are the same idea reaching the same place, and finish in a tenth
+  of the time because a subtitle reference needs no audio decoding. What
+  ffsubsync's own documentation concedes is the second half: it has "difficulty
+  with videos that have breaks or splits in the middle", and one offset is
+  simply the wrong model for an advert break, a director's cut or a recap left
+  in. alass exists for that, and solves it with a dynamic program over per-cue
+  offsets where keeping the previous offset earns a `--split-penalty` bonus.
+
+  `fit_segments` is that idea at a fraction of the cost: fixed cue-count
+  blocks rather than optimal split points, and a block keeps its own offset
+  only when a local search both clears an absolute floor and beats staying put
+  by `SPLIT_MARGIN`. The floor is the part that matters - without it six blocks
+  of an unrelated subtitle each find a different spurious offset and the wrong
+  episode is assembled into place piece by piece. It is nearly free on a
+  healthy file, because a block already sitting where the global fit put it
+  scores well at zero lag and is never searched at all; only a block that looks
+  wrong pays for a wide search.
 * `vod/` is Israeli television. Live channels and the on-demand catalogue are
   separate sections on purpose, because they are browsed differently. A
   programme **opens on its seasons** where the broadcaster has any, and the

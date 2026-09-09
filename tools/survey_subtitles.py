@@ -81,7 +81,9 @@ def examine(entry, use_debrid):
                   chosen_provider="", chosen_score=-1, accepted=False,
                   decoded=False, cues=0, last_cue=0.0, runtime=0,
                   language_claimed="", language_detected="",
-                  fit_confidence=-1.0, fit_offset=0.0, fit_scale=1.0)
+                  fit_confidence=-1.0, fit_offset=0.0, fit_scale=1.0,
+                  fit_after=-1.0, segments=0,
+                  failed_bytes="")
 
     try:
         meta = play.build_meta({
@@ -184,6 +186,10 @@ def examine(entry, use_debrid):
     chosen_cues = _cues(winner)
     if chosen_cues is None:
         record["error"] = record["error"] or "the chosen subtitle did not parse"
+        # 16 of 116 downloads failed here on the first run and every one was a
+        # mystery, because nothing recorded *what* arrived. A parse failure and
+        # a download that returned an error page look identical from up here.
+        record["failed_bytes"] = _peek(winner)
         record["ms"] = int((time.time() - started) * 1000)
         return record
 
@@ -202,6 +208,14 @@ def examine(entry, use_debrid):
                 record["fit_confidence"] = round(confidence, 3)
                 record["fit_offset"] = round(offset, 2)
                 record["fit_scale"] = scale
+                # And what re-timing would actually leave the viewer with,
+                # splits included. A raw fit says how wrong the download was;
+                # this says how wrong it still is after the add-on has done
+                # everything it can, which is the number that matters.
+                fixed, result = sync.synchronise(chosen_cues, reference_cues)
+                record["segments"] = result["segments"]
+                record["fit_after"] = round(
+                    sync.estimate_quality(fixed, reference_cues), 3)
             except Exception as error:
                 record["error"] = "sync: %s" % str(error)[:90]
 
@@ -238,6 +252,19 @@ def _hash_matched(candidates, video_hash):
         if video_hash and candidate.get("moviehash") == video_hash:
             return candidate
     return None
+
+
+def _peek(candidate):
+    """The first bytes of a download that would not parse, for diagnosis."""
+    from katan.subs import auto
+    try:
+        module = auto._modules().get(candidate.get("provider"))
+        data = module.download(candidate) if module else b""
+    except Exception as error:
+        return "download raised: %s" % str(error)[:60]
+    if not data:
+        return "download returned nothing"
+    return "%d bytes %r" % (len(data), data[:60])
 
 
 def _cues(candidate):
@@ -356,7 +383,7 @@ def report(path, examples=10):
         say("  %d titles had a hash-matched reference to measure against" %
             len(measured))
         say("")
-        say("  name score      titles   median fit   below 0.45")
+        say("  name score      titles   median fit   below 0.45   after re-timing")
         for low, high, label in ((100, 101, "100 exact"),
                                  (90, 100, " 90-99"),
                                  (70, 90, " 70-89"),
@@ -368,13 +395,25 @@ def report(path, examples=10):
                 continue
             fits = [r["fit_confidence"] for r in block]
             bad = [f for f in fits if f < 0.45]
-            say("  %-14s  %4d     %6.2f       %d (%d%%)"
+            after = [r["fit_after"] for r in block if r.get("fit_after", -1) >= 0]
+            say("  %-14s  %4d     %6.2f       %d (%d%%)      %s"
                 % (label, len(block), _median(fits), len(bad),
-                   100 * len(bad) // len(block)))
+                   100 * len(bad) // len(block),
+                   "%6.2f" % _median(after) if after else "     -"))
         say("")
         say("  MIN_CONFIDENCE is 0.45 and subs.threshold is 70. A row at or")
         say("  above 70 whose median fit is under 0.45 means the threshold is")
-        say("  letting through subtitles that do not fit.")
+        say("  letting through subtitles that do not fit. The last column is")
+        say("  what the viewer actually gets, after sync has re-timed it.")
+
+        split = [r for r in measured if r.get("segments", 0) > 1]
+        say("")
+        say("  SPLITS - files cut differently from their subtitle")
+        say("  needed more than one offset  %4d of %4d (%d%%)"
+            % (len(split), len(measured), _pc(split, measured)))
+        say("  a single global offset cannot fix those, which is why alass")
+        say("  exists. Near zero here means fit_segments is not earning its")
+        say("  place and should be deleted.")
 
     # -- did sync engage at all --------------------------------------------
     hashed = [r for r in rows if r.get("has_hash_match")]
@@ -403,6 +442,8 @@ def report(path, examples=10):
         % (len(lying), _pc(lying, decoded)))
     say("  covers under 60%% of runtime   %4d (%d%%)"
         % (len(short), _pc(short, decoded)))
+    for row in [r for r in with_candidates if r.get("failed_bytes")][:6]:
+        say("    %-28s %s" % (row["title"][:28], row["failed_bytes"][:70]))
 
     # -- per provider -------------------------------------------------------
     say("")

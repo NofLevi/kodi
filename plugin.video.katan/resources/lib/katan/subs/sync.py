@@ -20,12 +20,16 @@ which runs at C speed inside the interpreter. A two hour film at 100 ms
 resolution is a 72,000 bit integer, and scanning three minutes of possible
 offsets costs a few milliseconds.
 
-Two kinds of error are corrected:
+Three kinds of error are corrected:
 
 * A constant offset, the usual "subtitles are three seconds late".
 * Framerate drift, the classic PAL/NTSC mismatch where the subtitle starts in
   sync and slips further out as the film goes on. That is a linear scale, so a
   small set of known ratios is tried and the best scoring one wins.
+* **Splits**, where one file is cut differently from the other - an advert
+  break, a recap left in, a director's cut. No single offset fixes those, and
+  they are not rare: the worst case a survey of real playbacks found was 176
+  seconds out at the end and fine at the start.
 
 The result is a linear fit plus a confidence score, so the caller can refuse a
 bad alignment rather than silently making things worse.
@@ -54,6 +58,32 @@ FINE_MAX_OFFSET = 1.5
 # Below this, an alignment is not trustworthy and the caller should keep the
 # original timings rather than gamble.
 MIN_CONFIDENCE = 0.45
+
+# Splits. One segment per ten minutes or so, because that is roughly the
+# spacing of advert breaks and short enough to isolate a missing recap, while
+# still leaving each segment enough dialogue to correlate honestly.
+SEGMENT_MINUTES = 10.0
+MIN_SEGMENTS = 2
+MAX_SEGMENTS = 8
+MIN_SEGMENT_CUES = 25        # below this a segment correlates with anything
+
+# A segment already scoring this well where the global fit put it is left
+# alone without searching at all, which is every segment of a healthy file and
+# is what keeps splits nearly free. Measured on synthetic tracks a correctly
+# placed segment scores 1.0 and unrelated content tops out at 0.18, so there
+# is a wide gap to sit in; these are the two knobs to move if real files
+# disagree.
+SEGMENT_SETTLED = 0.6
+
+# What a split has to be worth. alass pays a `--split-penalty` out of its
+# rating for every break it introduces (default 7 of 1000, useful 5-20); the
+# same idea stated the other way round - a segment keeps its own offset only
+# when that both clears an absolute floor and beats staying put by a margin.
+# The floor is the important half: without it, six blocks of an unrelated
+# subtitle each find a different spurious offset and the wrong episode gets
+# assembled into place piece by piece.
+MIN_SEGMENT_SCORE = 0.5
+SPLIT_MARGIN = 0.06
 
 
 def _popcount(value):
@@ -108,15 +138,21 @@ def _score(reference_mask, candidate_mask, reference_bits, candidate_bits, bins)
 
 
 def _best_offset(reference, candidate, bin_ms, max_offset, scale=1.0,
-                 reference_bits=None):
-    """Search lags in both directions and return (offset_seconds, score)."""
+                 reference_bits=None, reference_mask=None):
+    """Search lags in both directions and return (offset_seconds, score).
+
+    `reference_mask` is accepted so a caller comparing many candidates against
+    one reference - which is what looking for splits does - builds the
+    reference side once rather than once per block.
+    """
     step = bin_ms / 1000.0
     max_lag = int(max_offset / step)
 
     candidate_mask = activity_mask(candidate, bin_ms, scale=scale)
     if not candidate_mask:
         return 0.0, 0.0
-    reference_mask = activity_mask(reference, bin_ms)
+    if reference_mask is None:
+        reference_mask = activity_mask(reference, bin_ms)
     if not reference_mask:
         return 0.0, 0.0
 
@@ -174,6 +210,88 @@ def apply_fit(cues, offset, scale=1.0):
     return srt.clamp_durations([cue.shifted(offset, scale) for cue in cues])
 
 
+# --------------------------------------------------------------------------
+# splits
+# --------------------------------------------------------------------------
+
+
+def _segment_count(cues):
+    """How many pieces to cut this subtitle into, from how long it runs."""
+    span = (cues[-1].end - cues[0].start) / 60.0 if cues else 0.0
+    wanted = int(span / SEGMENT_MINUTES)
+    wanted = max(MIN_SEGMENTS, min(MAX_SEGMENTS, wanted))
+    # Never make a segment too short to say anything trustworthy.
+    return max(1, min(wanted, len(cues) // MIN_SEGMENT_CUES))
+
+
+def fit_segments(candidate, reference, offset=0.0, scale=1.0,
+                 window=COARSE_MAX_OFFSET, margin=SPLIT_MARGIN):
+    """Per-segment corrections on top of a global fit.
+
+    Returns [(first_index, last_index, extra_offset), ...] covering every cue
+    in order. A single entry with an extra offset of zero means the global fit
+    was the whole answer, which is the common case and the cheap one.
+
+    ponytail: segments are fixed cue-count blocks, not alass's dynamic program
+    over optimal split points. That finds a break wherever it truly is; this
+    finds it to within a block, which is enough to re-time both sides of an
+    advert break and costs a fraction of a global fit instead of millions of
+    interpreter operations on a four-core A53.
+    """
+    count = _segment_count(candidate)
+    if count < 2 or not reference:
+        return [(0, len(candidate) - 1, 0.0)]
+
+    shifted = [cue.shifted(offset, scale) for cue in candidate]
+    size = len(candidate) // count
+    # Built once: every block is compared against the same reference, and
+    # rebuilding a 72,000 bit mask eight times was most of the cost.
+    mask = activity_mask(reference, COARSE_BIN_MS)
+    bits = _popcount(mask)
+
+    found = []
+    for index in range(count):
+        first = index * size
+        last = len(candidate) - 1 if index == count - 1 else (first + size - 1)
+        block = shifted[first:last + 1]
+        # What this block already scores where the global fit put it. A block
+        # that is fine there is left alone without a search, which is every
+        # block of a healthy file - so the usual cost of looking for splits is
+        # one zero-lag comparison each.
+        _zero, base = _best_offset(reference, block, COARSE_BIN_MS, 0.0,
+                                   reference_bits=bits, reference_mask=mask)
+        local = 0.0
+        if base < SEGMENT_SETTLED:
+            local, score = _best_offset(reference, block, COARSE_BIN_MS,
+                                        window, reference_bits=bits,
+                                        reference_mask=mask)
+            if (abs(local) < 0.05 or score < MIN_SEGMENT_SCORE
+                    or score < base + margin):
+                local = 0.0
+        found.append((first, last, local))
+
+    return _merge(found)
+
+
+def _merge(segments):
+    """Join neighbouring segments that agreed, so the count means something."""
+    merged = []
+    for first, last, local in segments:
+        if merged and abs(merged[-1][2] - local) < 0.05:
+            merged[-1] = (merged[-1][0], last, merged[-1][2])
+        else:
+            merged.append((first, last, local))
+    return merged
+
+
+def apply_segments(cues, offset, scale, segments):
+    out = []
+    for first, last, local in segments:
+        for cue in cues[first:last + 1]:
+            out.append(cue.shifted(offset + local, scale))
+    return srt.clamp_durations(out)
+
+
 def synchronise(candidate, reference, minimum_confidence=MIN_CONFIDENCE):
     """Fit candidate onto reference, refusing to act on a weak match.
 
@@ -186,12 +304,27 @@ def synchronise(candidate, reference, minimum_confidence=MIN_CONFIDENCE):
         "scale": round(scale, 6),
         "confidence": round(confidence, 3),
         "applied": False,
+        "segments": 1,
         "reason": "",
     }
 
     if confidence < minimum_confidence:
         report["reason"] = "confidence below threshold"
         return candidate, report
+
+    # Splits are checked before "already in sync", because a file cut
+    # differently is in sync for the first half and that is exactly how it
+    # gets away with being wrong.
+    segments = fit_segments(candidate, reference, offset, scale)
+    report["segments"] = len(segments)
+    if len(segments) > 1:
+        report["applied"] = True
+        report["reason"] = "%d segments" % len(segments)
+        kodi.log("subtitle sync: %d segments, offsets %s"
+                 % (len(segments),
+                    ", ".join("%+.1fs" % (offset + local)
+                              for _f, _l, local in segments)))
+        return apply_segments(candidate, offset, scale, segments), report
 
     if abs(offset) < 0.05 and abs(scale - 1.0) < 1e-6:
         report["reason"] = "already in sync"
