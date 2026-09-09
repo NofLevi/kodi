@@ -61,18 +61,56 @@ def supports(language):
     return language in THREE_LETTER
 
 
-def search(meta, target, languages):
-    """Ask once per language, because the API keys the whole query on one."""
+def search(meta, target, languages, video_hash="", video_size=0):
+    """Ask once per language, because the API keys the whole query on one.
+
+    Twice per language when there is a file hash, because a hash query and a
+    title query are different questions and the hash one is worth far more: it
+    is the only evidence that a subtitle belongs to *this file* rather than to
+    something with the same name, and the matcher scores it at 100.
+    """
     results = []
     for language in languages:
         code = THREE_LETTER.get(language)
         if not code:
             continue
+        if video_hash:
+            results.extend(_search_one(meta, language, code,
+                                       video_hash=video_hash,
+                                       video_size=video_size))
         results.extend(_search_one(meta, language, code))
     return results
 
 
-def _search_one(meta, language, code):
+def _imdb_agrees(entry, meta):
+    """Is this row filed under the title we are actually watching?
+
+    True, False, or None when there is nothing to compare. This is not
+    pedantry: the hash of one real Breaking Bad episode is registered in their
+    database against *three* titles - Breaking Bad, The Vampire Diaries and a
+    Bollywood film - all four rows claiming `MatchedBy: moviehash`. Uploaders
+    mis-register hashes, and without this check the first row wins at a score
+    of 100, above every other kind of evidence, and the wrong-episode guard
+    does not catch it because both are S01E01.
+
+    Episodes are filed under the *episode's* imdb id and we carry the show's,
+    so `SeriesIMDBParent` is the field that compares - and it is right there in
+    the response.
+    """
+    ours = str((meta.get("ids") or {}).get("imdb") or "")
+    ours = ours.replace("tt", "").lstrip("0")
+    if not ours:
+        return None
+    if meta.get("type") == "episode":
+        theirs = str(entry.get("SeriesIMDBParent") or "").lstrip("0")
+    else:
+        theirs = str(entry.get("IDMovieImdb") or "").lstrip("0")
+    if not theirs:
+        return None
+    return theirs == ours
+
+
+def _search_one(meta, language, code, video_hash="", video_size=0):
     ids = meta.get("ids") or {}
     imdb = str(ids.get("imdb") or "").replace("tt", "").strip()
 
@@ -80,6 +118,16 @@ def _search_one(meta, language, code):
     # IMDb id is far more precise than a title, so it is used when there is
     # one and the title is the fallback.
     parts = []
+    if video_hash:
+        # A hash query stands alone: adding a title or an episode narrows it
+        # to nothing, because the row is filed against the file rather than
+        # against the name.
+        parts = ["moviehash-%s" % video_hash]
+        if video_size:
+            parts.append("moviebytesize-%s" % video_size)
+        parts.append("sublanguageid-%s" % code)
+        return _fetch(meta, language, parts)
+
     if meta.get("type") == "episode":
         parts.append("episode-%d" % int(meta.get("episode") or 1))
     if imdb:
@@ -97,7 +145,10 @@ def _search_one(meta, language, code):
     if meta.get("type") == "episode":
         parts.append("season-%d" % int(meta.get("season") or 1))
     parts.append("sublanguageid-%s" % code)
+    return _fetch(meta, language, parts)
 
+
+def _fetch(meta, language, parts):
     payload = http.get_json(
         "%s/%s" % (BASE, "/".join(sorted(parts))),
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
@@ -116,15 +167,21 @@ def _search_one(meta, language, code):
         link = entry.get("SubDownloadLink")
         if not link:
             continue
+        agrees = _imdb_agrees(entry, meta)
+        if agrees is False:
+            # Somebody else's programme, filed against our file's hash.
+            continue
         results.append(common.candidate(
             NAME, language,
             entry.get("MovieReleaseName") or entry.get("SubFileName") or "",
             link,
             downloads=_number(entry.get("SubDownloadsCnt")),
-            # The service reports whether the subtitle was matched to a file
-            # by hash. That is the strongest evidence a candidate can carry,
-            # and the matcher already scores a hash match at 100.
-            hash_match=str(entry.get("MatchedBy") or "") == "moviehash",
+            # A hash match is the strongest evidence there is and the matcher
+            # scores it at 100 - so it is only claimed when the row is also
+            # filed under the title we are watching. Unverifiable means not
+            # claimed, because 100 is too high a price for a maybe.
+            hash_match=(str(entry.get("MatchedBy") or "") == "moviehash"
+                        and agrees is True),
         ))
     return results
 
