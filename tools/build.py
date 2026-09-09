@@ -34,6 +34,22 @@ EXCLUDE_SUFFIXES = (".pyc", ".pyo", ".orig", ".rej", ".log", ".tmp")
 EXCLUDE_NAMES = {".DS_Store", "Thumbs.db", "_fix.py"}
 
 
+def shown(path):
+    """A path to print, relative to the project when that means anything.
+
+    `os.path.relpath` **raises** on Windows when the two paths are on
+    different drives, and `--out` is usually a temporary directory: CI checks
+    out on `D:` and pytest's tmpdir is on `C:`, so every packaging test errored
+    on a line that does nothing but print a filename. That took the Windows
+    half of the matrix down with it - the suite failed before the packaging
+    check and the offline end-to-end run, so neither had run since it started.
+    """
+    try:
+        return os.path.relpath(path, ROOT)
+    except ValueError:
+        return path
+
+
 def addon_info(addon_id):
     path = os.path.join(ROOT, addon_id, "addon.xml")
     tree = ET.parse(path)
@@ -214,10 +230,10 @@ def main():
         target = build_zip(addon_id, version)
         copy_assets(addon_id)
         print("built %s (%.0f KB)"
-              % (os.path.relpath(target, ROOT), os.path.getsize(target) / 1024.0))
+              % (shown(target), os.path.getsize(target) / 1024.0))
 
     index, digest = build_index()
-    print("wrote %s (md5 %s)" % (os.path.relpath(index, ROOT), digest))
+    print("wrote %s (md5 %s)" % (shown(index), digest))
 
     write_404()
     listings = write_listings()
