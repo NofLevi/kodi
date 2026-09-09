@@ -88,6 +88,7 @@ DEFAULTS = {
     "subs.threshold": "70",
     "subs.provider.wizdom": "true",
     "subs.provider.opensubtitles": "true",
+    "subs.provider.opensubtitles_rest": "true",
     "subs.provider.subsource": "false",
     # Off by default because it needs an account, and a provider that is on but
     # cannot sign in is a provider that quietly returns nothing.
