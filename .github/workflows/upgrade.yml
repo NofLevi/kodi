@@ -23,7 +23,8 @@ name: upgrade
 
 on:
   push:
-    branches: [main, development]
+    # `development` only; `main` is a fast-forward of what already ran here.
+    branches: [development]
   pull_request:
   schedule:
     # Daily. What this checks is mostly not our code - it is whether the

@@ -1,0 +1,27 @@
+# One line ending everywhere, so a build is a function of the source and not
+# of the machine that ran it.
+#
+# Git checks out CRLF on Windows and LF on Linux. The zip is built from the
+# working tree, so the same commit produced two different zips: 66 of 123
+# members of 0.0.4 differed, every one of them by newlines alone. Fixing the
+# timestamps made the build reproducible on one machine; this makes it
+# reproducible across them, which is what "the release and the published zip
+# are the same" actually requires - otherwise it can only ever be checked
+# against the machine that happened to publish.
+#
+# LF rather than CRLF because that is what is already stored, what the
+# Android boxes run, and what Kodi's own add-ons use.
+* text=auto eol=lf
+
+# Left exactly as they are. `text=auto` detects most of these on its own, but
+# a frozen test fixture that git decided to "fix" would be a very confusing
+# afternoon.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.zip    binary
+*.db     binary
+*.ttf    binary
+*.otf    binary
