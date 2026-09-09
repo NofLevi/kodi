@@ -257,35 +257,35 @@
         <category id="sources" label="30015" help="30016">
             <group id="1" label="30017">
                 <setting id="sources.provider.torrentio" type="boolean" label="30018">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.torrentsdb" type="boolean" label="30148">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.comet" type="boolean" label="30019" help="30143">
-                    <level>0</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.mediafusion" type="boolean" label="30020" help="30143">
-                    <level>0</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.zilean" type="boolean" label="30021" help="30144">
-                    <level>1</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.nyaa" type="boolean" label="30022">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.animetosho" type="boolean" label="30023">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.external" type="boolean" label="30024">
-                    <level>1</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
             </group>
@@ -310,7 +310,7 @@
                     </control>
                 </setting>
                 <setting id="sources.min_resolution" type="string" label="30028">
-                    <level>0</level><default>720p</default>
+                    <level>2</level><default>720p</default>
                     <constraints>
                         <options>
                             <option>sd</option>
@@ -329,15 +329,15 @@
                     <control type="slider" format="integer"/>
                 </setting>
                 <setting id="sources.allow_hevc" type="boolean" label="30030">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.allow_av1" type="boolean" label="30031">
-                    <level>0</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.allow_hdr" type="boolean" label="30032">
-                    <level>0</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.prefer_hebrew" type="boolean" label="30033">
@@ -349,7 +349,7 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.size_preference" type="string" label="30035">
-                    <level>0</level><default>smallest</default>
+                    <level>2</level><default>smallest</default>
                     <constraints>
                         <options>
                             <option>smallest</option>
@@ -432,17 +432,17 @@
         <category id="performance" label="30036" help="30037">
             <group id="1" label="30038">
                 <setting id="sources.results" type="integer" label="30039">
-                    <level>0</level><default>6</default>
+                    <level>2</level><default>6</default>
                     <constraints><minimum>3</minimum><step>1</step><maximum>40</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
                 <setting id="sources.timeout" type="integer" label="30040">
-                    <level>0</level><default>10</default>
+                    <level>2</level><default>10</default>
                     <constraints><minimum>5</minimum><step>1</step><maximum>40</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
                 <setting id="sources.workers" type="integer" label="30041">
-                    <level>1</level><default>2</default>
+                    <level>2</level><default>2</default>
                     <constraints><minimum>1</minimum><step>1</step><maximum>8</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
@@ -451,32 +451,32 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.prefetch_next" type="boolean" label="30043">
-                    <level>0</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.source_memory" type="boolean" label="30044">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.seadex" type="boolean" label="30045" help="30046">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
             </group>
 
             <group id="2" label="30047">
                 <setting id="cache.max_mb" type="integer" label="30048">
-                    <level>0</level><default>25</default>
+                    <level>2</level><default>25</default>
                     <constraints><minimum>10</minimum><step>10</step><maximum>500</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
                 <setting id="subs.cache_files" type="integer" label="30049">
-                    <level>1</level><default>30</default>
+                    <level>2</level><default>30</default>
                     <constraints><minimum>10</minimum><step>10</step><maximum>500</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
                 <setting id="service.warm" type="boolean" label="30050">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="log.debug" type="boolean" label="30051">
@@ -531,11 +531,11 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.hash_match" type="boolean" label="30058">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.threshold" type="integer" label="30059">
-                    <level>1</level><default>70</default>
+                    <level>2</level><default>70</default>
                     <constraints><minimum>40</minimum><step>5</step><maximum>100</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
@@ -543,19 +543,19 @@
 
             <group id="2" label="30017">
                 <setting id="subs.provider.wizdom" type="boolean" label="30060">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.opensubtitles" type="boolean" label="30061">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.subsource" type="boolean" label="30062">
-                    <level>0</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.ktuvit" type="boolean" label="30063" help="30064">
-                    <level>0</level><default>false</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.ktuvit.user" type="string" label="30065">
@@ -563,7 +563,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>                    <control type="edit" format="string">
+                    <level>3</level>                    <control type="edit" format="string">
                         <heading>30065</heading>
                     </control>
                     <dependencies>
@@ -575,7 +575,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>                    <control type="edit" format="string">
+                    <level>3</level>                    <control type="edit" format="string">
                         <heading>30066</heading>
                     </control>
                     <dependencies>
@@ -594,7 +594,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>1</level>                    <control type="edit" format="string">
+                    <level>3</level>                    <control type="edit" format="string">
                         <heading>30067</heading>
                     </control>
                 </setting>
@@ -628,7 +628,7 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.ai.engine" type="string" label="30070">
-                    <level>0</level><default>gemini</default>
+                    <level>2</level><default>gemini</default>
                     <constraints>
                         <options>
                             <option>gemini</option>
@@ -644,7 +644,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>                    <control type="edit" format="string">
+                    <level>3</level>                    <control type="edit" format="string">
                         <heading>30103</heading>
                     </control>
                     <dependencies>
@@ -652,7 +652,7 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ai.gemini_model" type="string" label="30073">
-                    <level>1</level><default>gemini-2.5-flash</default>
+                    <level>2</level><default>gemini-2.5-flash</default>
                     <control type="edit" format="string">
                         <heading>30073</heading>
                     </control>
@@ -665,7 +665,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>                    <control type="edit" format="string">
+                    <level>2</level>                    <control type="edit" format="string">
                         <heading>30104</heading>
                     </control>
                     <dependencies>
@@ -677,7 +677,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>                    <control type="edit" format="string">
+                    <level>3</level>                    <control type="edit" format="string">
                         <heading>30105</heading>
                     </control>
                     <dependencies>
@@ -689,7 +689,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>                    <control type="edit" format="string">
+                    <level>2</level>                    <control type="edit" format="string">
                         <heading>30106</heading>
                     </control>
                     <dependencies>
@@ -762,7 +762,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>0</level>                    <control type="edit" format="string">
+                    <level>3</level>                    <control type="edit" format="string">
                         <heading>30089</heading>
                     </control>
                 </setting>
@@ -833,7 +833,7 @@
         <category id="interface" label="30091" help="30092">
             <group id="1" label="30093">
                 <setting id="ui.window_home" type="boolean" label="30094">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="ui.start_on_boot" type="boolean" label="30136"
@@ -875,7 +875,7 @@
                     <control type="toggle"/>
                 </setting>
                 <setting id="ui.window_search" type="boolean" label="30095">
-                    <level>0</level><default>true</default>
+                    <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="ui.language" type="string" label="30096">
