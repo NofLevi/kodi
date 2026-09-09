@@ -342,3 +342,98 @@ def test_a_film_with_nothing_is_still_offered_a_translation(chooser,
     assert len(labels) == 1
     assert kodi.localize(32494) in labels[0]
     assert not xbmcgui.NOTIFICATIONS, "there was something to offer"
+
+
+# --------------------------------------------------------------------------
+# audio tracks: seeing them, and saying so
+# --------------------------------------------------------------------------
+
+def _audio(monkeypatch, streams):
+    import xbmc
+    xbmc.JSONRPC_RESULTS["Player.GetProperties"] = {"audiostreams": streams}
+    return streams
+
+
+def test_the_audio_tracks_are_read_at_all(monkeypatch):
+    """Nothing in this add-on had ever looked at audio.
+
+    The subtitle list already makes this exact JSON-RPC call; it simply never
+    asked for the audio properties. Which track a viewer hears was Kodi's
+    default applied to whatever file was picked, and for a dual-audio anime
+    release that is Japanese or English by luck.
+    """
+    import xbmc
+    from katan.subs import embedded
+
+    _audio(monkeypatch, [
+        {"index": 0, "language": "jpn", "name": "Japanese"},
+        {"index": 1, "language": "eng", "name": "English"},
+    ])
+    try:
+        found = embedded.audio_streams()
+    finally:
+        xbmc.JSONRPC_RESULTS.pop("Player.GetProperties", None)
+
+    assert [s["language"] for s in found] == ["ja", "en"]
+
+
+def test_japanese_and_korean_are_named_not_sliced(monkeypatch):
+    """`_code_for` falls back to the first two letters of whatever it is given.
+
+    So "jpn" became "jp", which is not a language code, and Korean was in the
+    same position - the two languages this was actually asked for.
+    """
+    from katan.subs import embedded
+
+    assert embedded._code_for("jpn") == "ja"
+    assert embedded._code_for("Japanese") == "ja"
+    assert embedded._code_for("kor") == "ko"
+    assert embedded._code_for("Korean") == "ko"
+
+
+def test_one_language_is_not_worth_announcing(monkeypatch):
+    """A stereo and a 5.1 English track are two streams and one choice."""
+    import xbmc
+    from katan.subs import embedded
+
+    _audio(monkeypatch, [
+        {"index": 0, "language": "eng", "name": "English Stereo"},
+        {"index": 1, "language": "eng", "name": "English 5.1"},
+    ])
+    try:
+        assert embedded.audio_languages() == ["English"]
+    finally:
+        xbmc.JSONRPC_RESULTS.pop("Player.GetProperties", None)
+
+
+def test_several_languages_are_named_for_a_human(monkeypatch):
+    import xbmc
+    from katan.subs import embedded
+
+    _audio(monkeypatch, [
+        {"index": 0, "language": "jpn", "name": "Japanese"},
+        {"index": 1, "language": "eng", "name": "English"},
+        {"index": 2, "language": "heb", "name": "Hebrew"},
+    ])
+    try:
+        assert embedded.audio_languages() == ["Japanese", "English", "Hebrew"]
+    finally:
+        xbmc.JSONRPC_RESULTS.pop("Player.GetProperties", None)
+
+
+def test_a_two_letter_alias_inside_a_longer_word_is_a_coincidence():
+    """"es" is in "japan-es-e", so Japanese was reported as Spanish.
+
+    The alias table was matched by substring with no length rule, so the
+    two-letter codes collided with ordinary language names. This was wrong for
+    subtitle tracks long before anything looked at audio; it only became
+    visible when a test asked about the two languages this was built for.
+    """
+    from katan.subs import embedded
+
+    assert embedded._code_for("Japanese") == "ja"
+    assert embedded._code_for("Portuguese") == "pt"
+    assert embedded._code_for("Spanish") == "es"
+    # And an exact two-letter code still works, because that is not a guess.
+    assert embedded._code_for("es") == "es"
+    assert embedded._code_for("ja") == "ja"
