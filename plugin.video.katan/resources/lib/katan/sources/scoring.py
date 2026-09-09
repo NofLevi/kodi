@@ -88,6 +88,12 @@ class Preferences(object):
         # Filled in by `rank` from the title in hand, because it is a property
         # of what is being watched rather than of the settings.
         self.original_language = ""
+        # Built once. It was being rebuilt per source - three set
+        # constructions and two unions for every one of 240 releases on a
+        # search - to answer a question whose inputs never change within one
+        # ranking.
+        self.readable = (set(self.languages)
+                         | set(release.NEUTRAL_LANGUAGES) | {"he"})
         self.size_preference = settings.get("sources.size_preference", "balanced")
         self.results = settings.get_int("sources.results")
         self.max_rank = settings.resolution_rank(self.max_resolution)
@@ -218,10 +224,10 @@ def _wrong_language(source, prefs, original=""):
     languages = source.get("languages") or []
     if not languages:
         return False
-    acceptable = set(prefs.languages) | set(release.NEUTRAL_LANGUAGES) | {"he"}
-    if original:
-        acceptable.add(original)
-    return not (set(languages) & acceptable)
+    for code in languages:
+        if code in prefs.readable or (original and code == original):
+            return False
+    return True
 
 
 def _is_the_original(source, prefs):
@@ -304,6 +310,8 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
     # release - it is the only honest one there is.
     item = meta.get("item") or meta
     prefs.original_language = (item.get("original_language") or "").strip()
+    if prefs.original_language:
+        prefs.readable = prefs.readable | {prefs.original_language}
     remembered = remembered_group(meta)
     preferred = preferred_hashes(meta)
 
