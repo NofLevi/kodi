@@ -44,14 +44,14 @@ def test_it_can_be_switched_off(settings_module):
     assert not consensus.wanted(62, has_reference=False)
 
 
-def test_a_low_memory_device_fetches_fewer(settings_module):
-    """This runs on a projector with a gigabyte shared with Android."""
+def test_a_low_memory_device_keeps_the_minimum_majority_budget(settings_module):
+    """Three tiny files buy a real majority without audio decoding or AI."""
     from katan.subs import consensus
 
     settings_module.set("device.profile", "low_memory")
-    assert consensus.budget() == consensus.LOW_MEMORY_CANDIDATES
+    assert consensus.budget() == 3
     settings_module.set("device.profile", "balanced")
-    assert consensus.budget() == consensus.MAX_CANDIDATES
+    assert consensus.budget() == 3
 
 
 # --------------------------------------------------------------------------
@@ -84,6 +84,21 @@ def test_another_language_is_not_a_second_opinion():
 # --------------------------------------------------------------------------
 # the judgement
 # --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("ratio", [25.0 / 23.976,
+                                    24000.0 / 23976.0,
+                                    30000.0 / 29970.0])
+def test_framerate_conversion_is_not_timing_agreement(ratio):
+    """Two cuts needing any known scale are not the same video timeline."""
+    from katan.subs import consensus
+
+    original = _cues(count=500)
+    converted = [cue.shifted(0.0, ratio) for cue in original]
+    agreed, confidence, _offset = consensus.agree(original, converted)
+    assert confidence >= consensus.AGREE_CONFIDENCE
+    assert agreed is False
+
 
 def test_two_that_agree_beat_one_that_does_not():
     """The case this exists for: the top-scored subtitle is the odd one out."""
@@ -130,9 +145,107 @@ def test_one_candidate_is_not_a_consensus():
     assert report["supported"] == 0
 
 
+
 def test_nothing_downloaded_is_reported_rather_than_crashed():
     from katan.subs import consensus
 
     chosen, cues, report = consensus.choose([({"provider": "a"}, [])])
     assert chosen is None and cues == []
     assert report["reason"] == "nothing downloaded"
+
+
+
+def test_verification_budget_buys_independent_languages_not_duplicates():
+    from katan.subs import consensus
+
+    rows = [
+        {"provider": "wizdom", "language": "he", "score": 78, "release": "A"},
+        {"provider": "ktuvit", "language": "he", "score": 77, "release": "B"},
+        {"provider": "open", "language": "en", "score": 70, "release": "C"},
+        {"provider": "subdl", "language": "es", "score": 63, "release": "D"},
+    ]
+
+    picked = consensus.verification_candidates(rows, "he", 3)
+    assert [entry["language"] for entry in picked] == ["he", "en", "es"]
+
+
+def test_verification_candidates_never_exceed_the_device_budget():
+    from katan.subs import consensus
+
+    rows = [{"provider": str(i), "language": language, "score": 80 - i,
+             "release": str(i)}
+            for i, language in enumerate(("he", "en", "es", "fr", "de"))]
+    assert len(consensus.verification_candidates(rows, "he", 2)) <= 2
+
+
+def test_two_other_languages_can_prove_a_timing_reference():
+    """Timing is language-independent; English and Spanish can verify a cut."""
+    from katan.subs import consensus
+
+    fetched = [
+        ({"provider": "hebrew", "language": "he", "score": 75},
+         _cues(offset=90.0, text="hebrew")),
+        ({"provider": "english", "language": "en", "score": 68},
+         _cues(offset=0.0, text="english")),
+        ({"provider": "spanish", "language": "es", "score": 61},
+         _cues(offset=0.2, text="spanish")),
+    ]
+
+    candidate, cues, report = consensus.timeline_reference(fetched, "he")
+    assert candidate["language"] in ("en", "es")
+    assert cues
+    assert report["supported"] == 1
+
+
+
+def test_two_languages_from_one_provider_are_not_independent_proof():
+    from katan.subs import consensus
+
+    fetched = [
+        ({"provider": "one-archive", "language": "en", "score": 70}, _cues()),
+        ({"provider": "one-archive", "language": "es", "score": 68}, _cues()),
+    ]
+    candidate, cues, report = consensus.timeline_reference(fetched, "he")
+    assert candidate is None and cues == []
+    assert report["supported"] == 0
+
+
+
+def test_same_catalogue_different_uploaders_are_independent():
+    from katan.subs import consensus
+
+    fetched = [
+        ({"provider": "open", "uploader": "alice", "language": "en", "score": 70},
+         _cues()),
+        ({"provider": "open", "uploader": "bob", "language": "es", "score": 68},
+         _cues(offset=0.2)),
+    ]
+    candidate, cues, report = consensus.timeline_reference(fetched, "he")
+    assert candidate is not None and cues
+    assert report["supported"] == 1
+
+
+def test_verification_selection_skips_a_correlated_upload_for_an_independent_one():
+    from katan.subs import consensus
+
+    rows = [
+        {"provider": "wizdom", "language": "he", "score": 75},
+        {"provider": "open", "uploader": "same", "language": "en", "score": 70},
+        {"provider": "open", "uploader": "same", "language": "es", "score": 69},
+        {"provider": "open", "uploader": "other", "language": "es", "score": 68},
+    ]
+    picked = consensus.verification_candidates(rows, "he", 3)
+    assert [candidate.get("uploader") for candidate in picked[1:]] == ["same", "other"]
+
+
+def test_one_other_language_is_not_proof_of_the_video_timeline():
+    from katan.subs import consensus
+
+    fetched = [
+        ({"provider": "hebrew", "language": "he", "score": 75}, _cues()),
+        ({"provider": "english", "language": "en", "score": 68}, _cues()),
+    ]
+
+    candidate, cues, report = consensus.timeline_reference(fetched, "he")
+    assert candidate is None and cues == []
+    assert report["supported"] == 0

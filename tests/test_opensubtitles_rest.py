@@ -94,7 +94,7 @@ def test_a_language_it_does_not_know_is_skipped(monkeypatch, provider):
 def test_results_become_candidates(monkeypatch, provider):
     rows = [{"MovieReleaseName": "Silo.S01E01.1080p-PSA",
              "SubDownloadLink": "https://dl/1", "SubDownloadsCnt": "284908",
-             "MatchedBy": "moviehash"},
+             "UserNickName": "uploader-a", "MatchedBy": "moviehash"},
             {"SubFileName": "other.srt", "SubDownloadLink": "https://dl/2",
              "SubDownloadsCnt": "nonsense", "MatchedBy": "fulltext"},
             {"MovieReleaseName": "no link here"}]
@@ -104,6 +104,7 @@ def test_results_become_candidates(monkeypatch, provider):
     assert len(found) == 2, "the entry with no download link must be dropped"
     assert found[0]["release"] == "Silo.S01E01.1080p-PSA"
     assert found[0]["downloads"] == 284908
+    assert found[0]["uploader"] == "uploader-a"
     # These rows carry no id of their own, so nothing can be verified and
     # nothing is claimed - `moviehash` alone is not enough, because the index
     # has one file's hash filed under three different programmes.

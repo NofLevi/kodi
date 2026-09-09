@@ -31,6 +31,30 @@ VARIANT_AI = "ai"
 # only provider that reads it is OpenSubtitles. Wizdom and Ktuvit are Hebrew
 # sites and ignore it.
 WIDE_LANGUAGES = ("en", "es", "ar", "pt", "fr", "ru", "de", "it", "tr", "pl")
+TIMING_EVIDENCE_LANGUAGES = ("en", "es")
+
+
+def search_timing_evidence(meta, languages, video_hash=""):
+    """Optional third-language evidence under its own disposable deadline.
+
+    The primary search has already completed before this runs, so a slow
+    evidence request can be dropped without losing a usable Hebrew result.
+    Hash search is deliberately omitted: this asks one cheap title query for
+    the one missing language, while the primary languages already used hash.
+    """
+    missing = [language for language in TIMING_EVIDENCE_LANGUAGES
+               if language not in languages]
+    if not missing:
+        return []
+    from .providers import opensubtitles_rest
+
+    def search():
+        return opensubtitles_rest.search(meta, matcher.target_from(meta),
+                                         missing[:1], "", 0)
+
+    found = http.run_parallel([("timing-evidence", search)], workers=1,
+                              deadline=4.0)
+    return found.get("timing-evidence") or []
 
 
 
@@ -209,13 +233,27 @@ def find_and_prepare(meta, languages, player=None):
                                     video_hash, languages)
 
     winner = winners.get(wanted)
+    if winner and winner.get("accepted"):
+        from . import consensus
+        has_hash_reference = any(
+            winners.get(language, {}).get("reason") == "hash"
+            for language in languages[1:])
+        if consensus.wanted(int(winner.get("score") or 0),
+                            has_hash_reference):
+            evidence = search_timing_evidence(meta, languages, video_hash)
+            seen = {candidate.get("download") for candidate in candidates}
+            candidates.extend(candidate for candidate in evidence
+                              if candidate.get("download") not in seen)
+            winners, _ranked = matcher.best(candidates, target, threshold,
+                                            video_hash, languages)
+            winner = winners.get(wanted)
     if winner:
         kodi.log("best %s subtitle: %s %r"
                  % (wanted, matcher.explain(winner),
                     (winner.get("release") or "")[:60]))
     if winner and winner.get("accepted"):
         winner, cues, report = _best_supported(
-            winner, candidates, wanted, languages, winners, report)
+            winner, _ranked, wanted, languages, winners, report)
         if cues:
             cues, report = verify_and_sync(cues, winners, languages, report)
             report["reason"] = report.get("reason") or winner.get("reason", "")
@@ -389,22 +427,42 @@ def _best_supported(winner, candidates, wanted, languages, winners, report):
     if not consensus.wanted(int(winner.get("score") or 0), has_reference):
         return winner, download_candidate(winner, expect_language=wanted), report
 
-    picks = consensus.distinct(candidates, wanted, consensus.budget())
+    picks = consensus.verification_candidates(candidates, wanted,
+                                               consensus.budget())
     if len(picks) < 2:
         return winner, download_candidate(winner, expect_language=wanted), report
 
     fetched = []
     for candidate in picks:
-        cues = download_candidate(candidate, expect_language=wanted)
+        expected = wanted if candidate.get("language") == wanted else None
+        cues = download_candidate(candidate, expect_language=expected)
         if cues:
             fetched.append((candidate, cues))
     if not fetched:
         return winner, [], report
 
-    chosen, cues, outcome = consensus.choose(fetched)
+    # Two independently authored languages that agree provide a cheap timing
+    # reference. Re-time the requested language against that proven timeline;
+    # never return a foreign-language file merely because it formed the cluster.
+    _reference_candidate, reference, evidence = consensus.timeline_reference(
+        fetched, wanted)
+    target = next(((candidate, cues) for candidate, cues in fetched
+                   if candidate.get("language") == wanted), None)
+    if target and reference:
+        fitted, timing = sync.synchronise(target[1], reference)
+        if timing["applied"] or timing["reason"] == "already in sync":
+            report["timing_evidence"] = "cross-language consensus"
+            report["supported"] = evidence["supported"]
+            report["confidence"] = timing["confidence"]
+            report["synchronised"] = timing["applied"]
+            return target[0], fitted, report
+
+    same_language = [(candidate, cues) for candidate, cues in fetched
+                     if candidate.get("language") == wanted]
+    chosen, cues, outcome = consensus.choose(same_language)
     report["consensus"] = outcome.get("reason", "")
     report["supported"] = outcome.get("supported", 0)
-    if chosen is not winner:
+    if chosen is not None and chosen is not winner:
         kodi.log("consensus preferred %s over the top-scored %s: %s"
                  % (chosen.get("provider"), winner.get("provider"),
                     outcome.get("reason")))
