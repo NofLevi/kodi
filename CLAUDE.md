@@ -359,23 +359,39 @@ pure Python, no `.so` and no `.dll`, and the only required dependency is
 `urlsession.py` covers requests with the standard library. So there is nothing
 to build per platform, and the whole problem is distribution.
 
-### Branches
+### Branches, and the one thing that publishes
 
-`development` is where the work happens. `main` only moves on a release, and
-**Cloudflare watches `main` alone** - so pushing code never publishes anything
-and merging always does. That is the whole reason for the split: with one
-branch every push was a deployment, and a list of deployments in which almost
-nothing is a release is a list nobody reads.
+`development` is where the work happens; `main` only moves on a release. But
+the branch is not what publishes - **a tag is**, and nothing else is.
 
-    git push origin development       Cloudflare does nothing at all
-    ...merge to main...               one deployment, which is the release
+    git push origin development       nothing happens
+    git push origin main              nothing happens
+    git push --follow-tags            .github/workflows/release.yml runs
 
-CI runs on both, because a release that fails its own checks is the one
-failure that reaches a television.
+`release.yml` fires on `v*`, runs the suite, cuts the GitHub release with both
+zips attached, POSTs the Cloudflare deploy hook, and then **polls the live
+index until it serves the tagged version**. That last step is the only
+automated proof a release reached the devices; everything before it can pass
+while the site still serves the previous version.
 
-    python tools/release.py            patch bump, news, build
+The hook URL lives as the `CLOUDFLARE_DEPLOY_HOOK` repository secret as well as
+in a local `.deploy-hook`, which is what lets a release be cut from a machine
+that has never held the file. `tools/deploy.py` is the same POST by hand, for
+when the workflow failed after the release was already created.
+
+CI runs on both branches, because a release that fails its own checks is the
+one failure that reaches a television.
+
+    python tools/release.py            patch bump, news, build, tag command
     python tools/release.py --minor    0.1.4 -> 0.2.0
     python tools/release.py --dry-run  say what would change, write nothing
+
+The tag is load-bearing for the changelog too. `release.py` asks
+`git describe --tags` for the span of commits to write into `<news>`, and
+until tags existed that always answered nothing - so the news was silently the
+last eight commits rather than what had shipped since the last release.
+Annotated, always: `git push --follow-tags` ignores a lightweight one, which
+looks exactly like forgetting to tag.
 
 **Kodi only offers an update when the published version is higher than the
 installed one.** The version sat at `0.1.0` through every change recorded in
@@ -392,36 +408,56 @@ possible and the only lever is discoverability. `NofLevi/kodi` stays private;
 `pages.dev` address - **kodi-katan.pages.dev**.
 
     Framework preset        None
-    Build command           (empty)
+    Build command           python tools/build.py
     Build output directory  repo
     Root directory          /
     Production branch       main
     Preview branches        None          <- not optional
+    Automatic deployments   paused        <- the hook is the trigger
+
+**`repo/` is not in the repository.** Cloudflare builds it, from
+`tools/build.py`, on the commit it is publishing - Pages ships Python and
+`build.py` is standard library only, so nothing is pinned. It used to be
+committed, and that was a trap with a sharp edge: `release.py` tells you to
+`git commit -am`, and **`-a` stages only tracked files**, while every release
+produces a zip under a filename that has never existed before. So the index
+could name a zip that was never pushed. Nothing in CI could catch it either,
+because `e2e.yml` runs `build.py` and overwrites `repo/` in the checkout before
+anything looks at it. Building on Cloudflare removes the class rather than
+guarding it, and a failed build leaves the previous deployment serving.
 
 **Preview branches is the setting people miss, including me.** Production
 branch only says which branch is *production*; on its own, Cloudflare still
 builds a **preview** for every push to every other branch. So with it left at
 the default, every push to `development` deploys - the exact thing the branch
-split exists to prevent - and the deployment list fills with builds that are
-not releases. It is under Settings, called *Branch control* on newer accounts
-and *Configure preview deployments* on older ones, and the value wanted is
-`None`.
+split exists to prevent. It is under Settings, called *Branch control* on newer
+accounts and *Configure preview deployments* on older ones, and the value
+wanted is `None`.
 
-**A push to `main` that is not a release** should carry `[skip ci]` in the
-commit subject. Cloudflare reads the subject and skips the build, which is
-the repo-side half of the same idea: the dashboard decides which *branches*
-can build, and the commit decides whether this particular one should. There
-is no config file for any of this - Pages takes branch control from the
-dashboard alone.
+**The deployment list will still show rows that are not deployments**, reading
+"No deployment available", one per push to a watched repository. That is
+Cloudflare recording a decision it made, not a build: they consume nothing from
+the 500-builds-a-month allowance, and no setting suppresses them. The only way
+to stop them existing is a project that was **never** connected to Git, and
+Pages cannot convert one - *"If you deploy using the Git integration, you
+cannot switch to Direct Upload later."* A new project means a new `pages.dev`
+name, and that name is baked into every installed copy of `repository.katan`.
+**So this was looked at and deliberately left alone**: the price of a shorter
+list is stranding every device, and the list of releases people should actually
+read is the GitHub releases page, which `release.yml` writes.
 
 The first project was wired to `development` instead of `main`, which is the
 same fault the other way round: three pushes to `main` published nothing
 while the published zip matched `development`'s tip byte for byte. **The
 hostname is baked into every installed copy of `repository.katan`**, so
 moving it means republishing the repository add-on at the *old* address first
-and bumping its version, or every existing device is stranded.
-`git push` republishes, so the release workflow does not change. Moving host
-later is three URLs in `repository.katan/addon.xml`.
+and bumping its version, or every existing device is stranded. Moving host
+later is three URLs in `repository.katan/addon.xml` and one in `updater.py`.
+
+A custom domain in front of Pages is the real cure for that lock-in, because
+then the name devices hold is one we own and the host behind it can be
+replaced invisibly. It is worth buying the day a box other than this one has
+Katan installed; until then the migration it avoids costs nothing.
 
 ### On a device
 
