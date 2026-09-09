@@ -214,14 +214,27 @@ class Service(xbmc.Monitor):
         one.
 
         Deliberately narrow. It watches for exactly one window, Kodi's home,
-        and does nothing while anything is playing or a dialog is up - so
-        going into settings, browsing a folder or picking a source is
+        so going into settings, browsing a folder or picking a source is
         untouched. Only landing on the screen that means "you have left"
         brings it back.
+
+        It used to give up whenever **anything was playing**, which sounds
+        careful and was precisely backwards: it disabled itself in the one
+        case where somebody is most obviously stranded. Play an episode from a
+        VOD folder, press back twice, and you are on Kodi's home screen with
+        the programme still audible behind it - `Player.HasMedia` true, the
+        watcher asleep, and no way back to Katan at all. That was the whole of
+        the "escape takes me out of the dashboard" complaint.
+
+        Playing is not the same as *watching*: if the player were on screen,
+        Kodi's home would not be the active window, and that is already the
+        test one line down. So the state to skip is the player being in front
+        of you, not audio existing somewhere.
         """
         if not settings.get_bool("ui.stay_in_katan"):
             return
-        if xbmc.getCondVisibility("Player.HasMedia"):
+        if xbmc.getCondVisibility("Window.IsActive(fullscreenvideo)") \
+                or xbmc.getCondVisibility("Window.IsActive(visualisation)"):
             return
         if not xbmc.getCondVisibility("Window.IsActive(home)"):
             self.left_at = 0.0

@@ -379,7 +379,10 @@ def tool_entries(group=""):
             (32370, router.url_for("diagnostics"), False),
         ]
     return [
-        (32396, router.url_for("accounts"), False),
+        # Accounts is deliberately not here. It lives in the settings dialog,
+        # where every service also has its own connect button, and a Tools
+        # list that repeats what is one press away is a longer list for
+        # nothing.
         (32261, router.url_for("open_settings"), False),
         (_kids_label(), router.url_for("kids_toggle"), False),
         (32506, router.url_for("check_update"), False),
@@ -761,6 +764,15 @@ def accounts(params):
     Debrid is the part most likely to be silently wrong: a token expires, a
     subscription lapses, and every source search quietly returns nothing. This
     screen makes that visible instead of leaving it to be inferred.
+
+    **It has to work with no directory handle.** Both ways in reach it through
+    `RunPlugin` - the settings button and, before it was taken out, the
+    dashboard's Tools list - and `RunPlugin` invokes the plugin with handle
+    -1. Every row was therefore added to a directory that did not exist and
+    thrown away: the screen was not intermittent, it had never once appeared
+    from either button. Kodi says nothing about this; `add_directory` on -1 is
+    simply a no-op. So the rows are built once and drawn as a directory when
+    there is one and as a list when there is not.
     """
     from ..debrid import registry
     from ..meta import tmdb, trakt
@@ -772,6 +784,7 @@ def accounts(params):
     finally:
         kodi.busy_dialog(False)
 
+    entries = []
     for row in rows:
         parts = [row["plan"] or ""]
         if row["user"]:
@@ -785,20 +798,16 @@ def accounts(params):
         # no marker, so a service whose token had expired looked much like one
         # that was fine - on the screen whose whole purpose is to say which is
         # which.
-        listing.add_directory(
-            handle, "%s %s   %s" % (_mark(row["connected"]), row["label"], note),
-            router.url_for("connect", service=row["name"]),
-            art={"icon": "DefaultAddonService.png"}, is_folder=False)
+        entries.append(("%s %s   %s" % (_mark(row["connected"]), row["label"],
+                                        note), row["name"]))
 
     # Always, even when one is already connected. This entry used to be
     # skipped as soon as any debrid service was signed in, which meant the
     # only way to add a second one was to have had none - so a viewer with
     # TorBox could not reach Real-Debrid from this screen at all, and the
     # screen gave no hint that the other three existed.
-    listing.add_directory(
-        handle, "%s %s" % (_mark(bool(rows)), kodi.localize(32311)),
-        router.url_for("connect", service="debrid"),
-        art={"icon": "DefaultAddonService.png"}, is_folder=False)
+    entries.append(("%s %s" % (_mark(bool(rows)), kodi.localize(32311)),
+                    "debrid"))
 
     # Every account the add-on has, so this screen is the whole answer and the
     # setup wizard is not a second, shorter one. OpenSubtitles and the Gemini
@@ -811,9 +820,18 @@ def accounts(params):
              bool(settings.get("subs.opensubtitles.apikey"))),
             ("ai", kodi.localize(32313),
              bool(settings.get("subs.ai.gemini_key")))):
+        entries.append(("%s %s" % (_mark(connected), label), name))
+
+    if handle < 0:
+        choice = kodi.select([label for label, _name in entries],
+                             kodi.localize(32396))
+        if 0 <= choice < len(entries):
+            connect({"service": entries[choice][1]})
+        return
+
+    for label, name in entries:
         listing.add_directory(
-            handle, "%s %s" % (_mark(connected), label),
-            router.url_for("connect", service=name),
+            handle, label, router.url_for("connect", service=name),
             art={"icon": "DefaultAddonService.png"}, is_folder=False)
 
     listing.end(handle, content="files", cache_to_disc=False)
