@@ -42,10 +42,14 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
 5. **Capped storage.** One SQLite cache with a size limit and LRU eviction,
    plus a capped subtitle folder.
 6. **Lazy imports.** A feature costs nothing until it is used.
-7. **No skin fork, no runtime patching, no vendored add-ons.** There are no
-   required dependencies at all. `requests` is used when installed, and
+7. **No skin fork, no runtime patching, no vendored add-ons.** Nothing here
+   is carried that Kodi can fetch. `requests` is used when installed, and
    `urlsession.py` covers the same ground with the standard library when it
    is not, which keeps several megabytes out of memory on a small device.
+   `inputstream.adaptive` is the one hard requirement, and requiring it is
+   the opposite of vendoring: it is a *binary* add-on, so it could never sit
+   inside a `<platform>all</platform>` zip, and declaring it lets Kodi
+   install the right build for the box from its own repository.
 
 ## How the pieces fit
 
@@ -354,10 +358,10 @@ finds settings and routes that promise something with no code behind them, and
 ## Releasing, and updating a device
 
 One zip runs on Windows, the U4 and the Mi Box. `<platform>all</platform>`,
-pure Python, no `.so` and no `.dll`, and the only required dependency is
-`xbmc.python` - `requests` and `inputstream.adaptive` are both optional and
-`urlsession.py` covers requests with the standard library. So there is nothing
-to build per platform, and the whole problem is distribution.
+pure Python, no `.so` and no `.dll`. Two things are imported: `xbmc.python`,
+and `inputstream.adaptive` for the DASH live channels. `requests` stays
+optional because `urlsession.py` covers it with the standard library. So there
+is nothing to build per platform, and the whole problem is distribution.
 
 ### Branches, and the one thing that publishes
 
@@ -470,9 +474,21 @@ Katan installed; until then the migration it avoids costs nothing.
 
 Install `repository.katan` once from a zip, then Katan from within it; after
 that Kodi updates itself. `tools/deploy_android.py` pushes the zips over adb,
-which saves driving a file manager with a remote. Both Android boxes also need
-**inputstream.adaptive from Kodi's own repository** - the DASH live channels
-need it and it is not ours to ship.
+which saves driving a file manager with a remote.
+
+**inputstream.adaptive arrives on its own.** It is Kodi's add-on and a binary
+one - the copy on this Windows box is 21.5.24, `windows-x86_64` - so it can
+never be inside our zip, and for a long time the answer was a paragraph asking
+people to go and install it. It was declared `optional="true"`, which is
+precisely the instruction *not* to fetch it, so every box arrived with a live
+TV section that silently played nothing. As a plain import Kodi resolves it
+from its own repository before installing Katan, on whatever platform it is.
+
+The cost, stated because it is real: an unresolvable dependency makes Kodi
+refuse to install Katan at all, where before it installed and only the live
+channels were dead. `kodi.has_adaptive` and the guard in `listing.py` stay for
+that reason - a box that got past the check without it should still say so
+rather than play nothing.
 
 ### Updating from inside
 

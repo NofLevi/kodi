@@ -26,7 +26,7 @@ reinstalling.
 | Current release | **Katan 0.0.1** |
 | Repository zip | <https://kodi-katan.pages.dev/zips/repository.katan/repository.katan-0.0.1.zip> |
 | Requires | Kodi 19 or newer; developed and tested on Kodi 21 |
-| Optional | `inputstream.adaptive` — needed for the DASH live channels |
+| Installs with it | `inputstream.adaptive`, from Kodi's own repository — the DASH live channels need it |
 
 Two add-ons, both at 0.0.1: **Katan** is what you watch with, and **Katan
 Repository** is the two-kilobyte pointer that tells Kodi where to look for new
@@ -90,13 +90,17 @@ gives no way to automate:
 
 **With a USB stick.** Copy the zip on, plug it in, browse to it in step 3.
 
-### One extra step on Android
+### Nothing extra on Android
 
-The Israeli live channels are DASH streams and need **InputStream Adaptive**,
-which is Kodi's own add-on and not ours to ship:
+The Israeli live channels are DASH streams and need **InputStream Adaptive**.
+It is a binary add-on, so it cannot ship inside Katan's zip - but it does not
+have to. Kodi installs it for you, because Katan declares it as a requirement
+and Kodi resolves requirements from its own repository before installing
+anything that has them.
 
-> **Add-ons → Install from repository → Kodi Add-on repository → VideoPlayer
-> InputStream → InputStream Adaptive → Install**
+It used to be marked optional, which told Kodi not to bother, and left every
+box with a live TV section that silently played nothing until somebody went
+and found the add-on by hand.
 
 ## Linux, macOS, LibreELEC, Raspberry Pi
 
