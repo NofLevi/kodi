@@ -39,6 +39,16 @@ BUTTON_SPACE = 3901
 BUTTON_BACKSPACE = 3902
 BUTTON_CLEAR = 3903
 BUTTON_SEARCH = 3904
+
+# There is no microphone here, and there cannot be: Kodi's Python API exposes
+# no audio capture at all, and on Android an add-on cannot reach the system
+# speech recogniser either. What it can do is borrow the microphone that is
+# already in the room. `pastebox` serves a one-field page on the local
+# network, the phone opens it, and the phone's own keyboard has a dictation
+# key - so the words are spoken into the phone and arrive here as text. The
+# same mechanism already carries debrid keys, for the same reason: nothing
+# should have to be typed on a television.
+BUTTON_VOICE = 3905
 LIST_RESULTS = 5100
 
 DEBOUNCE_SECONDS = 0.25
@@ -180,8 +190,26 @@ class SearchWindow(xbmcgui.WindowXML):
             self._show_recent()
         elif control_id == BUTTON_SEARCH:
             self._submit()
+        elif control_id == BUTTON_VOICE:
+            self._speak()
         elif control_id == LIST_RESULTS:
             self._open_selected()
+
+    def _speak(self):
+        """Take the query from a phone on the same network.
+
+        Returns without touching anything if the viewer backs out or the
+        page times out - an abandoned dictation must not clear what was
+        already typed.
+        """
+        from .signin import receive_key
+
+        spoken = receive_key(kodi.localize(32523),
+                             placeholder=kodi.localize(32524))
+        if not spoken:
+            return
+        self._set_text(spoken.strip())
+        self._submit()
 
     # -- text entry --------------------------------------------------------
 
