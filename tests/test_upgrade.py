@@ -750,7 +750,7 @@ class _Answer(object):
 
 
 @pytest.mark.parametrize("channel,expected", [
-    ("stable", "noflevi.github.io/kodi"),
+    ("stable", "github.com/NofLevi/kodi/releases/latest"),
     ("test", "raw.githubusercontent.com/NofLevi/kodi/test-channel"),
 ])
 def test_the_channel_chooses_the_index(settings_module, channel, expected):
@@ -941,3 +941,48 @@ def test_a_real_update_sweeps_as_part_of_installing(tmp_path, monkeypatch):
     leftovers = [n for n in os.listdir(str(addons))
                  if n not in ("plugin.video.katan", "packages")]
     assert not leftovers, "left behind %s" % leftovers
+
+
+# --------------------------------------------------------------------------
+# where the zip is depends on who serves the index
+# --------------------------------------------------------------------------
+
+
+def test_a_release_asset_sits_beside_the_index_not_under_a_tree():
+    """GitHub Releases has no directory tree; a Pages repository is one.
+
+    The Kodi repository layout is `<datadir>/<id>/<id>-<version>.zip`, and the
+    Pages site is exactly that. A release's assets are flat names under
+    `/releases/latest/download/`, so deriving the repository path there asks
+    for a URL that has never existed - which fails as "no update available"
+    rather than as an error anybody would notice.
+    """
+    from katan import updater
+
+    release = updater.zip_url_for(
+        "https://github.com/NofLevi/kodi/releases/latest/download/addons.xml",
+        "0.0.7")
+    assert release == ("https://github.com/NofLevi/kodi/releases/latest/"
+                       "download/plugin.video.katan-0.0.7.zip")
+
+    pages = updater.zip_url_for("https://noflevi.github.io/kodi/addons.xml",
+                                "0.0.7")
+    assert pages == ("https://noflevi.github.io/kodi/zips/"
+                     "plugin.video.katan/plugin.video.katan-0.0.7.zip")
+
+    # The test channel is a branch, which is a tree like the Pages site.
+    branch = updater.zip_url_for(
+        "https://raw.githubusercontent.com/NofLevi/kodi/test-channel/"
+        "addons.xml", "0.0.7~dev.3")
+    assert branch.endswith(
+        "test-channel/zips/plugin.video.katan/"
+        "plugin.video.katan-0.0.7~dev.3.zip")
+
+
+def test_the_shipped_update_url_is_the_release_alias():
+    """`latest` rather than a version, or every release needs a code change."""
+    from katan import updater
+
+    assert updater.DEFAULT_INDEX == (
+        "https://github.com/NofLevi/kodi/releases/latest/download/addons.xml")
+    assert "/releases/latest/" in updater.DEFAULT_INDEX
