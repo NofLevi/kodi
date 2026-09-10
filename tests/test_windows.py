@@ -977,14 +977,22 @@ def test_a_row_that_fails_to_grow_still_works(monkeypatch):
 
 
 def _settle():
-    """Wait for the worker thread the window starts to finish."""
+    """Wait for the worker thread the window starts to finish.
+
+    By name, and that matters. Waiting for every daemon thread in the process
+    passed here and failed twelve tests in CI, because a ThreadPoolExecutor's
+    workers are daemon threads under Python 3.8 - what Kodi 21 ships and what
+    CI runs - and non-daemon from 3.9 on. The shared HTTP pool is process-wide
+    and deliberately outlives any one call, so once anything had used it those
+    threads were alive forever and this could never return.
+    """
     import threading
     import time
     deadline = time.time() + 5
     while time.time() < deadline:
         workers = [t for t in threading.enumerate()
-                   if t is not threading.current_thread() and t.daemon
-                   and t.is_alive()]
+                   if t is not threading.current_thread() and t.is_alive()
+                   and t.name == "katan-home-worker"]
         if not workers:
             return
         for worker in workers:

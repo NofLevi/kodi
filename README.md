@@ -23,8 +23,9 @@ reinstalling.
 
 | | |
 |---|---|
-| Current release | **Katan 0.0.1** |
-| Repository zip | <https://noflevi.github.io/kodi/zips/repository.katan/repository.katan-0.0.1.zip> |
+| Current release | **Katan 0.0.1** - [releases page](https://github.com/NofLevi/kodi/releases/latest) |
+| Repository zip | <https://github.com/NofLevi/kodi/releases/latest/download/repository.katan-0.0.1.zip> |
+| Add as a Kodi source | `https://noflevi.github.io/kodi/` |
 | Requires | Kodi 19 or newer; developed and tested on Kodi 21 |
 | Installs with it | `inputstream.adaptive`, from Kodi's own repository — the DASH live channels need it |
 
@@ -43,7 +44,7 @@ gives instead does not say so.
 
 ## Windows
 
-1. Download the [repository zip](https://noflevi.github.io/kodi/zips/repository.katan/repository.katan-0.0.1.zip).
+1. Download the [repository zip](https://github.com/NofLevi/kodi/releases/latest/download/repository.katan-0.0.1.zip).
 2. Kodi → **Add-ons** → the box icon (top left) → **Install from zip file**.
 3. Point it at the file you downloaded, usually `C:\Users\<you>\Downloads`.
 4. **Install from repository → Katan Repository → Video add-ons → Katan → Install.**
@@ -60,7 +61,7 @@ Three ways, easiest first.
 easiest route on a television and the one to use:
 
 > **Settings → File manager → Add source → &lt;None&gt; →**
-> type `https://noflevi.github.io/kodi` **→ name it `Katan` → OK**
+> type `https://noflevi.github.io/kodi/` **→ name it `Katan` → OK**
 
 then
 
@@ -117,7 +118,7 @@ On LibreELEC, over SSH:
 
 ```
 cd /storage/downloads
-wget https://noflevi.github.io/kodi/zips/repository.katan/repository.katan-0.0.1.zip
+wget https://github.com/NofLevi/kodi/releases/latest/download/repository.katan-0.0.1.zip
 ```
 
 then install it from that path in step 3.
@@ -150,7 +151,10 @@ expert level are the only way in for those two.
 
 ### Updating
 
-Kodi checks the repository on its own. To ask now:
+Kodi checks the repository on its own, and Katan checks too — it reads
+[the latest release](https://github.com/NofLevi/kodi/releases/latest) directly,
+so it can offer an update even when it was installed from a zip and there is no
+repository to ask. To check now:
 
 > **Tools → Check for updates**
 
