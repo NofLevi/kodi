@@ -113,4 +113,5 @@ def download(candidate):
     if not link:
         return b""
     data = common.fetch_bytes("%s/downloadSub/%s" % (BASE, link))
-    return common.extract_subtitle(data, candidate.get("language", ""))
+    return common.extract_subtitle(data, candidate.get("language", ""),
+                                   candidate=candidate)

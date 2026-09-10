@@ -8,7 +8,7 @@ nothing.
 """
 import pytest
 
-from katan import cache, http, settings
+from katan import http, settings
 from katan.meta import seadex
 from katan.sources import model, scoring
 

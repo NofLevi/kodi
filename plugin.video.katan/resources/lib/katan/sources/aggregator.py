@@ -69,8 +69,10 @@ def _enabled_providers(meta):
 
 def cache_key(meta):
     ids = meta.get("ids") or {}
-    return cache.make_key("sources", meta.get("type"),
-                          ids.get("imdb") or ids.get("tmdb") or meta.get("title"),
+    identity = ids.get("imdb") or ids.get("tmdb")
+    if not identity:
+        identity = "%s|%s" % (meta.get("title") or "", meta.get("year") or "")
+    return cache.make_key("sources", meta.get("type"), identity,
                           meta.get("season"), meta.get("episode"))
 
 
@@ -90,7 +92,7 @@ def _ranked(meta, prefetch=False, force=False):
     """
     key = cache_key(meta)
     if not force:
-        hit = cache.get(key)
+        hit = cache.volatile_get(key)
         if hit is not None:
             # Source rows cached by an older add-on version predate subtitle
             # outlook fields. Without upgrading them, the picker draws an empty
@@ -102,7 +104,7 @@ def _ranked(meta, prefetch=False, force=False):
                 if migrated and all("subs_kind" in source for source in hit):
                     hit, _rejected = scoring.rank_all(
                         hit, meta, _runtime_hours(meta))
-                    cache.set(key, hit, TTL_RESULTS)
+                    cache.volatile_set(key, hit, TTL_RESULTS)
             return hit if prefetch else _recheck_cached(hit, meta)
 
     providers = _enabled_providers(meta)
@@ -133,7 +135,7 @@ def _ranked(meta, prefetch=False, force=False):
             raw = _run_providers(_by_id(providers), season, quiet=prefetch)
 
     if not raw:
-        cache.set(key, [], TTL_EMPTY)
+        cache.volatile_set(key, [], TTL_EMPTY)
         return []
 
     merged = model.dedupe(raw)
@@ -154,8 +156,8 @@ def _ranked(meta, prefetch=False, force=False):
     # Everything that was found, before the filters had their say. It is kept
     # so that "nothing survived" can be answered with something better than
     # "nothing found" - see `uncached`, below - without searching again.
-    cache.set(unfiltered_key(meta), merged, TTL_RESULTS if merged else TTL_EMPTY)
-    cache.set(key, kept, TTL_RESULTS if kept else TTL_EMPTY)
+    cache.volatile_set(unfiltered_key(meta), merged, TTL_RESULTS if merged else TTL_EMPTY)
+    cache.volatile_set(key, kept, TTL_RESULTS if kept else TTL_EMPTY)
     return kept
 
 
@@ -172,7 +174,7 @@ def uncached(meta):
     Bleach episode existed, every one of them found, and not one of them was
     on the account yet. Saying "no sources" to that is untrue and unhelpful.
     """
-    found = cache.get(unfiltered_key(meta))
+    found = cache.volatile_get(unfiltered_key(meta))
     if not found:
         return []
     prefs = scoring.Preferences()
@@ -199,7 +201,7 @@ def _remember_filtering(meta, found, rejected):
     releases had no way at all to know that forty of them were camera
     recordings - the picker simply looked broken, and was reported as such.
     """
-    cache.set(filter_key(meta),
+    cache.volatile_set(filter_key(meta),
               {"found": found,
                "reasons": sorted((rejected or {}).items(),
                                  key=lambda kv: -kv[1])},
@@ -212,7 +214,7 @@ def filter_report(meta):
     Returns None when nothing is remembered, which is not the same as
     "nothing was dropped" and must not be shown as though it were.
     """
-    return cache.get(filter_key(meta))
+    return cache.volatile_get(filter_key(meta))
 
 
 def _top(sources):
@@ -350,12 +352,13 @@ def _check_debrid_cache(sources, recheck=False):
     except Exception:
         kodi.log_exception("debrid cache lookup failed")
         return False
+    known = getattr(answers, "known", set(ask))
     for source in sources:
         service = answers.get(source.get("hash"))
         if service:
             source["cached"] = True
             source["cached_by"] = service
-        elif recheck and source.get("hash"):
+        elif recheck and source.get("hash") in known:
             source.pop("cached", None)
             source.pop("cached_by", None)
     return True
@@ -432,9 +435,11 @@ def all_sources(meta):
 
 def invalidate(meta=None):
     if meta:
-        cache.delete(cache_key(meta))
+        cache.volatile_delete(cache_key(meta))
+        cache.volatile_delete(unfiltered_key(meta))
+        cache.volatile_delete(filter_key(meta))
     else:
-        cache.delete_prefix("sources|")
+        cache.volatile_delete_prefix("sources|")
 
 
 def _anime_address(meta, mode="arc"):

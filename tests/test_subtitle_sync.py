@@ -51,6 +51,14 @@ def test_detects_pal_ntsc_framerate_drift():
     assert abs(corrected[0].start - reference[0].start) < 1.0
 
 
+def test_truncated_excerpt_cannot_be_verified_at_full_confidence():
+    reference = make_cues(count=400, seed=7)
+    excerpt = [reference[0].shifted(7.0)]
+    _fixed, report = sync.synchronise(excerpt, reference)
+    assert report["applied"] is False
+    assert report["confidence"] < sync.MIN_CONFIDENCE
+
+
 def test_synchronise_applies_a_real_shift():
     reference = make_cues()
     late = [c.shifted(9.0) for c in reference]

@@ -115,5 +115,5 @@ def stream(ref, mode=""):
     if found:
         kodi.log("kan: resolved via %s" % strategy)
     else:
-        kodi.log("kan: no strategy matched for %s" % url)
+        kodi.log("kan: no strategy matched for %s" % page._host(url))
     return found, adaptive

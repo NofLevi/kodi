@@ -6,7 +6,7 @@ by itself and a list of eight releases appearing.
 """
 import pytest
 
-from katan import kodi, play, settings
+from katan import kodi, play
 from katan.debrid import registry
 from katan.meta import tmdb
 
@@ -95,6 +95,22 @@ def test_a_cancelled_picker_plays_nothing(film, monkeypatch, settings_module):
     import katan.ui.sources_window as window
     monkeypatch.setattr(window, "pick_source", lambda sources, meta: None)
     assert play._choose(SOURCES, {}, force_picker=False) is None
+
+
+def test_custom_window_play_carries_the_resume_list_item(monkeypatch):
+    """Plugin URLs launched outside a directory must retain StartOffset."""
+    import xbmc
+    from katan.ui import listing
+
+    marker = object()
+    meta = {"type": "movie", "title": "A Film", "ids": {}, "art": {}}
+    del xbmc.Player.PLAYED[:]
+    monkeypatch.setattr(listing, "make_list_item", lambda item: marker)
+
+    kodi.play_media("plugin://plugin.video.katan/play", meta)
+
+    assert xbmc.Player.PLAYED == [
+        (("plugin://plugin.video.katan/play", marker), {})]
 
 
 # --------------------------------------------------------------------------
@@ -344,10 +360,33 @@ def test_a_link_the_viewer_picked_is_handed_over_without_a_probe(film,
     assert probed == []
 
 
+def test_accepting_uncached_sources_is_playback_scoped(monkeypatch):
+    from katan import play
+    waiting = [{"title": "uncached", "extra": {}}]
+    monkeypatch.setattr("katan.sources.aggregator.uncached", lambda meta: waiting)
+    monkeypatch.setattr(play.kodi, "yes_no", lambda *args, **kwargs: True)
+    writes = []
+    monkeypatch.setattr(play.settings, "set", lambda *args: writes.append(args))
+    assert play._offer_uncached({}) == waiting
+    assert writes == []
+    assert waiting[0]["extra"]["playback_allow_uncached"] is True
+
+
+def test_trakt_percentage_resume_is_converted_to_duration_seconds(monkeypatch):
+    from katan.meta import trakt_state
+    monkeypatch.setattr(trakt_state, "enabled", lambda: True)
+    key = trakt_state.state_key("movie", {"tmdb": 7})
+    monkeypatch.setattr(trakt_state, "_watched_map", lambda: {})
+    monkeypatch.setattr(trakt_state, "_playback_map",
+                        lambda: {key: {"progress": 50.0}})
+    item = {"type": "movie", "ids": {"tmdb": 7}, "duration": 7200,
+            "resume": {}}
+    trakt_state.annotate([item])
+    assert item["resume"] == {"position": 3600.0, "total": 7200.0}
+
+
 def test_a_part_watched_item_resumes_without_being_asked(film, monkeypatch):
-    """Kodi asks "resume or start again?" when it is given a resume point and
-    nothing else. Nobody wants that question on the way into something they
-    were already watching, and ResumeTime is what answers it in advance."""
+    """A numeric StartOffset chooses resume before Kodi can show its chooser."""
     import xbmcplugin
     from katan.ui import listing
 
@@ -357,8 +396,21 @@ def test_a_part_watched_item_resumes_without_being_asked(film, monkeypatch):
                      "resume": {"position": 2040.0, "total": 7200.0}})
 
     item = xbmcplugin.RESOLVED[-1][2]
-    assert item.getProperty("ResumeTime") == "2040.0"
-    assert item.getProperty("TotalTime") == "7200.0"
+    assert item.getProperty("StartOffset") == "2040.0"
+    assert not item.getProperty("ResumeTime")
+    assert not item.getProperty("TotalTime")
+
+
+def test_original_playable_item_carries_start_offset_before_plugin_runs(film):
+    from katan.ui import listing
+
+    item = listing.make_list_item(
+        {"type": "movie", "title": "A Film", "ids": {}, "art": {},
+         "resume": {"position": 2040.0, "total": 7200.0}})
+    assert item.getProperty("StartOffset") == "2040.0"
+    assert float(item.getProperty("katan.percentplayed")) == pytest.approx(
+        2040.0 / 7200.0 * 100.0)
+    assert "resumepoint" not in item.getVideoInfoTag().data
 
 
 def test_something_never_started_has_no_resume_properties(film):
@@ -456,6 +508,29 @@ def test_a_host_that_would_not_answer_is_not_asked_twice(links_open,
     # A different node is still asked.
     assert links_open("https://store-029.example/dld/three") is False
     assert len(attempts) == 2
+
+
+def test_dead_host_cache_and_logs_never_store_signed_url_secrets(
+        links_open, monkeypatch):
+    from katan import cache, http
+    secret_url = "https://user:password@cdn.example/x?token=TOPSECRET"
+    stored = {}
+    logs = []
+
+    monkeypatch.setattr(cache, "get", lambda key: stored.get(key))
+    monkeypatch.setattr(cache, "set",
+                        lambda key, value, ttl: stored.__setitem__(key, value))
+    monkeypatch.setattr(cache, "delete", lambda key: stored.pop(key, None))
+    monkeypatch.setattr(http, "get", lambda url, **kwargs: None)
+    monkeypatch.setattr(kodi, "log", lambda message, *args: logs.append(message))
+
+    assert links_open(secret_url) is False
+    assert links_open(secret_url) is False
+    key = play._dead_host_key(secret_url)
+    assert key == "debrid|deadhost|cdn.example"
+    exposed = " ".join(list(stored) + logs)
+    assert "TOPSECRET" not in exposed
+    assert "password" not in exposed
 
 
 def test_a_host_is_only_written_off_for_a_few_minutes(links_open, monkeypatch):

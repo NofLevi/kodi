@@ -23,7 +23,7 @@ def _watched_map():
 
 
 def _playback_map():
-    """{"movie:tmdb:123": {"position": s, "total": s}}"""
+    """{"movie:tmdb:123": {"progress": percentage}}"""
     return cache.get(PLAYBACK_KEY) or {}
 
 
@@ -64,7 +64,14 @@ def annotate(entries):
             item["playcount"] = int(watched[key])
         resume = playback.get(key)
         if resume:
-            item["resume"] = resume
+            progress = resume.get("progress")
+            duration = float(item.get("duration") or 0)
+            if progress is not None and duration > 0:
+                progress = max(0.0, min(100.0, float(progress)))
+                item["resume"] = {"position": duration * progress / 100.0,
+                                  "total": duration}
+            elif "position" in resume:  # legacy/local second-based snapshot
+                item["resume"] = resume
     return entries
 
 

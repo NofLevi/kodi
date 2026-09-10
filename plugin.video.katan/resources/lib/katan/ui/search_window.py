@@ -218,11 +218,11 @@ class SearchWindow(xbmcgui.WindowXML):
         The generation counter is what keeps a slow reply from a previous
         keystroke overwriting the list for a newer one.
         """
-        if len(self.text) < MIN_QUERY:
-            return
         with self.lock:
             self.generation += 1
             generation = self.generation
+        if len(self.text) < MIN_QUERY:
+            return
         query = self.text
 
         def worker():
@@ -316,7 +316,7 @@ class SearchWindow(xbmcgui.WindowXML):
         if is_folder:
             kodi.activate_window(url)
         else:
-            kodi.play_media(url)
+            kodi.play_media(url, item)
 
 
 def _subtitle(item):

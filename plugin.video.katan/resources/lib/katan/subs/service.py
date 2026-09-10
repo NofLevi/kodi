@@ -377,6 +377,47 @@ def take_request():
     return target
 
 
+def _media_identity(meta):
+    """Transient playback identity; never persisted or logged."""
+    meta = meta or {}
+    source = meta.get("source") or {}
+    ids = meta.get("ids") or {}
+    return (meta.get("type"), str(ids.get("tmdb") or ids.get("imdb") or ""),
+            int(meta.get("season") or 0), int(meta.get("episode") or 0),
+            meta.get("stream_url") or "", source.get("file_name") or "",
+            source.get("release") or "")
+
+
+class _CurrentPlaybackPlayer(object):
+    """Prevent an on-demand worker from mutating a replacement playback."""
+
+    def __init__(self, player, identity):
+        self.player = player
+        self.identity = identity
+
+    def current(self):
+        from .. import player as playback
+        with playback.PLAYBACK_LOCK:
+            return _media_identity(_current_meta()) == self.identity
+
+    def _commit(self, action):
+        from .. import player as playback
+        with playback.PLAYBACK_LOCK:
+            if _media_identity(_current_meta()) != self.identity:
+                return False
+            action()
+            return True
+
+    def setSubtitles(self, path):
+        self._commit(lambda: self.player.setSubtitles(path))
+
+    def showSubtitles(self, visible):
+        self._commit(lambda: self.player.showSubtitles(visible))
+
+    def __getattr__(self, name):
+        return getattr(self.player, name)
+
+
 def run_translation(target):
     """Do what the dialog asked for. Runs on the service's own thread."""
     import xbmc
@@ -390,7 +431,13 @@ def run_translation(target):
         if not _engine_ready():
             return ""
         kodi.notify(kodi.localize(32496))
-        path = auto.translate_now(_current_meta(), target, xbmc.Player())
+        meta = _current_meta()
+        identity = _media_identity(meta)
+        player = _CurrentPlaybackPlayer(xbmc.Player(), identity)
+        cancelled = lambda: not player.current()
+        path = auto.translate_now(meta, target, player, cancelled=cancelled)
+        if cancelled():
+            return ""
         kodi.notify(kodi.localize(32334, kodi.localize(32494)) if path
                     else kodi.localize(32336))
         return path
@@ -414,6 +461,13 @@ def _engine_ready():
 
     if translator.available():
         return True
+
+    if settings.get("subs.ai.engine") == "openai":
+        # The Gemini key wizard cannot configure an OpenAI-compatible endpoint.
+        # Open the engine-specific fields instead of asking for the wrong key.
+        settings.open_settings()
+        kodi.notify(kodi.localize(32497))
+        return False
 
     from ..ui import wizard
     wizard.step_ai()

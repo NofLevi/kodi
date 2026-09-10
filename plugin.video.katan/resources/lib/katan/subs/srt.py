@@ -6,10 +6,24 @@ it costs nothing to parse compared with the styling formats.
 import io
 import os
 import re
+import tempfile
+import unicodedata
 
 _TIME = re.compile(
-    r"(\d{1,3}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*"
-    r"(\d{1,3}):(\d{2}):(\d{2})[,.](\d{1,3})")
+    r"^\s*(?:(\d{1,3}):)?(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*"
+    r"(?:(\d{1,3}):)?(\d{2}):(\d{2})[,.](\d{1,3})"
+    r"(?P<settings>(?:\s+\S+)*)\s*$")
+_PERCENT = r"(?:100(?:\.0+)?|(?:\d|[1-9]\d)(?:\.\d+)?)%"
+_VTT_SETTING = re.compile(
+    r"(?:vertical:(?:rl|lr)|align:(?:start|center|end|left|right)|"
+    r"size:" + _PERCENT + r"|"
+    r"line:(?:auto|-?\d+|" + _PERCENT + r")"
+    r"(?:,(?:start|center|end))?|"
+    r"position:" + _PERCENT + r"(?:,(?:line-left|center|line-right|auto))?|"
+    r"region:\S+)$", re.IGNORECASE)
+_MICRODVD_LINE = re.compile(r"^\{(\d{1,10})\}\{(\d{1,10})\}(.*)$")
+_MICRODVD_TAG = re.compile(r"\{[^}]*\}")
+_MAX_MICRODVD_FRAME = 10 * 60 * 60 * 120  # ten hours at the maximum accepted FPS
 
 # Presentation-form Arabic and Hebrew letters that most subtitle fonts cannot
 # draw. They arrive from badly converted sources and render as empty boxes.
@@ -19,6 +33,7 @@ _HI_BRACKETS = re.compile(r"[\[\(][^\]\)]{0,60}[\]\)]")
 
 MIN_DURATION = 0.4
 MAX_DURATION = 8.0
+MAX_CUES = 20000
 
 
 class Cue(object):
@@ -47,7 +62,24 @@ class Cue(object):
 
 def _to_seconds(hours, minutes, seconds, fraction):
     fraction = (fraction + "00")[:3]
-    return int(hours) * 3600 + int(minutes) * 60 + int(seconds) + int(fraction) / 1000.0
+    return int(hours or 0) * 3600 + int(minutes) * 60 + int(seconds) + int(fraction) / 1000.0
+
+
+def _timing(line):
+    match = _TIME.match(line)
+    if not match:
+        return None
+    values = match.groups()[:8]
+    settings = (match.group("settings") or "").split()
+    if any(not _VTT_SETTING.match(setting) for setting in settings):
+        return None
+    # Minutes and seconds are clock fields, not overflow counters. Letting 99
+    # minutes or 60 seconds through fabricates plausible times during cleaning.
+    if any(int(values[index]) >= 60 for index in (1, 2, 5, 6)):
+        return None
+    start = _to_seconds(*values[:4])
+    end = _to_seconds(*values[4:])
+    return (start, end) if end > start else None
 
 
 def _to_timestamp(value):
@@ -77,34 +109,126 @@ def parse(text):
 
     if _looks_like_ssa(text):
         return _parse_ssa(text)
+    if _looks_like_microdvd(text):
+        return _parse_microdvd(text)
 
     cues = []
     index = 0
-    lines = text.split("\n")
-    position = 0
-    while position < len(lines):
-        match = _TIME.search(lines[position])
-        if not match:
-            position += 1
+    lines = iter(_iter_lines(text))
+    pending = None
+    while True:
+        if pending is not None:
+            line = pending
+            pending = None
+        else:
+            try:
+                line = next(lines)
+            except StopIteration:
+                break
+        timing = _timing(line)
+        if timing is None:
             continue
-        start = _to_seconds(*match.groups()[:4])
-        end = _to_seconds(*match.groups()[4:])
-        position += 1
+        start, end = timing
         body = []
-        while position < len(lines) and lines[position].strip() != "":
-            body.append(lines[position])
-            position += 1
+        while True:
+            try:
+                line = next(lines)
+            except StopIteration:
+                break
+            if not line.strip():
+                break
+            if _timing(line) is not None:
+                pending = line
+                break
+            if line.strip().isdigit():
+                try:
+                    following = next(lines)
+                except StopIteration:
+                    body.append(line)
+                    break
+                if _timing(following) is not None:
+                    pending = following
+                    break
+                body.append(line)
+                if not following.strip():
+                    break
+                body.append(following)
+                continue
+            body.append(line)
         index += 1
         cues.append(Cue(index, start, end, "\n".join(body).strip()))
+        if len(cues) > MAX_CUES:
+            return []
     return cues
 
 
-_SSA_TIME = re.compile(r"^(\d+):(\d{2}):(\d{2})[.,](\d{1,3})$")
+def _iter_lines(text):
+    """Yield lines without materialising a second full subtitle-sized list."""
+    start = 0
+    while start <= len(text):
+        end = text.find("\n", start)
+        if end < 0:
+            yield text[start:]
+            return
+        yield text[start:end]
+        start = end + 1
+
+
+def _microdvd_fps(text):
+    """Return FPS only when its declaration is the first meaningful line."""
+    for line in _iter_lines(text):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        match = _MICRODVD_LINE.match(stripped)
+        if not match or match.group(1) != match.group(2):
+            return 0.0
+        try:
+            fps = float(match.group(3).strip())
+        except ValueError:
+            return 0.0
+        return fps if 1.0 <= fps <= 120.0 else 0.0
+    return 0.0
+
+
+def _looks_like_microdvd(text):
+    return bool(_microdvd_fps(text))
+
+
+def _parse_microdvd(text):
+    """Convert frame-based MicroDVD incrementally, with bounded frame values."""
+    fps = _microdvd_fps(text)
+    if not fps:
+        return []
+    cues = []
+    declaration_seen = False
+    for line in _iter_lines(text):
+        match = _MICRODVD_LINE.match(line.strip())
+        if not match:
+            continue
+        start_text, end_text, body = match.groups()
+        if not declaration_seen:
+            declaration_seen = True
+            continue
+        start, end = int(start_text), int(end_text)
+        if start > _MAX_MICRODVD_FRAME or end > _MAX_MICRODVD_FRAME:
+            continue
+        body = _MICRODVD_TAG.sub("", body).replace("|", "\n").strip()
+        if not body or end < start:
+            continue
+        cues.append(Cue(len(cues) + 1, start / fps, end / fps, body))
+        if len(cues) > MAX_CUES:
+            return []
+    return cues
+
+
+_SSA_TIME = re.compile(r"^(\d{1,3}):(\d{2}):(\d{2})[.,](\d{1,3})$")
 
 
 def _looks_like_ssa(text):
     head = text[:2000].lower()
-    return "[script info]" in head or "dialogue:" in head
+    return ("[script info]" in head
+            or ("[events]" in head and "dialogue:" in head))
 
 
 def _ssa_seconds(value):
@@ -113,6 +237,8 @@ def _ssa_seconds(value):
     if not match:
         return None
     hours, minutes, seconds, fraction = match.groups()
+    if int(minutes) >= 60 or int(seconds) >= 60:
+        return None
     # Two digits is centiseconds, three is milliseconds. Guessing wrong here
     # shifts every cue by up to a second, which is the difference between a
     # subtitle that fits and one that does not.
@@ -132,7 +258,7 @@ def _parse_ssa(text):
     fields = ["marked", "start", "end", "style", "name", "marginl", "marginr",
               "marginv", "effect", "text"]
     index = 0
-    for line in text.split("\n"):
+    for line in _iter_lines(text):
         stripped = line.strip()
         lowered = stripped.lower()
         if lowered.startswith("format:") and cues == [] :
@@ -151,13 +277,15 @@ def _parse_ssa(text):
         row = dict(zip(fields, parts))
         start = _ssa_seconds(row.get("start"))
         end = _ssa_seconds(row.get("end"))
-        if start is None or end is None:
+        if start is None or end is None or end <= start:
             continue
         body = _strip_ssa(row.get("text") or "")
         if not body:
             continue
         index += 1
         cues.append(Cue(index, start, end, body))
+        if len(cues) > MAX_CUES:
+            return []
     cues.sort(key=lambda cue: cue.start)
     return cues
 
@@ -189,18 +317,34 @@ def read(path):
     return parse(decode(raw))
 
 
-def decode(raw):
-    """Decode subtitle bytes.
-
-    Hebrew subtitles in the wild are usually cp1255 or UTF-8. Trying UTF-8
-    first and cp1255 second gets almost everything; chardet is used only when
-    both fail, because it is slow.
-    """
-    for encoding in ("utf-8-sig", "utf-8", "cp1255", "cp1256", "iso-8859-8"):
+def decode(raw, expected_language=None):
+    """Decode subtitle bytes, using expected script to disambiguate legacy data."""
+    if raw.startswith((b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff")):
+        try:
+            return raw.decode("utf-32")
+        except (UnicodeDecodeError, LookupError):
+            pass
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        try:
+            return raw.decode("utf-16")
+        except (UnicodeDecodeError, LookupError):
+            pass
+    for encoding in ("utf-8-sig", "utf-8"):
         try:
             return raw.decode(encoding)
         except (UnicodeDecodeError, LookupError):
             continue
+
+    legacy = ("cp1255", "cp1256", "iso-8859-8", "cp1251", "cp1252")
+    if expected_language:
+        for encoding in legacy:
+            try:
+                text = raw.decode(encoding)
+            except (UnicodeDecodeError, LookupError):
+                continue
+            cues = parse(text)
+            if cues and script_matches(cues, expected_language):
+                return text
     try:
         import chardet
         guess = chardet.detect(raw)
@@ -208,6 +352,11 @@ def decode(raw):
             return raw.decode(guess["encoding"], "replace")
     except Exception:
         pass
+    for encoding in legacy:
+        try:
+            return raw.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
     return raw.decode("utf-8", "replace")
 
 
@@ -215,8 +364,18 @@ def write(path, cues):
     directory = os.path.dirname(path)
     if directory and not os.path.isdir(directory):
         os.makedirs(directory)
-    with io.open(path, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write(dump(cues))
+    fd, temporary = tempfile.mkstemp(prefix=".katan-subtitle-", suffix=".tmp",
+                                     dir=directory or ".")
+    try:
+        with io.open(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(dump(cues))
+        os.replace(temporary, path)
+    except Exception:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+        raise
     return path
 
 
@@ -229,7 +388,8 @@ def clean(cues, strip_hi=False):
     """Repair the defects that make subtitles look broken on screen."""
     out = []
     for cue in cues:
-        text = _PRESENTATION_FORMS.sub("", cue.text)
+        text = unicodedata.normalize("NFKC", cue.text)
+        text = _PRESENTATION_FORMS.sub("", text)
         text = _TAGS.sub("", text)
         if strip_hi:
             text = _HI_BRACKETS.sub("", text)
@@ -276,6 +436,7 @@ _SCRIPTS = (
     # so Han alone is not evidence of either.
     ("ja", ((0x3040, 0x30FF),)),
     ("ko", ((0xAC00, 0xD7A3), (0x1100, 0x11FF))),
+    ("hi", ((0x0900, 0x097F),)),
     ("zh", ((0x4E00, 0x9FFF),)),
     ("en", ((0x0041, 0x024F),)),
 )
@@ -314,9 +475,32 @@ def detect_script(cues, sample=200, threshold=0.15):
     return ""
 
 
+_EXPECTED_SCRIPTS = {
+    "he": "he",
+    "ar": "ar", "fa": "ar", "ur": "ar",
+    "ru": "ru", "uk": "ru", "bg": "ru", "mk": "ru",
+    "sr": ("ru", "en"),
+    "el": "el", "ja": "ja", "ko": "ko", "zh": "zh", "hi": "hi",
+    "en": "en", "es": "en", "fr": "en", "it": "en", "tr": "en",
+    "pt": "en", "pl": "en", "ro": "en", "cs": "en", "de": "en",
+    "nl": "en", "hu": "en",
+}
+
+
+def script_matches(cues, language, threshold=0.15):
+    """Reject a clear script mismatch without guessing among Latin languages."""
+    expected = _EXPECTED_SCRIPTS.get((language or "").lower())
+    if expected is None:
+        return True
+    detected = detect_script(cues, threshold=threshold)
+    if isinstance(expected, tuple):
+        return detected in expected
+    return detected == expected
+
+
 def looks_hebrew(cues, threshold=0.15):
     """Is this actually Hebrew, or an English file mislabelled as Hebrew?"""
-    return detect_script(cues, threshold=threshold) == "he"
+    return script_matches(cues, "he", threshold=threshold)
 
 
 def duration(cues):

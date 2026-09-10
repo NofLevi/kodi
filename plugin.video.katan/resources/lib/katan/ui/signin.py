@@ -169,12 +169,14 @@ def receive_key(title, placeholder="", lifetime=None):
 
     state = {"value": "", "url": ""}
     ready = threading.Event()
+    cancelled = threading.Event()
     span = float(lifetime or pastebox.LIFETIME)
 
     def serve():
         state["value"] = pastebox.receive(
             title, placeholder, lifetime=span,
-            on_ready=lambda url: (state.__setitem__("url", url), ready.set()))
+            on_ready=lambda url: (state.__setitem__("url", url), ready.set()),
+            cancelled=cancelled)
 
     thread = threading.Thread(target=serve)
     thread.daemon = True
@@ -194,6 +196,10 @@ def receive_key(title, placeholder="", lifetime=None):
             return None
         return max(0.0, (deadline - time.time()) / span)
 
-    open_auth(title=title, url=state["url"], code="",
-              message=kodi.localize(32514), poll=tick, interval=1)
+    try:
+        open_auth(title=title, url=state["url"], code="",
+                  message=kodi.localize(32514), poll=tick, interval=1)
+    finally:
+        cancelled.set()
+        thread.join(1.0)
     return state["value"] or None

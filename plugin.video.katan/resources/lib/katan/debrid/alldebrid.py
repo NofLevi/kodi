@@ -177,7 +177,7 @@ class AllDebrid(base.DebridService):
                                 timeout=base.timeout_for("resolve"), default=None)
         url = ((payload or {}).get("data") or {}).get("link", "")
         if url:
-            source["file_name"] = chosen["name"]
+            base.record_selection(source, chosen)
         return url
 
     def _delete(self, magnet_id):

@@ -363,7 +363,7 @@ def sort_key(source, prefs=None):
 
     size = source.get("size") or 0
     preference = getattr(prefs, "size_preference", "smallest")
-    if preference == "largest":
+    if preference in ("largest", "biggest"):
         size_term = -size
     elif preference == "balanced":
         size_term = 0            # leave it to the weighted score below

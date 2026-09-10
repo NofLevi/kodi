@@ -51,6 +51,19 @@ HDR_PATTERNS = {
     "hdr": r"\b(hdr|hdr10|pq|bt2020)\b",
 }
 
+EDITION_PATTERNS = [
+    ("extended", r"\bextended(?:[\s-]+cut)?\b"),
+    ("directors", r"\bdirector'?s[\s-]+cut\b"),
+    ("theatrical", r"\btheatrical(?:[\s-]+cut)?\b"),
+    ("final", r"\bfinal[\s-]+cut\b"),
+    ("ultimate", r"\bultimate[\s-]+cut\b"),
+    ("special", r"\bspecial[\s-]+edition\b"),
+    ("unrated", r"\bunrated\b"),
+    ("uncut", r"\buncut\b"),
+    ("redux", r"\bredux\b"),
+]
+
+
 # Language hints that appear in release names. Hebrew releases are the ones we
 # care most about, because they usually carry burned-in or muxed Hebrew subs.
 LANGUAGE_PATTERNS = {
@@ -170,6 +183,12 @@ _AFTER_EPISODE = (
     r"|batch|complete|10bit|8bit|v\d")
 _BARE_EPISODE = re.compile(
     r"\b(\d{1,4})\s+(?:%s)\b" % _AFTER_EPISODE, re.I)
+# Audio layouts survive normalisation as bare numbers ("DD5.1" -> "dd5 1"),
+# where the trailing channel count looks like an absolute episode. Mask them
+# while extracting episode identity, but keep the normalised release unchanged.
+_AUDIO_CHANNEL_LAYOUT = re.compile(
+    r"\b(?:ddp?|eac3|ac3|dts(?:hd)?|aac|truehd|atmos)?[ ._-]*(?:2\.0|5\.1|7\.1)\b",
+    re.I)
 
 # "episode 930" says so in as many words, and the word is the whole signal.
 _NAMED_EPISODE = re.compile(r"\bep(?:isode)?\s*(\d{1,4})\b", re.I)
@@ -274,7 +293,8 @@ def _parse(raw, size=0):
     languages = [code for code, pattern in LANGUAGE_PATTERNS.items()
                  if re.search(pattern, text, re.I)]
 
-    season, episode, absolute = _episode_numbers(text)
+    episode_text = normalise(_AUDIO_CHANNEL_LAYOUT.sub(" audio ", raw))
+    season, episode, absolute = _episode_numbers(episode_text)
 
     return {
         "raw": raw,
@@ -294,6 +314,8 @@ def _parse(raw, size=0):
         # picker label for everything else.
         "dub": _first_match(text, DUB_PATTERNS, ""),
         "hdr": hdr,
+        "editions": [edition for edition, pattern in EDITION_PATTERNS
+                     if re.search(pattern, text, re.I)],
         "languages": languages,
         "group": release_group(raw),
         "year": _year(text),

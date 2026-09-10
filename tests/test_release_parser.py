@@ -76,6 +76,15 @@ def test_absolute_episode_numbering_for_anime():
     assert release.matches_episode(parsed, 1, 12)
 
 
+@pytest.mark.parametrize("channels", ["DD5.1", "2.0", "5.1", "7.1"])
+def test_audio_channels_do_not_become_absolute_episode_numbers(channels):
+    parsed = release.parse("Show.S01.%s.1080p.WEB-DL-GRP" % channels)
+    assert parsed["season"] == 1
+    assert parsed["episode"] == 0
+    assert parsed["absolute"] == 0
+    assert release.matches_episode(parsed, 1, 5)
+
+
 def test_matches_episode_accepts_season_packs():
     pack = release.parse("Show.S02.1080p.WEB-DL.H264-X")
     assert release.matches_episode(pack, 2, 5), "a season pack should still match"
@@ -98,6 +107,25 @@ def test_proper_and_repack_are_flagged():
     assert release.parse("Movie.2024.PROPER.1080p.WEB-X")["proper"]
     assert release.parse("Movie.2024.REPACK.1080p.WEB-X")["proper"]
     assert not release.parse("Movie.2024.1080p.WEB-X")["proper"]
+
+
+def test_explicit_edition_tokens_are_preserved():
+    parsed = release.parse(
+        "Kingdom.of.Heaven.2005.Directors.Cut.Extended.1080p.BluRay-GRP")
+    assert parsed["editions"] == ["extended", "directors"]
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("Film.Extended.Cut.1080p", ["extended"]),
+    ("Film.Directors.Cut.1080p", ["directors"]),
+    ("Film.Final.Cut.1080p", ["final"]),
+    ("Film.Ultimate.Cut.1080p", ["ultimate"]),
+    ("Film.Special.Edition.1080p", ["special"]),
+    ("Film.Unrated.1080p", ["unrated"]),
+    ("Film.Uncut.1080p", ["uncut"]),
+])
+def test_common_explicit_editions_are_distinct(name, expected):
+    assert release.parse(name)["editions"] == expected
 
 
 def test_size_label_is_human_readable():

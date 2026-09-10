@@ -159,9 +159,14 @@ class DebridService(object):
 
         candidates = []
         for position, entry in enumerate(files or []):
+            if not isinstance(entry, dict):
+                continue
             name = (entry.get("name") or entry.get("path") or "")
-            size = int(entry.get("size") or entry.get("bytes") or 0)
             if not name.lower().endswith(VIDEO_EXTENSIONS):
+                continue
+            try:
+                size = int(entry.get("size") or entry.get("bytes") or 0)
+            except (TypeError, ValueError, OverflowError):
                 continue
             if size and size < MIN_VIDEO_BYTES:
                 continue
@@ -176,6 +181,20 @@ class DebridService(object):
 
         if not candidates:
             return None
+        hint_name = _basename(str(source.get("file_name") or "")).lower()
+        hint_id = source.get("file_id")
+        hint_index = source.get("file_index")
+        for entry in candidates:
+            if hint_id is not None and str(entry.get("id")) == str(hint_id):
+                return entry
+            if hint_index is not None:
+                try:
+                    if entry.get("index") == int(hint_index):
+                        return entry
+                except (TypeError, ValueError, OverflowError):
+                    pass
+            if hint_name and _basename(entry.get("name") or "").lower() == hint_name:
+                return entry
         if len(candidates) == 1:
             return candidates[0]
 
@@ -198,6 +217,15 @@ class DebridService(object):
             return None                 # better to fail than play the wrong episode
 
         return max(candidates, key=lambda c: c["size"])
+
+
+def record_selection(source, chosen):
+    """Persist provider-neutral selected-file identity after a successful resolve."""
+    source["file_name"] = chosen.get("name") or ""
+    source["file_size"] = int(chosen.get("size") or 0)
+    source["file_index"] = int(chosen.get("index") or 0)
+    source["file_id"] = chosen.get("id")
+    return source
 
 
 def _basename(path):

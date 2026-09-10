@@ -82,21 +82,39 @@ def distinct(candidates, language, limit):
     chosen = []
     seen_providers = set()
     seen_releases = set()
-    for candidate in candidates:
+
+    def eligible(candidate):
         if candidate.get("language") != language:
-            continue
-        provider = candidate.get("provider", "")
+            return False
         name = (candidate.get("release") or "").strip().lower()
-        if name and name in seen_releases:
-            continue
-        # One per provider on the first pass, so three candidates are three
-        # opinions rather than three files from one uploader.
-        if provider in seen_providers and len(chosen) < limit:
-            continue
+        return not (name and name in seen_releases)
+
+    def add(candidate):
         chosen.append(candidate)
-        seen_providers.add(provider)
+        seen_providers.add(candidate.get("provider", ""))
+        name = (candidate.get("release") or "").strip().lower()
         if name:
             seen_releases.add(name)
+
+    # First pass: maximize provider diversity.
+    for candidate in candidates:
+        if not eligible(candidate):
+            continue
+        if candidate.get("provider", "") in seen_providers:
+            continue
+        if not all(_independent(candidate, previous) for previous in chosen):
+            continue
+        add(candidate)
+        if len(chosen) >= limit:
+            return chosen
+
+    # Second pass: use independently uploaded rows from providers already used.
+    for candidate in candidates:
+        if candidate in chosen or not eligible(candidate):
+            continue
+        if not all(_independent(candidate, previous) for previous in chosen):
+            continue
+        add(candidate)
         if len(chosen) >= limit:
             break
     return chosen
@@ -119,6 +137,41 @@ def agree(left, right):
     return agreed, confidence, offset
 
 
+def _collapse_correlated(fetched):
+    """One highest-ranked representative per transitive correlation group."""
+    rows = list(fetched)
+    parents = list(range(len(rows)))
+
+    def root(index):
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(left, right):
+        left_root, right_root = root(left), root(right)
+        if left_root != right_root:
+            parents[right_root] = left_root
+
+    for left in range(len(rows)):
+        for right in range(left + 1, len(rows)):
+            left_candidate, left_cues = rows[left]
+            right_candidate, right_cues = rows[right]
+            if (not _independent(left_candidate, right_candidate)
+                    or _same_timeline(left_cues, right_cues)):
+                union(left, right)
+
+    components = {}
+    for index in range(len(rows)):
+        components.setdefault(root(index), []).append(index)
+    representatives = [
+        max(indices, key=lambda index: (rows[index][0].get("score", 0), -index))
+        for indices in components.values()
+    ]
+    representatives.sort(key=lambda index: (-rows[index][0].get("score", 0), index))
+    return [rows[index] for index in representatives]
+
+
 def choose(fetched):
     """Pick the best-supported subtitle from what was downloaded.
 
@@ -127,7 +180,8 @@ def choose(fetched):
     anywhere the highest-scoring one is still the best guess available, and
     saying so is more use than refusing to show anything.
     """
-    usable = [(candidate, cues) for candidate, cues in fetched if cues]
+    usable = _collapse_correlated(
+        [(candidate, cues) for candidate, cues in fetched if cues])
     if not usable:
         return None, [], {"reason": "nothing downloaded", "supported": 0}
     if len(usable) == 1:
@@ -139,6 +193,9 @@ def choose(fetched):
     best_pair = (0.0, None)
     for i in range(len(usable)):
         for j in range(i + 1, len(usable)):
+            if (not _independent(usable[i][0], usable[j][0])
+                    or _same_timeline(usable[i][1], usable[j][1])):
+                continue
             agreed, confidence, offset = agree(usable[i][1], usable[j][1])
             if agreed:
                 support[i] += 1
@@ -170,7 +227,11 @@ def choose(fetched):
 
 
 def _independent(left, right):
-    """Different catalogues, or named uploaders inside one catalogue."""
+    """Different origins, excluding a known mirrored archive or upload."""
+    left_archive = left.get("archive_fingerprint")
+    right_archive = right.get("archive_fingerprint")
+    if left_archive and left_archive == right_archive:
+        return False
     left_provider = left.get("provider", "")
     right_provider = right.get("provider", "")
     if not left_provider or not right_provider:
@@ -209,18 +270,28 @@ def verification_candidates(candidates, wanted, limit):
     return distinct(candidates, wanted, limit)
 
 
+def _same_timeline(left, right):
+    """Exact cue boundaries reveal two languages from one correlated source."""
+    if len(left) != len(right):
+        return False
+    return all(a.start == b.start and a.end == b.end
+               for a, b in zip(left, right))
+
+
 def timeline_reference(fetched, wanted):
     """A reference timeline proved by two agreeing non-target languages.
 
     Two independent languages agreeing is evidence about the video cut without
     decoding audio. One other-language file alone is still only a guess.
     """
-    others = [(candidate, cues) for candidate, cues in fetched
-              if cues and candidate.get("language") != wanted]
+    others = _collapse_correlated([
+        (candidate, cues) for candidate, cues in fetched
+        if cues and candidate.get("language") != wanted])
     support = [0] * len(others)
     for left in range(len(others)):
         for right in range(left + 1, len(others)):
-            if not _independent(others[left][0], others[right][0]):
+            if (not _independent(others[left][0], others[right][0])
+                    or _same_timeline(others[left][1], others[right][1])):
                 continue
             agreed, _confidence, _offset = agree(others[left][1], others[right][1])
             if agreed:

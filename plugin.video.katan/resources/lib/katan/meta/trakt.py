@@ -282,6 +282,10 @@ def sign_out():
         "trakt.access_token": "", "trakt.refresh_token": "",
         "trakt.expires": "0", "trakt.user": "",
     })
+    invalidate_sync()
+    cache.delete_prefix("row|watchlist|")
+    cache.delete_prefix("row|continue|")
+    cache.delete_prefix("row|because_you_watched|")
     return bool(token)
 
 
@@ -493,7 +497,9 @@ def set_watched(item_type, ids, season=None, episode=None, watched=True):
     response = _post(path, payload)
     ok = bool(response is not None and response.status_code in (200, 201))
     if ok:
-        invalidate_sync()
+        # The caller may already have applied an optimistic watched mirror.
+        # Force a future activity check without deleting that fresh UI state.
+        invalidate_sync(state=False)
     return ok
 
 
@@ -527,6 +533,9 @@ def scrobble(action, item_type, ids, season=None, episode=None, progress=0.0):
 # --------------------------------------------------------------------------
 
 ACTIVITY_KEY = "trakt|last_activities"
+_PENDING_ACTIVITY = None
+_SYNC_PAGE_LIMIT = 100
+_MAX_SYNC_PAGES = 50
 
 
 def last_activities():
@@ -534,49 +543,92 @@ def last_activities():
 
 
 def needs_sync():
-    """True when Trakt reports activity newer than our snapshot.
-
-    This is the whole point of last_activities: one small request tells us
-    whether the expensive watched/playback pulls are worth doing at all.
-    """
+    """True when Trakt reports activity newer than our committed snapshot."""
+    global _PENDING_ACTIVITY
     if not authorised():
         return False
     current = last_activities()
-    if not current:
+    if not isinstance(current, dict) or not current:
         return False
-    previous = cache.get(ACTIVITY_KEY)
-    if previous == current:
+    if cache.get(ACTIVITY_KEY) == current:
+        _PENDING_ACTIVITY = None
         return False
-    cache.set(ACTIVITY_KEY, current, 30 * 24 * 3600)
+    _PENDING_ACTIVITY = current
     return True
+
+
+def _get_all_pages(path, **params):
+    """Fetch one bounded Trakt collection without silently dropping later pages."""
+    rows = []
+    previous = None
+    for page in range(1, _MAX_SYNC_PAGES + 1):
+        batch = _get(path, page=page, limit=_SYNC_PAGE_LIMIT, **params)
+        if not isinstance(batch, list):
+            return None
+        if previous is not None and batch == previous:
+            return rows
+        rows.extend(batch)
+        if not batch:
+            return rows
+        previous = batch
+    kodi.log_error("Trakt sync exceeded the pagination limit")
+    return None
 
 
 def sync_state():
     """Refresh the watched and playback snapshot used for ticks and resume."""
+    global _PENDING_ACTIVITY
     if not authorised():
         return False
     from . import trakt_state
 
+    activity = _PENDING_ACTIVITY
+    if activity is None:
+        fetched = last_activities()
+        activity = fetched if isinstance(fetched, dict) and fetched else None
+
+    movies = _get_all_pages("/sync/watched/movies", auth=True)
+    shows = _get_all_pages("/sync/watched/shows", auth=True,
+                           extended="progress")
+    progress_rows = _get_all_pages("/sync/playback", auth=True)
+    if movies is None or shows is None or progress_rows is None:
+        return False
+
     watched = {}
-    for row in _get("/sync/watched/movies", auth=True) or []:
+    for row in movies:
+        if not isinstance(row, dict):
+            continue
         ids = (row.get("movie") or {}).get("ids") or {}
         key = trakt_state.state_key("movie", {"tmdb": ids.get("tmdb"),
                                               "imdb": ids.get("imdb")})
         watched[key] = int(row.get("plays") or 1)
 
-    for row in _get("/sync/watched/shows", auth=True) or []:
+    for row in shows:
+        if not isinstance(row, dict):
+            continue
         show_ids = (row.get("show") or {}).get("ids") or {}
         base = {"tmdb": show_ids.get("tmdb"), "imdb": show_ids.get("imdb")}
-        watched[trakt_state.state_key("show", base)] = 1
+        # This endpoint lists watched episodes, not proof that every episode in
+        # the show has been watched. Only its explicit episode rows get ticks.
         for season in row.get("seasons") or []:
+            if not isinstance(season, dict):
+                continue
             number = season.get("number")
             for episode in season.get("episodes") or []:
-                key = trakt_state.state_key("episode", base, number, episode.get("number"))
+                if not isinstance(episode, dict):
+                    continue
+                key = trakt_state.state_key("episode", base, number,
+                                            episode.get("number"))
                 watched[key] = int(episode.get("plays") or 1)
 
     playback = {}
-    for row in _get("/sync/playback", auth=True, limit=100) or []:
-        progress = float(row.get("progress") or 0)
+    for row in progress_rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            progress = float(row.get("progress") or 0)
+        except (TypeError, ValueError, OverflowError):
+            continue
         if progress <= 1 or progress >= 95:
             continue
         if row.get("type") == "movie":
@@ -590,14 +642,21 @@ def sync_state():
                 "episode",
                 {"tmdb": show_ids.get("tmdb"), "imdb": show_ids.get("imdb")},
                 episode.get("season"), episode.get("number"))
-        playback[key] = {"position": progress, "total": 100}
+        playback[key] = {"progress": progress}
 
     trakt_state.store(watched=watched, playback=playback)
-    kodi.log("Trakt sync: %d watched keys, %d in progress" % (len(watched), len(playback)))
+    if activity is not None:
+        cache.set(ACTIVITY_KEY, activity, 30 * 24 * 3600)
+    _PENDING_ACTIVITY = None
+    kodi.log("Trakt sync: %d watched keys, %d in progress" %
+             (len(watched), len(playback)))
     return True
 
 
-def invalidate_sync():
+def invalidate_sync(state=True):
+    global _PENDING_ACTIVITY
+    _PENDING_ACTIVITY = None
     cache.delete(ACTIVITY_KEY)
-    from . import trakt_state
-    trakt_state.invalidate()
+    if state:
+        from . import trakt_state
+        trakt_state.invalidate()

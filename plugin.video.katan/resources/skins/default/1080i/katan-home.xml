@@ -335,8 +335,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -417,8 +417,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -499,8 +499,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -581,8 +581,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -663,8 +663,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -745,8 +745,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -827,8 +827,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -909,8 +909,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -991,8 +991,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1073,8 +1073,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1155,8 +1155,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1237,8 +1237,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1319,8 +1319,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1401,8 +1401,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1483,8 +1483,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1565,8 +1565,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1647,8 +1647,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1729,8 +1729,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1811,8 +1811,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1893,8 +1893,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1975,8 +1975,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -2057,8 +2057,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -2139,8 +2139,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -2221,8 +2221,8 @@
                             <top>250</top>
                             <width>176</width>
                             <height>6</height>
-                            <info>ListItem.PercentPlayed</info>
-                            <visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+                            <info>ListItem.Property(katan.percentplayed)</info>
+                            <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">

@@ -37,7 +37,14 @@ DEFAULT_INDEX = "https://kodi-katan.pages.dev/addons.xml"
 # therefore invisible to Kodi.
 TEST_INDEX = "https://kodi-katan-dev.pages.dev/addons.xml"
 
-VERSION = re.compile(r"^(\d+)(?:\.(\d+))?(?:\.(\d+))?")
+VERSION = re.compile(r"(\d{1,9})(?:\.(\d{1,9}))?(?:\.(\d{1,9}))?")
+MAX_VERSION_LENGTH = 29
+MAX_ZIP_BYTES = 32 * 1024 * 1024
+MAX_ZIP_MEMBERS = 1024
+MAX_EXPANDED_BYTES = 96 * 1024 * 1024
+MAX_MEMBER_BYTES = 32 * 1024 * 1024
+MAX_COMPRESSION_RATIO = 250
+REQUIRED_MEMBERS = ("addon.xml", "main.py")
 
 
 def on_test_channel():
@@ -58,7 +65,10 @@ def index_url():
 
 def parse_version(text):
     """A comparable tuple. Anything unparseable sorts lowest."""
-    match = VERSION.match((text or "").strip())
+    clean = (text or "").strip()
+    if len(clean) > MAX_VERSION_LENGTH:
+        return (0, 0, 0)
+    match = VERSION.fullmatch(clean)
     if not match:
         return (0, 0, 0)
     return tuple(int(part or 0) for part in match.groups())
@@ -76,7 +86,8 @@ def published_version():
     an opinion in it. Returns ("", "") when the index cannot be read.
     """
     url = index_url()
-    response = http.get(url, timeout=(5, 12), retries=1)
+    response = http.get(url, timeout=(5, 12), retries=1,
+                        max_bytes=1024 * 1024)
     if response is None or response.status_code >= 400:
         kodi.log("update check failed: %s"
                  % (response.status_code if response else "no response"))
@@ -122,45 +133,107 @@ def check():
     return latest, zip_url
 
 
-def download(zip_url, progress=None):
+def download(zip_url, progress=None, expected_version=None):
     """Fetch the release to a temporary file. Returns its path, or ''."""
     response = http.get(zip_url, timeout=(5, 60), retries=1, stream=True)
     if response is None or response.status_code >= 400:
-        kodi.log_error("could not download %s" % zip_url)
+        kodi.log_error("could not download update from %s" % http._host(zip_url))
+        return ""
+
+    encoding = (response.headers.get("Content-Encoding") or "identity").lower()
+    try:
+        declared = int(response.headers.get("Content-Length") or 0)
+    except (TypeError, ValueError, OverflowError):
+        declared = -1
+    if encoding not in ("", "identity") or declared < 0 or declared > MAX_ZIP_BYTES:
+        response.close()
+        kodi.log_error("the update download has unsafe transport metadata")
         return ""
 
     handle, path = tempfile.mkstemp(suffix=".zip", prefix="katan-update-")
     try:
         with os.fdopen(handle, "wb") as out:
-            out.write(response.content)
+            total = 0
+            while True:
+                chunk = response.raw.read(64 * 1024, decode_content=False)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_ZIP_BYTES:
+                    raise ValueError("update archive exceeds size limit")
+                out.write(chunk)
     except Exception:
         kodi.log_exception("writing the update failed")
         _remove(path)
         return ""
+    finally:
+        response.close()
 
-    if not _is_sane_zip(path):
+    if not _is_sane_zip(path, expected_version=expected_version):
         _remove(path)
         return ""
     return path
 
 
-def _is_sane_zip(path):
-    """A release must be a readable zip that carries a parseable addon.xml.
-
-    A truncated download is a perfectly ordinary outcome on a projector on
-    wifi, and installing one would leave an add-on that cannot start.
-    """
+def _is_sane_zip(path, expected_version=None):
+    """Validate identity, completeness, canonical paths and resource bounds."""
     member = "%s/addon.xml" % ADDON_ID
     try:
+        if os.path.getsize(path) > MAX_ZIP_BYTES:
+            return False
         with zipfile.ZipFile(path) as archive:
+            infos = archive.infolist()
+            if not infos or len(infos) > MAX_ZIP_MEMBERS:
+                kodi.log_error("the downloaded update has an unsafe member count")
+                return False
+            approved = {}
+            expanded = 0
+            for info in infos:
+                raw_name = info.filename
+                parts = raw_name.split("/")
+                if ("\\" in raw_name or raw_name.startswith("/")
+                        or any(part in ("", ".", "..") for part in parts[:-1])):
+                    kodi.log_error("the downloaded update has an unsafe path")
+                    return False
+                canonical = "/".join(part for part in parts if part)
+                folded = canonical.casefold()
+                if folded in approved:
+                    kodi.log_error("the downloaded update has duplicate paths")
+                    return False
+                approved[folded] = canonical
+                if info.is_dir():
+                    continue
+                expanded += info.file_size
+                ratio = info.file_size / float(max(1, info.compress_size))
+                if (info.file_size > MAX_MEMBER_BYTES
+                        or expanded > MAX_EXPANDED_BYTES
+                        or ratio > MAX_COMPRESSION_RATIO):
+                    kodi.log_error("the downloaded update exceeds safe archive limits")
+                    return False
+                mode = (info.external_attr >> 16) & 0o170000
+                if mode and mode != 0o100000:
+                    kodi.log_error("the downloaded update contains a special file")
+                    return False
             if archive.testzip() is not None:
                 kodi.log_error("the downloaded update is corrupt")
                 return False
             if member not in archive.namelist():
                 kodi.log_error("the downloaded update has no %s" % member)
                 return False
-            ET.fromstring(archive.read(member))
-    except (zipfile.BadZipfile, ET.ParseError, KeyError, OSError):
+            for required in REQUIRED_MEMBERS:
+                name = ("%s/%s" % (ADDON_ID, required)).casefold()
+                if name not in approved:
+                    kodi.log_error("the downloaded update is incomplete")
+                    return False
+            root = ET.fromstring(archive.read(member))
+            if root.tag != "addon" or root.get("id") != ADDON_ID:
+                kodi.log_error("the downloaded update has the wrong add-on identity")
+                return False
+            version = root.get("version") or ""
+            if expected_version is not None and version != expected_version:
+                kodi.log_error("the downloaded update version does not match the index")
+                return False
+    except (zipfile.BadZipfile, ET.ParseError, KeyError, OSError, OverflowError):
         kodi.log_exception("the downloaded update is not usable")
         return False
     return True
@@ -179,6 +252,8 @@ def apply(zip_path):
     # directory was unpacked inside the thing it was meant to replace, and the
     # rename failed with WinError 87 on a projector while passing every test
     # here.
+    if not _is_sane_zip(zip_path):
+        return False
     target = os.path.normpath(kodi.addon_path())
     addons_dir = os.path.dirname(target)
     staging = tempfile.mkdtemp(prefix="katan-staging-", dir=addons_dir)
@@ -239,7 +314,7 @@ def update_now(silent=False):
     progress = xbmcgui.DialogProgressBG()
     progress.create("Katan", kodi.localize(32502))
     try:
-        path = download(zip_url)
+        path = download(zip_url, expected_version=latest)
         if not path:
             kodi.ok_dialog(kodi.localize(32503))
             return False

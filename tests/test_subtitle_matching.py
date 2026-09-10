@@ -1,7 +1,6 @@
 """Candidate scoring decides which single subtitle gets downloaded."""
 import struct
 
-import pytest
 
 from katan.subs import hasher, matcher
 
@@ -53,6 +52,29 @@ def test_the_wrong_episode_is_pushed_to_the_bottom():
     assert matcher.score_candidate(right, target) > 50
     assert matcher.score_candidate(wrong, target) == 0
     assert "wrong episode" in wrong["reason"]
+
+
+def test_an_explicitly_different_movie_cut_is_not_accepted():
+    target = matcher.target_from({
+        "type": "movie",
+        "source": {"release":
+                   "Film.2024.Extended.1080p.BluRay.H264-GRP"}})
+    wrong = candidate("Film.2024.Theatrical.1080p.BluRay.H264-GRP")
+
+    assert matcher.score_candidate(wrong, target) < 70
+    assert "different edition" in wrong["reason"]
+
+
+def test_final_cut_and_directors_cut_are_different_editions():
+    target = matcher.target_from({
+        "type": "movie",
+        "source": {"release":
+                   "Blade.Runner.1982.Final.Cut.1080p.BluRay.H264-GRP"}})
+    wrong = candidate(
+        "Blade.Runner.1982.Directors.Cut.1080p.BluRay.H264-GRP")
+
+    assert matcher.score_candidate(wrong, target) < 70
+    assert "different edition" in wrong["reason"]
 
 
 def test_provider_sync_percentage_contributes():
@@ -127,6 +149,78 @@ def test_hash_of_a_missing_file_is_empty():
 def test_hash_stream_refuses_a_non_http_path(no_network):
     assert hasher.hash_stream("") == ("", 0)
     assert hasher.hash_stream("/local/path.mkv") == ("", 0)
+
+
+def test_range_server_ignoring_range_is_rejected_without_reading_body(monkeypatch):
+    """A 200 response may be the whole movie and must never enter RAM."""
+    class WholeMovie(object):
+        status_code = 200
+        headers = {"Content-Length": str(20 * 1024 ** 3)}
+        closed = False
+        body_read = False
+
+        @property
+        def content(self):
+            self.body_read = True
+            return b"x" * hasher.CHUNK
+
+        def close(self):
+            self.closed = True
+
+    response = WholeMovie()
+    monkeypatch.setattr(hasher.http, "get", lambda *args, **kwargs: response)
+    assert hasher._range("https://cdn/video", 0, hasher.CHUNK - 1,
+                         (1, 1)) is None
+    assert response.body_read is False
+    assert response.closed is True
+
+
+def test_range_requires_matching_content_range_without_reading_body(monkeypatch):
+    class WrongSlice(object):
+        status_code = 206
+        headers = {"Content-Range": "bytes 5-65540/999999"}
+        closed = False
+        body_read = False
+
+        @property
+        def content(self):
+            self.body_read = True
+            return b"x" * hasher.CHUNK
+
+        def close(self):
+            self.closed = True
+
+    response = WrongSlice()
+    monkeypatch.setattr(hasher.http, "get", lambda *args, **kwargs: response)
+    assert hasher._range("https://cdn/video", 0, hasher.CHUNK - 1,
+                         (1, 1)) is None
+    assert response.body_read is False
+    assert response.closed is True
+
+
+def test_valid_range_reads_only_the_requested_chunk(monkeypatch):
+    class Raw(object):
+        amount = None
+
+        def read(self, amount, decode_content=False):
+            self.amount = amount
+            return b"x" * hasher.CHUNK
+
+    class Slice(object):
+        status_code = 206
+        headers = {"Content-Range": "bytes 0-65535/999999"}
+        raw = Raw()
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    response = Slice()
+    monkeypatch.setattr(hasher.http, "get", lambda *args, **kwargs: response)
+    assert hasher._range("https://cdn/video", 0, hasher.CHUNK - 1,
+                         (1, 1)) == b"x" * hasher.CHUNK
+    assert response.raw.amount == hasher.CHUNK + 1
+    assert response.closed is True
 
 
 # --------------------------------------------------------------------------
@@ -269,6 +363,30 @@ def test_a_good_match_actually_clears_the_default_threshold():
 # --------------------------------------------------------------------------
 # a hash match that is somebody else's file
 # --------------------------------------------------------------------------
+
+def test_exact_hash_evidence_wins_equal_score_release_name_tie():
+    target = {"release": "Film.2024.WEB-DL-GRP", "type": "movie"}
+    rows = [
+        {"provider": "a", "language": "en",
+         "release": "Film.2024.WEB-DL-GRP", "download": "name"},
+        {"provider": "b", "language": "en", "release": "other",
+         "download": "hash", "hash_match": True},
+    ]
+    winners, ranked = matcher.best(rows, target, 70, languages=["en"])
+    assert winners["en"]["reason"] == "hash"
+    assert ranked[0]["download"] == "hash"
+
+
+def test_identical_release_name_cannot_override_wrong_episode_metadata():
+    release_name = "Show.S01E01.1080p.WEB-DL-GRP"
+    target = {"release": release_name, "group": "grp", "source": "web",
+              "resolution": "1080p", "codec": "h264", "editions": [],
+              "type": "episode", "season": 1, "episode": 2,
+              "absolute": None}
+    score, reason = matcher.rate({"release": release_name}, target)
+    assert score < 70
+    assert "wrong episode" in reason
+
 
 def test_a_hash_match_for_a_different_episode_is_not_a_hundred():
     """Measured against the live index, not imagined.

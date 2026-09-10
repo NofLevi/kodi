@@ -11,6 +11,7 @@ chunk that comes back wrong is split in half and retried rather than dropped.
 """
 import json
 import re
+import time
 
 from ... import kodi, settings
 from .. import srt
@@ -19,14 +20,17 @@ DEFAULT_CHUNK = 80
 MIN_CHUNK = 8        # smallest configurable chunk size
 MIN_SPLIT = 2        # smallest chunk worth splitting again
 MAX_RETRIES = 2
+MAX_EXTRA_REQUESTS = 6
+MAX_TRANSLATION_SECONDS = 10 * 60
+MIN_COMPLETION = 1.0
+MAX_UNCHANGED_RATIO = 0.8
 
 LANGUAGE_NAMES = {
-    "he": "Hebrew",
-    "en": "English",
-    "ar": "Arabic",
-    "es": "Spanish",
-    "fr": "French",
-    "ru": "Russian",
+    "he": "Hebrew", "en": "English", "ar": "Arabic", "es": "Spanish",
+    "fr": "French", "ru": "Russian", "pt": "Portuguese", "de": "German",
+    "it": "Italian", "tr": "Turkish", "pl": "Polish", "zh": "Chinese",
+    "ja": "Japanese", "ko": "Korean", "ro": "Romanian", "cs": "Czech",
+    "uk": "Ukrainian", "hi": "Hindi",
 }
 
 SYSTEM_PROMPT = (
@@ -45,10 +49,7 @@ Rules:
 - Keep names, places and brands in their usual {language} form.
 - Translate the dialogue naturally rather than word by word, using the
   surrounding lines for context.
-- {language} marks the speaker's gender on verbs and adjectives. Use the cast
-  list above, the speaker labels and the surrounding lines to choose the right
-  form. When the speaker is genuinely unclear, prefer the form that reads
-  naturally rather than defaulting to masculine.
+{linguistic_guidance}
 
 Input:
 {payload}"""
@@ -58,10 +59,23 @@ The people in this scene, for choosing the right gendered forms:
 {cast}
 """
 
+HEBREW_GUIDANCE = """- Hebrew marks the speaker's gender on verbs and adjectives. Use the cast
+  list above, speaker labels and surrounding lines to choose the right form.
+  When genuinely unclear, choose natural phrasing rather than defaulting to
+  masculine."""
+
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.M)
 
 
 class TranslationError(Exception):
+    pass
+
+
+class TranslationCancelled(TranslationError):
+    pass
+
+
+class TranslationBudgetExceeded(TranslationError):
     pass
 
 
@@ -87,7 +101,8 @@ def chunk_size():
     return max(MIN_CHUNK, settings.get_int("subs.ai.chunk", DEFAULT_CHUNK))
 
 
-def translate(cues, target_language="he", on_progress=None, meta=None):
+def translate(cues, target_language="he", on_progress=None, meta=None,
+              cancelled=None):
     """Translate cues, returning new cues with the original timings.
 
     on_progress(done, total, cues_so_far) is called after each chunk. The third
@@ -106,12 +121,24 @@ def translate(cues, target_language="he", on_progress=None, meta=None):
     size = chunk_size()
     translated = {}
     total = len(cues)
+    base_requests = (total + size - 1) // size
+    budget = {
+        "calls": 0,
+        "max_calls": base_requests + MAX_EXTRA_REQUESTS,
+        "deadline": time.monotonic() + MAX_TRANSLATION_SECONDS,
+        "cancelled": cancelled or (lambda: False),
+    }
 
     for start in range(0, total, size):
+        if budget["cancelled"]():
+            raise TranslationCancelled("translation cancelled")
         batch = cues[start:start + size]
         try:
             translated.update(
-                _translate_batch(backend, batch, language, start, context))
+                _translate_batch(backend, batch, language, start, context,
+                                 budget=budget))
+        except (TranslationCancelled, TranslationBudgetExceeded):
+            raise
         except TranslationError:
             kodi.log_exception("chunk starting at %d failed" % start)
         if on_progress is not None:
@@ -124,10 +151,22 @@ def translate(cues, target_language="he", on_progress=None, meta=None):
             except Exception:
                 kodi.log_exception("progress callback failed")
 
-    if not translated:
+    completed = sum(1 for position in range(total)
+                    if translated.get(str(position)))
+    if not completed:
         raise TranslationError("nothing was translated")
+    if float(completed) / total < MIN_COMPLETION:
+        raise TranslationError("only %d of %d cues were translated" %
+                               (completed, total))
+    if budget["cancelled"]():
+        raise TranslationCancelled("translation cancelled")
 
-    return _merge(cues, translated)
+    result = _merge(cues, translated)
+    unchanged = sum(1 for source, target in zip(cues, result)
+                    if " ".join(source.text.split()) == " ".join(target.text.split()))
+    if float(unchanged) / total >= MAX_UNCHANGED_RATIO:
+        raise TranslationError("translation repeated the source text")
+    return result
 
 
 def _merge(cues, translated):
@@ -156,7 +195,8 @@ def _context_block(meta):
     return CAST_BLOCK.format(cast=note) if note else ""
 
 
-def _translate_batch(backend, batch, language, offset, context="", depth=0):
+def _translate_batch(backend, batch, language, offset, context="", depth=0,
+                     budget=None):
     """Translate one chunk, splitting it on failure rather than losing it.
 
     Keys are absolute positions in the file, so a split chunk still maps back
@@ -166,35 +206,55 @@ def _translate_batch(backend, batch, language, offset, context="", depth=0):
                for position, cue in enumerate(batch)}
     prompt = INSTRUCTIONS.format(
         language=language, context=context,
+        linguistic_guidance=(HEBREW_GUIDANCE if language == "Hebrew" else ""),
         payload=json.dumps(payload, ensure_ascii=False, indent=0))
 
     last_error = ""
     for attempt in range(MAX_RETRIES + 1):
+        if budget is not None:
+            if budget["cancelled"]():
+                raise TranslationCancelled("translation cancelled")
+            if (budget["calls"] >= budget["max_calls"]
+                    or time.monotonic() >= budget["deadline"]):
+                raise TranslationBudgetExceeded("translation request budget exhausted")
+            budget["calls"] += 1
         try:
             reply = backend.complete(SYSTEM_PROMPT, prompt)
+            if budget is not None and budget["cancelled"]():
+                raise TranslationCancelled("translation cancelled")
+        except (TranslationCancelled, TranslationBudgetExceeded):
+            raise
         except Exception as error:
-            last_error = str(error)
+            # Backend exceptions may embed Authorization headers, API keys, or
+            # signed endpoint URLs. The class is enough to explain retry/split.
+            last_error = type(error).__name__
             continue
         parsed = _parse_reply(reply)
         if parsed is None:
             last_error = "reply was not JSON"
             continue
         missing = [key for key in payload if not parsed.get(key)]
+        expected = {key: parsed[key] for key in payload if parsed.get(key)}
         if not missing:
-            return parsed
+            return expected
         if len(missing) <= max(1, len(payload) // 10):
-            # A couple of blanks are tolerable; the caller keeps the original.
-            return parsed
+            # Partial progress is safe to display, but final completion is
+            # measured only against expected cue keys by translate().
+            return expected
         last_error = "%d of %d entries came back empty" % (len(missing), len(payload))
+        # A structurally valid partial reply usually means the batch is too
+        # large or difficult. Repeating it unchanged wastes requests; split now.
+        break
 
     if len(batch) >= MIN_SPLIT * 2 and depth < 4:
         kodi.log("splitting a failed chunk of %d (%s)" % (len(batch), last_error))
         middle = len(batch) // 2
         result = {}
         result.update(_translate_batch(backend, batch[:middle], language,
-                                       offset, context, depth + 1))
+                                       offset, context, depth + 1, budget))
         result.update(_translate_batch(backend, batch[middle:], language,
-                                       offset + middle, context, depth + 1))
+                                       offset + middle, context, depth + 1,
+                                       budget))
         return result
 
     raise TranslationError(last_error or "translation failed")

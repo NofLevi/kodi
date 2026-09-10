@@ -204,6 +204,22 @@ def _release_zip(path, version="0.2.0", addon_xml=True, corrupt=False):
     return path
 
 
+def test_release_with_wrong_embedded_identity_is_refused(tmp_path):
+    from katan import updater
+    path = str(tmp_path / "wrong-id.zip")
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("plugin.video.katan/addon.xml",
+                         '<addon id="repository.unrelated" version="9.9.9"/>')
+        archive.writestr("plugin.video.katan/main.py", "pass\n")
+    assert updater._is_sane_zip(path) is False
+
+
+def test_release_version_must_match_the_index(tmp_path):
+    from katan import updater
+    path = _release_zip(str(tmp_path / "wrong-version.zip"), version="9.9.9")
+    assert updater._is_sane_zip(path, expected_version="1.2.3") is False
+
+
 def test_a_good_release_passes_the_sanity_check(tmp_path):
     from katan import updater
 
@@ -430,6 +446,7 @@ def test_the_addon_path_may_end_in_a_separator(tmp_path, monkeypatch):
     with zipfile.ZipFile(release, "w") as archive:
         archive.writestr("plugin.video.katan/addon.xml",
                          '<addon id="plugin.video.katan" version="0.9.9"/>')
+        archive.writestr("plugin.video.katan/main.py", "pass\n")
         archive.writestr("plugin.video.katan/resources/marker.txt", "new")
 
     # The trailing separator is the whole point of this test.

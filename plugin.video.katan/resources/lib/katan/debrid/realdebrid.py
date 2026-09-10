@@ -255,7 +255,7 @@ class RealDebrid(base.DebridService):
             links = info.get("links") or []
             if not links:
                 return ""
-            source["file_name"] = chosen["name"]
+            base.record_selection(source, chosen)
             return self._unrestrict(links[0])
         except Exception:
             kodi.log_exception("Real-Debrid resolve failed")

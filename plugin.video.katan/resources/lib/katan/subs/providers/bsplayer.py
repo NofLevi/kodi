@@ -153,17 +153,11 @@ def _number(value):
 
 def download(candidate):
     """The links are gzipped, as OpenSubtitles' are."""
-    import gzip
-    import io as _io
-
     data = common.fetch_bytes(candidate["download"],
                               headers={"User-Agent": USER_AGENT})
     if not data:
         return b""
     if data[:2] != b"\x1f\x8b":
-        return common.extract_subtitle(data, candidate.get("language", ""))
-    try:
-        return gzip.GzipFile(fileobj=_io.BytesIO(data)).read()
-    except (IOError, OSError, EOFError):
-        kodi.log("bsplayer sent something that is not gzip")
-        return b""
+        return common.extract_subtitle(data, candidate.get("language", ""),
+                                       candidate=candidate)
+    return common.decompress_gzip(data)

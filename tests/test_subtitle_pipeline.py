@@ -40,7 +40,7 @@ def pipeline(monkeypatch, settings_module):
     state = {"candidates": [], "downloads": {}, "downloaded": [],
              "expected": [], "searched_languages": []}
 
-    def fake_search(meta, languages, video_hash=""):
+    def fake_search(meta, languages, video_hash="", **kwargs):
         state["searched_languages"].append(list(languages))
         return list(state["candidates"])
 
@@ -91,6 +91,146 @@ def test_only_one_subtitle_is_ever_downloaded(pipeline):
     assert pipeline["downloaded"] == [good]
 
 
+
+def test_an_unusable_top_match_falls_back_to_the_next_candidate(pipeline):
+    """A broken 100% upload must not hide a usable lower-ranked subtitle."""
+    exact = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    fallback = "Dune.Part.Two.2024.1080p.WEB-DL.H264-OTHER"
+    pipeline["candidates"] = [candidate(exact), candidate(fallback)]
+    pipeline["downloads"][exact] = b"not a subtitle"
+    pipeline["downloads"][fallback] = srt_bytes()
+
+    path, report = auto.find_and_prepare(MOVIE, ["he", "en"])
+    assert path and os.path.isfile(path)
+    assert pipeline["downloaded"] == [exact, fallback]
+    assert report["reason"]
+
+
+
+def test_broken_accepted_match_does_not_jump_ahead_of_translation(
+        pipeline, monkeypatch, settings_module):
+    """A weak Hebrew guess stays behind a strong translatable English match."""
+    settings_module.set("subs.ai.enabled", "true")
+    exact = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    weak = "Some.Unrelated.Release.2019.DVDRip-XYZ"
+    english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX.en"
+    pipeline["candidates"] = [candidate(exact), candidate(weak),
+                              candidate(english, language="en")]
+    pipeline["downloads"][exact] = b"broken"
+    pipeline["downloads"][weak] = srt_bytes(text="weak")
+    pipeline["downloads"][english] = srt_bytes(text="english")
+
+    from katan.subs.ai import translator
+    monkeypatch.setattr(translator, "available", lambda: True)
+    monkeypatch.setattr(
+        translator, "translate",
+        lambda cues, language, on_progress=None, meta=None, **kwargs:
+        [srt.Cue(c.index, c.start, c.end, "HE " + c.text) for c in cues])
+
+    path, report = auto.find_and_prepare(MOVIE, ["he", "en"])
+    assert path and report["translated"] is True
+    assert weak not in pipeline["downloaded"]
+
+
+def test_broken_candidates_share_one_three_download_budget(pipeline):
+    names = ["Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"] + [
+        "Dune.Part.Two.2024.1080p.WEB-DL.H264-%s" % group
+        for group in ("AAA", "BBB", "CCC")]
+    pipeline["candidates"] = [candidate(name) for name in names]
+    for name in names:
+        pipeline["downloads"][name] = b"broken"
+
+    path, _report = auto.find_and_prepare(MOVIE, ["he", "en"])
+    assert path == ""
+    assert pipeline["downloaded"] == names[:3]
+
+
+
+def test_hash_reference_and_target_fallback_share_three_download_budget(
+        pipeline, monkeypatch):
+    exact = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    second = "Dune.Part.Two.2024.1080p.WEB-DL.H264-AAA"
+    usable = "Dune.Part.Two.2024.1080p.WEB-DL.H264-BBB"
+    reference = "Dune.Part.Two.2024.1080p.WEB-DL.H264-ENG"
+    pipeline["candidates"] = [
+        candidate(exact), candidate(second), candidate(usable),
+        candidate(reference, language="en", moviehash="abcd")]
+    pipeline["downloads"].update({
+        exact: b"broken", second: b"broken",
+        usable: srt_bytes(text="hebrew"),
+        reference: srt_bytes(text="english"),
+    })
+    monkeypatch.setattr(auto, "video_hash_later", lambda meta: lambda: "abcd")
+
+    path, _report = auto.find_and_prepare(MOVIE, ["he", "en"])
+
+    assert path, "the third target candidate should consume the last slot"
+    assert pipeline["downloaded"] == [exact, second, usable]
+
+
+def test_download_budget_deduplicates_the_provider_handle(monkeypatch):
+    calls = []
+    cues = [srt.Cue(1, 0.0, 1.0, "line")]
+    monkeypatch.setattr(
+        auto, "download_candidate",
+        lambda candidate, expect_language=None: calls.append(candidate) or cues)
+    budget = auto._DownloadBudget(3)
+    left = candidate("release-a", download="same-handle")
+    right = candidate("release-b", download="same-handle")
+
+    assert budget.fetch(left) is cues
+    assert budget.fetch(right) is cues
+    assert len(calls) == 1
+
+
+def test_download_budget_keeps_languages_separate_in_one_archive(monkeypatch):
+    calls = []
+
+    def download(candidate, expect_language=None):
+        language = expect_language or candidate.get("language")
+        calls.append(language)
+        return [srt.Cue(1, 0.0, 1.0, language)]
+
+    monkeypatch.setattr(auto, "download_candidate", download)
+    budget = auto._DownloadBudget(3)
+    english = candidate("release", language="en", download="same-archive")
+    spanish = candidate("release", language="es", download="same-archive")
+
+    assert budget.fetch(english)[0].text == "en"
+    assert budget.fetch(spanish)[0].text == "es"
+    assert calls == ["en", "es"]
+
+
+def test_consensus_failure_tries_another_accepted_target_before_translation(
+        pipeline, monkeypatch, settings_module):
+    """Foreign evidence must not hide a usable accepted Hebrew candidate."""
+    settings_module.set("subs.ai.enabled", "true")
+    broken = "Dune.Part.Two.2024.1080p.WEB-DL.H264-AAA"
+    usable = "Dune.Part.Two.2024.1080p.WEB-DL.H264-BBB"
+    english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-ENG"
+    spanish = "Dune.Part.Two.2024.1080p.WEB-DL.H264-SPA"
+    pipeline["candidates"] = [
+        candidate(broken), candidate(usable),
+        candidate(english, language="en", provider="open", uploader="alice"),
+        candidate(spanish, language="es", provider="open", uploader="bob"),
+    ]
+    pipeline["downloads"].update({
+        broken: b"broken", usable: srt_bytes(text="hebrew"),
+        english: srt_bytes(text="english"), spanish: srt_bytes(text="spanish"),
+    })
+
+    from katan.subs.ai import translator
+    monkeypatch.setattr(translator, "available", lambda: True)
+    monkeypatch.setattr(
+        translator, "translate",
+        lambda cues, language, on_progress=None, meta=None, **kwargs:
+        pytest.fail("accepted Hebrew fallback should win before translation"))
+
+    path, report = auto.find_and_prepare(MOVIE, ["he", "en", "es"])
+    assert path and report["translated"] is False
+    assert usable in pipeline["downloaded"]
+
+
 def test_no_candidates_is_reported_not_crashed(pipeline):
     path, report = auto.find_and_prepare(MOVIE, ["he", "en"])
     assert path == ""
@@ -116,7 +256,7 @@ def test_english_is_translated_when_no_hebrew_is_good_enough(pipeline, monkeypat
 
     from katan.subs.ai import translator
 
-    def fake_translate(cues, language, on_progress=None, meta=None):
+    def fake_translate(cues, language, on_progress=None, meta=None, **kwargs):
         return [srt.Cue(c.index, c.start, c.end, "HE " + c.text) for c in cues]
 
     monkeypatch.setattr(translator, "available", lambda: True)
@@ -209,6 +349,42 @@ def test_a_hash_matched_reference_re_times_the_chosen_subtitle(pipeline):
     assert abs(cues[0].start - 0.0) < 0.3, "expected the 8 second shift removed"
 
 
+def test_hash_reference_rejects_an_unrelated_target_and_tries_next(
+        pipeline):
+    wrong = "Dune.Part.Two.2024.1080p.WEB-DL.H264-WRONG"
+    right = "Dune.Part.Two.2024.1080p.WEB-DL.H264-RIGHT"
+    reference = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX.en"
+    pipeline["candidates"] = [
+        candidate(wrong, sync_percent=100),
+        candidate(right, sync_percent=90),
+        candidate(reference, language="en", moviehash="abc", hash_match=True),
+    ]
+    import random
+    from katan.subs import sync
+    rng = random.Random(99)
+    unrelated = []
+    position = 0.0
+    for i in range(200):
+        position += rng.uniform(1.0, 11.0)
+        unrelated.append(srt.Cue(i + 1, position, position + rng.uniform(0.3, 1.4),
+                                 "wrong %d" % i))
+    reference_cues = srt.parse(srt.decode(srt_bytes(count=200, offset=0.0,
+                                                     text="english")))
+    assert sync.fit(unrelated, reference_cues)[2] < sync.MIN_CONFIDENCE
+    pipeline["downloads"][wrong] = srt.dump(unrelated).encode("utf-8")
+    pipeline["downloads"][right] = srt_bytes(count=200, offset=4.0,
+                                              text="right")
+    pipeline["downloads"][reference] = srt_bytes(count=200, offset=0.0,
+                                                  text="english")
+
+    path, report = auto.find_and_prepare(MOVIE, ["he", "en"])
+
+    assert path
+    assert srt.read(path)[0].text.startswith("right")
+    assert pipeline["downloaded"] == [wrong, reference, right]
+    assert report["synchronised"] is True
+
+
 def test_cached_subtitles_are_reused_without_searching(pipeline):
     name = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
     pipeline["candidates"] = [candidate(name)]
@@ -220,6 +396,21 @@ def test_cached_subtitles_are_reused_without_searching(pipeline):
     pipeline["downloaded"] = []
     assert auto.cached_subtitle(MOVIE, "he"), "a second play should hit the cache"
     assert pipeline["downloaded"] == []
+
+
+def test_different_video_releases_do_not_share_a_cached_subtitle():
+    first = dict(MOVIE, source={"file_name": "Film.2024.WEB-DL-A.mkv",
+                                "file_size": 1000})
+    second = dict(MOVIE, source={"file_name": "Film.2024.BluRay-B.mkv",
+                                 "file_size": 2000})
+    assert auto.name_for(first, "he") != auto.name_for(second, "he")
+
+
+def test_a_corrupt_cached_subtitle_is_not_reused(settings_module):
+    path = os.path.join(auto.subtitle_dir(), auto.name_for(MOVIE, "he"))
+    with open(path, "wb") as handle:
+        handle.write(b"not a subtitle")
+    assert auto.cached_subtitle(MOVIE, "he") == ""
 
 
 def test_the_subtitle_folder_is_capped(settings_module):
@@ -241,6 +432,30 @@ def test_episode_and_movie_names_do_not_collide():
     assert "s02e07" in episode
 
 
+def test_failed_partial_translation_is_removed_from_player(
+        monkeypatch, settings_module):
+    from katan.subs.ai import translator
+
+    settings_module.set("subs.ai.enabled", "true")
+    cues = srt.parse(srt.decode(srt_bytes(count=4)))
+    visibility = []
+
+    class Player(object):
+        def setSubtitles(self, path):
+            pass
+
+        def showSubtitles(self, visible):
+            visibility.append(visible)
+
+    def fail(cues, language, on_progress=None, **kwargs):
+        on_progress(2, 4, cues)
+        raise translator.TranslationError("partial")
+
+    monkeypatch.setattr(translator, "translate", fail)
+    assert auto._translate_progressively(cues, MOVIE, "he", Player()) == []
+    assert visibility[-1] is False
+
+
 def test_a_partial_translation_reaches_the_player_while_it_runs(pipeline,
                                                                 monkeypatch,
                                                                 settings_module):
@@ -252,7 +467,7 @@ def test_a_partial_translation_reaches_the_player_while_it_runs(pipeline,
 
     from katan.subs.ai import translator
 
-    def fake_translate(cues, language, on_progress=None, meta=None):
+    def fake_translate(cues, language, on_progress=None, meta=None, **kwargs):
         translated = [srt.Cue(c.index, c.start, c.end, "HE " + c.text)
                       for c in cues]
         if on_progress:
@@ -285,7 +500,8 @@ def test_a_partial_translation_reaches_the_player_while_it_runs(pipeline,
             "the same path twice would not refresh on screen"
 
     assert os.path.isfile(path)
-    for partial, _size in shown:
+    assert shown[-1][0] == path, "the stable final file must replace partials"
+    for partial, _size in shown[:-1]:
         assert not os.path.isfile(partial), "partial files should be cleaned up"
 
 
@@ -307,7 +523,7 @@ def test_a_gender_marking_language_is_preferred_as_the_translation_source(
     from katan.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
     monkeypatch.setattr(translator, "translate",
-                        lambda cues, language, on_progress=None, meta=None: cues)
+                        lambda cues, language, on_progress=None, meta=None, **kwargs: cues)
 
     _path, report = auto.find_and_prepare(MOVIE, ["he", "en", "es"])
     assert report["source_language"] == "es"
@@ -328,7 +544,7 @@ def test_the_automatic_path_prefers_an_embedded_track(monkeypatch,
 
     chosen = []
     monkeypatch.setattr(embedded, "select",
-                        lambda index: chosen.append(index) or True)
+                        lambda index, player=None: chosen.append(index) or True)
 
     searched = []
     monkeypatch.setattr(auto, "search_candidates",
@@ -348,6 +564,29 @@ def test_the_automatic_path_prefers_an_embedded_track(monkeypatch,
 
     assert chosen == [1], "the Hebrew track should have been selected"
     assert not searched, "no provider should be contacted when one is embedded"
+
+
+def test_automatic_search_claims_translation_before_provider_work(
+        monkeypatch, settings_module):
+    """A later manual request must supersede auto search, not be replaced by it."""
+    from katan.subs.ai import coordinator
+
+    settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en",
+                              "subs.embedded_first": "false"})
+    observed = []
+
+    def search(meta, languages, player=None, cancelled=None,
+               translation_generation=None):
+        observed.append(coordinator.current(translation_generation))
+        coordinator.begin()  # A manual translation starts while providers run.
+        observed.append(cancelled())
+        return "", {"reason": "superseded"}
+
+    monkeypatch.setattr(auto, "cached_subtitle", lambda *args: "")
+    monkeypatch.setattr(auto, "find_and_prepare", search)
+    auto.on_playback_started(object(), MOVIE)
+
+    assert observed == [True, True]
 
 
 def test_a_forced_embedded_track_is_not_used_automatically(monkeypatch,
@@ -420,6 +659,34 @@ def test_an_english_file_labelled_hebrew_is_refused(monkeypatch,
     assert real.download_candidate(entry, expect_language="he") == []
 
 
+def test_an_english_file_labelled_japanese_is_refused(monkeypatch):
+    from katan.subs import auto as real
+
+    english = srt.dump([srt.Cue(1, 1.0, 3.0,
+                                "Hello there, how are you today?")]).encode("utf-8")
+    monkeypatch.setattr(real, "_modules",
+                        lambda: {"wizdom": type("M", (), {
+                            "download": staticmethod(lambda c: english)})})
+    entry = {"provider": "wizdom", "language": "ja", "release": "x",
+             "download": "x"}
+
+    assert real.download_candidate(entry, expect_language="ja") == []
+
+
+def test_latin_script_languages_are_not_confused_with_english(monkeypatch):
+    from katan.subs import auto as real
+
+    french = srt.dump([srt.Cue(1, 1.0, 3.0,
+                               "Bonjour, comment allez-vous aujourd'hui?")]).encode("utf-8")
+    monkeypatch.setattr(real, "_modules",
+                        lambda: {"wizdom": type("M", (), {
+                            "download": staticmethod(lambda c: french)})})
+    entry = {"provider": "wizdom", "language": "fr", "release": "x",
+             "download": "x"}
+
+    assert real.download_candidate(entry, expect_language="fr") != []
+
+
 def test_the_same_subtitle_arriving_twice_is_counted_once(monkeypatch,
                                                           settings_module):
     """Asking by hash and asking by title are different questions with
@@ -448,6 +715,45 @@ def test_the_same_subtitle_arriving_twice_is_counted_once(monkeypatch,
     assert links == ["https://dl/1", "https://dl/2"], links
 
 
+def test_keyed_opensubtitles_receives_stream_size(monkeypatch, settings_module):
+    from katan.subs import auto
+    calls = []
+
+    class Fake(object):
+        @staticmethod
+        def search(meta, target, languages, video_hash="", file_size=0):
+            calls.append((video_hash, file_size))
+            return []
+
+    monkeypatch.setattr(auto, "_providers", lambda: [("opensubtitles", Fake)])
+    meta = {"type": "movie", "ids": {}, "stream_size": 987654321}
+    auto.search_candidates(meta, ["en"], "hash")
+    assert calls == [("hash", 987654321)]
+
+
+def test_candidate_dedupe_is_scoped_by_provider_and_language(
+        monkeypatch, settings_module):
+    from katan.subs import auto
+    rows = [
+        {"provider": "a", "language": "en", "release": "a-en",
+         "download": 123},
+        {"provider": "b", "language": "en", "release": "b-en",
+         "download": 123},
+        {"provider": "a", "language": "he", "release": "a-he",
+         "download": 123},
+    ]
+
+    class Fake(object):
+        @staticmethod
+        def search(*args, **kwargs):
+            return [dict(row) for row in rows]
+
+    monkeypatch.setattr(auto, "_providers", lambda: [("fake", Fake)])
+    found = auto.search_candidates({"type": "movie", "ids": {}}, ["he", "en"])
+    assert [(row["provider"], row["language"]) for row in found] == [
+        ("a", "en"), ("b", "en"), ("a", "he")]
+
+
 def test_a_candidate_with_no_link_is_still_kept(monkeypatch, settings_module):
     """Deduping on a missing key would collapse them all into one."""
     from katan.subs import auto
@@ -463,6 +769,33 @@ def test_a_candidate_with_no_link_is_still_kept(monkeypatch, settings_module):
     monkeypatch.setattr(auto, "_providers", lambda: [("wizdom", Fake)])
     found = auto.search_candidates({"type": "movie", "ids": {}}, ["he"])
     assert len(found) == 2
+
+
+def test_wide_search_splits_serial_rest_languages_into_independent_tasks(
+        monkeypatch, settings_module):
+    from katan.subs import auto
+
+    calls = []
+
+    class Rest(object):
+        @staticmethod
+        def search(meta, target, languages, video_hash="", video_size=0):
+            calls.append(("rest", list(languages)))
+            return []
+
+    class Other(object):
+        @staticmethod
+        def search(meta, target, languages):
+            calls.append(("other", list(languages)))
+            return []
+
+    monkeypatch.setattr(auto, "_providers",
+                        lambda: [("opensubtitles_rest", Rest), ("wizdom", Other)])
+    auto.search_candidates({"type": "movie", "ids": {}},
+                           ["en", "es", "ar"], split_languages=True)
+    assert [(name, languages) for name, languages in calls if name == "rest"] == [
+        ("rest", ["en"]), ("rest", ["es"]), ("rest", ["ar"])]
+    assert ("other", ["en", "es", "ar"]) in calls
 
 
 # --------------------------------------------------------------------------

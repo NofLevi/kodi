@@ -15,6 +15,7 @@ fetches for the details screen. Telling the model who is in the film and which
 of them are women costs a few hundred bytes and no extra request.
 """
 from ... import cache, kodi
+from .. import matcher
 
 MAX_PEOPLE = 12
 TTL = 30 * 24 * 3600
@@ -104,6 +105,27 @@ def source_bonus(language):
     return GENDER_BONUS if (language or "").lower() in GENDER_MARKING else 0
 
 
+def rank_translation_candidates(candidates, target):
+    """Rank individual files so one dead link cannot hide its same-language peer."""
+    ranked = []
+    seen = set()
+    for position, candidate in enumerate(candidates or []):
+        language = candidate.get("language", "")
+        if not language or language == target:
+            continue
+        identity = matcher.candidate_key(candidate, language)
+        if identity and identity in seen:
+            continue
+        if identity:
+            seen.add(identity)
+        bonus = source_bonus(language) if target == "he" else 0
+        ranked.append(((candidate.get("score") or 0) + bonus,
+                       -position, language, candidate))
+    ranked.sort(key=lambda row: (-row[0], -row[1]))
+    return [(language, candidate) for _score, _position, language, candidate
+            in ranked]
+
+
 def rank_translation_sources(winners, languages):
     """Order candidate source languages for translation, best first.
 
@@ -111,12 +133,14 @@ def rank_translation_sources(winners, languages):
     badly matched Spanish one. The bonus only decides close calls.
     """
     candidates = []
+    target = languages[0] if languages else ""
     for language, candidate in (winners or {}).items():
-        if language == (languages[0] if languages else ""):
+        if language == target:
             continue                       # that is the target language
         if not candidate:
             continue
-        score = (candidate.get("score") or 0) + source_bonus(language)
+        bonus = source_bonus(language) if target == "he" else 0
+        score = (candidate.get("score") or 0) + bonus
         candidates.append((score, language, candidate))
     candidates.sort(key=lambda row: -row[0])
     return [(language, candidate) for _score, language, candidate in candidates]

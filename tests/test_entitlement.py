@@ -5,11 +5,10 @@ for the whole broadcaster and only the first request needs one, so the tests
 that matter here are the ones that stop it quietly becoming a request per
 channel or a refresh loop behind every stream.
 """
-import json
 
 import pytest
 
-from katan import cache, http
+from katan import http
 from katan.vod import channels, entitlement
 
 # Shaped like a real Akamai ticket, but the hmac is filler. A ticket is a

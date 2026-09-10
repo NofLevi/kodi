@@ -12,7 +12,7 @@ Performance notes that matter on a weak box:
 import xbmcgui
 import xbmcplugin
 
-from .. import kodi, router, settings
+from .. import http, kodi, router, settings
 from ..meta import items as meta_items
 
 _HAS_INFOTAG = None
@@ -44,7 +44,20 @@ def make_list_item(item, label=None):
         _set_info_modern(li, item)
     else:
         _set_info_legacy(li, item)
+    _set_start_offset(li, item)
     return li
+
+
+def _set_start_offset(li, item):
+    """Choose automatic resume and preserve Katan's custom progress bar."""
+    resume = (item or {}).get("resume") or {}
+    position = float(resume.get("position") or 0)
+    total = float(resume.get("total") or 0)
+    if position > 0:
+        li.setProperty("StartOffset", str(position))
+    if position > 0 and total > 0:
+        li.setProperty("katan.percentplayed",
+                       str(max(0.0, min(100.0, position / total * 100.0))))
 
 
 def _set_art(li, item):
@@ -106,10 +119,6 @@ def _set_info_modern(li, item):
         tag.setUniqueIDs(unique, "tmdb" if "tmdb" in unique else list(unique)[0])
 
     tag.setPlaycount(int(item.get("playcount") or 0))
-
-    resume = item.get("resume") or {}
-    if resume.get("position"):
-        tag.setResumePoint(float(resume["position"]), float(resume.get("total") or 0))
 
     cast = item.get("cast") or []
     if cast:
@@ -305,24 +314,12 @@ def end(handle, content=None, sort_methods=None, cache_to_disc=True, succeeded=T
 
 
 def resolve(handle, url, item=None):
-    """Hand a playable URL back to Kodi, resuming where the viewer left off.
-
-    `ResumeTime` and `TotalTime` are what make Kodi start at an offset
-    *without* asking. A resume point alone makes it ask - "resume from 34
-    minutes, or play from the beginning" - which is a question nobody wants
-    on the way into something they were already watching. Starting again is
-    still one press of rewind or a seek; being asked every single time is
-    not something you can undo.
-    """
+    """Hand a playable URL to Kodi, honoring a numeric StartOffset."""
     li = make_list_item(item) if item else xbmcgui.ListItem(offscreen=True)
     li.setPath(url)
 
-    resume = (item or {}).get("resume") or {}
-    position = float(resume.get("position") or 0)
+    position = float((((item or {}).get("resume") or {}).get("position")) or 0)
     if position > 0:
-        li.setProperty("ResumeTime", str(position))
-        li.setProperty("TotalTime", str(float(resume.get("total") or 0)
-                                        or position + 1))
         kodi.log("resuming at %d:%02d" % (position // 60, position % 60))
 
     _hand_over(handle, url, li)
@@ -371,8 +368,8 @@ def resolve_stream(handle, url, adaptive=False, item=None, mime=""):
         # the viewer sees a channel that simply does not start. Saying why is
         # the least this can do; a DASH stream cannot be played any other way.
         if manifest == "mpd" and not kodi.has_adaptive():
-            kodi.log_error("inputstream.adaptive is missing, cannot play %s"
-                           % url.split("?")[0])
+            kodi.log_error("inputstream.adaptive is missing, cannot play from %s"
+                           % http._host(url))
             kodi.notify(kodi.localize(32233))
             xbmcplugin.setResolvedUrl(handle, False, li)
             return

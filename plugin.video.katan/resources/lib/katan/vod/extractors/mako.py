@@ -150,7 +150,7 @@ def stream(ref, mode=""):
 
     found, adaptive, strategy = page.extract_stream(html, url)
     if not found:
-        kodi.log("mako: no strategy matched for %s" % url)
+        kodi.log("mako: no strategy matched for %s" % page._host(url))
         return "", False
 
     kodi.log("mako: resolved via %s" % strategy)

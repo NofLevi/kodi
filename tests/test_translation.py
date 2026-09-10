@@ -13,10 +13,12 @@ class FakeEngine(object):
     def __init__(self, mode="good"):
         self.mode = mode
         self.calls = []
+        self.prompts = []
 
     def complete(self, system_prompt, prompt):
         payload = json.loads(prompt.split("Input:", 1)[1].strip())
         self.calls.append(len(payload))
+        self.prompts.append(prompt)
 
         if self.mode == "fenced":
             body = {k: "HE:" + v for k, v in payload.items()}
@@ -26,10 +28,20 @@ class FakeEngine(object):
             return "Sure, here you go:\n%s\nHope that helps." % json.dumps(body)
         if self.mode == "not_json":
             return "I am afraid I cannot do that."
+        if self.mode == "echo":
+            return json.dumps(payload, ensure_ascii=False)
         if self.mode == "empty_half":
             keys = list(payload)
             body = {k: ("HE:" + payload[k] if i < len(keys) // 2 else "")
                     for i, k in enumerate(keys)}
+            return json.dumps(body)
+        if self.mode == "missing_one":
+            keys = list(payload)
+            return json.dumps({k: "HE:" + payload[k] for k in keys[:-1]})
+        if self.mode == "missing_one_extra":
+            keys = list(payload)
+            body = {k: "HE:" + payload[k] for k in keys[:-1]}
+            body["unexpected"] = "HE:invented"
             return json.dumps(body)
         if self.mode == "fails_large":
             # Fails on big chunks, succeeds once the caller splits them.
@@ -68,6 +80,18 @@ def test_timings_are_preserved_exactly(use_engine):
     assert all(c.text.startswith("HE:") for c in result)
 
 
+def test_hebrew_gender_guidance_is_not_claimed_for_english(use_engine):
+    engine = use_engine("good")
+    translator.translate(cues(2), "en")
+    assert "English marks the speaker's gender" not in engine.prompts[0]
+
+
+def test_wide_target_codes_use_real_language_names(use_engine):
+    engine = use_engine("good")
+    translator.translate(cues(2), "tr")
+    assert "Translate the subtitle lines below into Turkish" in engine.prompts[0]
+
+
 def test_code_fences_are_stripped(use_engine):
     use_engine("fenced")
     result = translator.translate(cues(6), "he")
@@ -87,18 +111,82 @@ def test_a_chunk_that_fails_is_split_and_retried(use_engine):
     assert max(engine.calls) > min(engine.calls), "the chunk was never split"
 
 
-def test_untranslated_lines_fall_back_to_the_original(use_engine):
+def test_echoed_source_is_not_reported_as_translation(use_engine):
+    use_engine("echo")
+    with pytest.raises(translator.TranslationError):
+        translator.translate(cues(8), "he")
+
+
+def test_materially_partial_translation_is_not_reported_as_complete(use_engine):
     use_engine("empty_half")
-    original = cues(8)
-    result = translator.translate(original, "he")
-    assert result[0].text.startswith("HE:")
-    assert result[-1].text == original[-1].text, "a blank should keep the original"
+    with pytest.raises(translator.TranslationError):
+        translator.translate(cues(8), "he")
+
+
+def test_even_one_untranslated_line_rejects_the_final_file(
+        use_engine, settings_module):
+    settings_module.set("subs.ai.chunk", "10")
+    use_engine("missing_one")
+    with pytest.raises(translator.TranslationError):
+        translator.translate(cues(10), "he")
+
+
+def test_unexpected_key_cannot_hide_one_untranslated_line(
+        use_engine, settings_module):
+    settings_module.set("subs.ai.chunk", "10")
+    use_engine("missing_one_extra")
+    with pytest.raises(translator.TranslationError):
+        translator.translate(cues(10), "he")
 
 
 def test_a_model_that_returns_nothing_useful_raises(use_engine):
-    use_engine("not_json")
+    engine = use_engine("not_json")
     with pytest.raises(translator.TranslationError):
-        translator.translate(cues(4), "he")
+        translator.translate(cues(80), "he")
+    assert len(engine.calls) <= 16, "recursive splitting amplified one failure"
+
+
+def test_long_valid_translation_is_not_blocked_by_retry_cap(
+        use_engine, settings_module):
+    settings_module.set("subs.ai.chunk", "20")
+    engine = use_engine("good")
+    result = translator.translate(cues(801), "he")
+    assert len(result) == 801
+    assert len(engine.calls) == 41
+
+
+def test_new_translation_supersedes_previous_process_wide_job():
+    from katan.subs.ai import coordinator
+
+    first = coordinator.begin()
+    second = coordinator.begin()
+    assert not coordinator.current(first)
+    assert coordinator.current(second)
+
+
+def test_cancelled_translation_makes_no_model_request(use_engine):
+    engine = use_engine("good")
+    with pytest.raises(translator.TranslationError):
+        translator.translate(cues(8), "he", cancelled=lambda: True)
+    assert engine.calls == []
+
+
+def test_cancellation_during_final_model_call_discards_its_reply(
+        monkeypatch, settings_module):
+    state = {"cancelled": False}
+
+    class Engine(object):
+        def complete(self, system_prompt, prompt):
+            payload = json.loads(prompt.split("Input:", 1)[1].strip())
+            state["cancelled"] = True
+            return json.dumps({key: "HE:" + value
+                               for key, value in payload.items()})
+
+    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.chunk": "20"})
+    monkeypatch.setattr(translator, "engine", lambda: Engine())
+    with pytest.raises(translator.TranslationCancelled):
+        translator.translate(cues(2), "he",
+                             cancelled=lambda: state["cancelled"])
 
 
 def test_progress_is_reported_per_chunk(use_engine):

@@ -236,7 +236,7 @@ class TorBox(base.DebridService):
         if isinstance(link, dict):
             link = link.get("url") or link.get("link")
         if link:
-            source["file_name"] = chosen["name"]
+            base.record_selection(source, chosen)
         return link or ""
 
     def _find(self, source):

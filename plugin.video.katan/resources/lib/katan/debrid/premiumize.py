@@ -166,7 +166,7 @@ class Premiumize(base.DebridService):
             return ""
         link = files[chosen["index"]].get("link", "")
         if link:
-            source["file_name"] = chosen["name"]
+            base.record_selection(source, chosen)
         return link
 
 

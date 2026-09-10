@@ -6,7 +6,6 @@ are filled, the hero updates, and typing produces suggestions.
 """
 import pytest
 
-import xbmcgui
 from katan.ui import home_window, search_window
 
 
@@ -49,7 +48,8 @@ class Kodi21Action(object):
 
 def make_items(count, prefix="Title"):
     from katan.meta import items
-    return [items.new_item("movie", ids={"tmdb": index + 1},
+    offset = sum((index + 1) * ord(char) for index, char in enumerate(prefix)) * 100
+    return [items.new_item("movie", ids={"tmdb": offset + index + 1},
                            title="%s %d" % (prefix, index),
                            year=2020 + index, plot="plot %d" % index,
                            genres=["Drama"], rating=7.5,
@@ -1010,7 +1010,6 @@ def test_back_stays_in_katan_by_default(monkeypatch, settings_module):
     behind its home screen is the Kodi interface it replaces. Leaving by
     accident - one press of Escape - put people somewhere nobody meant to be.
     """
-    from katan.ui import home_window
 
     window = _home_with_rows(monkeypatch, [0])
     assert settings_module.get_bool("ui.stay_in_katan") is True
@@ -1018,9 +1017,73 @@ def test_back_stays_in_katan_by_default(monkeypatch, settings_module):
     assert window.closed is False
 
 
+def test_old_home_page_cannot_land_after_section_switch(monkeypatch):
+    import threading
+    from katan import catalog
+    from katan.meta import trakt_state
+    from katan.ui import home_window
+    old_item = {"type": "movie", "title": "OLD", "ids": {}, "art": {}}
+    new_item = {"type": "movie", "title": "NEW", "ids": {}, "art": {}}
+    rows = {"movies": [{"id": "old", "title_id": 0}],
+            "tv": [{"id": "new", "title_id": 0}]}
+    entered, release = threading.Event(), threading.Event()
+    monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows[section])
+    monkeypatch.setattr(catalog, "row_title", lambda row: row["id"])
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None:
+                        [new_item] if row_id == "new" else [old_item])
+
+    def load(row_id, page=1, section=None, **_kwargs):
+        if row_id == "old" and page == 2:
+            entered.set()
+            release.wait(2)
+            return [dict(old_item, title="OLD PAGE 2")]
+        return [new_item] if row_id == "new" else [old_item]
+
+    monkeypatch.setattr(catalog, "load", load)
+    monkeypatch.setattr(catalog, "has_more", lambda _row_id: True)
+    monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
+    window = home_window.HomeWindow()
+    window.section = "movies"
+    window.rows = rows["movies"]
+    window.data[0] = [old_item]
+    window.pages[0] = 1
+    worker = threading.Thread(target=window._extend, args=(0,))
+    worker.start()
+    assert entered.wait(1)
+    window._switch_section("tv")
+    release.set()
+    worker.join(1)
+    window._absorb()
+    assert [item["title"] for item in window.data[0]] == ["NEW"]
+
+
+def test_clearing_short_query_invalidates_inflight_suggestions(monkeypatch):
+    import threading
+    import time
+    from katan.search import unified
+    from katan.ui import search_window
+    entered, release = threading.Event(), threading.Event()
+    monkeypatch.setattr(search_window.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(unified, "recent", lambda: ["recent"])
+
+    def suggest(_query):
+        entered.set()
+        release.wait(2)
+        return [{"type": "movie", "title": "stale", "ids": {}, "art": {}}]
+
+    monkeypatch.setattr(unified, "suggest", suggest)
+    window = search_window.SearchWindow()
+    window._set_text("ab")
+    assert entered.wait(1)
+    window._set_text("")
+    window._show_recent()
+    release.set()
+    time.sleep(0.02)
+    assert window.entries == [{"type": "query", "title": "recent"}]
+
+
 def test_back_still_leaves_when_the_switch_is_off(monkeypatch, settings_module):
     """A door with no handle on the inside is worse than the problem it solves."""
-    from katan.ui import home_window
 
     settings_module.set("ui.stay_in_katan", "false")
     window = _home_with_rows(monkeypatch, [0])
@@ -1031,7 +1094,6 @@ def test_back_still_leaves_when_the_switch_is_off(monkeypatch, settings_module):
 def test_back_stays_put_when_asked(monkeypatch, settings_module):
     """On a box that exists to run this add-on, backing out of the home screen
     lands on the Kodi interface this add-on replaces."""
-    from katan.ui import home_window
 
     settings_module.set("ui.stay_in_katan", "true")
     window = _home_with_rows(monkeypatch, [0])

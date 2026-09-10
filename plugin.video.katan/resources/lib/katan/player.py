@@ -3,7 +3,9 @@
 The player object lives in the background service, not in the plugin process,
 because a plugin process ends the moment it hands a URL back to Kodi.
 """
+import hashlib
 import json
+import threading
 import time
 
 import xbmc
@@ -11,18 +13,31 @@ import xbmc
 from . import cache, kodi, settings
 
 PLAYING_KEY = "playing"          # window property holding the current item as JSON
+PLAYBACK_LOCK = threading.RLock()
+HANDOFF_TTL = 60.0
+
+
+def _stream_id(url):
+    if not isinstance(url, str) or not url:
+        return ""
+    return hashlib.sha256(url.encode("utf-8", "surrogatepass")).hexdigest()
 
 
 def set_now_playing(meta):
-    """Called by play.py just before handing the stream to Kodi."""
+    """Publish an opaque, short-lived handoff for the service process."""
     try:
-        kodi.set_property(PLAYING_KEY, json.dumps(meta))
+        payload = dict(meta or {})
+        payload["_stream_id"] = _stream_id(payload.pop("stream_url", ""))
+        payload["_handoff_time"] = time.time()
+        with PLAYBACK_LOCK:
+            kodi.set_property(PLAYING_KEY, json.dumps(payload))
     except (TypeError, ValueError):
         kodi.log_exception("could not record the item being played")
 
 
 def now_playing():
-    raw = kodi.get_property(PLAYING_KEY)
+    with PLAYBACK_LOCK:
+        raw = kodi.get_property(PLAYING_KEY)
     if not raw:
         return None
     try:
@@ -32,7 +47,43 @@ def now_playing():
 
 
 def clear_now_playing():
-    kodi.clear_property(PLAYING_KEY)
+    with PLAYBACK_LOCK:
+        kodi.clear_property(PLAYING_KEY)
+
+
+class _PlaybackPlayer(object):
+    """Player facade that ignores writes from an obsolete subtitle worker."""
+
+    def __init__(self, owner, generation, meta):
+        self.owner = owner
+        self.generation = generation
+        self.meta = meta
+
+    def current(self):
+        with PLAYBACK_LOCK:
+            return (self.owner._subtitle_generation == self.generation
+                    and self.owner.meta is self.meta)
+
+    def setSubtitleStream(self, index):
+        with PLAYBACK_LOCK:
+            if (self.owner._subtitle_generation == self.generation
+                    and self.owner.meta is self.meta):
+                self.owner.setSubtitleStream(index)
+
+    def setSubtitles(self, path):
+        with PLAYBACK_LOCK:
+            if (self.owner._subtitle_generation == self.generation
+                    and self.owner.meta is self.meta):
+                self.owner.setSubtitles(path)
+
+    def showSubtitles(self, visible):
+        with PLAYBACK_LOCK:
+            if (self.owner._subtitle_generation == self.generation
+                    and self.owner.meta is self.meta):
+                self.owner.showSubtitles(visible)
+
+    def __getattr__(self, name):
+        return getattr(self.owner, name)
 
 
 class KatanPlayer(xbmc.Player):
@@ -45,6 +96,25 @@ class KatanPlayer(xbmc.Player):
         self.scrobbled = False
         self.upnext_sent = False
         self.prefetched = False
+        self._subtitle_generation = 0
+        self._playback_generation = 0
+        self._subtitle_thread = None
+        self._subtitle_pending = None
+        self._subtitle_lock = threading.Lock()
+
+    def shutdown(self):
+        """Invalidate playback-owned background work before service teardown."""
+        with PLAYBACK_LOCK:
+            self._subtitle_generation += 1
+            self._playback_generation += 1
+            self.meta = None
+            clear_now_playing()
+        with self._subtitle_lock:
+            self._subtitle_pending = None
+            thread = self._subtitle_thread
+        if (thread is not None and thread is not threading.current_thread()
+                and getattr(thread, "is_alive", lambda: False)()):
+            thread.join(0.5)
 
     # -- helpers -----------------------------------------------------------
 
@@ -64,17 +134,20 @@ class KatanPlayer(xbmc.Player):
     def _is_episode(self):
         return (self.meta or {}).get("type") == "episode"
 
-    def _scrobble(self, action, progress=None):
-        if not self.meta:
+    def _scrobble(self, action, progress=None, meta=None):
+        selected = meta if meta is not None else self.meta
+        if not selected:
             return
         try:
             from .meta import trakt
+            ids = selected.get("ids") or {}
+            item_type = selected.get("type")
             trakt.scrobble(
                 action,
-                "episode" if self._is_episode() else "movie",
-                self._ids(),
-                self.meta.get("season"),
-                self.meta.get("episode"),
+                "episode" if item_type == "episode" else "movie",
+                ids,
+                selected.get("season"),
+                selected.get("episode"),
                 self._progress() if progress is None else progress,
             )
         except Exception:
@@ -83,7 +156,26 @@ class KatanPlayer(xbmc.Player):
     # -- Kodi callbacks ----------------------------------------------------
 
     def onAVStarted(self):
-        self.meta = now_playing()
+        actual_url = self.getPlayingFile() or ""
+        with PLAYBACK_LOCK:
+            self._subtitle_generation += 1
+            self._playback_generation += 1
+            pending = now_playing()
+            valid = bool(
+                pending
+                and pending.get("_stream_id")
+                and pending.get("_stream_id") == _stream_id(actual_url)
+                and time.time() - float(pending.get("_handoff_time") or 0) <= HANDOFF_TTL
+            )
+            if not valid:
+                clear_now_playing()
+                self.meta = None
+            else:
+                assert pending is not None
+                pending.pop("_stream_id", None)
+                pending.pop("_handoff_time", None)
+                pending["stream_url"] = actual_url
+                self.meta = pending
         if not self.meta:
             return                # something else is playing; stay out of the way
         self.total_time = 0.0
@@ -91,7 +183,7 @@ class KatanPlayer(xbmc.Player):
         self.upnext_sent = False
         self.prefetched = False
 
-        self._scrobble("start", 0.0)
+        self._scrobble("start")
         self._apply_subtitles()
         self._announce_audio_tracks()
         self._send_upnext()
@@ -114,19 +206,31 @@ class KatanPlayer(xbmc.Player):
         self._finish(completed=True)
 
     def onPlayBackError(self):
-        clear_now_playing()
-        self.meta = None
+        with PLAYBACK_LOCK:
+            self._subtitle_generation += 1
+            self._playback_generation += 1
+            clear_now_playing()
+            self.meta = None
 
     def _finish(self, completed=False):
-        if not self.meta:
-            return
+        with PLAYBACK_LOCK:
+            self._subtitle_generation += 1
+            meta = self.meta
+            generation = self._playback_generation
+            if not meta:
+                return
+            should_scrobble = not self.scrobbled
+            if should_scrobble:
+                self.scrobbled = True
         progress = 100.0 if completed else self._progress()
-        if not self.scrobbled:
-            self.scrobbled = True
-            self._scrobble("stop", progress)
-        self._remember_source(progress)
-        clear_now_playing()
-        self.meta = None
+        if should_scrobble:
+            self._scrobble("stop", progress, meta=meta)
+        self._remember_source(progress, meta=meta)
+        with PLAYBACK_LOCK:
+            if self._playback_generation != generation or self.meta is not meta:
+                return
+            clear_now_playing()
+            self.meta = None
 
     def tick(self):
         """Called once a second by the service while something is playing."""
@@ -137,12 +241,42 @@ class KatanPlayer(xbmc.Player):
     # -- features ----------------------------------------------------------
 
     def _apply_subtitles(self):
-        """Hand off to the subtitle pipeline, which picks at most one file."""
-        if not settings.get_bool("subs.auto"):
+        """Schedule subtitle search/translation away from Kodi's callback."""
+        if not settings.get_bool("subs.auto") or not self.meta:
             return
+        generation = self._subtitle_generation
+        meta = self.meta
+        with self._subtitle_lock:
+            # One worker per player. Rapid source changes replace the queued job
+            # rather than accumulating threads, provider pools and sockets.
+            self._subtitle_pending = (generation, meta)
+            active = (self._subtitle_thread is not None
+                      and getattr(self._subtitle_thread, "is_alive",
+                                  lambda: False)())
+            if active:
+                return
+            thread = threading.Thread(target=self._subtitle_worker,
+                                      name="katan-subtitles")
+            thread.daemon = True
+            self._subtitle_thread = thread
+            thread.start()
+
+    def _subtitle_worker(self):
+        while True:
+            with self._subtitle_lock:
+                job = self._subtitle_pending
+                self._subtitle_pending = None
+                if job is None:
+                    self._subtitle_thread = None
+                    return
+            self._run_subtitle_job(*job)
+
+    def _run_subtitle_job(self, generation, meta):
+        proxy = _PlaybackPlayer(self, generation, meta)
         try:
             from .subs import auto
-            auto.on_playback_started(self, self.meta)
+            auto.on_playback_started(proxy, meta,
+                                     cancelled=lambda: not proxy.current())
         except ImportError:
             pass
         except Exception:
@@ -209,13 +343,14 @@ class KatanPlayer(xbmc.Player):
         except Exception:
             kodi.log_exception("next-episode prefetch failed")
 
-    def _remember_source(self, progress):
+    def _remember_source(self, progress, meta=None):
         """Record the release group that played well, to bias future picks."""
         if progress < 20 or not settings.get_bool("sources.source_memory"):
             return
-        source = (self.meta or {}).get("source") or {}
+        selected = meta if meta is not None else self.meta
+        source = (selected or {}).get("source") or {}
         group = source.get("group")
-        show_id = self._ids().get("tmdb")
+        show_id = ((selected or {}).get("ids") or {}).get("tmdb")
         if not group or not show_id:
             return
         cache.set(cache.make_key("srcmem", show_id), {

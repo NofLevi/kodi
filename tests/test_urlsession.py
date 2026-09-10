@@ -5,9 +5,27 @@ subset of requests the add-on relies on.
 """
 import json
 
-import pytest
 
 from katan import urlsession
+
+
+def test_cross_origin_redirect_strips_credentials():
+    original = urlsession.Request(
+        "https://api.example/start",
+        headers={"Authorization": "Bearer SYNTH_SECRET",
+                 "Cookie": "sid=SYNTH_COOKIE", "X-Safe": "yes"})
+    redirected = urlsession._SafeRedirect().redirect_request(
+        original, None, 302, "Found", {}, "https://cdn.example/file")
+    lowered = {key.lower(): value for key, value in redirected.header_items()}
+    assert "authorization" not in lowered
+    assert "cookie" not in lowered
+    assert lowered["x-safe"] == "yes"
+
+
+def test_https_redirect_cannot_downgrade_to_http():
+    original = urlsession.Request("https://api.example/start")
+    assert urlsession._SafeRedirect().redirect_request(
+        original, None, 302, "Found", {}, "http://api.example/file") is None
 
 
 def test_query_parameters_are_appended():
@@ -63,6 +81,26 @@ def test_the_response_exposes_what_callers_use():
     assert response.content == body
     assert response.raw.read(5) == body[:5]
     assert list(response.iter_content(4))[0] == body[:4]
+
+
+def test_raw_bounded_read_does_not_materialise_a_stream():
+    class Body(object):
+        def __init__(self):
+            self.calls = []
+
+        def read(self, amount=None):
+            self.calls.append(amount)
+            return b"abcdefgh" if amount is None else b"abcdefgh"[:amount]
+
+        def close(self):
+            pass
+
+    body = Body()
+    response = urlsession.Response("http://x", 206,
+                                   {"Content-Encoding": "identity"}, body)
+    assert response.raw.read(5, decode_content=False) == b"abcde"
+    assert body.calls == [5]
+    assert response._content is None
 
 
 def test_gzip_bodies_are_decompressed():

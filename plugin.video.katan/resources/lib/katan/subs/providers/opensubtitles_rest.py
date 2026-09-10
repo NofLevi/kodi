@@ -30,8 +30,6 @@ everything degrades to what it was if this stops answering.
 begins with one, and Hebrew subtitles here arrive as cp1255 as often as UTF-8.
 `srt.decode` already handles both, because both have been shipped bugs.
 """
-import gzip
-import io as _io
 import urllib.parse
 
 from ... import http, kodi
@@ -126,7 +124,8 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
         if video_size:
             parts.append("moviebytesize-%s" % video_size)
         parts.append("sublanguageid-%s" % code)
-        return _fetch(meta, language, parts)
+        return _fetch(meta, language, parts, hash_query=True,
+                      video_size=video_size)
 
     if meta.get("type") == "episode":
         parts.append("episode-%d" % int(meta.get("episode") or 1))
@@ -148,7 +147,7 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
     return _fetch(meta, language, parts)
 
 
-def _fetch(meta, language, parts):
+def _fetch(meta, language, parts, hash_query=False, video_size=0):
     payload = http.get_json(
         "%s/%s" % (BASE, "/".join(sorted(parts))),
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
@@ -164,6 +163,8 @@ def _fetch(meta, language, parts):
 
     results = []
     for entry in payload[:MAX_PER_LANGUAGE]:
+        if not isinstance(entry, dict):
+            continue
         link = entry.get("SubDownloadLink")
         if not link:
             continue
@@ -171,17 +172,23 @@ def _fetch(meta, language, parts):
         if agrees is False:
             # Somebody else's programme, filed against our file's hash.
             continue
+        try:
+            exact_size = (int(video_size) > 0
+                          and int(entry.get("MovieByteSize") or 0)
+                          == int(video_size))
+        except (TypeError, ValueError):
+            exact_size = False
         results.append(common.candidate(
             NAME, language,
             entry.get("MovieReleaseName") or entry.get("SubFileName") or "",
             link,
             downloads=_number(entry.get("SubDownloadsCnt")),
             uploader=str(entry.get("UserNickName") or "").strip(),
-            # A hash match is the strongest evidence there is and the matcher
-            # scores it at 100 - so it is only claimed when the row is also
-            # filed under the title we are watching. Unverifiable means not
-            # claimed, because 100 is too high a price for a maybe.
-            hash_match=(str(entry.get("MatchedBy") or "") == "moviehash"
+            # A hash match scores 100 only for our own hash request, the exact
+            # byte size, and the same title. The legacy index contains
+            # mis-filed hashes, so any missing check makes certainty a guess.
+            hash_match=(hash_query and exact_size
+                        and str(entry.get("MatchedBy") or "") == "moviehash"
                         and agrees is True),
         ))
     return results
@@ -202,9 +209,6 @@ def download(candidate):
         return b""
     if data[:2] != b"\x1f\x8b":
         # Already plain, or an error page. Let the extractor decide.
-        return common.extract_subtitle(data, candidate.get("language", ""))
-    try:
-        return gzip.GzipFile(fileobj=_io.BytesIO(data)).read()
-    except (IOError, OSError, EOFError):
-        kodi.log("opensubtitles.org sent something that is not gzip")
-        return b""
+        return common.extract_subtitle(data, candidate.get("language", ""),
+                                       candidate=candidate)
+    return common.decompress_gzip(data)

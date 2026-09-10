@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from katan import cache, http
+from katan import http
 from katan.vod import extractors
 from katan.vod.extractors import sport5
 
