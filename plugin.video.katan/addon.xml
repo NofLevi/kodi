@@ -38,7 +38,13 @@
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
         <news>v0.0.1
-- A test channel: install the branch instead of the release
-- One commit, one run each; one source, one zip</news>
+- The update check reads GitHub Releases
+- The search keyboard: arrows that move, and a way to speak
+- Move the repository to GitHub Pages, and say why
+- Sweep what an update leaves behind
+- An install replaces, rather than copying over the top
+- [verified] Harden playback subtitles and runtime
+- Install the release onto a box, and clear the zips out afterwards
+- [verified] Show subtitle accuracy for cached sources</news>
     </extension>
 </addon>
