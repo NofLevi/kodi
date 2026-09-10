@@ -40,7 +40,7 @@ SKIP_DIRS = {"__pycache__", ".git", ".pytest_cache"}
 SKIP_SUFFIX = (".pyc", ".pyo", ".orig", ".rej", ".log", ".tmp")
 
 
-SITE = "https://kodi-katan.pages.dev"
+SITE = "https://noflevi.github.io/kodi"
 AGENT = "Kodi/21.3 (Android) Katan/installer"
 
 

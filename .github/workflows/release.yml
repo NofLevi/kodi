@@ -3,12 +3,11 @@ name: release
 # A tag is the only thing that publishes, and now that is true by
 # construction rather than by configuration.
 #
-# Cloudflare is **not connected to the repository**. It never sees a push, so
-# it cannot record one, and a deployment exists only because this workflow
-# uploaded one. That is what finally emptied a deployment list in which almost
-# nothing was a release: pausing automatic deployments stopped the builds but
-# not the rows, because Cloudflare logs every push to a repository it watches
-# whatever it decides to do about it.
+# Hosting is GitHub Pages, deployed from here. Nothing watches the repository,
+# so a push cannot publish and a deployment exists only because this workflow
+# ran. The previous host was Cloudflare Pages and is gone; it also never
+# answered ranged reads, which is what made installing the add-on zip crash
+# Kodi on Android while the tiny repository zip installed fine.
 #
 # `repo/` is built here, three steps up, and uploaded directly - so what is
 # published is the build of the commit being released rather than a folder
@@ -26,11 +25,22 @@ on:
 
 permissions:
   contents: write        # gh release create
+  pages: write           # deploy-pages
+  id-token: write        # deploy-pages authenticates over OIDC, not a secret
+
+# One Pages site, so two releases publishing at once would race for it. Not
+# cancel-in-progress: the loser would be a half-published repository.
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   release:
     name: publish ${{ github.ref_name }}
     runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -102,17 +112,28 @@ jobs:
             repo/zips/repository.katan/*.zip \
             --title "$GITHUB_REF_NAME" --notes-file notes.md
 
-      # Direct upload: the folder built two steps up is pushed straight to
-      # Pages. Cloudflare is no longer connected to the repository at all, so
-      # it never sees a push and a deployment can only exist because this ran.
-      - name: publish
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          npx --yes wrangler@4 pages deploy repo \
-            --project-name=kodi-katan --branch=main --commit-dirty=true \
-            --commit-message="Katan $GITHUB_REF_NAME - stable release, $GITHUB_SHA"
+      # GitHub Pages, which is where the rest of the Kodi world already hosts.
+      #
+      # The previous host did not answer **ranged reads**: every `Range`
+      # request came back 200 with the whole file. Kodi does not stream a zip
+      # front to back - it reads the central directory at the end and then
+      # seeks to each member - so a 123-member add-on meant a 475 KB download
+      # per seek on a television, while the 2-member repository zip was small
+      # enough not to care. That is precisely the split that was reported: the
+      # repository installed and the add-on took Kodi down with it. Measured
+      # on The Crew and Fishenzon, GitHub answers 206 with Accept-Ranges on a
+      # 2.9 MB zip.
+      #
+      # `repo/` is uploaded as the site root, so the URLs baked into
+      # repository.katan need no path juggling.
+      - name: upload the built repository
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: repo
+
+      - name: publish to GitHub Pages
+        id: pages
+        uses: actions/deploy-pages@v4
 
       # The only automated proof a release reached the devices. Everything
       # above can pass while the site still serves the previous version.
@@ -121,7 +142,7 @@ jobs:
           python - <<'PY'
           import os, sys, time, urllib.request, xml.etree.ElementTree as ET
 
-          INDEX = "https://kodi-katan.pages.dev/addons.xml"
+          INDEX = "https://noflevi.github.io/kodi/addons.xml"
           want = os.environ["GITHUB_REF_NAME"].lstrip("v")
           deadline = time.time() + 300           # a Pages build is ~1 minute
 
@@ -141,7 +162,7 @@ jobs:
                   seen = "%s: %s" % (type(error).__name__, error)
                   continue
               if seen == want:
-                  print("kodi-katan.pages.dev is serving %s" % want)
+                  print("GitHub Pages is serving %s" % want)
                   break
               print("still %s, waiting for %s" % (seen, want))
           else:
@@ -159,7 +180,7 @@ jobs:
           mine = hashlib.md5(open(local, "rb").read()).hexdigest()
 
           request = urllib.request.Request(
-              "https://kodi-katan.pages.dev/zips/plugin.video.katan/" + name,
+              "https://noflevi.github.io/kodi/zips/plugin.video.katan/" + name,
               headers={"User-Agent": "katan-release"})
           published = urllib.request.urlopen(request, timeout=60).read()
           theirs = hashlib.md5(published).hexdigest()

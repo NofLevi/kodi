@@ -5,9 +5,9 @@
        provider-name="katan">
     <extension point="xbmc.addon.repository" name="Katan Repository">
         <dir>
-            <info compressed="false">https://kodi-katan.pages.dev/addons.xml</info>
-            <checksum>https://kodi-katan.pages.dev/addons.xml.md5</checksum>
-            <datadir zip="true">https://kodi-katan.pages.dev/zips</datadir>
+            <info compressed="false">https://noflevi.github.io/kodi/addons.xml</info>
+            <checksum>https://noflevi.github.io/kodi/addons.xml.md5</checksum>
+            <datadir zip="true">https://noflevi.github.io/kodi/zips</datadir>
         </dir>
     </extension>
     <extension point="xbmc.addon.metadata">

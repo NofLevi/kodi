@@ -750,8 +750,8 @@ class _Answer(object):
 
 
 @pytest.mark.parametrize("channel,expected", [
-    ("stable", "kodi-katan.pages.dev"),
-    ("test", "kodi-katan-dev.pages.dev"),
+    ("stable", "noflevi.github.io/kodi"),
+    ("test", "raw.githubusercontent.com/NofLevi/kodi/test-channel"),
 ])
 def test_the_channel_chooses_the_index(settings_module, channel, expected):
     from katan import updater
@@ -798,7 +798,7 @@ def test_the_test_channel_offers_any_difference(settings_module, monkeypatch,
         "installed %s, published %s" % (installed, published)
     if offered:
         assert result[0] == published
-        assert "kodi-katan-dev.pages.dev" in result[1]
+        assert "raw.githubusercontent.com/NofLevi/kodi/test-channel" in result[1]
 
 
 def test_the_stable_channel_still_refuses_to_go_backwards(settings_module,

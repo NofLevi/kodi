@@ -8,16 +8,17 @@ name: test build
 # project already spent a day getting rid of. Ask for one when you want to
 # try something on the projector.
 #
-# It publishes to a *second* Pages project, kodi-katan-dev.pages.dev, and not
-# to a folder or a branch alias on the first. A direct upload replaces the
-# whole site, so a shared project would have the two channels overwriting
-# each other, and Pages puts branch aliases behind Cloudflare Access - which
-# answers 302 to a login page, so Kodi sees no index at all. Measured, not
-# assumed: development.kodi-katan.pages.dev redirects to cloudflareaccess.com.
+# It publishes to the `test-channel` branch, served by
+# raw.githubusercontent.com, and not to the Pages site the releases use. A
+# Pages deployment replaces the whole site, so one shared site would have the
+# two channels deleting each other every time either published.
 #
 # The version is the released one with a pre-release tag - 0.0.4~dev.12 -
 # which sorts *below* the release it is a preview of, so a box on the test
 # channel is offered the real 0.0.4 the moment it switches back to stable.
+
+permissions:
+  contents: write        # it pushes the build to a branch
 
 on:
   workflow_dispatch:
@@ -69,16 +70,31 @@ jobs:
       - name: build the repository
         run: python tools/build.py
 
+      # An orphan branch, served by raw.githubusercontent.com.
+      #
+      # Not a second folder on the Pages site: a Pages deployment replaces the
+      # whole site, so the two channels would delete each other every time
+      # either published. A branch is independent by construction, holds no
+      # history worth keeping - each build replaces the last, which is what
+      # "the branch as it is now" means - and raw answers ranged reads, which
+      # is the property the previous host lacked and the reason installing a
+      # zip took Kodi down.
       - name: publish to the test channel
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           VERSION: ${{ steps.stamp.outputs.version }}
           REF: ${{ inputs.ref }}
         run: |
-          npx --yes wrangler@4 pages deploy repo \
-            --project-name=kodi-katan-dev --branch=main --commit-dirty=true \
-            --commit-message="Katan $VERSION - test channel, from $REF at $GITHUB_SHA"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf .publish && mkdir .publish
+          cp -R repo/. .publish/
+          cd .publish
+          git init -q -b test-channel
+          git add -A
+          git commit -q -m "Katan $VERSION - test channel, from $REF at $GITHUB_SHA"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" \
+            test-channel
 
       # The same proof the release workflow takes: the site is serving this
       # build, and the zip beside the index is the one just built.
@@ -90,7 +106,7 @@ jobs:
           import hashlib, os, sys, time, urllib.parse, urllib.request
           import xml.etree.ElementTree as ET
 
-          INDEX = "https://kodi-katan-dev.pages.dev/addons.xml"
+          INDEX = "https://raw.githubusercontent.com/NofLevi/kodi/test-channel/addons.xml"
           want = os.environ["WANT"]
           deadline = time.time() + 300
 
@@ -118,7 +134,7 @@ jobs:
           local = os.path.join("repo", "zips", "plugin.video.katan", name)
           mine = hashlib.md5(open(local, "rb").read()).hexdigest()
           request = urllib.request.Request(
-              "https://kodi-katan-dev.pages.dev/zips/plugin.video.katan/"
+              "https://raw.githubusercontent.com/NofLevi/kodi/test-channel/zips/plugin.video.katan/"
               + urllib.parse.quote(name),
               headers={"User-Agent": "katan-testbuild"})
           published = urllib.request.urlopen(request, timeout=60).read()

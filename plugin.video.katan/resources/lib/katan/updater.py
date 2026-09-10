@@ -27,15 +27,15 @@ ADDON_ID = "plugin.video.katan"
 
 # Where the repository index lives. Overridable in settings so the host can
 # move without waiting for a release from the host that moved.
-DEFAULT_INDEX = "https://kodi-katan.pages.dev/addons.xml"
+DEFAULT_INDEX = "https://noflevi.github.io/kodi/addons.xml"
 
 # The test channel: whatever `development` was built into last, rather than
-# the last release. A second Pages project rather than a folder or a branch
-# alias on the first, for two reasons - a direct upload replaces the whole
-# site, so the two would overwrite each other, and Pages puts branch aliases
-# behind Cloudflare Access, which answers a 302 to a login page and is
-# therefore invisible to Kodi.
-TEST_INDEX = "https://kodi-katan-dev.pages.dev/addons.xml"
+# the last release. It is a branch served by raw.githubusercontent.com rather
+# than a second folder on the Pages site, because a Pages deployment replaces
+# the whole site - the two channels would overwrite each other every time
+# either published. A branch is independent by construction, and raw serves
+# ranged reads, which is the thing the previous host did not.
+TEST_INDEX = "https://raw.githubusercontent.com/NofLevi/kodi/test-channel/addons.xml"
 
 VERSION = re.compile(r"(\d{1,9})(?:\.(\d{1,9}))?(?:\.(\d{1,9}))?")
 MAX_VERSION_LENGTH = 29

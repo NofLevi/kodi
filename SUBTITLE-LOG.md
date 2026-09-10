@@ -72,8 +72,8 @@ lightweight tag, which looks exactly like forgetting to tag at all.
 
 | | |
 |---|---|
-| Stable channel | **kodi-katan.pages.dev** — what every device updates from |
-| Test channel | **kodi-katan-dev.pages.dev** — `update.channel = test`, expert settings |
+| Stable channel | **noflevi.github.io/kodi** — what every device updates from |
+| Test channel | **raw.githubusercontent.com/NofLevi/kodi/test-channel** — `update.channel = test`, expert settings |
 | GitHub release | `NofLevi/kodi`, private, so the zips there are for you, not for Kodi |
 
 The Cloudflare project is **deliberately disconnected from the repository**.
