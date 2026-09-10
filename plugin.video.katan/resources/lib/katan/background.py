@@ -261,6 +261,20 @@ class Service(xbmc.Monitor):
         except Exception:
             kodi.log_exception("player monitor could not start")
 
+        # An update that came through Kodi's own repository never runs our
+        # apply(), so nothing there sweeps: Kodi downloads into
+        # addons/packages and keeps the zip, one per release, forever. This is
+        # the only moment that path can be tidied, and it is cheap - a listing
+        # of two directories, once per session, on a Kodi that has just spent
+        # seconds starting up.
+        try:
+            import os
+
+            from . import updater
+            updater.sweep(os.path.dirname(os.path.normpath(kodi.addon_path())))
+        except Exception:
+            kodi.log_exception("update tidy-up failed")
+
         while not self.abortRequested():
             # A fifth of a second only while we are still deciding whether to
             # open on start-up, because a one second tick is a second of

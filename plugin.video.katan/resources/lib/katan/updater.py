@@ -277,12 +277,91 @@ def apply(zip_path):
                 os.rename(backup, target)
             raise
         _remove_tree(backup)
+        sweep(addons_dir, keep=zip_path)
         return True
     except Exception:
         kodi.log_exception("installing the update failed")
         return False
     finally:
         _remove_tree(staging)
+
+
+# Files left lying around by an update, none of which anything reads again.
+_LEFTOVERS = (ADDON_ID + ".old", ADDON_ID + ".old.old")
+_STAGING = "katan-staging-"
+_DOWNLOAD = "katan-update-"
+
+
+def sweep(addons_dir, keep=""):
+    """Delete what an update leaves behind. Returns what it removed.
+
+    The add-on folder itself is replaced wholesale, so the previous version's
+    *source* is gone the moment the rename succeeds. What survives is
+    everything around it, and none of it is small:
+
+    - `plugin.video.katan.old`, when the removal above lost a race with a file
+      still open. It is 1.8 MB of a version nobody will run again, and Kodi
+      scans every folder under `addons/`.
+    - `katan-staging-*`, left by a process killed mid-update rather than by a
+      failure - the `finally` cannot run if there is no longer a process.
+    - `addons/packages/plugin.video.katan-*.zip`. This is the one that
+      actually accumulates: Kodi's own repository update downloads there and
+      keeps it, one zip per release forever, and it is the copy people find
+      months later and install by hand.
+    - `katan-update-*.zip` in the temporary directory, from runs that died
+      between downloading and installing.
+
+    Only ever this add-on's own files. A zip in `packages/` belonging to
+    somebody else's add-on is somebody else's business, and `keep` is the zip
+    being installed right now - deleting that mid-install would be removing
+    the thing under our own feet.
+    """
+    removed = []
+
+    for name in _LEFTOVERS:
+        path = os.path.join(addons_dir, name)
+        if os.path.isdir(path):
+            _remove_tree(path)
+            if not os.path.exists(path):
+                removed.append(path)
+
+    for name in _listing(addons_dir):
+        if name.startswith(_STAGING):
+            path = os.path.join(addons_dir, name)
+            _remove_tree(path)
+            if not os.path.exists(path):
+                removed.append(path)
+
+    packages = os.path.join(addons_dir, "packages")
+    for name in _listing(packages):
+        if name.startswith(ADDON_ID + "-") and name.endswith(".zip"):
+            path = os.path.join(packages, name)
+            if os.path.abspath(path) == os.path.abspath(keep or ""):
+                continue
+            _remove(path)
+            if not os.path.exists(path):
+                removed.append(path)
+
+    temporary = tempfile.gettempdir()
+    for name in _listing(temporary):
+        if name.startswith(_DOWNLOAD) and name.endswith(".zip"):
+            path = os.path.join(temporary, name)
+            if os.path.abspath(path) == os.path.abspath(keep or ""):
+                continue
+            _remove(path)
+            if not os.path.exists(path):
+                removed.append(path)
+
+    if removed:
+        kodi.log("update tidy-up removed %d leftover(s)" % len(removed))
+    return removed
+
+
+def _listing(path):
+    try:
+        return sorted(os.listdir(path))
+    except OSError:
+        return []
 
 
 def _remove(path):
