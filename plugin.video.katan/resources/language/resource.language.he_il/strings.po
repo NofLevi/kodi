@@ -1576,3 +1576,15 @@ msgstr ""
 msgctxt "#30320"
 msgid "השוואת כתוביות לפני הבחירה"
 msgstr ""
+
+msgctxt "#32522"
+msgid "Speak from your phone"
+msgstr "דברו מהטלפון"
+
+msgctxt "#32523"
+msgid "Search by voice"
+msgstr "חיפוש קולי"
+
+msgctxt "#32524"
+msgid "Open this on your phone and use its microphone key"
+msgstr "פתחו בטלפון והשתמשו במקש המיקרופון"

@@ -134,6 +134,10 @@
             <top>170</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4005</onleft>
+            <onright>4001</onright>
+            <onup>4000</onup>
+            <ondown>4006</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -147,6 +151,10 @@
             <top>170</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4000</onleft>
+            <onright>4002</onright>
+            <onup>4001</onup>
+            <ondown>4007</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -160,6 +168,10 @@
             <top>170</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4001</onleft>
+            <onright>4003</onright>
+            <onup>4002</onup>
+            <ondown>4008</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -173,6 +185,10 @@
             <top>170</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4002</onleft>
+            <onright>4004</onright>
+            <onup>4003</onup>
+            <ondown>4009</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -186,6 +202,10 @@
             <top>170</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4003</onleft>
+            <onright>4005</onright>
+            <onup>4004</onup>
+            <ondown>4010</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -199,6 +219,10 @@
             <top>170</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4004</onleft>
+            <onright>5100</onright>
+            <onup>4005</onup>
+            <ondown>4011</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -212,6 +236,10 @@
             <top>238</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4011</onleft>
+            <onright>4007</onright>
+            <onup>4000</onup>
+            <ondown>4012</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -225,6 +253,10 @@
             <top>238</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4006</onleft>
+            <onright>4008</onright>
+            <onup>4001</onup>
+            <ondown>4013</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -238,6 +270,10 @@
             <top>238</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4007</onleft>
+            <onright>4009</onright>
+            <onup>4002</onup>
+            <ondown>4014</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -251,6 +287,10 @@
             <top>238</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4008</onleft>
+            <onright>4010</onright>
+            <onup>4003</onup>
+            <ondown>4015</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -264,6 +304,10 @@
             <top>238</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4009</onleft>
+            <onright>4011</onright>
+            <onup>4004</onup>
+            <ondown>4016</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -277,6 +321,10 @@
             <top>238</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4010</onleft>
+            <onright>5100</onright>
+            <onup>4005</onup>
+            <ondown>4017</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -290,6 +338,10 @@
             <top>306</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4017</onleft>
+            <onright>4013</onright>
+            <onup>4006</onup>
+            <ondown>4018</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -303,6 +355,10 @@
             <top>306</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4012</onleft>
+            <onright>4014</onright>
+            <onup>4007</onup>
+            <ondown>4019</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -316,6 +372,10 @@
             <top>306</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4013</onleft>
+            <onright>4015</onright>
+            <onup>4008</onup>
+            <ondown>4020</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -329,6 +389,10 @@
             <top>306</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4014</onleft>
+            <onright>4016</onright>
+            <onup>4009</onup>
+            <ondown>4021</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -342,6 +406,10 @@
             <top>306</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4015</onleft>
+            <onright>4017</onright>
+            <onup>4010</onup>
+            <ondown>4022</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -355,6 +423,10 @@
             <top>306</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4016</onleft>
+            <onright>5100</onright>
+            <onup>4011</onup>
+            <ondown>4023</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -368,6 +440,10 @@
             <top>374</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4023</onleft>
+            <onright>4019</onright>
+            <onup>4012</onup>
+            <ondown>4024</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -381,6 +457,10 @@
             <top>374</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4018</onleft>
+            <onright>4020</onright>
+            <onup>4013</onup>
+            <ondown>4025</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -394,6 +474,10 @@
             <top>374</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4019</onleft>
+            <onright>4021</onright>
+            <onup>4014</onup>
+            <ondown>4026</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -407,6 +491,10 @@
             <top>374</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4020</onleft>
+            <onright>4022</onright>
+            <onup>4015</onup>
+            <ondown>4027</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -420,6 +508,10 @@
             <top>374</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4021</onleft>
+            <onright>4023</onright>
+            <onup>4016</onup>
+            <ondown>4028</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -433,6 +525,10 @@
             <top>374</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4022</onleft>
+            <onright>5100</onright>
+            <onup>4017</onup>
+            <ondown>4029</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -446,6 +542,10 @@
             <top>442</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4029</onleft>
+            <onright>4025</onright>
+            <onup>4018</onup>
+            <ondown>3900</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -459,6 +559,10 @@
             <top>442</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4024</onleft>
+            <onright>4026</onright>
+            <onup>4019</onup>
+            <ondown>3900</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -472,6 +576,10 @@
             <top>442</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4025</onleft>
+            <onright>4027</onright>
+            <onup>4020</onup>
+            <ondown>3901</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -485,6 +593,10 @@
             <top>442</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4026</onleft>
+            <onright>4028</onright>
+            <onup>4021</onup>
+            <ondown>3901</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -498,6 +610,10 @@
             <top>442</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4027</onleft>
+            <onright>4029</onright>
+            <onup>4022</onup>
+            <ondown>3902</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -511,6 +627,10 @@
             <top>442</top>
             <width>95</width>
             <height>62</height>
+            <onleft>4028</onleft>
+            <onright>5100</onright>
+            <onup>4023</onup>
+            <ondown>3902</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -524,6 +644,10 @@
             <top>520</top>
             <width>196</width>
             <height>62</height>
+            <onleft>3902</onleft>
+            <onright>3901</onright>
+            <onup>4024</onup>
+            <ondown>3903</ondown>
             <font>font13</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -537,6 +661,10 @@
             <top>520</top>
             <width>196</width>
             <height>62</height>
+            <onleft>3900</onleft>
+            <onright>3902</onright>
+            <onup>4026</onup>
+            <ondown>3903</ondown>
             <font>font13</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -550,6 +678,10 @@
             <top>520</top>
             <width>196</width>
             <height>62</height>
+            <onleft>3901</onleft>
+            <onright>5100</onright>
+            <onup>4028</onup>
+            <ondown>3905</ondown>
             <font>font13</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -563,6 +695,10 @@
             <top>588</top>
             <width>196</width>
             <height>62</height>
+            <onleft>3905</onleft>
+            <onright>3904</onright>
+            <onup>3900</onup>
+            <ondown>3903</ondown>
             <font>font13</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
@@ -576,11 +712,32 @@
             <top>588</top>
             <width>196</width>
             <height>62</height>
+            <onleft>3903</onleft>
+            <onright>3905</onright>
+            <onup>3901</onup>
+            <ondown>3904</ondown>
             <font>font13</font>
             <textcolor>white</textcolor>
             <focusedcolor>FF141414</focusedcolor>
             <align>center</align>
             <label>$ADDON[plugin.video.katan 32295]</label>
+            <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+            <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+        </control>
+        <control type="button" id="3905">
+            <left>494</left>
+            <top>588</top>
+            <width>196</width>
+            <height>62</height>
+            <onleft>3904</onleft>
+            <onright>5100</onright>
+            <onup>3902</onup>
+            <ondown>3905</ondown>
+            <font>font13</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
+            <align>center</align>
+            <label>$ADDON[plugin.video.katan 32522]</label>
             <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
         </control>

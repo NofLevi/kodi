@@ -1312,3 +1312,64 @@ def test_the_home_screen_says_which_version_it_is(monkeypatch, settings_module):
     shown = window.getProperty("katan.version")
     assert shown, "the version has to be on screen"
     assert home_window.kodi.addon_version() in shown
+
+
+# --------------------------------------------------------------------------
+# the search keyboard is a hand-placed grid, so it needs hand-written navigation
+# --------------------------------------------------------------------------
+
+
+def test_every_key_on_the_search_keyboard_can_be_reached():
+    """Arrows moved nowhere, because no button said where to go.
+
+    Kodi derives navigation only inside a list or grouplist. These
+    thirty-five buttons are absolutely positioned, so whatever the skin
+    declares is all there is - and it declared nothing, which left the only
+    usable key the one that happened to be focused.
+
+    This reads the skin rather than the code: the bug was in the XML and a
+    test of the Python would have passed throughout.
+    """
+    import os
+    import xml.etree.ElementTree as ET
+
+    from conftest import ROOT
+
+    skin = os.path.join(ROOT, "plugin.video.katan", "resources", "skins",
+                        "default", "1080i", "katan-search.xml")
+    root = ET.parse(skin).getroot()
+
+    buttons = {}
+    every_id = set()
+    for control in root.iter("control"):
+        control_id = control.get("id")
+        if control_id:
+            every_id.add(int(control_id))
+        if control.get("type") == "button" and control_id:
+            buttons[int(control_id)] = control
+
+    assert buttons, "no buttons found - has the skin been restructured?"
+
+    unreachable = []
+    for control_id, control in sorted(buttons.items()):
+        for direction in ("onleft", "onright", "onup", "ondown"):
+            node = control.find(direction)
+            if node is None or not (node.text or "").strip():
+                unreachable.append("%d has no %s" % (control_id, direction))
+                continue
+            target = int(node.text.strip())
+            if target not in every_id:
+                unreachable.append("%d %s points at %d, which does not exist"
+                                   % (control_id, direction, target))
+    assert not unreachable, "; ".join(unreachable[:8])
+
+    # And every key must be arrived at from somewhere, or it can be seen and
+    # never focused.
+    arrived_at = set()
+    for control in buttons.values():
+        for direction in ("onleft", "onright", "onup", "ondown"):
+            node = control.find(direction)
+            if node is not None and node.text:
+                arrived_at.add(int(node.text.strip()))
+    orphans = sorted(set(buttons) - arrived_at)
+    assert not orphans, "no arrow reaches %s" % orphans
