@@ -107,9 +107,15 @@ jobs:
               ".//news")
           print((news.text or "").strip() if news is not None else "")
           PY
+          # addons.xml and its checksum are attached too, because the add-on's
+          # own update check reads them from
+          # /releases/latest/download/addons.xml - a stable alias for whichever
+          # release is newest. Without them here that URL is a 404 and no
+          # device is ever told there is a new version.
           gh release create "$GITHUB_REF_NAME" \
             repo/zips/plugin.video.katan/*.zip \
             repo/zips/repository.katan/*.zip \
+            repo/addons.xml repo/addons.xml.md5 \
             --title "$GITHUB_REF_NAME" --notes-file notes.md
 
       # GitHub Pages, which is where the rest of the Kodi world already hosts.

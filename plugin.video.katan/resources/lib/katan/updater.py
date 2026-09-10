@@ -27,7 +27,8 @@ ADDON_ID = "plugin.video.katan"
 
 # Where the repository index lives. Overridable in settings so the host can
 # move without waiting for a release from the host that moved.
-DEFAULT_INDEX = "https://noflevi.github.io/kodi/addons.xml"
+DEFAULT_INDEX = ("https://github.com/NofLevi/kodi/releases/latest/download/"
+                 "addons.xml")
 
 # The test channel: whatever `development` was built into last, rather than
 # the last release. It is a branch served by raw.githubusercontent.com rather
@@ -108,8 +109,27 @@ def published_version():
         kodi.log("the update index does not list %s" % ADDON_ID)
         return "", ""
 
-    base = url.rsplit("/", 1)[0]
-    return latest, "%s/zips/%s/%s-%s.zip" % (base, ADDON_ID, ADDON_ID, latest)
+    return latest, zip_url_for(url, latest)
+
+
+def zip_url_for(index, version):
+    """Where the zip sits, which depends on who is serving the index.
+
+    A Kodi repository lays its files out as `<datadir>/<id>/<id>-<ver>.zip`,
+    and the Pages site is exactly that tree. GitHub Releases has no tree at
+    all: every asset of a release is a flat name under one path, and
+    `/releases/latest/download/` is a stable alias for whichever release is
+    newest. So the layout follows the host rather than being assumed.
+
+    Releases is the default because it is the same place the zips are already
+    attached for people to download by hand, so there is one artefact rather
+    than two that have to agree - and because a release asset is immutable
+    once published, which an overwritten static file is not.
+    """
+    base = index.rsplit("/", 1)[0]
+    if "/releases/" in index:
+        return "%s/%s-%s.zip" % (base, ADDON_ID, version)
+    return "%s/zips/%s/%s-%s.zip" % (base, ADDON_ID, ADDON_ID, version)
 
 
 def check():
