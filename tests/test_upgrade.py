@@ -813,3 +813,131 @@ def test_the_stable_channel_still_refuses_to_go_backwards(settings_module,
     kodi.refresh_addon()
     monkeypatch.setattr(http, "get", lambda *a, **k: _Answer(_index("0.0.4")))
     assert updater.check() is None
+
+
+# --------------------------------------------------------------------------
+# what an update leaves behind
+# --------------------------------------------------------------------------
+
+
+def test_an_update_removes_everything_it_leaves_behind(tmp_path, monkeypatch):
+    """The folder swap is not the whole story.
+
+    The add-on's own source is replaced wholesale, so the previous version
+    cannot survive inside it. Everything *around* it can, and does: a backup
+    whose removal lost a race, staging from a process that was killed, and -
+    the one that actually accumulates - Kodi's package cache, which keeps one
+    zip per release forever and is where somebody finds an old one months
+    later and installs it by hand.
+    """
+    import tempfile as tempfile_module
+
+    from katan import updater
+
+    addons = tmp_path / "addons"
+    packages = addons / "packages"
+    packages.mkdir(parents=True)
+    temporary = tmp_path / "temp"
+    temporary.mkdir()
+    monkeypatch.setattr(tempfile_module, "gettempdir", lambda: str(temporary))
+
+    (addons / "plugin.video.katan.old").mkdir()
+    (addons / "plugin.video.katan.old" / "addon.xml").write_text("<addon/>")
+    (addons / "katan-staging-abc123").mkdir()
+    (addons / "katan-staging-abc123" / "junk.txt").write_text("x")
+    (packages / "plugin.video.katan-0.0.1.zip").write_bytes(b"PK\x05\x06" + b"\0" * 18)
+    (packages / "plugin.video.katan-0.0.2.zip").write_bytes(b"PK\x05\x06" + b"\0" * 18)
+    (temporary / "katan-update-old.zip").write_bytes(b"PK")
+
+    # Not ours, and not to be touched.
+    (addons / "plugin.video.other").mkdir()
+    (packages / "plugin.video.elsewhere-1.0.0.zip").write_bytes(b"PK")
+    (temporary / "somebody-else.zip").write_bytes(b"PK")
+
+    removed = updater.sweep(str(addons))
+
+    assert not (addons / "plugin.video.katan.old").exists()
+    assert not (addons / "katan-staging-abc123").exists()
+    assert not (packages / "plugin.video.katan-0.0.1.zip").exists()
+    assert not (packages / "plugin.video.katan-0.0.2.zip").exists()
+    assert not (temporary / "katan-update-old.zip").exists()
+    assert len(removed) == 5
+
+    assert (addons / "plugin.video.other").is_dir(), "removed another add-on"
+    assert (packages / "plugin.video.elsewhere-1.0.0.zip").is_file()
+    assert (temporary / "somebody-else.zip").is_file()
+
+
+def test_the_zip_being_installed_is_never_swept(tmp_path, monkeypatch):
+    """`keep` exists because the install is still holding this file.
+
+    apply() sweeps on success, and on the repository path the zip it was
+    handed lives in `packages/` - the very folder being cleared. Removing it
+    there would be pulling the file out from under the install that is still
+    reading it.
+    """
+    import tempfile as tempfile_module
+
+    from katan import updater
+
+    addons = tmp_path / "addons"
+    packages = addons / "packages"
+    packages.mkdir(parents=True)
+    monkeypatch.setattr(tempfile_module, "gettempdir", lambda: str(tmp_path))
+
+    current = packages / "plugin.video.katan-0.0.2.zip"
+    current.write_bytes(b"PK")
+    (packages / "plugin.video.katan-0.0.1.zip").write_bytes(b"PK")
+
+    updater.sweep(str(addons), keep=str(current))
+
+    assert current.is_file(), "swept the zip it was installing"
+    assert not (packages / "plugin.video.katan-0.0.1.zip").exists()
+
+
+def test_a_real_update_sweeps_as_part_of_installing(tmp_path, monkeypatch):
+    """End to end: apply() itself does the tidying, not the caller.
+
+    Anything that has to be remembered separately is a thing that will be
+    forgotten, and this is meant to happen on every update however it was
+    started - the Tools entry, or Kodi's own repository.
+    """
+    import tempfile as tempfile_module
+
+    from katan import kodi, updater
+
+    addons = tmp_path / "addons"
+    installed = addons / "plugin.video.katan"
+    packages = addons / "packages"
+    packages.mkdir(parents=True)
+    installed.mkdir()
+    (installed / "addon.xml").write_text(
+        '<addon id="plugin.video.katan" version="0.0.1"/>', encoding="utf-8")
+    (installed / "gone-upstream.py").write_text("# deleted in the new version")
+    monkeypatch.setattr(tempfile_module, "gettempdir", lambda: str(tmp_path))
+
+    # Leftovers of the kind a previous update strews about.
+    (addons / "plugin.video.katan.old").mkdir()
+    (packages / "plugin.video.katan-0.0.1.zip").write_bytes(b"PK")
+
+    release = str(tmp_path / "release.zip")
+    with zipfile.ZipFile(release, "w") as archive:
+        archive.writestr("plugin.video.katan/addon.xml",
+                         '<addon id="plugin.video.katan" version="0.0.2"/>')
+        archive.writestr("plugin.video.katan/main.py", "# new\n")
+
+    monkeypatch.setattr(kodi, "addon_path", lambda: str(installed))
+    monkeypatch.setattr(updater, "_is_sane_zip",
+                        lambda path, expected_version=None: True)
+    assert updater.apply(release) is True
+
+    import xml.etree.ElementTree as ET
+    assert ET.parse(str(installed / "addon.xml")).getroot().get(
+        "version") == "0.0.2"
+    assert not (installed / "gone-upstream.py").exists(), \
+        "a file deleted upstream survived the update"
+    assert not (addons / "plugin.video.katan.old").exists()
+    assert not (packages / "plugin.video.katan-0.0.1.zip").exists()
+    leftovers = [n for n in os.listdir(str(addons))
+                 if n not in ("plugin.video.katan", "packages")]
+    assert not leftovers, "left behind %s" % leftovers
