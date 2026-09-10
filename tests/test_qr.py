@@ -63,8 +63,9 @@ PUBLISHED_FORMATS = {
 def test_format_strings_match_the_specification(key, expected):
     level, mask = key
     assert qr.format_bits(level, mask) == expected, (
-        "format for %s mask %d is %015b, expected %015b"
-        % (level, mask, qr.format_bits(level, mask), expected))
+        "format for %s mask %d is %s, expected %s"
+        % (level, mask, format(qr.format_bits(level, mask), "015b"),
+           format(expected, "015b")))
 
 
 @pytest.mark.parametrize("version,expected", [

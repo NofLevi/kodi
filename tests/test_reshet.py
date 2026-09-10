@@ -46,7 +46,6 @@ def api(monkeypatch):
 
     def fake_post_json(url, default=None, **kwargs):
         calls.append(url)
-        body = kwargs.get("json") or {}
         if "anonymousLogin" in url:
             return {"result": {"ks": "test-session", "objectType":
                                "KalturaLoginSession"}}

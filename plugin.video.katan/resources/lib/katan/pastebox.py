@@ -16,7 +16,9 @@ projector on the same wifi and would not be fine anywhere else.
 """
 import socket
 import threading
+import time
 import unicodedata
+import secrets
 
 try:
     from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -29,6 +31,7 @@ from . import kodi
 # Long enough to walk to the phone and find the key, short enough that a
 # forgotten dialog does not leave a socket open all evening.
 LIFETIME = 300
+MAX_BODY_BYTES = 4096
 
 PAGE = u"""<!doctype html><html><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -105,14 +108,28 @@ def _handler_for(state, labels):
             self.wfile.write(data)
 
         def do_GET(self):
+            if self.path != state["path"] or state.get("used"):
+                self._send("Not found", 404)
+                return
             self._send(PAGE % labels)
 
         def do_POST(self):
-            length = int(self.headers.get("Content-Length") or 0)
+            if self.path != state["path"] or state.get("used"):
+                self._send("Not found", 404)
+                return
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except (TypeError, ValueError, OverflowError):
+                self._send("Bad request", 400)
+                return
+            if length <= 0 or length > MAX_BODY_BYTES:
+                self._send("Request too large", 413)
+                return
             raw = self.rfile.read(length).decode("utf-8", "replace")
             value = sanitise((parse_qs(raw).get("value") or [""])[0])
             self._send(DONE % labels)
             if value:
+                state["used"] = True
                 state["value"] = value
                 state["done"].set()
 
@@ -122,7 +139,8 @@ def _handler_for(state, labels):
     return Handler
 
 
-def receive(title, placeholder="", lifetime=LIFETIME, on_ready=None):
+def receive(title, placeholder="", lifetime=LIFETIME, on_ready=None,
+            cancelled=None):
     """Serve the page until something is pasted. Returns it, or "".
 
     `on_ready(url)` is called once the address is known, so the caller can put
@@ -140,7 +158,8 @@ def receive(title, placeholder="", lifetime=LIFETIME, on_ready=None):
         "hint": kodi.localize(32511),
         "done": kodi.localize(32512),
     }
-    state = {"value": "", "done": threading.Event()}
+    state = {"value": "", "done": threading.Event(), "used": False,
+             "path": "/paste/%s" % secrets.token_urlsafe(24)}
 
     try:
         # Port 0 asks the operating system for a free one, which is the only
@@ -150,16 +169,23 @@ def receive(title, placeholder="", lifetime=LIFETIME, on_ready=None):
         kodi.log_exception("could not open the paste page")
         return ""
 
-    url = "http://%s:%d" % (address, server.server_port)
+    url = "http://%s:%d%s" % (address, server.server_port, state["path"])
     thread = threading.Thread(target=server.serve_forever)
     thread.daemon = True
     thread.start()
-    kodi.log("paste page waiting on %s" % url)
+    kodi.log("paste page is ready on the local network")
 
     try:
         if on_ready is not None:
             on_ready(url)
-        state["done"].wait(lifetime)
+        deadline = time.time() + max(0.0, float(lifetime))
+        while not state["done"].is_set():
+            if cancelled is not None and cancelled.is_set():
+                break
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            state["done"].wait(min(0.2, remaining))
     finally:
         server.shutdown()
         server.server_close()

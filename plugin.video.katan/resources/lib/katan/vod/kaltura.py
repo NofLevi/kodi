@@ -92,7 +92,7 @@ def playback_url(entry, partner, referer, prefer_dash=False):
         return "", False
 
     key = "kaltura:%s:%s:%s" % (partner, entry, "dash" if prefer_dash else "hls")
-    cached = cache.get(key)
+    cached = cache.volatile_get(key)
     if cached:
         return cached, True
 
@@ -126,7 +126,7 @@ def playback_url(entry, partner, referer, prefer_dash=False):
     for fmt in wanted:
         for source in sources:
             if source.get("format") == fmt and not source.get("drm"):
-                cache.set(key, source["url"], TTL)
+                cache.volatile_set(key, source["url"], TTL)
                 return source["url"], True
 
     kodi.log("kaltura: only DRM sources for %s" % entry)

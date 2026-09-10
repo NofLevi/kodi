@@ -41,6 +41,10 @@ def profile_path():
     path = xbmcvfs.translatePath(addon().getAddonInfo("profile"))
     if not os.path.isdir(path):
         os.makedirs(path)
+    try:
+        os.chmod(path, 0o700)
+    except OSError:
+        pass
     return path
 
 
@@ -49,6 +53,10 @@ def subdir(*parts):
     path = os.path.join(profile_path(), *parts)
     if not os.path.isdir(path):
         os.makedirs(path)
+    try:
+        os.chmod(path, 0o700)
+    except OSError:
+        pass
     return path
 
 
@@ -143,10 +151,19 @@ def log_error(message, component=None):
 
 
 def log_exception(context=""):
-    """Log the active exception with a traceback, never re-raising."""
+    """Log exception type and stack locations, never exception values."""
+    import os
+    import sys
     import traceback
 
-    log_error("%s\n%s" % (context, traceback.format_exc()))
+    exc_type, _value, trace = sys.exc_info()
+    name = exc_type.__name__ if exc_type is not None else "Exception"
+    frames = traceback.extract_tb(trace) if trace is not None else []
+    locations = " <- ".join("%s:%d in %s" % (
+        os.path.basename(frame.filename), frame.lineno, frame.name)
+        for frame in frames)
+    detail = "%s at %s" % (name, locations) if locations else name
+    log_error("%s\n%s" % (context, detail))
 
 
 class Timer(object):
@@ -267,8 +284,13 @@ def activate_window(plugin_url):
     xbmc.executebuiltin("ActivateWindow(Videos,%s,return)" % plugin_url)
 
 
-def play_media(url):
-    xbmc.executebuiltin("PlayMedia(%s)" % url)
+def play_media(url, item=None):
+    """Start playback outside a directory while preserving item properties."""
+    if item is None:
+        xbmc.executebuiltin("PlayMedia(%s)" % url)
+        return
+    from .ui import listing
+    xbmc.Player().play(url, listing.make_list_item(item))
 
 
 def refresh_container():

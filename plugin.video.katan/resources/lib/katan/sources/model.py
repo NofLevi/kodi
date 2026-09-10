@@ -258,6 +258,12 @@ def _collapse(sources, key_of):
         if source.get("cached") and not existing.get("cached"):
             existing["cached"] = True
             existing["cached_by"] = source.get("cached_by", "")
+            # Cache ownership is a statement about one exact torrent/direct
+            # handle. Never combine it with another equivalent release's hash.
+            for field in ("hash", "magnet", "url", "file_id", "file_index",
+                          "file_name"):
+                if field in source:
+                    existing[field] = source[field]
         if not existing.get("magnet") and source.get("magnet"):
             existing["magnet"] = source["magnet"]
         if not existing.get("url") and source.get("url"):

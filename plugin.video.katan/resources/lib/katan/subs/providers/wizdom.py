@@ -35,6 +35,8 @@ def search(meta, target, languages):
 
     results = []
     for entry in payload:
+        if not isinstance(entry, dict):
+            continue
         subtitle_id = entry.get("id")
         if not subtitle_id:
             continue
@@ -58,4 +60,4 @@ def _sync_percent(entry):
 
 def download(candidate):
     data = common.fetch_bytes(candidate["download"])
-    return common.extract_subtitle(data, LANGUAGE)
+    return common.extract_subtitle(data, LANGUAGE, candidate=candidate)

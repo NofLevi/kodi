@@ -4,7 +4,6 @@ Each fails in its own characteristic way, and those are what these cover: a
 platform that answers 500 unless you name your tenant, a feed that returns
 Hebrew as escape sequences, and an archive addressed by hour rather than by id.
 """
-import json
 
 import pytest
 

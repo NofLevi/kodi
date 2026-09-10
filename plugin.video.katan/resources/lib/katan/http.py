@@ -10,6 +10,9 @@ Two rules the whole code base depends on:
 """
 import threading
 import time
+import zlib
+from concurrent import futures
+from urllib.parse import urlsplit
 
 from . import kodi, urlsession
 
@@ -31,10 +34,37 @@ except ImportError:
 USER_AGENT = "Katan/0.1 (Kodi)"
 
 DEFAULT_TIMEOUT = (5, 10)   # (connect, read) seconds
+MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 _POOL_SIZE = 8              # simultaneous sockets; matches the worker cap
 
 _session_lock = threading.Lock()
 _session = None
+_parallel_lock = threading.Lock()
+_parallel_pool = None
+_PARALLEL_WORKERS = 4
+
+_CREDENTIAL_HEADERS = frozenset((
+    "authorization", "proxy-authorization", "cookie", "cookie2",
+    "api-key", "apikey", "x-api-key", "trakt-api-key",
+))
+
+
+if HAVE_REQUESTS:
+    class _SafeRequestsSession(requests.Session):
+        """Apply the urlsession redirect credential boundary to Requests."""
+
+        def rebuild_auth(self, prepared_request, response):
+            old = urlsplit(response.request.url)
+            new = urlsplit(prepared_request.url)
+            if old.scheme == "https" and new.scheme != "https":
+                raise requests.exceptions.InvalidURL("refusing HTTPS downgrade")
+            if (old.scheme.lower(), old.hostname, old.port) != (
+                    new.scheme.lower(), new.hostname, new.port):
+                for name in list(prepared_request.headers):
+                    if name.lower() in _CREDENTIAL_HEADERS:
+                        prepared_request.headers.pop(name, None)
+            super(_SafeRequestsSession, self).rebuild_auth(prepared_request,
+                                                           response)
 
 
 class HttpError(Exception):
@@ -53,7 +83,7 @@ def session():
         return _session
     with _session_lock:
         if _session is None:
-            sess = requests.Session() if HAVE_REQUESTS else urlsession.Session()
+            sess = _SafeRequestsSession() if HAVE_REQUESTS else urlsession.Session()
             sess.headers.update({
                 "User-Agent": USER_AGENT,
                 "Accept-Encoding": "gzip, deflate",
@@ -81,6 +111,27 @@ def close_session():
             _session = None
 
 
+def close_parallel():
+    """Cancel queued shared work during service shutdown."""
+    global _parallel_pool
+    with _parallel_lock:
+        pool, _parallel_pool = _parallel_pool, None
+    if pool is not None:
+        try:
+            pool.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            pool.shutdown(wait=False)
+
+
+def _shared_pool():
+    global _parallel_pool
+    with _parallel_lock:
+        if _parallel_pool is None:
+            _parallel_pool = futures.ThreadPoolExecutor(
+                max_workers=_PARALLEL_WORKERS)
+        return _parallel_pool
+
+
 def request(method, url, retries=1, backoff=0.6, timeout=None, raise_for_status=False,
             **kwargs):
     """Perform an HTTP request with a timeout and bounded retries.
@@ -89,7 +140,11 @@ def request(method, url, retries=1, backoff=0.6, timeout=None, raise_for_status=
     A 4xx other than 429 is returned as-is, because retrying it just burns the
     rate limit budget of services such as Real-Debrid.
     """
+    max_bytes = kwargs.pop("max_bytes", MAX_RESPONSE_BYTES)
+    caller_stream = bool(kwargs.get("stream"))
     kwargs.setdefault("timeout", timeout or DEFAULT_TIMEOUT)
+    if not caller_stream:
+        kwargs["stream"] = True
     attempt = 0
     last_error = None
     while attempt <= retries:
@@ -99,12 +154,19 @@ def request(method, url, retries=1, backoff=0.6, timeout=None, raise_for_status=
                 delay = _retry_after(response, backoff, attempt)
                 kodi.log("HTTP %s from %s, retrying in %.1fs"
                          % (response.status_code, _host(url), delay))
+                close = getattr(response, "close", None)
+                if close is not None:
+                    close()
                 time.sleep(delay)
                 attempt += 1
                 continue
             if raise_for_status and response.status_code >= 400:
                 raise HttpError("HTTP %s" % response.status_code,
                                 response.status_code, url)
+            if not caller_stream and not _buffer_response(response, max_bytes):
+                if raise_for_status:
+                    raise HttpError("response exceeds safe size", None, url)
+                return None
             return response
         except HttpError:
             raise
@@ -114,9 +176,107 @@ def request(method, url, retries=1, backoff=0.6, timeout=None, raise_for_status=
                 break
             time.sleep(backoff * (2 ** attempt))
             attempt += 1
-    kodi.log("request to %s failed: %s" % (_host(url), last_error))
+    error_name = type(last_error).__name__ if last_error is not None else "error"
+    kodi.log("request to %s failed (%s)" % (_host(url), error_name))
     if raise_for_status:
-        raise HttpError(str(last_error), None, url)
+        raise HttpError("request failed (%s)" % error_name, None, url)
+    return None
+
+
+def _buffer_response(response, max_bytes):
+    """Materialise a real response with a strict decoded-byte ceiling."""
+    is_requests = bool(HAVE_REQUESTS and isinstance(response, requests.Response))
+    is_stdlib = isinstance(response, urlsession.Response)
+    if not is_requests and not is_stdlib:
+        return True
+    try:
+        limit = max(1, int(max_bytes))
+        declared = int(response.headers.get("Content-Length") or 0)
+        if declared > limit:
+            response.close()
+            return False
+        if is_stdlib:
+            encoding = (response.headers.get("Content-Encoding") or "identity").lower()
+            body = getattr(response, "_body", None)
+            if isinstance(body, bytes):
+                encoded = body
+            else:
+                chunks = []
+                total = 0
+                while True:
+                    chunk = response.raw.read(
+                        min(64 * 1024, limit + 1 - total),
+                        decode_content=False)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total > limit:
+                        response.close()
+                        return False
+                encoded = b"".join(chunks)
+            if len(encoded) > limit:
+                response.close()
+                return False
+            decoded = _bounded_decode(encoded, encoding, limit)
+            if decoded is None:
+                response.close()
+                return False
+            response._content = decoded
+            response.close()
+            return True
+        chunks = []
+        total = 0
+        for chunk in response.iter_content(64 * 1024):
+            total += len(chunk)
+            if total > limit:
+                response.close()
+                return False
+            chunks.append(chunk)
+        response._content = b"".join(chunks)
+        response._content_consumed = True
+        return True
+    except (TypeError, ValueError, OverflowError, OSError):
+        response.close()
+        return False
+
+
+def _bounded_decode(data, encoding, limit):
+    if encoding in ("", "identity"):
+        return data
+    if encoding in ("gzip", "x-gzip"):
+        output = []
+        total = 0
+        remaining = data
+        members = 0
+        try:
+            while remaining and remaining.strip(b"\0"):
+                members += 1
+                if members > 8:
+                    return None
+                decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+                part = decoder.decompress(remaining, limit + 1 - total)
+                total += len(part)
+                output.append(part)
+                if total > limit or not decoder.eof or decoder.unconsumed_tail:
+                    return None
+                remaining = decoder.unused_data
+            return b"".join(output)
+        except zlib.error:
+            return None
+    if encoding == "deflate":
+        for window_bits in (zlib.MAX_WBITS, -zlib.MAX_WBITS):
+            try:
+                decoder = zlib.decompressobj(window_bits)
+                unpacked = decoder.decompress(data, limit + 1)
+                room = limit + 1 - len(unpacked)
+                if room > 0:
+                    unpacked += decoder.flush(room)
+                if (len(unpacked) <= limit and decoder.eof
+                        and not decoder.unused_data and not decoder.unconsumed_tail):
+                    return unpacked
+            except zlib.error:
+                continue
     return None
 
 
@@ -160,10 +320,17 @@ def _retry_after(response, backoff, attempt):
 
 
 def _host(url):
+    """Return only a safe hostname for logs, never URL credentials or paths."""
+    if not isinstance(url, str):
+        return "<unknown>"
     try:
-        return url.split("/")[2]
-    except IndexError:
-        return url
+        hostname = urlsplit(url).hostname
+    except (TypeError, ValueError):
+        return "<unknown>"
+    if not hostname or not all(char.isalnum() or char in ".-:"
+                               for char in hostname):
+        return "<unknown>"
+    return hostname.lower()
 
 
 # --------------------------------------------------------------------------
@@ -172,61 +339,61 @@ def _host(url):
 
 
 def run_parallel(tasks, workers=4, deadline=12.0, on_result=None):
-    """Run callables concurrently and return the results that finished in time.
-
-    tasks     - iterable of (name, callable) pairs
-    workers   - hard cap on concurrent threads
-    deadline  - wall-clock budget in seconds for the whole batch
-    on_result - optional callback invoked as results arrive, for progressive UI
-
-    Tasks still running when the deadline passes are abandoned. Their threads
-    finish on their own, but the caller is never blocked behind a slow provider.
-
-    That last sentence is why the executor is not used as a context manager.
-    Leaving the `with` block calls shutdown(wait=True), which waits for every
-    running task no matter what the timeout said - so a provider that hangs
-    for thirty seconds held the whole search for thirty seconds, which is the
-    exact failure bounded concurrency exists to prevent. future.cancel() does
-    not help either: it only cancels tasks that have not started yet.
-    """
-    from concurrent import futures
-
+    """Run a batch on the process-wide bounded executor until its deadline."""
     tasks = list(tasks)
     if not tasks:
         return {}
-    workers = max(1, min(int(workers), len(tasks)))
+    limit = max(1, min(int(workers), len(tasks), _PARALLEL_WORKERS))
     results = {}
     started = time.time()
+    expires = started + max(0.0, float(deadline))
+    pool = _shared_pool()
+    iterator = iter(tasks)
+    pending = {}
 
-    pool = futures.ThreadPoolExecutor(max_workers=workers)
-    try:
-        pending = {pool.submit(_guard, name, fn): name for name, fn in tasks}
+    def submit_one():
         try:
-            for future in futures.as_completed(pending, timeout=deadline):
-                name = pending[future]
-                try:
-                    value = future.result()
-                except Exception:
-                    kodi.log_exception("task %s raised" % name)
-                    continue
-                if value is None:
-                    continue
+            name, fn = next(iterator)
+        except StopIteration:
+            return False
+        pending[pool.submit(_guard, name, fn)] = name
+        return True
+
+    for _unused in range(limit):
+        if not submit_one():
+            break
+
+    while pending:
+        remaining = expires - time.time()
+        if remaining <= 0:
+            break
+        done, _waiting = futures.wait(
+            pending, timeout=remaining,
+            return_when=futures.FIRST_COMPLETED)
+        if not done:
+            break
+        for future in done:
+            name = pending.pop(future)
+            try:
+                value = future.result()
+            except Exception:
+                kodi.log_exception("task %s raised" % name)
+                value = None
+            if value is not None:
                 results[name] = value
                 if on_result is not None:
                     try:
                         on_result(name, value)
                     except Exception:
                         kodi.log_exception("on_result callback for %s raised" % name)
-        except futures.TimeoutError:
-            unfinished = [n for f, n in pending.items() if not f.done()]
-            kodi.log("deadline hit after %.1fs, dropped: %s"
-                     % (time.time() - started, ", ".join(unfinished)))
-            for future in pending:
-                future.cancel()      # only bites tasks that never started
-    finally:
-        # wait=False is the whole point: return now, let the stragglers end on
-        # their own. Every request they hold has its own timeout, so they do.
-        pool.shutdown(wait=False)
+            submit_one()
+
+    if pending:
+        unfinished = list(pending.values())
+        kodi.log("deadline hit after %.1fs, dropped: %s"
+                 % (time.time() - started, ", ".join(unfinished)))
+        for future in pending:
+            future.cancel()
     return results
 
 

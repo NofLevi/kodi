@@ -1,7 +1,6 @@
 """Behaviour tests for the pieces every other feature sits on."""
 import time
 
-import pytest
 
 
 # --------------------------------------------------------------------------

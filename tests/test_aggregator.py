@@ -424,7 +424,7 @@ def test_a_correction_is_not_written_back_over_the_full_list(two_sources,
     fake.cached.clear()                       # the service evicted both
     assert agg.find(META) == [], "nothing is playable right now"
 
-    stored = cache.get(agg.cache_key(META))
+    stored = cache.volatile_get(agg.cache_key(META))
     assert len(stored) == 2, \
         "the stored list should still hold both, not the filtered version"
 
@@ -462,7 +462,7 @@ def test_uncached_sources_are_still_there_when_nothing_is_cached(
          "seeders": 12, "languages": [], "hdr": [], "codec": "h264"},
     ]
     from katan import cache
-    cache.set(aggregator.unfiltered_key(meta), fresh, 600)
+    cache.volatile_set(aggregator.unfiltered_key(meta), fresh, 600)
 
     waiting = aggregator.uncached(meta)
     assert len(waiting) == 2, "both exist; neither is ready"

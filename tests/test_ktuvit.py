@@ -202,6 +202,14 @@ def test_the_imdb_id_picks_the_right_title(site):
     assert found and found[0]["download"].startswith("42|")
 
 
+def test_explicit_imdb_mismatch_yields_nothing(site):
+    site["state"]["films"] = [
+        {"ID": "1", "ImdbID": "tt9999999", "Name": "Wrong"},
+        {"ID": "2", "ImdbID": "8888888", "Name": "Also Wrong"},
+    ]
+    assert ktuvit.search(meta(), None, ["he"]) == []
+
+
 def test_no_matching_title_yields_nothing(site):
     site["state"]["films"] = []
     assert ktuvit.search(meta(), None, ["he"]) == []

@@ -96,10 +96,10 @@ class Service(xbmc.Monitor):
             from .meta import trakt
             if not trakt.authorised():
                 return
-            if trakt.needs_sync():
-                trakt.sync_state()
+            if trakt.needs_sync() and trakt.sync_state():
                 catalog.invalidate("continue")
                 catalog.invalidate("watchlist")
+                catalog.invalidate("because_you_watched")
         except Exception:
             kodi.log_exception("Trakt sync failed")
 
@@ -294,9 +294,15 @@ class Service(xbmc.Monitor):
         self.shutdown()
 
     def shutdown(self):
-        self.player = None
+        player, self.player = self.player, None
+        try:
+            if player is not None:
+                player.shutdown()
+        except Exception:
+            pass
         try:
             from . import http
+            http.close_parallel()
             http.close_session()
         except Exception:
             pass

@@ -59,7 +59,7 @@ def _clips(url):
 
     match = _LEAGUE_ID.search(html)
     if not match:
-        kodi.log("sport1: no league id on %s" % url)
+        kodi.log("sport1: no league id returned by %s" % page._host(url))
         return []
 
     response = http.get(LEAGUE_FEED % (match.group(1), MAX_ITEMS),
@@ -132,7 +132,7 @@ def stream(ref, mode=""):
 
     match = _WALLA_ID.search(html)
     if not match:
-        kodi.log("sport1: no Walla player embedded in %s" % url)
+        kodi.log("sport1: no Walla player embedded at %s" % page._host(url))
         return "", False
 
     payload = http.get_json(WALLA_MEDIA % match.group(1),

@@ -12,6 +12,7 @@ interface. The worker only ever asks the caller's `poll` function what has
 happened and writes the answer into window properties; closing the window is
 done from `onAction` or by the worker setting a flag the window checks.
 """
+import os
 import threading
 
 import xbmcgui
@@ -118,11 +119,16 @@ def open_auth(title, url, code="", message="", poll=None, interval=5):
         if not window.image:
             # No code is not a failure. The link and the code are still on
             # screen and still work; that is the whole reason they are there.
-            kodi.log("no QR code for %s, showing the link alone" % url)
+            kodi.log("no QR code available, showing the verification link alone")
     try:
         window.prepare()
         kodi.clear_busy_dialogs()
         window.doModal()
     finally:
         window.stop.set()
+        if window.image:
+            try:
+                os.remove(window.image)
+            except OSError:
+                pass
         del window

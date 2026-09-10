@@ -201,10 +201,10 @@ def candidates(languages=None):
     return found
 
 
-def select(index):
-    """Switch the player to an embedded track. Returns True on success."""
+def select(index, player=None):
+    """Switch the supplied/current player to an embedded track."""
     try:
-        player = xbmc.Player()
+        player = player or xbmc.Player()
         player.setSubtitleStream(int(index))
         player.showSubtitles(True)
     except Exception:

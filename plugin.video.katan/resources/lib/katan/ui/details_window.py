@@ -318,7 +318,7 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.played = True
         self._cleanup()
         self.close()
-        kodi.play_media(url)
+        kodi.play_media(url, entry)
 
     def _add_to_watchlist(self):
         ids = self.item.get("ids") or {}

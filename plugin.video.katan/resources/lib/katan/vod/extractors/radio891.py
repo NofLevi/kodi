@@ -43,7 +43,7 @@ def episodes(ref, mode=""):
 
     blocks = _DAY_BLOCK.search(html)
     if not blocks:
-        kodi.log("891fm: no broadcast days on %s" % url)
+        kodi.log("891fm: no broadcast days returned by %s" % page._host(url))
         return []
 
     found = []
@@ -90,18 +90,18 @@ def stream(ref, mode=""):
 
     match = _DATA.search(html)
     if not match:
-        kodi.log("891fm: no schedule block on %s" % url)
+        kodi.log("891fm: no schedule block returned by %s" % page._host(url))
         return "", False
 
     try:
         schedule = json.loads("{" + match.group(1) + "}")
     except ValueError:
-        kodi.log("891fm: the schedule block on %s was not JSON" % url)
+        kodi.log("891fm: the schedule block was not JSON")
         return "", False
 
     entry = schedule.get(hour)
     if not isinstance(entry, dict):
-        kodi.log("891fm: %s is not in the schedule for %s" % (hour or "?", url))
+        kodi.log("891fm: requested hour is not in the schedule")
         return "", False
 
     found = entry.get("stream") or ""

@@ -24,6 +24,8 @@ def search(meta):
 
     sources = []
     for entry in payload:
+        if not isinstance(entry, dict):
+            continue
         title = entry.get("raw_title") or entry.get("title") or ""
         info_hash = entry.get("info_hash") or entry.get("infoHash") or ""
         if not title or not info_hash:
@@ -32,10 +34,12 @@ def search(meta):
             parsed = release.parse(title)
             if not release.matches_episode(parsed, season, episode):
                 continue
+        try:
+            size = int(entry.get("size") or 0)
+        except (TypeError, ValueError, OverflowError):
+            continue
         sources.append(model.from_release_name(
-            title, provider=NAME,
-            size=int(entry.get("size") or 0),
-            info_hash=info_hash))
+            title, provider=NAME, size=size, info_hash=info_hash))
     return sources
 
 

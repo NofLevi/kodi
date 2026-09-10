@@ -9,6 +9,8 @@ Hebrew subtitle from a bad one by looking at it. The other is a film that has
 no Hebrew and no English subtitle at all, where the honest answer is not
 "none found" but "there is a Spanish one, and it can be translated".
 """
+import os
+
 import pytest
 
 from katan.subs import auto, service, srt
@@ -51,18 +53,20 @@ def fake_world(monkeypatch, settings_module):
     })
 
     state = {"candidates": [], "downloads": {}, "asked_for": [],
-             "translated": []}
+             "translated": [], "downloaded": []}
 
-    def fake_search(meta, languages, video_hash=""):
+    def fake_search(meta, languages, video_hash="", **kwargs):
         state["asked_for"].append(list(languages))
         return list(state["candidates"])
 
     def fake_download(cand, expect_language=None):
+        state["downloaded"].append(cand.get("download"))
         data = state["downloads"].get(cand.get("download"), b"")
         cues = srt.parse(srt.decode(data)) if data else []
         return srt.clean(cues) if cues else []
 
-    def fake_translate(cues, target_language="he", on_progress=None, meta=None):
+    def fake_translate(cues, target_language="he", on_progress=None, meta=None,
+                       **kwargs):
         state["translated"].append((target_language, len(cues)))
         return [srt.Cue(c.index, c.start, c.end, "translated %d" % c.index)
                 for c in cues]
@@ -163,6 +167,48 @@ def test_a_dead_download_falls_through_to_the_next_language(fake_world):
 
     assert path, "a dead English link ended the attempt"
     assert fake_world["translated"] == [("he", 12)]
+
+
+def test_a_dead_best_candidate_tries_the_next_one_in_the_same_language(fake_world):
+    dead = "Shawshank.1994.1080p.BluRay.x264-AMIABLE"
+    live = "Shawshank.1994.1080p.BluRay.x264-OTHER"
+    spanish = "unrelated.spanish.release"
+    fake_world["candidates"] = [candidate(dead, "en"), candidate(live, "en"),
+                                candidate(spanish, "es")]
+    fake_world["downloads"][live] = srt_bytes()
+    fake_world["downloads"][spanish] = srt_bytes()
+
+    path = auto.translate_now(MOVIE, "he", video_hash="")
+    assert path
+    assert fake_world["downloaded"][:2] == [dead, live]
+
+
+def test_translation_failure_does_not_reset_budget_on_another_source(
+        fake_world, monkeypatch):
+    from katan.subs.ai import translator
+
+    first = "Shawshank.1994.1080p.BluRay.x264-AMIABLE"
+    second = "Shawshank.1994.1080p.BluRay.x264-OTHER"
+    fake_world["candidates"] = [candidate(first, "en"), candidate(second, "en")]
+    fake_world["downloads"][first] = srt_bytes()
+    fake_world["downloads"][second] = srt_bytes()
+    monkeypatch.setattr(
+        translator, "translate",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            translator.TranslationBudgetExceeded("budget")))
+
+    assert auto.translate_now(MOVIE, "he", video_hash="") == ""
+    assert fake_world["downloaded"] == [first]
+
+
+def test_translation_source_downloads_never_exceed_operation_budget(fake_world):
+    names = ["dead-%d" % index for index in range(5)]
+    fake_world["candidates"] = [
+        candidate(name, "en", score=100 - index)
+        for index, name in enumerate(names)]
+
+    assert auto.translate_now(MOVIE, "he", video_hash="") == ""
+    assert fake_world["downloaded"] == names[:3]
 
 
 def test_no_engine_means_no_promise(fake_world, monkeypatch):
@@ -291,9 +337,26 @@ def test_the_request_falls_back_to_the_configured_language(fake_world,
     assert kodi.get_property(service.AI_REQUEST) == "he"
 
 
+def test_openai_selection_never_launches_the_gemini_wizard(
+        fake_world, monkeypatch, settings_module):
+    from katan import settings
+    from katan.subs.ai import translator
+    from katan.ui import wizard
+
+    settings_module.set("subs.ai.engine", "openai")
+    monkeypatch.setattr(translator, "available", lambda: False)
+    monkeypatch.setattr(
+        wizard, "step_ai",
+        lambda: pytest.fail("OpenAI setup must not ask for a Gemini key"))
+    opened = []
+    monkeypatch.setattr(settings, "open_settings", lambda: opened.append(True))
+
+    assert service._engine_ready() is False
+    assert opened == [True]
+
+
 def test_the_service_takes_a_request_once_and_only_once(fake_world):
     """Taking rather than reading is what stops one press starting two."""
-    from katan import kodi
     service._translate_with_ai("he")
 
     assert service.take_request() == "he"
@@ -341,3 +404,61 @@ def test_the_service_translates_what_the_dialog_asked_for(fake_world,
 
     assert path
     assert fake_world["translated"] == [("he", 12)]
+
+
+def test_the_final_translation_replaces_temporary_partial_paths(
+        fake_world, monkeypatch):
+    import xbmc
+
+    name = "Shawshank.1994.1080p.BluRay.x264-AMIABLE"
+    fake_world["candidates"] = [candidate(name, "en")]
+    fake_world["downloads"][name] = srt_bytes()
+    monkeypatch.setattr(service, "_current_meta", lambda: dict(MOVIE))
+    monkeypatch.setattr(auto, "video_hash_for", lambda meta: "")
+    shown = []
+
+    class Player(object):
+        def setSubtitles(self, path):
+            shown.append(path)
+
+        def showSubtitles(self, visible):
+            pass
+
+    monkeypatch.setattr(xbmc, "Player", Player)
+    path = service.run_translation("he")
+    assert path and os.path.isfile(path)
+    assert shown[-1] == path
+
+
+def test_finished_translation_cannot_attach_to_a_new_playback(
+        fake_world, monkeypatch):
+    import xbmc
+    from katan.subs.ai import translator
+
+    old = dict(MOVIE, stream_url="https://cdn/old")
+    new = dict(MOVIE, stream_url="https://cdn/new")
+    state = {"meta": old}
+    monkeypatch.setattr(service, "_current_meta", lambda: state["meta"])
+    monkeypatch.setattr(translator, "available", lambda: True)
+    shown = []
+    calls = []
+
+    class Player(object):
+        def setSubtitles(self, path):
+            shown.append(path)
+
+        def showSubtitles(self, visible):
+            pass
+
+    def translate(meta, target, player=None, **kwargs):
+        calls.append(kwargs)
+        state["meta"] = new
+        if kwargs.get("cancelled"):
+            assert kwargs["cancelled"]()
+        return "/tmp/old-film.srt"
+
+    monkeypatch.setattr(xbmc, "Player", Player)
+    monkeypatch.setattr(auto, "translate_now", translate)
+    assert service.run_translation("he") == ""
+    assert calls and calls[0].get("cancelled")
+    assert shown == []

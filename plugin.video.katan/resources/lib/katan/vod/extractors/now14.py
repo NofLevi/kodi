@@ -58,7 +58,7 @@ def _series(url, refresh=False):
 
     payload = http.get_json(url, headers=HEADERS, timeout=(6, 20), default=None)
     if not isinstance(payload, dict):
-        kodi.log("now14: %s did not answer with a series" % url.rsplit("/", 1)[-1])
+        kodi.log("now14: %s did not answer with a series" % http._host(url))
         return []
 
     reduced = _reduce(payload)

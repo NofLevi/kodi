@@ -327,7 +327,6 @@ def test_a_catalogue_entry_with_a_null_poster_still_lists(tmp_path,
 def test_updating_the_bundled_data_invalidates_the_cache(tmp_path, monkeypatch):
     """A data fix that only takes effect tomorrow is not a fix."""
     import json
-    import os
     import time
 
     seed = tmp_path / "channels.json"

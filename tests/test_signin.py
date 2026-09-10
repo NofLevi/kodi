@@ -615,7 +615,6 @@ def test_trakt_offers_its_own_application_rather_than_a_key(monkeypatch):
 
 def test_paste_is_not_offered_to_a_client_that_cannot_take_one(monkeypatch):
     """The paste path ends at authorize_with_key. Without it, it is a crash."""
-    from katan.ui import signin
 
     class Bare(object):
         label = "Bare"

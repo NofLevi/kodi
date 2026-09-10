@@ -72,19 +72,19 @@ def _fetch_json(url, referer):
 
     response = http.get(url, headers={"Referer": referer}, timeout=(6, 25))
     if response is None or response.status_code >= 400:
-        kodi.log("sport5: %s did not answer" % url.rsplit("/", 1)[-1])
+        kodi.log("sport5: %s did not answer" % http._host(url))
         return None
 
     try:
         text = response.content.decode("utf-8-sig", "replace")
     except Exception:
-        kodi.log("sport5: could not decode %s" % url.rsplit("/", 1)[-1])
+        kodi.log("sport5: could not decode response from %s" % http._host(url))
         return None
 
     try:
         return json.loads(text)
     except ValueError:
-        kodi.log("sport5: %s was not JSON" % url.rsplit("/", 1)[-1])
+        kodi.log("sport5: response from %s was not JSON" % http._host(url))
         return None
 
 

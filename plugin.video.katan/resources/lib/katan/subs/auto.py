@@ -58,31 +58,50 @@ def search_timing_evidence(meta, languages, video_hash=""):
 
 
 
-def on_playback_started(player, meta):
+def on_playback_started(player, meta, cancelled=None):
     """Entry point called by the player monitor."""
-    if not settings.get_bool("subs.auto"):
+    from .ai import coordinator
+
+    external_cancelled = cancelled or (lambda: False)
+    if external_cancelled() or not settings.get_bool("subs.auto"):
         return
     languages = settings.subtitle_languages()
     if not languages:
         return
+
+    generation = coordinator.begin()
+
+    def is_cancelled():
+        return (external_cancelled()
+                or not coordinator.current(generation))
+
     wanted = languages[0]
 
-    if settings.get_bool("subs.embedded_first") and use_embedded(player, wanted):
-        kodi.notify(kodi.localize(32350))
-        return
+    if settings.get_bool("subs.embedded_first"):
+        committed, selected = coordinator.commit(
+            generation, lambda: use_embedded(player, wanted, is_cancelled))
+        if committed and selected:
+            kodi.notify(kodi.localize(32350))
+            return
 
     path = cached_subtitle(meta, wanted)
     if path:
-        apply_subtitle(player, path)
+        coordinator.commit(generation, lambda: apply_subtitle(player, path))
         return
 
     kodi.log("looking for %s subtitles" % wanted)
-    path, report = find_and_prepare(meta, languages, player)
-    if not path:
+    path, report = find_and_prepare(meta, languages, player,
+                                    cancelled=is_cancelled,
+                                    translation_generation=generation)
+    if is_cancelled() or not path:
         kodi.log("no usable subtitle was found: %s" % report.get("reason"))
         return
 
-    apply_subtitle(player, path)
+    if not report.get("applied"):
+        committed, _result = coordinator.commit(
+            generation, lambda: apply_subtitle(player, path))
+        if not committed:
+            return
     if report.get("translated"):
         kodi.notify(kodi.localize(32334, kodi.localize(32494)))
     elif report.get("synchronised"):
@@ -98,16 +117,15 @@ def on_playback_started(player, meta):
 # --------------------------------------------------------------------------
 
 
-def use_embedded(player, language):
-    """Select an embedded track in the wanted language, when there is one.
-
-    A forced or signs-only track is skipped: it captions on-screen text rather
-    than translating the dialogue, so choosing it looks like broken subtitles.
-    """
+def use_embedded(player, language, cancelled=None):
+    """Select a full embedded track only while this playback remains current."""
+    cancelled = cancelled or (lambda: False)
     for candidate in embedded.candidates([language]):
         if candidate.get("partial"):
             continue
-        if embedded.select(candidate["stream_index"]):
+        if cancelled():
+            return False
+        if embedded.select(candidate["stream_index"], player):
             return True
     return False
 
@@ -150,7 +168,7 @@ def _providers():
             if name in enabled and name in modules]
 
 
-def search_candidates(meta, languages, video_hash=""):
+def search_candidates(meta, languages, video_hash="", split_languages=False):
     """Ask every enabled provider at once, under a bounded worker pool.
 
     `video_hash` may be a string or a callable that will produce one, which is
@@ -161,37 +179,48 @@ def search_candidates(meta, languages, video_hash=""):
         return []
     target = matcher.target_from(meta)
 
-    def make(name, module):
+    def make(name, module, asked_languages=None):
+        asked_languages = asked_languages or languages
+
         def call():
             # Resolved inside the task, so the nine providers that never look
             # at a hash are already asking while it is still being computed.
             if name == "opensubtitles":
-                return module.search(meta, target, languages,
-                                     _hash_value(video_hash))
+                return module.search(meta, target, asked_languages,
+                                     _hash_value(video_hash),
+                                     meta.get("stream_size") or 0)
             if name == "opensubtitles_rest":
                 # It can answer a hash query too, and that is where the only
                 # score-100 evidence comes from.
                 found_hash = _hash_value(video_hash)
-                return module.search(meta, target, languages, found_hash,
+                return module.search(meta, target, asked_languages, found_hash,
                                      meta.get("stream_size") or 0)
             if name == "bsplayer":
                 # Hash *and* size: the service answers HTTP 500 to an empty
                 # hash rather than returning nothing, so the provider checks
                 # both and asks nothing when it has neither.
                 found_hash = _hash_value(video_hash)
-                return module.search(meta, target, languages, found_hash,
+                return module.search(meta, target, asked_languages, found_hash,
                                      meta.get("stream_size") or 0)
-            return module.search(meta, target, languages)
+            return module.search(meta, target, asked_languages)
         return call
 
-    found = http.run_parallel(
-        [(name, make(name, module)) for name, module in providers],
-        workers=3, deadline=10.0)
+    tasks = []
+    for name, module in providers:
+        if split_languages and name == "opensubtitles_rest":
+            tasks.extend(("%s:%s" % (name, language),
+                          make(name, module, [language]))
+                         for language in languages)
+        else:
+            tasks.append((name, make(name, module)))
+    found = http.run_parallel(tasks, workers=3, deadline=10.0)
 
     candidates = []
     seen = set()
     for entries in found.values():
         for candidate in entries or []:
+            if not isinstance(candidate, dict):
+                continue
             # One subtitle can arrive twice: asking by hash and asking by
             # title are different questions with overlapping answers, and two
             # providers can serve the same file. A duplicate costs more than
@@ -199,7 +228,7 @@ def search_candidates(meta, languages, video_hash=""):
             # source when the picker opens, so one extra candidate is one
             # extra comparison per source, and this add-on exists to run on a
             # projector with a gigabyte of RAM.
-            key = candidate.get("download") or ""
+            key = matcher.candidate_key(candidate)
             if key and key in seen:
                 continue
             if key:
@@ -208,13 +237,20 @@ def search_candidates(meta, languages, video_hash=""):
     return candidates
 
 
-def find_and_prepare(meta, languages, player=None):
+def find_and_prepare(meta, languages, player=None, cancelled=None,
+                     translation_generation=None):
     """Find, download, verify and store one subtitle. Returns (path, report)."""
+    from . import consensus
+
+    is_cancelled = cancelled or (lambda: False)
     report = {"translated": False, "synchronised": False, "reason": ""}
+    downloads = _DownloadBudget(consensus.budget())
     wanted = languages[0]
 
     get_hash = video_hash_later(meta)
     candidates = search_candidates(meta, languages, get_hash)
+    if is_cancelled():
+        return "", dict(report, reason="playback changed")
     # By here every provider that wanted it has already waited, so this is a
     # value rather than a wait.
     video_hash = get_hash()
@@ -225,7 +261,8 @@ def find_and_prepare(meta, languages, player=None):
         # outside the mainstream is the difference between watching it and
         # not.
         return _last_resort(meta, languages, report, player, video_hash,
-                            "no candidates")
+                            "no candidates", cancelled, downloads,
+                            generation=translation_generation)
 
     target = matcher.target_from(meta)
     threshold = settings.get_int("subs.threshold", 70)
@@ -234,16 +271,16 @@ def find_and_prepare(meta, languages, player=None):
 
     winner = winners.get(wanted)
     if winner and winner.get("accepted"):
-        from . import consensus
         has_hash_reference = any(
             winners.get(language, {}).get("reason") == "hash"
             for language in languages[1:])
         if consensus.wanted(int(winner.get("score") or 0),
                             has_hash_reference):
             evidence = search_timing_evidence(meta, languages, video_hash)
-            seen = {candidate.get("download") for candidate in candidates}
-            candidates.extend(candidate for candidate in evidence
-                              if candidate.get("download") not in seen)
+            seen = {matcher.candidate_key(candidate) for candidate in candidates}
+            candidates.extend(
+                candidate for candidate in evidence
+                if matcher.candidate_key(candidate) not in seen)
             winners, _ranked = matcher.best(candidates, target, threshold,
                                             video_hash, languages)
             winner = winners.get(wanted)
@@ -253,30 +290,44 @@ def find_and_prepare(meta, languages, player=None):
                     (winner.get("release") or "")[:60]))
     if winner and winner.get("accepted"):
         winner, cues, report = _best_supported(
-            winner, _ranked, wanted, languages, winners, report)
+            winner, _ranked, wanted, languages, winners, report, threshold,
+            downloads)
         if cues:
-            cues, report = verify_and_sync(cues, winners, languages, report)
-            report["reason"] = report.get("reason") or winner.get("reason", "")
-            return store(meta, wanted, cues), report
+            cues, report = verify_and_sync(cues, winners, languages, report,
+                                           downloads)
+            if not cues and report.get("hash_mismatch"):
+                winner, cues, report = _verified_fallback(
+                    _ranked, winner, wanted, winners, languages, report,
+                    downloads, threshold)
+            if cues:
+                report["reason"] = (report.get("reason")
+                                    or (winner or {}).get("reason", ""))
+                return store(meta, wanted, cues), report
 
-    path, report = translate_fallback(meta, winners, languages, report, player)
+    path, report = translate_fallback(
+        meta, winners, languages, report, player, cancelled=cancelled,
+        generation=translation_generation, downloads=downloads)
     if path:
         return path, report
 
     # Last resort: the best available match, even below the threshold, because
     # an imperfect subtitle beats none and the viewer can still switch it off.
     if winner:
-        cues = download_candidate(winner, expect_language=wanted)
+        chosen, cues = _first_usable(_ranked, wanted, downloads)
         if cues:
-            cues, report = verify_and_sync(cues, winners, languages, report)
-            report["reason"] = "below threshold, used anyway"
-            return store(meta, wanted, cues), report
+            cues, report = verify_and_sync(cues, winners, languages, report,
+                                           downloads)
+            if cues:
+                report["reason"] = "below threshold, used anyway"
+                return store(meta, wanted, cues), report
 
     return _last_resort(meta, languages, report, player, video_hash,
-                        "nothing usable")
+                        "nothing usable", cancelled, downloads,
+                        generation=translation_generation)
 
 
-def _last_resort(meta, languages, report, player, video_hash, reason):
+def _last_resort(meta, languages, report, player, video_hash, reason,
+                 cancelled=None, downloads=None, generation=None):
     """Translate out of any language at all, having found nothing to show.
 
     Separate from `translate_fallback` because the two answer different
@@ -284,7 +335,9 @@ def _last_resort(meta, languages, report, player, video_hash, reason):
     Hebrew match", and quite reasonably wants a source that matches well. This
     one is asked when there is no route at all, so it takes what it can get.
     """
-    path = translate_now(meta, languages[0], player, video_hash=video_hash)
+    path = translate_now(meta, languages[0], player, video_hash=video_hash,
+                         cancelled=cancelled, generation=generation,
+                         downloads=downloads)
     if path:
         report["translated"] = True
         report["reason"] = "translated, nothing was available to download"
@@ -392,13 +445,14 @@ def download_candidate(candidate, expect_language=None):
         return []
     if not data:
         return []
-    cues = srt.parse(srt.decode(data))
+    cues = srt.parse(srt.decode(data, expect_language))
     if not cues:
         return []
     cues = srt.clean(cues)
-    if expect_language == "he" and cues and not srt.looks_hebrew(cues):
-        kodi.log("%s offered a Hebrew subtitle that is not in Hebrew (%s)"
-                 % (candidate.get("provider"), candidate.get("release", "")[:60]))
+    if expect_language and cues and not srt.script_matches(cues, expect_language):
+        kodi.log("%s offered a %s subtitle in a different script (%s)"
+                 % (candidate.get("provider"), expect_language,
+                    candidate.get("release", "")[:60]))
         return []
     return cues
 
@@ -408,7 +462,49 @@ def download_candidate(candidate, expect_language=None):
 # --------------------------------------------------------------------------
 
 
-def _best_supported(winner, candidates, wanted, languages, winners, report):
+class _DownloadBudget(object):
+    """One operation-wide, cached limit for all subtitle downloads."""
+
+    def __init__(self, limit):
+        self.limit = max(0, int(limit))
+        self.used = 0
+        self.cache = {}
+
+    def _key(self, candidate, expect_language=None):
+        return matcher.candidate_key(candidate, expect_language)
+
+    def fetch(self, candidate, expect_language=None):
+        key = self._key(candidate, expect_language)
+        if key in self.cache:
+            return self.cache[key]
+        if self.used >= self.limit:
+            return []
+        self.used += 1
+        cues = download_candidate(candidate, expect_language=expect_language)
+        self.cache[key] = cues
+        return cues
+
+    def remaining(self):
+        return max(0, self.limit - self.used)
+
+
+def _first_usable(candidates, wanted, downloads, minimum_score=0):
+    """Try target candidates in rank order under one shared download budget."""
+    for candidate in candidates:
+        if candidate.get("language") != wanted:
+            continue
+        if candidate.get("score", 0) < minimum_score:
+            continue
+        cues = downloads.fetch(candidate, expect_language=wanted)
+        if cues:
+            return candidate, cues
+        if downloads.remaining() <= 0:
+            break
+    return None, []
+
+
+def _best_supported(winner, candidates, wanted, languages, winners, report,
+                    threshold, downloads):
     """The chosen subtitle, checked against its rivals when nothing else can.
 
     A hash match settles this and is available 9% of the time. The other 91%
@@ -423,19 +519,33 @@ def _best_supported(winner, candidates, wanted, languages, winners, report):
     """
     from . import consensus
 
-    has_reference = bool(reference_cues(winners, languages))
+    has_reference = any(
+        winners.get(language, {}).get("reason") == "hash"
+        for language in languages[1:])
     if not consensus.wanted(int(winner.get("score") or 0), has_reference):
-        return winner, download_candidate(winner, expect_language=wanted), report
+        chosen, cues = _first_usable(candidates, wanted, downloads, threshold)
+        if chosen is not None and chosen is not winner:
+            report["reason"] = "top candidate unusable, used next"
+        return chosen or winner, cues, report
 
     picks = consensus.verification_candidates(candidates, wanted,
-                                               consensus.budget())
+                                               downloads.remaining())
     if len(picks) < 2:
-        return winner, download_candidate(winner, expect_language=wanted), report
+        chosen, cues = _first_usable(candidates, wanted, downloads, threshold)
+        if chosen is not None and chosen is not winner:
+            report["reason"] = "top candidate unusable, used next"
+        return chosen or winner, cues, report
 
     fetched = []
     for candidate in picks:
         expected = wanted if candidate.get("language") == wanted else None
-        cues = download_candidate(candidate, expect_language=expected)
+        cues = downloads.fetch(candidate, expect_language=expected)
+        if expected and not cues:
+            replacement, cues = _first_usable(
+                candidates, wanted, downloads, threshold)
+            if cues:
+                fetched.append((replacement, cues))
+            continue
         if cues:
             fetched.append((candidate, cues))
     if not fetched:
@@ -456,6 +566,11 @@ def _best_supported(winner, candidates, wanted, languages, winners, report):
             report["confidence"] = timing["confidence"]
             report["synchronised"] = timing["applied"]
             return target[0], fitted, report
+    if target is None:
+        chosen, cues = _first_usable(candidates, wanted, downloads, threshold)
+        if cues:
+            report["reason"] = "top candidate unusable, used next"
+            return chosen, cues, report
 
     same_language = [(candidate, cues) for candidate, cues in fetched
                      if candidate.get("language") == wanted]
@@ -469,7 +584,7 @@ def _best_supported(winner, candidates, wanted, languages, winners, report):
     return chosen, cues, report
 
 
-def verify_and_sync(cues, winners, languages, report):
+def verify_and_sync(cues, winners, languages, report, downloads):
     """Check the chosen subtitle against a trusted reference, and re-time it.
 
     The reference is a hash-matched subtitle in another language. Its timings
@@ -477,7 +592,7 @@ def verify_and_sync(cues, winners, languages, report):
     chosen subtitle belongs to this episode at all: an unrelated file scores
     near zero however it is shifted, and is then rejected rather than shown.
     """
-    reference = reference_cues(winners, languages)
+    reference = reference_cues(winners, languages, downloads)
     if not reference:
         return cues, report
 
@@ -487,24 +602,55 @@ def verify_and_sync(cues, winners, languages, report):
         report["synchronised"] = True
         kodi.log("subtitle re-timed by %.2fs, scale %.5f, confidence %.2f"
                  % (result["offset"], result["scale"], result["confidence"]))
+    elif result["confidence"] < sync.MIN_CONFIDENCE:
+        report["hash_mismatch"] = True
+        report["reason"] = "hash reference disproved subtitle"
+        kodi.log("subtitle rejected against exact-file hash reference: %.2f"
+                 % result["confidence"])
+        return [], report
     else:
         kodi.log("subtitle timing left alone: %s" % result["reason"])
     return fitted, report
 
 
-def reference_cues(winners, languages):
+def _verified_fallback(candidates, rejected, wanted, winners, languages,
+                       report, downloads, minimum_score):
+    """Try another target after exact-file evidence disproves the first."""
+    rejected_key = downloads._key(rejected, wanted)
+    for candidate in candidates:
+        if (candidate.get("language") != wanted
+                or candidate.get("score", 0) < minimum_score
+                or downloads._key(candidate, wanted) == rejected_key):
+            continue
+        cues = downloads.fetch(candidate, expect_language=wanted)
+        if not cues:
+            if downloads.remaining() <= 0:
+                break
+            continue
+        cues, report = verify_and_sync(cues, winners, languages, report,
+                                       downloads)
+        if cues:
+            report["reason"] = "hash reference rejected higher-ranked candidate"
+            return candidate, cues, report
+        if downloads.remaining() <= 0:
+            break
+    return None, [], report
+
+
+def reference_cues(winners, languages, downloads):
     """A subtitle whose timings we know are correct for this file."""
     for language in languages[1:]:
         candidate = winners.get(language)
         if candidate and candidate.get("reason") == "hash":
-            cues = download_candidate(candidate)
+            cues = downloads.fetch(candidate)
             if cues:
                 kodi.log("using the %s hash match as a timing reference" % language)
                 return cues
     return []
 
 
-def translate_fallback(meta, winners, languages, report, player=None):
+def translate_fallback(meta, winners, languages, report, player=None,
+                       cancelled=None, generation=None, downloads=None):
     """Translate the best other-language match into the wanted language.
 
     Timings come from the source subtitle and are never touched, so a
@@ -516,11 +662,23 @@ def translate_fallback(meta, winners, languages, report, player=None):
     beat a slightly better-matching English one.
     """
     from .ai import context as translation_context
-    from .ai import translator
+    from .ai import coordinator, translator
+    from . import consensus
 
+    if downloads is None:
+        downloads = _DownloadBudget(consensus.budget())
     if not translator.available():
         return "", report
 
+    if generation is None:
+        generation = coordinator.begin()
+
+    def stopped():
+        return ((cancelled is not None and cancelled())
+                or not coordinator.current(generation))
+
+    if stopped():
+        return "", report
     ranked = translation_context.rank_translation_sources(winners, languages)
     source = next(((lang, cand) for lang, cand in ranked
                    if (cand.get("score") or 0) >= 40), None)
@@ -528,17 +686,32 @@ def translate_fallback(meta, winners, languages, report, player=None):
         return "", report
 
     language, candidate = source
-    cues = download_candidate(candidate)
+    if stopped():
+        return "", report
+    cues = downloads.fetch(candidate)
     if not cues:
         return "", report
 
-    translated = _translate_progressively(cues, meta, languages[0], player)
-    if not translated:
+    translated = _translate_progressively(cues, meta, languages[0], player,
+                                          cancelled=stopped,
+                                          generation=generation)
+    if stopped() or not translated:
         return "", report
 
+    def apply_final():
+        path = store(meta, languages[0], translated)
+        if path and player is not None:
+            player.setSubtitles(path)
+            player.showSubtitles(True)
+        return path
+
+    committed, path = coordinator.commit(generation, apply_final)
+    if not committed or not path:
+        return "", report
     report["translated"] = True
     report["source_language"] = language
-    return store(meta, languages[0], translated), report
+    report["applied"] = player is not None
+    return path, report
 
 
 def wide_languages(target):
@@ -568,16 +741,17 @@ def translation_sources(meta, target, video_hash="", candidates=None):
 
     languages = wide_languages(target)
     if candidates is None:
-        candidates = search_candidates(meta, languages, video_hash)
+        candidates = search_candidates(meta, languages, video_hash,
+                                       split_languages=True)
     if not candidates:
         return []
-    winners, _ranked = matcher.best(candidates, matcher.target_from(meta),
-                                    settings.get_int("subs.threshold", 70),
-                                    video_hash, languages)
-    return translation_context.rank_translation_sources(winners, [target])
+    ranked = matcher.rank(candidates, matcher.target_from(meta), video_hash,
+                          languages)
+    return translation_context.rank_translation_candidates(ranked, target)
 
 
-def translate_now(meta, target, player=None, candidates=None, video_hash=None):
+def translate_now(meta, target, player=None, candidates=None, video_hash=None,
+                  cancelled=None, generation=None, downloads=None):
     """Translate the best subtitle we can find into `target`, and return its path.
 
     This is the viewer saying "what I have is not good enough" - or that there
@@ -595,34 +769,63 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None):
     exists for - the obscure title where the one English subtitle listed is a
     dead link.
     """
-    from .ai import translator
+    from .ai import coordinator, translator
+    from . import consensus
 
+    if downloads is None:
+        downloads = _DownloadBudget(consensus.budget())
     if not translator.available():
         kodi.log("AI translation was asked for but no engine is configured")
         return ""
 
+    if generation is None:
+        generation = coordinator.begin()
+
+    def stopped():
+        return ((cancelled is not None and cancelled())
+                or not coordinator.current(generation))
+
+    if stopped():
+        return ""
     if video_hash is None:
         video_hash = video_hash_for(meta)
     sources = translation_sources(meta, target, video_hash, candidates)
-    if not sources:
+    if stopped() or not sources:
         kodi.log("found nothing at all to translate into %s" % target)
         return ""
 
     for language, candidate in sources:
-        cues = download_candidate(candidate)
+        if stopped():
+            return ""
+        cues = downloads.fetch(candidate)
         if not cues:
             continue
         kodi.log("translating the %s subtitle %r into %s"
                  % (language, (candidate.get("release") or "")[:60], target))
         translated = _translate_progressively(cues, meta, target, player,
-                                              variant=VARIANT_AI)
+                                              variant=VARIANT_AI,
+                                              cancelled=stopped,
+                                              generation=generation)
         if translated:
-            return store(meta, target, translated, variant=VARIANT_AI)
+            def apply_final():
+                path = store(meta, target, translated, variant=VARIANT_AI)
+                if path and player is not None:
+                    player.setSubtitles(path)
+                    player.showSubtitles(True)
+                return path
+
+            committed, path = coordinator.commit(generation, apply_final)
+            return path if committed else ""
+        # A source that downloaded successfully has already consumed the one
+        # operation-wide model budget. Only dead downloads fall through; a
+        # model failure must not reset the budget on another candidate.
+        return ""
     kodi.log("every translation source failed to download")
     return ""
 
 
-def _translate_progressively(cues, meta, language, player, variant=""):
+def _translate_progressively(cues, meta, language, player, variant="",
+                             cancelled=None, generation=None):
     """Translate, showing each finished chunk as it arrives.
 
     A feature-length film is several minutes of translation. Waiting for all of
@@ -635,44 +838,74 @@ def _translate_progressively(cues, meta, language, player, variant=""):
     """
     import xbmcgui
 
-    from .ai import translator
+    from .ai import coordinator, translator
+
+    generation = generation if generation is not None else coordinator.begin()
+
+    def stopped():
+        return ((cancelled is not None and cancelled())
+                or not coordinator.current(generation))
 
     progress = xbmcgui.DialogProgressBG()
     progress.create("Katan", kodi.localize(32335))
-    slots = _partial_slots(meta, language, variant)
+    slots = _partial_slots(meta, language, variant, generation)
     state = {"slot": 0, "shown": 0}
 
     def on_progress(done, total, partial=None):
+        if stopped():
+            return
         progress.update(int(done * 100 / max(1, total)),
                         message=kodi.localize(32335))
         if player is None or partial is None or done <= state["shown"]:
             return
         path = slots[state["slot"] % len(slots)]
-        try:
+
+        def apply_partial():
+            if cancelled is not None and cancelled():
+                return False
             srt.write(path, partial)
+            if cancelled is not None and cancelled():
+                return False
             player.setSubtitles(path)
             player.showSubtitles(True)
             state["slot"] += 1
             state["shown"] = done
+            return True
+
+        try:
+            coordinator.commit(generation, apply_partial)
         except Exception:
             kodi.log_exception("could not show a partial translation")
 
     try:
-        return translator.translate(cues, language, on_progress=on_progress,
-                                    meta=meta)
+        kwargs = {"on_progress": on_progress, "meta": meta,
+                  "cancelled": stopped}
+        return translator.translate(cues, language, **kwargs)
     except translator.TranslationError:
         kodi.log_exception("AI translation failed")
+        if player is not None and state["shown"]:
+            def hide_rejected():
+                if cancelled is not None and cancelled():
+                    return False
+                player.showSubtitles(False)
+                return True
+
+            try:
+                coordinator.commit(generation, hide_rejected)
+            except Exception:
+                kodi.log_exception("could not hide rejected partial translation")
         return []
     finally:
         progress.close()
         _clean_partials(slots)
 
 
-def _partial_slots(meta, language, variant=""):
-    """Two file names to alternate between while translating."""
+def _partial_slots(meta, language, variant="", generation=0):
+    """Two job-specific names to alternate between while translating."""
     base = name_for(meta, language, variant)[:-4]
     directory = subtitle_dir()
-    return [os.path.join(directory, "%s.part%s.srt" % (base, suffix))
+    return [os.path.join(directory, "%s.job%d.part%s.srt"
+                         % (base, generation, suffix))
             for suffix in ("a", "b")]
 
 
@@ -718,6 +951,18 @@ def _filename_key(key):
     return "t" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
 
 
+def _release_fingerprint(meta):
+    """Stable selected-file identity; never includes a temporary stream URL."""
+    source = (meta or {}).get("source") or {}
+    name = source.get("file_name") or source.get("release") or ""
+    size = source.get("file_size") or ""
+    media_hash = source.get("video_hash") or source.get("torrent_hash") or ""
+    identity = "%s|%s|%s" % (media_hash, name, size)
+    if identity == "||":
+        return ""
+    return hashlib.sha1(identity.encode("utf-8")).hexdigest()[:10]
+
+
 def name_for(meta, language, variant=""):
     """The name a prepared subtitle is stored under.
 
@@ -731,7 +976,9 @@ def name_for(meta, language, variant=""):
     key = str(ids.get("imdb") or ids.get("tmdb") or (meta.get("title") or "x"))
     key = _filename_key(key)
 
-    mark = ".%s" % variant if variant else ""
+    fingerprint = _release_fingerprint(meta)
+    release_mark = ".r%s" % fingerprint if fingerprint else ""
+    mark = "%s%s" % (release_mark, ".%s" % variant if variant else "")
     if meta.get("type") == "episode":
         return "%s.s%02de%02d%s.%s.srt" % (key, int(meta.get("season") or 0),
                                            int(meta.get("episode") or 0),
@@ -740,9 +987,19 @@ def name_for(meta, language, variant=""):
 
 
 def cached_subtitle(meta, language, variant=""):
-    """A subtitle prepared earlier for this exact item."""
+    """A validated subtitle prepared earlier for this selected media file."""
     path = os.path.join(subtitle_dir(), name_for(meta, language, variant))
-    return path if os.path.isfile(path) else ""
+    if not os.path.isfile(path):
+        return ""
+    try:
+        if not srt.read(path):
+            return ""
+        # Modification time is the cache's LRU signal; a successful hit counts
+        # as use, otherwise frequently watched subtitles are pruned as old.
+        os.utime(path, None)
+        return path
+    except (OSError, IOError):
+        return ""
 
 
 def store(meta, language, cues, variant=""):

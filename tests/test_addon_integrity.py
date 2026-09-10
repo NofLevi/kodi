@@ -190,7 +190,6 @@ def test_the_home_rows_fit_on_screen():
 
     # And every row group must be tall enough for its own heading and list.
     for row in rows:
-        label = row.find("control")
         listing = [c for c in row.findall("control") if c.get("type") == "list"]
         assert listing, "a row group with no list"
         needed = value(listing[0], "top") + value(listing[0], "height")

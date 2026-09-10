@@ -15,6 +15,20 @@ Nothing here touches the network.
 """
 from ..utils import release
 
+
+def candidate_key(candidate, effective_language=None):
+    """Provider-local download identity, scoped to extracted language."""
+    provider = str(candidate.get("provider") or "").strip().lower()
+    language = str(effective_language or candidate.get("language") or "").lower()
+    handle = candidate.get("download")
+    if handle not in (None, ""):
+        return ("download", provider, str(handle), language)
+    file_id = candidate.get("file_id")
+    if file_id not in (None, ""):
+        return ("file", provider, str(file_id), language)
+    return ("release", provider,
+            str(candidate.get("release") or "").strip().lower(), language)
+
 # The scale is a probability that this subtitle fits this file, and the
 # weights are chosen so the arithmetic lands where a person would:
 #
@@ -49,6 +63,7 @@ WEIGHT_EPISODE = 12
 
 # Applied when a candidate is clearly for something else.
 PENALTY_WRONG_EPISODE = -100
+PENALTY_DIFFERENT_EDITION = -50
 
 
 def score_candidate(candidate, target, video_hash=""):
@@ -71,6 +86,11 @@ def rate(candidate, target, video_hash=""):
     name = candidate.get("release") or candidate.get("name") or ""
     parsed = release.parse(name)
 
+    # Explicit episode metadata is a hard contradiction and must be checked
+    # before every certainty shortcut, including hash and identical names.
+    if _contradicts_episode(parsed, target):
+        return 0, "wrong episode"
+
     if candidate.get("hash_match") or (
             video_hash and candidate.get("moviehash") == video_hash):
         # A hash is the strongest evidence there is, and it still loses to a
@@ -89,6 +109,13 @@ def rate(candidate, target, video_hash=""):
     if name and target.get("release"):
         if _same_name(name, target["release"]):
             return 100, "identical release name"
+
+    target_editions = set(target.get("editions") or [])
+    candidate_editions = set(parsed.get("editions") or [])
+    if target_editions and candidate_editions \
+            and target_editions.isdisjoint(candidate_editions):
+        total += PENALTY_DIFFERENT_EDITION
+        reasons.append("different edition")
 
     if parsed["group"] and parsed["group"] == target.get("group"):
         total += WEIGHT_GROUP
@@ -195,6 +222,7 @@ def target_from(meta, source=None):
         "source": parsed["source"],
         "resolution": source.get("quality") or parsed["resolution"],
         "codec": parsed["codec"],
+        "editions": parsed["editions"],
         "type": meta.get("type"),
         "season": meta.get("season"),
         "episode": meta.get("episode"),
@@ -210,7 +238,8 @@ def rank(candidates, target, video_hash="", languages=None):
 
     def sort_key(candidate):
         language_rank = order.get(candidate.get("language", ""), len(order))
-        return (language_rank, -candidate.get("score", 0))
+        evidence_rank = 0 if candidate.get("reason") == "hash" else 1
+        return (language_rank, -candidate.get("score", 0), evidence_rank)
 
     return sorted(candidates, key=sort_key)
 

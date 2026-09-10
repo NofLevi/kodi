@@ -52,6 +52,40 @@ CREATE INDEX IF NOT EXISTS kv_accessed ON kv (accessed);
 _local = threading.local()
 _last_prune = [0.0]
 _prune_lock = threading.Lock()
+_volatile_lock = threading.Lock()
+_volatile = {}
+
+
+def volatile_get(key):
+    """Read process-memory-only state that must never enter SQLite."""
+    now = time.time()
+    with _volatile_lock:
+        row = _volatile.get(key)
+        if row is None:
+            return None
+        expires, value = row
+        if expires <= now:
+            _volatile.pop(key, None)
+            return None
+        return value
+
+
+def volatile_set(key, value, ttl):
+    """Keep credential-bearing or signed values only for this process."""
+    with _volatile_lock:
+        _volatile[key] = (time.time() + max(0, ttl), value)
+    return value
+
+
+def volatile_delete(key):
+    with _volatile_lock:
+        _volatile.pop(key, None)
+
+
+def volatile_delete_prefix(prefix):
+    with _volatile_lock:
+        for key in [key for key in _volatile if key.startswith(prefix)]:
+            _volatile.pop(key, None)
 
 
 def db_path():
@@ -108,6 +142,10 @@ def _open(path):
     """Open the cache, refusing anything that is not this schema."""
     conn = sqlite3.connect(path, timeout=10, isolation_level=None)
     try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    try:
         # WAL keeps readers from blocking the writer, which matters because
         # the service thread writes while the UI thread reads.
         conn.execute("PRAGMA journal_mode=WAL")
@@ -142,6 +180,8 @@ def close():
         except sqlite3.Error:
             pass
         _local.conn = None
+    with _volatile_lock:
+        _volatile.clear()
 
 
 def make_key(*parts):
@@ -150,6 +190,11 @@ def make_key(*parts):
     Long or unicode-heavy keys are hashed so the primary key stays compact.
     """
     raw = "|".join("" if p is None else str(p) for p in parts)
+    if "://" in raw:
+        # URLs can carry userinfo, signed paths and query credentials. Even a
+        # short key must be opaque on disk and in diagnostic tooling.
+        digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        return "private#%s" % digest
     try:
         compact = len(raw) <= 120 and raw.isascii()
     except AttributeError:  # pragma: no cover - Python < 3.7
@@ -190,7 +235,7 @@ def get(key, default=None):
                      (time.time(), key))
         return _unpack(row[0], row[1])
     except (sqlite3.Error, zlib.error, ValueError):
-        kodi.log_exception("cache get failed for %s" % key)
+        kodi.log_exception("cache get failed")
         return default
 
 
@@ -208,7 +253,7 @@ def set(key, value, ttl_seconds):  # noqa: A001 - mirrors dict-like naming
              int(now) + int(ttl_seconds), now, len(blob)),
         )
     except (sqlite3.Error, TypeError, ValueError):
-        kodi.log_exception("cache set failed for %s" % key)
+        kodi.log_exception("cache set failed")
         return
     maybe_prune()
 

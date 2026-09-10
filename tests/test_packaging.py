@@ -73,6 +73,17 @@ def test_the_zip_carries_everything_the_addon_needs(built):
         assert required in names, "missing %s" % required
 
 
+def test_agent_context_is_tracked_but_never_published(built):
+    """Developer-agent context belongs in Git, not on Kodi devices or /repo."""
+    context = os.path.join(ROOT, "AGENTS.md")
+    assert os.path.isfile(context)
+    with zipfile.ZipFile(built) as archive:
+        assert not any(os.path.basename(name) == "AGENTS.md"
+                       for name in archive.namelist())
+    out = os.path.dirname(os.path.dirname(os.path.dirname(built)))
+    assert not os.path.exists(os.path.join(out, "AGENTS.md"))
+
+
 def test_the_repository_index_lists_both_addons(built):
     # The freshly built one, not the committed copy: this is checking that
     # build.py writes a coherent index, and the committed one is checked

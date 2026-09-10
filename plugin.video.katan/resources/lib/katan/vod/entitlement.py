@@ -107,13 +107,13 @@ def mako_ticket(path, vendor=VENDOR_AKAMAI, refresh=False):
     scope = path if vendor == VENDOR_AWS else ""
     key = cache.make_key("vod", "ticket", "mako", vendor, scope)
     if not refresh:
-        cached = cache.get(key)
+        cached = cache.volatile_get(key)
         if cached:
             return cached
 
     ticket = _mint_mako(path, vendor)
     if ticket:
-        cache.set(key, ticket, TICKET_TTL)
+        cache.volatile_set(key, ticket, TICKET_TTL)
     return ticket
 
 

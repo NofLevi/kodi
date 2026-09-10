@@ -18,7 +18,7 @@ import threading
 import xbmcgui
 
 from .. import catalog, kodi, router
-from ..meta import trakt_state
+from ..meta import items, trakt_state
 from . import listing
 
 ACTION_PREVIOUS_MENU = 10
@@ -101,6 +101,7 @@ class HomeWindow(xbmcgui.WindowXML):
         self.barren = {}          # slot index -> pages running with nothing new
         self.section = catalog.DEFAULT_SECTION
         self.lock = threading.Lock()
+        self.generation = 0
         # Whether onInit has already done its work. This has to be its own flag
         # rather than "do we know the rows yet", because prepare() now works
         # them out before the window is shown: guarding on self.rows made
@@ -422,6 +423,10 @@ class HomeWindow(xbmcgui.WindowXML):
         self._rebuild()
 
     def _rebuild(self):
+        with self.lock:
+            self.generation += 1
+            self.loading.clear()
+            self.extending.clear()
 
         for index in range(ROW_SLOTS):
             self._set_title(index, "")
@@ -577,7 +582,8 @@ class HomeWindow(xbmcgui.WindowXML):
 
     def _wants_more(self, index):
         """Is the selection near the end of a row that has more to give?"""
-        if index in self.exhausted or index in self.extending:
+        if (index in self.exhausted or index in self.extending
+                or self.pending.get(index)):
             return False
         entries = self.data.get(index)
         if not entries or len(entries) >= MAX_ITEMS:
@@ -592,63 +598,56 @@ class HomeWindow(xbmcgui.WindowXML):
         return position >= len(entries) - EXTEND_MARGIN
 
     def _extend(self, index):
-        """Fetch one more page for a row. Runs on a worker thread.
-
-        It only fetches. Putting the items into the control is left to
-        `_absorb`, on the GUI thread, and that division is the whole point of
-        this pair of methods rather than an abundance of caution - see there.
-        """
-        try:
-            row = self.rows[index]
-            page = self.pages.get(index, 1) + 1
-            entries = catalog.load(row["id"], page=page,
-                                   section=self.section) or []
-            # A row that gives nothing back has reached its end. TMDB keeps
-            # answering past the last page with an empty list rather than an
-            # error, so this is the only signal there is, and remembering it
-            # stops every further keypress asking again.
-            if not entries:
-                self.exhausted.add(index)
-                kodi.log("row %s has no page %d" % (row["id"], page))
+        """Fetch one more page for a row. Runs on a worker thread."""
+        with self.lock:
+            generation = self.generation
+            section = self.section
+            try:
+                row = self.rows[index]
+            except IndexError:
+                self.extending.discard(index)
                 return
-
-            known = {item.get("id") or item.get("title")
-                     for item in self.data.get(index, [])}
-            fresh = [item for item in trakt_state.annotate(entries)
-                     if (item.get("id") or item.get("title")) not in known]
-            if not fresh:
-                # A page of things we already have is not the end of the row,
-                # and treating it as one is what stopped the trending rows
-                # after a single page. Trending reshuffles between requests,
-                # so page two legitimately repeats much of page one - and
-                # since trending is the *first* row of both the Films and
-                # Series tabs, that one duplicate page killed scrolling on
-                # the row most likely to be scrolled.
-                #
-                # Step over it and try the next one. Give up only after
-                # several in a row, which is what a list that has genuinely
-                # run out looks like.
+            row_id = row["id"]
+            page = self.pages.get(index, 1) + 1
+            current = (self.data.get(index, []) + self.pending.get(index, []))
+            known = {items.unique_key(item) for item in current}
+        try:
+            entries = catalog.load(row_id, page=page, section=section) or []
+            fresh = [] if not entries else [
+                item for item in trakt_state.annotate(entries)
+                if items.unique_key(item) not in known]
+            with self.lock:
+                current_row = self.rows[index] if index < len(self.rows) else None
+                if (generation != self.generation or section != self.section
+                        or not current_row or current_row.get("id") != row_id):
+                    return
+                if not entries:
+                    self.exhausted.add(index)
+                    kodi.log("row %s has no page %d" % (row_id, page))
+                    return
+                if not fresh:
+                    self.pages[index] = page
+                    self.barren[index] = self.barren.get(index, 0) + 1
+                    kodi.log("row %s page %d repeated what we had (%d in a row)"
+                             % (row_id, page, self.barren[index]))
+                    if self.barren[index] >= BARREN_PAGES:
+                        self.exhausted.add(index)
+                    return
+                self.barren[index] = 0
                 self.pages[index] = page
+                self.pending.setdefault(index, []).extend(fresh)
+        except Exception:
+            with self.lock:
+                if generation != self.generation:
+                    return
                 self.barren[index] = self.barren.get(index, 0) + 1
-                kodi.log("row %s page %d repeated what we had (%d in a row)"
-                         % (row["id"], page, self.barren[index]))
                 if self.barren[index] >= BARREN_PAGES:
                     self.exhausted.add(index)
-                return
-
-            self.barren[index] = 0
-            self.pages[index] = page
-            self.pending[index] = fresh
-        except Exception:
-            # One failure is not the end of a row either - a request can time
-            # out on a wireless projector and mean nothing at all.
-            self.barren[index] = self.barren.get(index, 0) + 1
-            if self.barren[index] >= BARREN_PAGES:
-                self.exhausted.add(index)
             kodi.log_exception("failed to extend home row %d" % index)
         finally:
             with self.lock:
-                self.extending.discard(index)
+                if generation == self.generation:
+                    self.extending.discard(index)
 
     def _absorb(self):
         """Put fetched pages into their controls. GUI thread only.
@@ -768,7 +767,7 @@ class HomeWindow(xbmcgui.WindowXML):
             self.close()
             kodi.activate_window(url)
         else:
-            kodi.play_media(url)
+            kodi.play_media(url, item)
 
     def _tools(self):
         """The Tools menu, without leaving the window.

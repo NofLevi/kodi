@@ -20,7 +20,7 @@ import threading
 import zlib
 
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from urllib.request import (HTTPRedirectHandler, HTTPSHandler, Request,
                             build_opener)
 
@@ -132,7 +132,18 @@ class _Raw(object):
         self._response = response
 
     def read(self, amount=None, decode_content=True):
-        data = self._response.content
+        response = self._response
+        if amount is not None:
+            if response._content is not None:
+                return response._content[:amount]
+            if isinstance(response._body, bytes):
+                return response._body[:amount]
+            encoding = (response.headers.get("Content-Encoding") or "").lower()
+            if not decode_content or encoding in ("", "identity"):
+                # Preserve streaming: callers such as the remote video hasher
+                # request 64 KiB and must not make .content read a whole film.
+                return response._body.read(amount)
+        data = response.content
         return data if amount is None else data[:amount]
 
 
@@ -150,6 +161,35 @@ def _decompress(data, headers):
     return data
 
 
+class _SafeRedirect(HTTPRedirectHandler):
+    _SENSITIVE = {"authorization", "proxy-authorization", "cookie", "cookie2",
+                  "api-key", "apikey", "x-api-key", "trakt-api-key"}
+
+    @staticmethod
+    def _origin(url):
+        parsed = urlsplit(url)
+        scheme = parsed.scheme.lower()
+        default = 443 if scheme == "https" else 80 if scheme == "http" else None
+        try:
+            port = parsed.port or default
+        except ValueError:
+            port = None
+        return scheme, (parsed.hostname or "").lower(), port
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        old_origin = self._origin(req.full_url)
+        new_origin = self._origin(newurl)
+        if old_origin[0] == "https" and new_origin[0] != "https":
+            return None
+        redirected = super(_SafeRedirect, self).redirect_request(
+            req, fp, code, msg, headers, newurl)
+        if redirected is not None and old_origin != new_origin:
+            for name, _value in list(redirected.header_items()):
+                if name.lower() in self._SENSITIVE:
+                    redirected.remove_header(name)
+        return redirected
+
+
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -160,7 +200,8 @@ class Session(object):
 
     def __init__(self):
         self.headers = {}
-        self._opener = build_opener(HTTPSHandler(context=ssl_context()))
+        self._opener = build_opener(HTTPSHandler(context=ssl_context()),
+                                    _SafeRedirect)
         self._no_redirect = build_opener(HTTPSHandler(context=ssl_context()),
                                          _NoRedirect)
 

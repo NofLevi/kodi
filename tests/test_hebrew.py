@@ -43,6 +43,54 @@ def test_a_utf8_byte_order_mark_does_not_become_part_of_the_first_cue():
     assert u"\ufeff" not in cues[0].text
 
 
+@pytest.mark.parametrize("encoding", ["utf-16", "utf-32"])
+def test_unicode_bom_subtitles_decode_before_legacy_encodings(encoding):
+    from katan.subs import srt
+
+    text = u"1\n00:00:01,000 --> 00:00:03,000\n%s\n\n" % HEBREW_WORD
+    cues = srt.parse(srt.decode(text.encode(encoding)))
+    assert len(cues) == 1
+    assert cues[0].text == HEBREW_WORD
+
+
+def test_subtitle_write_is_atomic_when_replacement_fails(tmp_path, monkeypatch):
+    from katan.subs import srt
+
+    path = str(tmp_path / "subtitle.srt")
+    original = [srt.Cue(1, 0, 1, "original")]
+    replacement = [srt.Cue(1, 0, 1, "replacement")]
+    srt.write(path, original)
+    monkeypatch.setattr(srt.os, "replace",
+                        lambda source, target: (_ for _ in ()).throw(OSError("disk")))
+    with pytest.raises(OSError):
+        srt.write(path, replacement)
+    assert srt.read(path)[0].text == "original"
+
+
+def test_srt_dialogue_text_does_not_trigger_ssa_parser():
+    from katan.subs import srt
+    raw = ("1\n00:00:01,000 --> 00:00:02,000\nDialogue: hello\n\n"
+           "2\n00:00:03,000 --> 00:00:04,000\nworld\n")
+    cues = srt.parse(raw)
+    assert [cue.text for cue in cues] == ["Dialogue: hello", "world"]
+
+
+def test_expected_language_guides_legacy_single_byte_decoding():
+    from katan.subs import srt
+    russian = ("1\n00:00:01,000 --> 00:00:02,000\nПривет мир\n").encode("cp1251")
+    french = ("1\n00:00:01,000 --> 00:00:02,000\nfrançais déjà\n").encode("cp1252")
+    assert "Привет" in srt.decode(russian, "ru")
+    assert "français" in srt.decode(french, "fr")
+
+
+def test_presentation_form_letters_are_normalized_not_deleted():
+    from katan.subs import srt
+    arabic = srt.clean([srt.Cue(1, 0, 1, "ﻣﺮﺣﺒﺎ")])
+    hebrew = srt.clean([srt.Cue(1, 0, 1, "שָׁלוֹם")])
+    assert arabic and arabic[0].text == "مرحبا"
+    assert hebrew and "ש" in hebrew[0].text
+
+
 def test_hebrew_is_recognised_as_hebrew():
     from katan.subs import srt
 
@@ -300,6 +348,7 @@ def test_a_hebrew_search_term_makes_a_usable_cache_key():
     (u"\uc548\ub155\ud558\uc138\uc694", "ko"),
     (u"\u041f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440", "ru"),
     (u"\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645", "ar"),
+    (u"\u0928\u092e\u0938\u094d\u0924\u0947 \u0926\u0941\u0928\u093f\u092f\u093e", "hi"),
     # Nothing alphabetic to go on is "" rather than a guess.
     ("12:34  ---  ?!", ""),
 ])
@@ -315,6 +364,120 @@ def test_the_script_a_subtitle_is_written_in(text, expected):
 
     cues = [srt.Cue(1, 0.0, 2.0, text)]
     assert srt.detect_script(cues) == expected
+
+
+def test_supported_latin_languages_reject_a_hebrew_script():
+    from katan.subs import srt
+
+    hebrew = [srt.Cue(1, 0.0, 2.0, u"\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd")]
+    assert not srt.script_matches(hebrew, "nl")
+    assert not srt.script_matches(hebrew, "hu")
+
+
+def test_serbian_accepts_both_latin_and_cyrillic_scripts():
+    from katan.subs import srt
+
+    latin = [srt.Cue(1, 0.0, 2.0, "Zdravo svete")]
+    cyrillic = [srt.Cue(1, 0.0, 2.0, u"\u0417\u0434\u0440\u0430\u0432\u043e \u0441\u0432\u0435\u0442\u0435")]
+    assert srt.script_matches(latin, "sr")
+    assert srt.script_matches(cyrillic, "sr")
+
+
+def test_srt_without_blank_lines_keeps_adjacent_cues_separate():
+    from katan.subs import srt
+    text = (
+        "1\n00:00:01,000 --> 00:00:02,000\nFirst\n"
+        "2\n00:00:03,000 --> 00:00:04,000\nSecond\n"
+        "00:00:05,000 --> 00:00:06,000\nThird\n")
+    cues = srt.parse(text)
+    assert [cue.text for cue in cues] == ["First", "Second", "Third"]
+
+
+def test_timestamp_like_dialogue_does_not_split_a_cue():
+    from katan.subs import srt
+    text = (
+        "1\n00:00:01,000 --> 00:00:04,000\n"
+        "At 00:00:02,000 --> 00:00:03,000 she waved\n\n")
+    assert srt.parse(text)[0].text.startswith("At 00:00")
+
+
+def test_timestamp_range_with_dialogue_suffix_is_not_a_boundary():
+    from katan.subs import srt
+    text = (
+        "00:00:01,000 --> 00:00:04,000\nFirst\n"
+        "00:01.000 --> 00:02.000 align:bogus\n"
+        "00:03.000 --> 00:04.000 line:101%\n\n")
+    cues = srt.parse(text)
+    assert len(cues) == 1
+    assert "align:bogus" in cues[0].text
+    assert "line:101%" in cues[0].text
+
+
+def test_malformed_or_reversed_timing_is_rejected():
+    from katan.subs import srt
+    for timing in (
+            "00:99.000 --> 00:00.000",
+            "00:00:60.000 --> 00:01:00.000",
+            "00:03.000 --> 00:01.000"):
+        assert srt.parse(timing + "\nBad\n\n") == []
+
+
+def test_webvtt_minute_timestamps_and_settings_are_parsed():
+    from katan.subs import srt
+    text = (
+        "WEBVTT\n\nintro\n"
+        "00:01.000 --> 00:03.000 position:10% align:start\nHello\n\n")
+    cues = srt.parse(text)
+    assert len(cues) == 1
+    assert cues[0].start == 1.0 and cues[0].end == 3.0
+    assert cues[0].text == "Hello"
+
+
+def test_malformed_ssa_timing_is_rejected_without_raising():
+    from katan.subs import srt
+    timings = [
+        ("0:99:00.00", "1:00:00.00"),
+        ("0:00:60.00", "0:01:01.00"),
+        ("0:00:03.00", "0:00:01.00"),
+        ("9" * 5000 + ":00:01.00", "0:00:02.00"),
+    ]
+    for start, end in timings:
+        text = ("[Events]\nFormat: Start, End, Text\n"
+                "Dialogue: %s,%s,Bad\n" % (start, end))
+        assert srt.parse(text) == []
+
+
+def test_decimal_webvtt_line_number_is_not_a_cue_boundary():
+    from katan.subs import srt
+    text = ("00:00:01.000 --> 00:00:04.000\nFirst\n"
+            "00:01.000 --> 00:02.000 line:1.5\n\n")
+    cues = srt.parse(text)
+    assert len(cues) == 1
+    assert "line:1.5" in cues[0].text
+
+
+def test_excessive_cue_count_is_rejected():
+    from katan.subs import srt
+    text = "".join(
+        "%d\n00:00:01,000 --> 00:00:02,000\nx\n\n" % index
+        for index in range(1, 20002))
+    assert srt.parse(text) == []
+
+
+def test_cue_limit_applies_to_every_supported_parser(monkeypatch):
+    from katan.subs import srt
+    monkeypatch.setattr(srt, "MAX_CUES", 2)
+    standard = "".join(
+        "%d\n00:00:0%d,000 --> 00:00:0%d,500\nx\n\n" % (i, i, i)
+        for i in range(1, 4))
+    ssa = ("[Events]\nFormat: Start, End, Text\n"
+           "Dialogue: 0:00:01.00,0:00:01.50,x\n"
+           "Dialogue: 0:00:02.00,0:00:02.50,x\n"
+           "Dialogue: 0:00:03.00,0:00:03.50,x\n")
+    microdvd = ("{1}{1}25\n{25}{30}x\n{50}{55}x\n{75}{80}x\n")
+    assert srt.parse(standard) == []
+    assert srt.parse(ssa) == []
+    assert srt.parse(microdvd) == []
 
 
 def test_looks_hebrew_is_the_same_answer(monkeypatch):
@@ -335,9 +498,55 @@ def test_an_empty_subtitle_is_not_a_language():
     assert srt.looks_hebrew([]) is False
 
 
+
+
+# --------------------------------------------------------------------------
+# MicroDVD, still returned by legacy subtitle catalogues
+# --------------------------------------------------------------------------
+
+
+def test_microdvd_frames_are_converted_to_cues():
+    """The real survey's only parse failure used this tiny legacy format."""
+    from katan.subs import srt
+
+    text = ("{1}{1}23.976\n"
+            "{24}{72}{y:i}First line|Second line\n"
+            "{96}{144}Later\n")
+    cues = srt.parse(text)
+    assert len(cues) == 2
+    assert abs(cues[0].start - 24.0 / 23.976) < 0.001
+    assert abs(cues[0].end - 72.0 / 23.976) < 0.001
+    assert cues[0].text == "First line\nSecond line"
+    assert cues[1].text == "Later"
+
+
+def test_microdvd_without_a_valid_framerate_is_rejected():
+    from katan.subs import srt
+
+    assert srt.parse("{10}{20}No framerate declaration\n") == []
+
+
+def test_microdvd_unbounded_frame_numbers_do_not_crash():
+    from katan.subs import srt
+
+    damaged = "{1}{1}25\n{%s}{%s}boom\n" % ("9" * 5000, "9" * 5000)
+    assert srt.parse(damaged) == []
+
+
+def test_srt_text_that_looks_like_an_fps_declaration_stays_srt():
+    from katan.subs import srt
+
+    text = ("1\n00:00:01,000 --> 00:00:02,000\n"
+            "{25}{25}25\n\n")
+    cues = srt.parse(text)
+    assert len(cues) == 1
+    assert cues[0].text == "{25}{25}25"
+
+
 # --------------------------------------------------------------------------
 # SubStation Alpha, which is what anime subtitles usually are
 # --------------------------------------------------------------------------
+
 
 SSA = r"""[Script Info]
 Title: Something

@@ -58,6 +58,9 @@ FINE_MAX_OFFSET = 1.5
 # Below this, an alignment is not trustworthy and the caller should keep the
 # original timings rather than gamble.
 MIN_CONFIDENCE = 0.45
+# Perfect overlap over a tiny excerpt is not proof of a complete subtitle.
+# Below half the trusted reference's span/activity, confidence is discounted.
+MIN_RELATIVE_COVERAGE = 0.5
 
 # Splits. One segment per ten minutes or so, because that is roughly the
 # spacing of advert breaks and short enough to isolate a missing recap, while
@@ -173,6 +176,27 @@ def _best_offset(reference, candidate, bin_ms, max_offset, scale=1.0,
     return best_lag * step, best
 
 
+def _relative_coverage(candidate, reference, scale=1.0):
+    """Completeness of two timelines, independent of their constant offset."""
+    def measures(cues, factor):
+        if not cues:
+            return 0.0, 0.0
+        activity = sum(max(0.0, cue.end - cue.start) for cue in cues) * factor
+        span = max(0.0, cues[-1].end - cues[0].start) * factor
+        return activity, span
+
+    candidate_activity, candidate_span = measures(candidate, scale)
+    reference_activity, reference_span = measures(reference, 1.0)
+
+    def ratio(left, right):
+        if left <= 0 or right <= 0:
+            return 0.0
+        return min(left, right) / max(left, right)
+
+    return min(ratio(candidate_activity, reference_activity),
+               ratio(candidate_span, reference_span))
+
+
 def fit(candidate, reference):
     """Find the linear correction that maps candidate times onto reference.
 
@@ -203,6 +227,8 @@ def fit(candidate, reference):
         offset += delta
         score = fine_score
 
+    coverage = _relative_coverage(candidate, reference, scale)
+    score *= min(1.0, coverage / MIN_RELATIVE_COVERAGE)
     return offset, scale, score
 
 

@@ -9,6 +9,14 @@ _CLASSES = {}
 _INSTANCES = {}
 
 
+class CacheMap(dict):
+    """Positive owners plus hashes for which a service gave an answer."""
+
+    def __init__(self):
+        super(CacheMap, self).__init__()
+        self.known = set()
+
+
 def _load():
     if _CLASSES:
         return _CLASSES
@@ -53,7 +61,7 @@ def cached_map(hashes):
     nothing, and their silence is not treated as a "no": the indexer flags the
     aggregator already collected stand in for them.
     """
-    found = {}
+    found = CacheMap()
     for service in configured():
         remaining = [h for h in hashes if h not in found]
         if not remaining:
@@ -63,6 +71,7 @@ def cached_map(hashes):
         except Exception:
             kodi.log_exception("%s cache lookup failed" % service.name)
             continue
+        found.known.update(answers)
         for info_hash, is_cached in answers.items():
             if is_cached:
                 found[info_hash] = service.name

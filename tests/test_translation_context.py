@@ -59,6 +59,16 @@ def test_a_gender_marking_source_wins_a_close_call():
     assert ranked[0][0] == "es", "the Spanish subtitle should be preferred"
 
 
+def test_hebrew_specific_bonus_does_not_change_an_english_translation():
+    winners = {
+        "en": {"score": 20},
+        "es": {"score": 60, "release": "spanish"},
+        "de": {"score": 70, "release": "german"},
+    }
+    ranked = context.rank_translation_sources(winners, ["en", "es", "de"])
+    assert ranked[0][0] == "de"
+
+
 def test_a_clearly_better_match_still_wins():
     """The bonus breaks ties; it does not override a much better match."""
     winners = {
@@ -74,6 +84,18 @@ def test_the_target_language_is_never_a_translation_source():
     winners = {"he": {"score": 90}, "en": {"score": 50}}
     ranked = context.rank_translation_sources(winners, ["he", "en"])
     assert [language for language, _c in ranked] == ["en"]
+
+
+def test_translation_candidate_dedupe_is_provider_and_language_scoped():
+    candidates = [
+        {"provider": "a", "language": "en", "download": 123, "score": 70},
+        {"provider": "b", "language": "en", "download": 123, "score": 69},
+        {"provider": "a", "language": "es", "download": 123, "score": 68},
+    ]
+    ranked = context.rank_translation_candidates(candidates, "he")
+    assert [(language, candidate["provider"])
+            for language, candidate in ranked] == [
+                ("es", "a"), ("en", "a"), ("en", "b")]
 
 
 def test_the_prompt_carries_the_cast_when_there_is_one(monkeypatch):

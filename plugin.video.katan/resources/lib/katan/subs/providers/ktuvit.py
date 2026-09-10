@@ -96,13 +96,14 @@ def session_cookie(refresh=False):
     if not configured():
         return ""
 
-    key = cache.make_key("subs", "ktuvit", "session")
+    email, password = credentials()
+    account = hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()[:16]
+    key = cache.make_key("subs", "ktuvit", "session", account)
     if not refresh:
-        cached = cache.get(key)
+        cached = cache.volatile_get(key)
         if cached:
             return cached
 
-    email, password = credentials()
     response = http.post(
         LOGIN,
         json={"request": {"Email": email,
@@ -118,7 +119,7 @@ def session_cookie(refresh=False):
         kodi.log("ktuvit refused the sign in")
         return ""
 
-    cache.set(key, cookie, SESSION_TTL)
+    cache.volatile_set(key, cookie, SESSION_TTL)
     return cookie
 
 
@@ -222,12 +223,21 @@ def _find_id(meta, cookie):
     if not isinstance(films, list) or not films:
         return "", cookie
 
-    wanted = str(ids.get("imdb") or "")
+    def imdb_id(value):
+        value = str(value or "").strip().lower()
+        if value.startswith("tt"):
+            value = value[2:]
+        return (value.lstrip("0") or "0") if value.isdigit() else ""
+
+    wanted = imdb_id(ids.get("imdb"))
     for film in films:
         if not isinstance(film, dict):
             continue
-        if wanted and str(film.get("ImdbID") or "") == wanted:
+        if wanted and imdb_id(film.get("ImdbID")) == wanted:
             return str(film.get("ID") or ""), cookie
+    if wanted:
+        kodi.log("ktuvit returned no title with the requested IMDb id")
+        return "", cookie
 
     first = films[0] if isinstance(films[0], dict) else {}
     return str(first.get("ID") or ""), cookie
@@ -302,4 +312,4 @@ def download(candidate):
 
     data = common.fetch_bytes(DOWNLOAD % identifier,
                               headers=_signed_headers(cookie))
-    return common.extract_subtitle(data, LANGUAGE)
+    return common.extract_subtitle(data, LANGUAGE, candidate=candidate)

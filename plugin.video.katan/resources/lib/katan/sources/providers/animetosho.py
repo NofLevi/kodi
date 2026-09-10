@@ -34,6 +34,8 @@ def search(meta):
 
     sources = []
     for entry in payload:
+        if not isinstance(entry, dict):
+            continue
         title = entry.get("title") or ""
         magnet = entry.get("magnet_uri") or ""
         info_hash = entry.get("info_hash") or model.normalise_hash(magnet)
@@ -41,12 +43,14 @@ def search(meta):
             continue
         if is_episode and not _episode_matches(entry, title, meta, episode):
             continue
+        try:
+            size = int(entry.get("total_size") or 0)
+            seeders = int(entry.get("seeders") or 0)
+        except (TypeError, ValueError, OverflowError):
+            continue
         sources.append(model.from_release_name(
-            title, provider=NAME,
-            size=int(entry.get("total_size") or 0),
-            seeders=int(entry.get("seeders") or 0),
-            info_hash=info_hash,
-            magnet=magnet))
+            title, provider=NAME, size=size, seeders=seeders,
+            info_hash=info_hash, magnet=magnet))
     return sources
 
 

@@ -58,10 +58,7 @@ def fetch(url, referer="", timeout=(6, 15)):
 
 
 def _host(url):
-    try:
-        return url.split("/")[2]
-    except IndexError:
-        return url
+    return http._host(url)
 
 
 # --------------------------------------------------------------------------

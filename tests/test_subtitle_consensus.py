@@ -86,10 +86,19 @@ def test_another_language_is_not_a_second_opinion():
 # --------------------------------------------------------------------------
 
 
+def test_truncated_timeline_is_not_independent_consensus():
+    from katan.subs import consensus
+    full = _cues(count=400)
+    excerpt = full[:30]
+    agreed, confidence, _offset = consensus.agree(excerpt, full)
+    assert agreed is False
+    assert confidence < consensus.AGREE_CONFIDENCE
+
+
 @pytest.mark.parametrize("ratio", [25.0 / 23.976,
                                     24000.0 / 23976.0,
                                     30000.0 / 29970.0])
-def test_framerate_conversion_is_not_timing_agreement(ratio):
+def test_framerate_conversion_is_not_identical_timeline_agreement(ratio):
     """Two cuts needing any known scale are not the same video timeline."""
     from katan.subs import consensus
 
@@ -98,6 +107,34 @@ def test_framerate_conversion_is_not_timing_agreement(ratio):
     agreed, confidence, _offset = consensus.agree(original, converted)
     assert confidence >= consensus.AGREE_CONFIDENCE
     assert agreed is False
+
+
+def test_distinct_does_not_spend_budget_on_mirrored_archives():
+    from katan.subs import consensus
+    rows = [
+        {"provider": "a", "language": "he", "release": "cut-a",
+         "archive_fingerprint": "same"},
+        {"provider": "b", "language": "he", "release": "cut-b",
+         "archive_fingerprint": "same"},
+        {"provider": "c", "language": "he", "release": "cut-c",
+         "archive_fingerprint": "other"},
+    ]
+    assert [row["provider"] for row in consensus.distinct(rows, "he", 2)] == [
+        "a", "c"]
+
+
+def test_distinct_fills_budget_with_independent_same_provider_uploads():
+    from katan.subs import consensus
+    rows = [
+        {"provider": "one", "language": "he", "release": "cut-a",
+         "uploader": "alice"},
+        {"provider": "one", "language": "he", "release": "cut-b",
+         "uploader": "bob"},
+        {"provider": "one", "language": "he", "release": "cut-c",
+         "uploader": "carol"},
+    ]
+    assert [row["release"] for row in consensus.distinct(rows, "he", 3)] == [
+        "cut-a", "cut-b", "cut-c"]
 
 
 def test_two_that_agree_beat_one_that_does_not():
@@ -112,6 +149,69 @@ def test_two_that_agree_beat_one_that_does_not():
     assert chosen["provider"] in ("a", "b"), report
     assert report["supported"] >= 1
     assert cues
+
+
+def test_correlation_collapse_is_transitive_and_order_independent():
+    from katan.subs import consensus
+    shared_timeline = _cues(offset=0.1, text="shared")
+    rows = [
+        ({"provider": "a", "language": "en", "score": 90,
+          "archive_fingerprint": "archive"}, _cues(offset=0.0, text="a")),
+        ({"provider": "b", "language": "es", "score": 80,
+          "archive_fingerprint": "archive"}, shared_timeline),
+        ({"provider": "c", "language": "fr", "score": 70,
+          "archive_fingerprint": "other"}, shared_timeline),
+    ]
+    for ordered in (rows, list(reversed(rows)), [rows[1], rows[0], rows[2]]):
+        collapsed = consensus._collapse_correlated(ordered)
+        assert len(collapsed) == 1
+        _candidate, _cues_out, report = consensus.timeline_reference(ordered, "he")
+        assert report["supported"] == 0
+
+
+def test_archive_mirror_group_contributes_only_one_vote():
+    from katan.subs import consensus
+    fetched = [
+        ({"provider": "a", "language": "he", "score": 80,
+          "archive_fingerprint": "mirror"}, _cues(offset=0.0, text="a")),
+        ({"provider": "b", "language": "he", "score": 75,
+          "archive_fingerprint": "mirror"}, _cues(offset=0.1, text="b")),
+        ({"provider": "c", "language": "he", "score": 70,
+          "archive_fingerprint": "independent"}, _cues(offset=0.2, text="c")),
+    ]
+    chosen, _cues_out, report = consensus.choose(fetched)
+    assert chosen["provider"] == "a"
+    assert report["supported"] == 1
+
+
+def test_cross_language_archive_mirror_group_contributes_only_one_vote():
+    from katan.subs import consensus
+    fetched = [
+        ({"provider": "a", "language": "en", "score": 80,
+          "archive_fingerprint": "mirror"}, _cues(offset=0.0, text="english")),
+        ({"provider": "b", "language": "es", "score": 75,
+          "archive_fingerprint": "mirror"}, _cues(offset=0.1, text="spanish")),
+        ({"provider": "c", "language": "fr", "score": 70,
+          "archive_fingerprint": "independent"}, _cues(offset=0.2, text="french")),
+    ]
+    _chosen, _cues_out, report = consensus.timeline_reference(fetched, "he")
+    assert report["supported"] == 1
+
+
+def test_identical_same_language_timelines_are_not_independent_consensus():
+    from katan.subs import consensus
+
+    fetched = [
+        ({"provider": "catalogue-a", "language": "he", "score": 70},
+         _cues(text="copy one")),
+        ({"provider": "catalogue-b", "language": "he", "score": 68},
+         _cues(text="copy two")),
+    ]
+
+    chosen, cues, report = consensus.choose(fetched)
+    assert chosen["provider"] == "catalogue-a"
+    assert cues
+    assert report["supported"] == 0
 
 
 def test_the_better_scored_of_an_agreeing_pair_wins():
@@ -209,6 +309,38 @@ def test_two_languages_from_one_provider_are_not_independent_proof():
     assert candidate is None and cues == []
     assert report["supported"] == 0
 
+
+
+def test_identical_multilingual_timeline_is_one_correlated_source():
+    from katan.subs import consensus
+
+    fetched = [
+        ({"provider": "catalogue-a", "language": "en", "score": 70},
+         _cues(text="English")),
+        ({"provider": "catalogue-b", "language": "es", "score": 68},
+         _cues(text="Spanish")),
+    ]
+
+    candidate, cues, report = consensus.timeline_reference(fetched, "he")
+    assert candidate is None and cues == []
+    assert report["supported"] == 0
+
+
+def test_mirrored_archive_across_catalogues_is_not_independent_proof():
+    from katan.subs import consensus
+
+    fetched = [
+        ({"provider": "catalogue-a", "language": "en", "score": 70,
+          "release": "Film.2024.1080p.WEB-DL-GRP",
+          "archive_fingerprint": "shared-upload"}, _cues()),
+        ({"provider": "catalogue-b", "language": "es", "score": 68,
+          "release": "Film.2024.1080p.WEB-DL-GRP",
+          "archive_fingerprint": "shared-upload"}, _cues(offset=0.2)),
+    ]
+
+    candidate, cues, report = consensus.timeline_reference(fetched, "he")
+    assert candidate is None and cues == []
+    assert report["supported"] == 0
 
 
 def test_same_catalogue_different_uploaders_are_independent():

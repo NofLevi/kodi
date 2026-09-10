@@ -11,7 +11,6 @@ gone wrong once each.
 """
 import gzip
 import io
-import json
 
 import pytest
 
@@ -311,18 +310,50 @@ def test_another_programme_filed_under_our_hash_is_dropped(monkeypatch,
     assert any("Breaking.Bad" in n for n in names), names
 
 
-def test_only_a_verified_row_may_claim_a_hash_match(monkeypatch, provider):
-    """Episodes are filed under the episode's imdb and we hold the show's, so
-    SeriesIMDBParent is the field that compares."""
+def test_title_identity_alone_cannot_claim_a_hash_match(monkeypatch, provider):
+    """IMDb agreement is necessary but not our hash request and exact size."""
     _asked(monkeypatch, provider, _hash_rows())
     meta = {"type": "episode", "title": "Breaking Bad", "season": 1,
             "episode": 1, "ids": {"imdb": "tt0903747"}}
     found = provider.search(meta, None, ["en"])
-    for candidate in found:
-        if "Breaking.Bad" in candidate["release"]:
-            assert candidate["hash_match"] is True
-        else:
-            assert candidate["hash_match"] is False, candidate["release"]
+    assert found
+    assert not any(candidate["hash_match"] for candidate in found)
+
+
+def test_title_query_never_claims_our_file_hash(monkeypatch, provider):
+    rows = [{"MovieReleaseName": "Breaking.Bad.S01E01.720p.HDTV-BiA",
+             "MatchedBy": "moviehash", "SubDownloadLink": "https://dl/bb",
+             "SeriesIMDBParent": "903747", "MovieByteSize": "478600575"}]
+    _asked(monkeypatch, provider, rows)
+    meta = {"type": "episode", "title": "Breaking Bad", "season": 1,
+            "episode": 1, "ids": {"imdb": "tt0903747"}}
+
+    found = provider.search(meta, None, ["en"])
+
+    assert found and found[0]["hash_match"] is False
+
+
+def test_hash_claim_requires_exact_file_size(monkeypatch, provider):
+    rows = [
+        {"MovieReleaseName": "exact", "MatchedBy": "moviehash",
+         "SubDownloadLink": "https://dl/exact", "IDMovieImdb": "137523",
+         "MovieByteSize": "478600575"},
+        {"MovieReleaseName": "wrong-size", "MatchedBy": "moviehash",
+         "SubDownloadLink": "https://dl/wrong", "IDMovieImdb": "137523",
+         "MovieByteSize": "478600576"},
+    ]
+
+    def get_json(url, default=None, **kwargs):
+        return rows if "moviehash-" in url else []
+
+    monkeypatch.setattr(provider.http, "get_json", get_json)
+    meta = {"type": "movie", "title": "Fight Club",
+            "ids": {"imdb": "tt0137523"}}
+    found = provider.search(meta, None, ["en"], "abc", 478600575)
+
+    claims = {candidate["release"]: candidate["hash_match"]
+              for candidate in found}
+    assert claims == {"exact": True, "wrong-size": False}
 
 
 def test_with_no_id_of_our_own_nothing_is_claimed(monkeypatch, provider):

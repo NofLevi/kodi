@@ -123,7 +123,6 @@ def test_an_exact_match_is_a_hundred_percent():
 
 def test_the_matchers_score_is_not_rescaled():
     """Whatever the matcher says, that is the number shown."""
-    from katan.subs import matcher
 
     for points in (12, 33, 72, 100):
         assert outlook._as_percent(points) == points

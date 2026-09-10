@@ -224,6 +224,10 @@ def play(handle, request, force_picker=False):
         # file is "Silo.S01E01.Freedom.Day.1080p.WEB-DL-GRP", and it is the
         # second one that subtitle sites index against.
         "file_name": chosen.get("file_name", ""),
+        "file_size": chosen.get("file_size") or 0,
+        "file_index": chosen.get("file_index"),
+        "file_id": chosen.get("file_id"),
+        "torrent_hash": chosen.get("hash", ""),
     }
     meta["stream_url"] = url
     player.set_now_playing(meta)
@@ -273,8 +277,11 @@ def _offer_uncached(meta):
     if not kodi.yes_no(kodi.localize(32491, len(waiting)),
                        kodi.localize(32283)):
         return []
-    # For this playback only, and only because it was asked for.
-    settings.set("sources.cached_only", "false")
+    # Mark only these ephemeral source rows; never change the configured
+    # cached-only policy because consent applies to this playback alone.
+    for source in waiting:
+        if isinstance(source, dict):
+            source.setdefault("extra", {})["playback_allow_uncached"] = True
     return waiting
 
 
@@ -345,12 +352,9 @@ def _dead_host_key(url):
     nodes, so remembering the node rather than the link is what makes the
     difference.
     """
-    try:
-        from urllib.parse import urlparse
-    except ImportError:
-        from urlparse import urlparse       # Python 2, which Kodi 21 is not
-    host = urlparse(url).netloc
-    return ("debrid|deadhost|%s" % host) if host else ""
+    from . import http
+    host = http._host(url)
+    return ("debrid|deadhost|%s" % host) if host != "<unknown>" else ""
 
 
 def _reachable(url):
@@ -378,13 +382,13 @@ def _reachable(url):
     key = _dead_host_key(url)
     if key and cache.get(key):
         kodi.log("skipping %s, it was not answering a moment ago"
-                 % url.split("/")[2])
+                 % http._host(url))
         return False
 
     response = http.get(url, headers={"Range": "bytes=0-0"},
                         timeout=REACHABLE_TIMEOUT, retries=0, stream=True)
     if response is None:
-        kodi.log("the link came back but will not open: %s" % url[:80],
+        kodi.log("the link came back but %s will not open" % http._host(url),
                  kodi.LOG_INFO)
         if key:
             cache.set(key, True, DEAD_HOST_TTL)
@@ -433,10 +437,18 @@ def _resolve(source):
     can change between the two, and a stale answer here is the difference
     between a download starting and nothing happening at all.
     """
+    direct = source.get("url") or ""
+    if direct:
+        from . import http
+        if (direct.startswith(("http://", "https://"))
+                and http._host(direct) != "<unknown>"):
+            return direct
+
     from .debrid import registry
 
     source.setdefault("extra", {})
-    source["extra"]["allow_uncached"] = _uncached_allowed()
+    playback_override = source["extra"].get("playback_allow_uncached") is True
+    source["extra"]["allow_uncached"] = playback_override or _uncached_allowed()
 
     client = registry.resolver_for(source)
     if client is None:
