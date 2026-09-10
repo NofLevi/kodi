@@ -124,6 +124,10 @@ repo/
 
 # these publish on your behalf: an Account -> Pages -> Edit token, and the
 # account it belongs to
+# a Cloudflare deploy hook is a credential: holding it means being
+# able to publish. Kept here even though Cloudflare is gone, because
+# the file outlives the service and one `git add -A` publishes it.
+.deploy-hook
 .cf-token
 .cf-account
 

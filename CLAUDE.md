@@ -462,7 +462,7 @@ a changelog nobody reads.
 Kodi fetches a repository anonymously, so "private with a login" is not
 possible and the only lever is discoverability. `NofLevi/kodi` stays private;
 **Cloudflare Pages publishes only the `repo/` folder** at an unguessable
-`pages.dev` address - **kodi-katan.pages.dev**.
+`pages.dev` address - **noflevi.github.io/kodi**.
 
 **The project is not connected to the repository, and that is the point.** It
 was, and every push wrote a row into the deployment list - `main`, `development`,
@@ -483,7 +483,7 @@ door and does not. That sentence is about *switching*; the dashboard's
 **Disconnect** button on the Git repository card is a different thing, and
 after pressing it `wrangler pages deploy` is accepted. Measured, in this
 order: `Git Provider` went `Yes` -> `No`, the upload succeeded, and
-`kodi-katan.pages.dev` served the same index on the same hostname.
+`noflevi.github.io/kodi` served the same index on the same hostname.
 
 That the hostname survived is what made this safe to try at all. It is baked
 into every installed copy of `repository.katan`, so a project that had to be
@@ -601,15 +601,15 @@ produced it. `python tools/e2e.py --only upgrade` is the same thing by hand.
 ### Two channels: stable, and the branch
 
 `update.channel` is `stable` or `test`, at expert level in the settings.
-Stable is the last release, at `kodi-katan.pages.dev`. Test is whatever
-`development` was last built into, at **`kodi-katan-dev.pages.dev`** - a
+Stable is the last release, at `noflevi.github.io/kodi`. Test is whatever
+`development` was last built into, at **`raw.githubusercontent.com/NofLevi/kodi/test-channel`** - a
 second Pages project rather than a folder or a branch alias on the first, and
 both of those were tried:
 
 * A direct upload **replaces the whole site**, so two channels sharing one
   project would overwrite each other every time either published.
 * Pages puts branch aliases behind **Cloudflare Access**. Measured:
-  `development.kodi-katan.pages.dev/addons.xml` answers `302` to
+  `development.noflevi.github.io/kodi/addons.xml` answers `302` to
   `cloudflareaccess.com`, so Kodi - which fetches anonymously and follows
   nothing useful - sees no index at all.
 
