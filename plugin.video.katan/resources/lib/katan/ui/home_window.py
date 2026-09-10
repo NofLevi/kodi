@@ -537,7 +537,10 @@ class HomeWindow(xbmcgui.WindowXML):
                     return
                 self._fill(index)
 
-        thread = threading.Thread(target=worker)
+        # Named, so a test can wait for this window's work rather than for
+        # every daemon thread in the process - the shared HTTP pool's workers
+        # are daemons under Python 3.8 and never finish by design.
+        thread = threading.Thread(target=worker, name="katan-home-worker")
         thread.daemon = True
         thread.start()
 
@@ -576,7 +579,8 @@ class HomeWindow(xbmcgui.WindowXML):
                 return
             self.extending.add(index)
 
-        thread = threading.Thread(target=self._extend, args=(index,))
+        thread = threading.Thread(target=self._extend, args=(index,),
+                                  name="katan-home-worker")
         thread.daemon = True
         thread.start()
 
