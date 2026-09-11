@@ -155,6 +155,9 @@ class WindowXML(object):
     def doModal(self):
         pass
 
+    def show(self):
+        self.shown = True
+
     def close(self):
         self.closed = True
 

@@ -1620,3 +1620,7 @@ msgstr "דילוג אוטומטי על הפתיח"
 msgctxt "#32529"
 msgid "Skipped the intro"
 msgstr "הפתיח דולג"
+
+msgctxt "#32530"
+msgid "Skip intro"
+msgstr "דלג על הפתיח"

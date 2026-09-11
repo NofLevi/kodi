@@ -170,6 +170,7 @@ class KatanPlayer(xbmc.Player):
     # -- Kodi callbacks ----------------------------------------------------
 
     def onAVStarted(self):
+        self._close_skip_button()           # one left over from the last file
         actual_url = self.getPlayingFile() or ""
         with PLAYBACK_LOCK:
             self._subtitle_generation += 1
@@ -198,6 +199,7 @@ class KatanPlayer(xbmc.Player):
         self.prefetched = False
         self._segments = {}
         self._intro_skipped = False
+        self._skip_dismissed = False
 
         self._scrobble("start")
         self._apply_subtitles()
@@ -243,6 +245,7 @@ class KatanPlayer(xbmc.Player):
             clear_now_playing()
             self.meta = None
             self._forget_position()
+        self._close_skip_button()
         if never_started and self._worth_retrying(pending):
             # Resolving takes seconds and this is Kodi's callback thread, which
             # the service loop also waits on - so a daemon worker, as the
@@ -297,6 +300,7 @@ class KatanPlayer(xbmc.Player):
         listing.resolve(-1, url, retried.get("item"))
 
     def _finish(self, completed=False):
+        self._close_skip_button()
         with PLAYBACK_LOCK:
             self._subtitle_generation += 1
             meta = self.meta
@@ -337,6 +341,7 @@ class KatanPlayer(xbmc.Player):
         self._maybe_prefetch()
         progress = self._progress()          # and records where we are
         self._maybe_skip_intro()
+        self._offer_skip_button()
         now = time.time()
         if now - getattr(self, "_bookmarked_at", 0.0) >= self.BOOKMARK_EVERY:
             self._bookmarked_at = now
@@ -388,32 +393,76 @@ class KatanPlayer(xbmc.Player):
             if self._playback_generation == generation and self.meta is meta:
                 self._segments = found
 
+    def _intro_now(self):
+        """The intro, when playback is inside it with something left to skip.
+
+        Not in its last seconds: a jump that saves two seconds is a stutter.
+        """
+        found = getattr(self, "_segments", None)
+        if not found:
+            return None
+        from . import skip
+        intro = skip.usable(found, self.total_time).get("intro")
+        if intro and intro[0] <= getattr(self, "_position", 0.0) < intro[1] - 2:
+            return intro
+        return None
+
     def _maybe_skip_intro(self):
         """Jump past the intro, once, when the viewer asked for that.
 
         Once per playback: somebody who seeks back into the intro wants to
         see it, and being thrown forward again would be a fight.
         """
-        found = getattr(self, "_segments", None)
-        if not found or getattr(self, "_intro_skipped", False):
+        if getattr(self, "_intro_skipped", False):
             return
         if not settings.get_bool("ui.auto_skip"):
             return
-        from . import skip
-        intro = skip.usable(found, self.total_time).get("intro")
-        if not intro:
-            return
-        start, end = intro
-        # Not in its last seconds: a jump that saves two seconds is only a
-        # stutter.
-        if not start <= getattr(self, "_position", 0.0) < end - 2:
-            return
+        intro = self._intro_now()
+        if intro and self._skip_to(intro[1]):
+            kodi.notify(kodi.localize(32529))
+
+    def _offer_skip_button(self):
+        """A Skip intro button for as long as the intro plays.
+
+        Not when skipping is automatic, and not again once it has been used
+        or put away - the same once-per-episode rule as skipping itself.
+        """
+        intro = None
+        if not (settings.get_bool("ui.auto_skip")
+                or getattr(self, "_intro_skipped", False)
+                or getattr(self, "_skip_dismissed", False)):
+            intro = self._intro_now()
+        button = getattr(self, "_skip_button", None)
+        if intro and button is None:
+            from .ui import skip_window
+            end = intro[1]
+            self._skip_button = skip_window.open_button(
+                on_skip=lambda: self._skip_to(end),
+                on_dismiss=self._dismiss_skip)
+        elif not intro and button is not None:
+            self._close_skip_button()
+
+    def _skip_to(self, end):
         self._intro_skipped = True
+        self._close_skip_button()
         try:
             self.seekTime(end)
         except RuntimeError:
-            return
-        kodi.notify(kodi.localize(32529))
+            return False
+        return True
+
+    def _dismiss_skip(self):
+        self._skip_dismissed = True
+        self._close_skip_button()
+
+    def _close_skip_button(self):
+        button = getattr(self, "_skip_button", None)
+        self._skip_button = None
+        if button is not None:
+            try:
+                button.close()
+            except Exception:
+                pass
 
     def _apply_subtitles(self):
         """Schedule subtitle search/translation away from Kodi's callback."""
