@@ -236,6 +236,18 @@ class Service(xbmc.Monitor):
         if xbmc.getCondVisibility("Window.IsActive(fullscreenvideo)") \
                 or xbmc.getCondVisibility("Window.IsActive(visualisation)"):
             return
+        # A dialog drawn over Kodi's home is not somebody having left. Kodi
+        # still reports home as the active window underneath it, so this used
+        # to relaunch Katan - which Kodi refuses to open over a modal dialog,
+        # so home stayed active and the next pass tried again. Every 2.5
+        # seconds, for as long as the dialog stayed up: one run on a Kodi 20
+        # box left 135 plugin invocations behind it. The grace period starts
+        # over once the dialog has gone, so closing it is not mistaken for
+        # having sat on the home screen the whole time.
+        if (xbmc.getCondVisibility("System.HasActiveModalDialog")
+                or xbmc.getCondVisibility("System.HasVisibleModalDialog")):
+            self.left_at = 0.0
+            return
         if not xbmc.getCondVisibility("Window.IsActive(home)"):
             self.left_at = 0.0
             return

@@ -259,13 +259,80 @@ def test_a_source_that_will_not_resolve_says_so(film, spoken, monkeypatch):
 # --------------------------------------------------------------------------
 
 
+def _season_of(count):
+    return [{"episode": number} for number in range(1, count + 1)]
+
+
 def test_the_next_episode_is_warmed(monkeypatch, film):
     asked = []
+    from katan.meta import tmdb
     from katan.sources import aggregator
     monkeypatch.setattr(aggregator, "find",
                         lambda meta, **kw: asked.append(meta) or [])
-    play.prefetch_next_episode({"type": "episode", "season": 1, "episode": 3})
-    assert asked and asked[0]["episode"] == 4
+    monkeypatch.setattr(tmdb, "episodes", lambda tmdb_id, season: _season_of(10))
+    play.prefetch_next_episode({"type": "episode", "season": 1, "episode": 3,
+                                "ids": {"tmdb": 1396}})
+    assert asked and (asked[0]["season"], asked[0]["episode"]) == (1, 4)
+
+
+def test_the_last_episode_of_a_season_warms_the_next_seasons_first(
+        monkeypatch, film):
+    """It added one to the episode number, so S1E7 of a seven-episode season
+    prefetched S1E8, which does not exist, and S2E1 started cold."""
+    asked = []
+    from katan.meta import tmdb
+    from katan.sources import aggregator
+    monkeypatch.setattr(aggregator, "find",
+                        lambda meta, **kw: asked.append(meta) or [])
+    seasons = {1: _season_of(7), 2: _season_of(7)}
+    monkeypatch.setattr(tmdb, "episodes",
+                        lambda tmdb_id, season: seasons.get(season, []))
+    play.prefetch_next_episode({
+        "type": "episode", "season": 1, "episode": 7, "ids": {"tmdb": 1396},
+        "absolute": 7, "season_name": "The First Arc", "season_episodes": 7,
+        "episode_title": "Finale"})
+
+    assert asked, "the next season's first episode was never looked for"
+    nxt = asked[0]
+    assert (nxt["season"], nxt["episode"]) == (2, 1)
+    assert nxt["absolute"] == 8, \
+        "the playing episode's absolute number would search for itself again"
+    assert "season_name" not in nxt and "season_episodes" not in nxt
+    assert "episode_title" not in nxt
+
+
+def test_a_final_episode_prefetches_nothing(monkeypatch, film):
+    asked = []
+    from katan.meta import tmdb
+    from katan.sources import aggregator
+    monkeypatch.setattr(aggregator, "find",
+                        lambda meta, **kw: asked.append(meta) or [])
+    monkeypatch.setattr(tmdb, "episodes",
+                        lambda tmdb_id, season: _season_of(5) if season == 1 else [])
+    play.prefetch_next_episode({"type": "episode", "season": 1, "episode": 5,
+                                "ids": {"tmdb": 1396}})
+    assert not asked
+
+
+def test_prefetch_follows_the_setting_when_nothing_was_set(monkeypatch, film,
+                                                           settings_module):
+    """The player's own fallback said on; the setting says off by default."""
+    from katan import player as player_module
+
+    warmed = []
+    monkeypatch.setattr(play, "prefetch_next_episode",
+                        lambda meta: warmed.append(meta))
+    monitor = player_module.KatanPlayer()
+    monitor.meta = {"type": "episode", "season": 1, "episode": 3}
+    monkeypatch.setattr(monitor, "_progress", lambda: 90.0)
+
+    monitor._maybe_prefetch()
+    assert not warmed, "prefetched with the setting never switched on"
+
+    settings_module.set("sources.prefetch_next", "true")
+    monitor.prefetched = False
+    monitor._maybe_prefetch()
+    assert warmed
 
 
 def test_a_film_has_no_next_episode(monkeypatch, film):

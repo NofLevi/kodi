@@ -898,7 +898,7 @@ msgid "Replaces the home screen with rows that are safe by construction."
 msgstr ""
 
 msgctxt "#30087"
-msgid "Replaces every home row with children's rows and blocks anything above the age limit. Turning it off again asks for the PIN."
+msgid "Replaces every home row with children's rows and blocks anything above the age limit. Switch it off again from the same menu."
 msgstr ""
 
 msgctxt "#30088"
@@ -1627,4 +1627,12 @@ msgstr ""
 
 msgctxt "#32524"
 msgid "Open this on your phone and use its microphone key"
+msgstr ""
+
+msgctxt "#32525"
+msgid "Remove from Trakt watchlist"
+msgstr ""
+
+msgctxt "#32526"
+msgid "Removed from your watchlist"
 msgstr ""

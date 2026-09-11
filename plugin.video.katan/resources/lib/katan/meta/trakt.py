@@ -391,6 +391,10 @@ def watchlist(limit=20):
     entries = _unwrap(rows, "movie")
     rows = _get("/users/me/watchlist/shows", auth=True, extended="full") or []
     entries.extend(_unwrap(rows, "show"))
+    # Nothing mirrors watchlist membership, so the row's own items carry it -
+    # which is what lets their menu offer Remove rather than Add.
+    for entry in entries:
+        entry.setdefault("extra", {})["in_watchlist"] = True
     return _fill_art(entries[:limit])
 
 
@@ -484,6 +488,23 @@ def add_to_watchlist(item_type, tmdb_id):
     if not payload:
         return False
     response = _post("/sync/watchlist", payload)
+    return bool(response is not None and response.status_code in (200, 201))
+
+
+def remove_from_watchlist(item_type, tmdb_id):
+    """The other half of the watchlist, which there was no way to do at all.
+
+    Anything added stayed on the home screen's watchlist row until the viewer
+    went to trakt.tv in a browser to take it off - on a household whose only
+    screen is a projector driven by a remote.
+    """
+    if not authorised():
+        kodi.notify(kodi.localize(32272))
+        return False
+    payload = _media_payload(item_type, {"tmdb": tmdb_id})
+    if not payload:
+        return False
+    response = _post("/sync/watchlist/remove", payload)
     return bool(response is not None and response.status_code in (200, 201))
 
 
