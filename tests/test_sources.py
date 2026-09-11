@@ -119,6 +119,53 @@ def test_hdr_is_rejected_when_the_device_cannot_show_it(prefs):
     assert "HDR" in scoring.rejection_reason(hdr, prefs)
 
 
+DV_ONLY = "Movie.2024.1080p.WEB-DL.DV.H265-GRP"
+
+
+def test_dolby_vision_alone_is_its_own_decision(settings_module, prefs):
+    """Allowing HDR says nothing about Dolby Vision with no fallback.
+
+    A release with an HDR10 or HDR10+ layer beside Dolby Vision plays that
+    layer on a screen without it. One with Dolby Vision alone has nothing to
+    fall back to, and on a display that cannot decode it the picture comes
+    out purple and green.
+    """
+    settings_module.set("sources.allow_hdr", "true")
+    hdr_on = scoring.Preferences()
+
+    assert scoring.rejection_reason(make(DV_ONLY), hdr_on) == \
+        "Dolby Vision without an HDR10 fallback"
+    assert scoring.rejection_reason(
+        make("Movie.2024.1080p.WEB-DL.DV.HDR10.H265-GRP"), hdr_on) == ""
+    assert scoring.rejection_reason(
+        make("Movie.2024.1080p.WEB-DL.DV.HDR10+.H265-GRP"), hdr_on) == ""
+
+    settings_module.set("sources.allow_dv", "true")
+    assert scoring.rejection_reason(make(DV_ONLY), scoring.Preferences()) == ""
+
+
+def test_hdr_switched_off_still_explains_a_dolby_vision_release(prefs):
+    """The broader reason wins: with HDR off, "HDR is switched off" is the
+    one that tells somebody what to change."""
+    assert scoring.rejection_reason(make(DV_ONLY), prefs) == \
+        "HDR is switched off"
+
+
+def test_every_rejection_reason_has_a_label():
+    """The picker translates each reason it reports. A reason added without
+    a label is shown to a Hebrew-speaking household in English."""
+    import inspect
+    import re
+
+    from katan.ui import sources_window
+
+    reasons = set(re.findall(r'return "([^"]+)"',
+                             inspect.getsource(scoring.rejection_reason)))
+    assert reasons, "no reasons found - has rejection_reason changed shape?"
+    missing = reasons - set(sources_window.REASON_STRINGS)
+    assert not missing, "no label for %s" % sorted(missing)
+
+
 def test_cam_releases_are_rejected(prefs):
     assert "cam" in scoring.rejection_reason(make("Movie.2024.HDCAM.x264-X"), prefs)
 

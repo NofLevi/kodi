@@ -68,6 +68,7 @@ DEFAULTS = {
     "sources.allow_hevc": "true",
     "sources.allow_av1": "false",
     "sources.allow_hdr": "false",
+    "sources.allow_dv": "false",
     "sources.max_size_gb": "8",
     "sources.autoplay": "true",
     "sources.source_memory": "true",
