@@ -118,15 +118,29 @@ class KatanPlayer(xbmc.Player):
 
     # -- helpers -----------------------------------------------------------
 
+    def _position_now(self):
+        """Seconds into the file: the player's answer, or the last one heard.
+
+        By the time onPlayBackStopped arrives Kodi has usually stopped, and
+        getTime raises then - which made every stop look like it happened at
+        0%. The tick's last reading is what a stop knows about where it was.
+        """
+        try:
+            position = float(self.getTime() or 0.0)
+        except RuntimeError:      # nothing is playing any more
+            return getattr(self, "_position", 0.0)
+        self._position = position
+        return position
+
     def _progress(self):
         try:
             if not self.total_time:
                 self.total_time = self.getTotalTime() or 0.0
-            if self.total_time <= 0:
-                return 0.0
-            return min(100.0, (self.getTime() / self.total_time) * 100.0)
         except RuntimeError:      # nothing is playing any more
+            pass
+        if self.total_time <= 0:
             return 0.0
+        return min(100.0, (self._position_now() / self.total_time) * 100.0)
 
     def _ids(self):
         return (self.meta or {}).get("ids") or {}
@@ -211,6 +225,7 @@ class KatanPlayer(xbmc.Player):
             self._playback_generation += 1
             clear_now_playing()
             self.meta = None
+            self._forget_position()
 
     def _finish(self, completed=False):
         with PLAYBACK_LOCK:
@@ -226,17 +241,58 @@ class KatanPlayer(xbmc.Player):
         if should_scrobble:
             self._scrobble("stop", progress, meta=meta)
         self._remember_source(progress, meta=meta)
+        self._keep_place(meta, progress, completed)
+        # The next playback starts from nothing. A reading left over from this
+        # one would be taken as where the next one stopped, were it stopped
+        # before its first tick - film B saved at film A's position.
+        self._forget_position()
         with PLAYBACK_LOCK:
             if self._playback_generation != generation or self.meta is not meta:
                 return
             clear_now_playing()
             self.meta = None
 
+    def _forget_position(self):
+        self._position = 0.0
+        self._bookmarked_at = 0.0
+
+    # How often the place is saved while playing, on top of the save at stop:
+    # a projector is as likely to be switched off at the wall as stopped from
+    # the menu, and then no stop ever arrives.
+    BOOKMARK_EVERY = 120
+
     def tick(self):
         """Called once a second by the service while something is playing."""
         if not self.meta:
             return
         self._maybe_prefetch()
+        progress = self._progress()          # and records where we are
+        now = time.time()
+        if now - getattr(self, "_bookmarked_at", 0.0) >= self.BOOKMARK_EVERY:
+            self._bookmarked_at = now
+            if 1 < progress < 95:
+                self._keep_place(self.meta, progress)
+
+    def _keep_place(self, meta, progress, completed=False):
+        """Save or clear where this was stopped, for resuming without Trakt.
+
+        The same thresholds Trakt uses: under 1% was a false start and saves
+        nothing, 95% or more is the credits and counts as finished.
+        """
+        if not meta or meta.get("type") not in ("movie", "episode"):
+            return
+        from . import bookmarks
+        from .meta import trakt_state
+        key = trakt_state.state_key(meta.get("type"), meta.get("ids"),
+                                    meta.get("season"), meta.get("episode"))
+        try:
+            if completed or progress >= 95:
+                bookmarks.clear(key)
+            elif progress > 1 and self.total_time > 0:
+                bookmarks.save(key, self.total_time * progress / 100.0,
+                               self.total_time)
+        except Exception:
+            kodi.log_exception("could not keep the resume point")
 
     # -- features ----------------------------------------------------------
 
