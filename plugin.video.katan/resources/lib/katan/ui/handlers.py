@@ -492,7 +492,21 @@ def mark_watched(params):
 def trakt_watchlist_add(params):
     from ..meta import trakt
     if trakt.add_to_watchlist(params.get("type", "movie"), params.get("tmdb")):
+        # The row is cached for hours and never learned anything had been
+        # added, so the watchlist looked unchanged until the cache expired.
+        catalog.invalidate("watchlist")
         kodi.notify(kodi.localize(32271))
+        kodi.refresh_container()
+
+
+@router.route("trakt_watchlist_remove")
+def trakt_watchlist_remove(params):
+    from ..meta import trakt
+    if trakt.remove_from_watchlist(params.get("type", "movie"),
+                                   params.get("tmdb")):
+        catalog.invalidate("watchlist")
+        kodi.notify(kodi.localize(32526))
+        kodi.refresh_container()
 
 
 # --------------------------------------------------------------------------

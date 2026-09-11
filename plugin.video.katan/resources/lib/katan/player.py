@@ -332,7 +332,10 @@ class KatanPlayer(xbmc.Player):
         """
         if self.prefetched or not self._is_episode():
             return
-        if not settings.get_bool("sources.prefetch_next", True):
+        # No fallback of its own. It said True while settings.xml and
+        # settings.DEFAULTS both say false, and the difference only shows when
+        # the value is unset - which is exactly when a default is consulted.
+        if not settings.get_bool("sources.prefetch_next"):
             return
         if self._progress() < 80:
             return

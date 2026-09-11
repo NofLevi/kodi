@@ -339,12 +339,13 @@ def test_a_settings_change_still_refills_everything(monkeypatch):
 
 
 def _kiosk(monkeypatch, settings_module, on_kodi_home=True, playing=False,
-           player_on_screen=False):
+           player_on_screen=False, modal=False):
     """A service with "stay in Katan" on and Kodi's state under control.
 
     `playing` and `player_on_screen` are separate on purpose: audio can carry
     on behind Kodi's home screen, and conflating the two is what stopped this
-    working in the one case that mattered.
+    working in the one case that mattered. `modal` is a dialog drawn over
+    whatever window is underneath - Kodi's home stays "active" beneath it.
     """
     import xbmc
     from katan import background, kodi
@@ -355,12 +356,32 @@ def _kiosk(monkeypatch, settings_module, on_kodi_home=True, playing=False,
         "Window.IsActive(fullscreenvideo)": player_on_screen,
         "Window.IsActive(visualisation)": False,
         "Player.HasMedia": playing,
+        "System.HasActiveModalDialog": modal,
+        "System.HasVisibleModalDialog": modal,
     }
     monkeypatch.setattr(xbmc, "getCondVisibility",
                         lambda condition: windows.get(condition, False))
     ran = []
     monkeypatch.setattr(kodi, "run_builtin", lambda cmd: ran.append(cmd))
     return background.Service(), ran
+
+
+def test_a_dialog_over_kodis_home_is_not_somebody_leaving(monkeypatch,
+                                                         settings_module):
+    """Kodi reports home as active under a dialog drawn over it.
+
+    So this relaunched Katan, Kodi refused to open it over the modal, home
+    stayed active, and the next pass tried again - every 2.5 seconds for as
+    long as the dialog stayed up. One run left 135 plugin invocations.
+    """
+    import time
+    service, ran = _kiosk(monkeypatch, settings_module, modal=True)
+    for _ in range(10):
+        service.left_at = time.time() - 10
+        service.keep_katan_open()
+    assert not ran, "relaunched Katan under a dialog it cannot open over"
+    assert service.left_at == 0.0, \
+        "the grace period starts over, so closing the dialog is not leaving"
 
 
 def test_landing_on_kodis_home_screen_brings_katan_back(monkeypatch,

@@ -490,11 +490,39 @@ def _uncached_allowed():
 
 
 def prefetch_next_episode(meta):
-    """Warm the source list for the next episode, without resolving anything."""
+    """Warm the source list for the next episode, without resolving anything.
+
+    Asks `upnext.next_episode`, which rolls into the next season. This used
+    to add one to the episode number, so at the end of a season it searched
+    for an episode that does not exist - the prefetch was spent on nothing
+    and the real next episode, the first of the following season, started
+    cold.
+
+    A copy of the playing meta rather than the bare next-episode record,
+    because the search needs what came with it: the show's ids, its aliases,
+    the anime numbering fields. What described *this* episode is corrected or
+    dropped - including the absolute number, which is this episode's and
+    would otherwise have sent an anime prefetch looking for the episode
+    already playing.
+    """
     if meta.get("type") != "episode":
         return
+    from . import upnext
+    upcoming = upnext.next_episode(meta)
+    if not upcoming:
+        return
     nxt = dict(meta)
-    nxt["episode"] = int(meta.get("episode") or 0) + 1
+    for stale in ("item", "source", "resume", "episode_title"):
+        nxt.pop(stale, None)
+    nxt["season"] = upcoming["season"]
+    nxt["episode"] = upcoming["episode"]
+    if meta.get("absolute"):
+        # Absolute numbering counts straight through the seasons.
+        nxt["absolute"] = int(meta["absolute"]) + 1
+    if upcoming["season"] != int(meta.get("season") or 0):
+        # Named for the season that has just finished.
+        for stale in ("season_name", "season_episodes"):
+            nxt.pop(stale, None)
     try:
         from .sources import aggregator
         aggregator.find(nxt, prefetch=True)

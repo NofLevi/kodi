@@ -233,10 +233,15 @@ def context_menu(item):
                             type=item_type, season=item.get("season"),
                             episode=item.get("episode"))))
     if item_type in ("movie", "show"):
-        entries.append((kodi.localize(32251),
+        # Only the watchlist row knows an item is on the watchlist - nothing
+        # mirrors membership locally - so that is where Remove is offered, and
+        # everywhere else keeps Add.
+        listed = (item.get("extra") or {}).get("in_watchlist")
+        entries.append((kodi.localize(32525 if listed else 32251),
                         "RunPlugin(%s)" % router.url_for(
-                            "trakt_watchlist_add", tmdb=ids.get("tmdb"),
-                            type=item_type)))
+                            "trakt_watchlist_remove" if listed
+                            else "trakt_watchlist_add",
+                            tmdb=ids.get("tmdb"), type=item_type)))
     if item_type in ("movie", "show", "episode"):
         entries.append((kodi.localize(32252),
                         "RunPlugin(%s)" % router.url_for(

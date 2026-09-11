@@ -898,8 +898,8 @@ msgid "Replaces the home screen with rows that are safe by construction."
 msgstr "מחליף את מסך הבית בשורות בטוחות מעצם בנייתן."
 
 msgctxt "#30087"
-msgid "Replaces every home row with children's rows and blocks anything above the age limit. Turning it off again asks for the PIN."
-msgstr "מחליף כל שורה במסך הבית בשורות לילדים וחוסם כל תוכן מעל מגבלת הגיל. כיבוי המצב מחייב הזנת קוד."
+msgid "Replaces every home row with children's rows and blocks anything above the age limit. Switch it off again from the same menu."
+msgstr "מחליף כל שורה במסך הבית בשורות לילדים וחוסם כל תוכן מעל מגבלת הגיל. אפשר לכבות אותו מאותו תפריט."
 
 msgctxt "#30088"
 msgid "Age limit"
@@ -1588,3 +1588,11 @@ msgstr "חיפוש קולי"
 msgctxt "#32524"
 msgid "Open this on your phone and use its microphone key"
 msgstr "פתחו בטלפון והשתמשו במקש המיקרופון"
+
+msgctxt "#32525"
+msgid "Remove from Trakt watchlist"
+msgstr "הסר מרשימת Trakt"
+
+msgctxt "#32526"
+msgid "Removed from your watchlist"
+msgstr "הוסר מהרשימה"
