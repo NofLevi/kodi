@@ -219,13 +219,79 @@ class KatanPlayer(xbmc.Player):
     def onPlayBackEnded(self):
         self._finish(completed=True)
 
+    # How many times one playback may fall back after Kodi fails to open a
+    # stream, however many candidates the hand-off still carries.
+    MAX_RETRIES = 2
+
     def onPlayBackError(self):
+        """Kodi could not play what it was given; try the next source.
+
+        The fall-through to the next source used to run only before the
+        hand-off, when a link would not resolve or answer. Once Kodi had the
+        URL, a stream its decoder could not open ended on an error screen -
+        while the next source in the list would have played.
+        """
         with PLAYBACK_LOCK:
+            pending = now_playing()
+            never_started = self.meta is None
             self._subtitle_generation += 1
             self._playback_generation += 1
+            generation = self._playback_generation
             clear_now_playing()
             self.meta = None
             self._forget_position()
+        if never_started and self._worth_retrying(pending):
+            # Resolving takes seconds and this is Kodi's callback thread, which
+            # the service loop also waits on - so a daemon worker, as the
+            # subtitle search uses.
+            worker = threading.Thread(target=self._retry_next,
+                                      args=(pending, generation),
+                                      name="katan-retry")
+            worker.daemon = True
+            worker.start()
+
+    def _worth_retrying(self, pending):
+        """A fresh hand-off from our own autoplay, with somewhere left to go.
+
+        Only when Kodi never started the stream. An error after it started is
+        a different failure - a stream dying mid-film - with its own
+        questions, and a stale hand-off is not ours to act on.
+        """
+        if not pending or not pending.get("fallbacks"):
+            return False
+        try:
+            age = time.time() - float(pending.get("_handoff_time") or 0)
+        except (TypeError, ValueError):
+            return False
+        if age > HANDOFF_TTL:
+            return False
+        return int(pending.get("_retry") or 0) < self.MAX_RETRIES
+
+    def _retry_next(self, pending, generation):
+        """Open the next fallback and give it to Kodi, or say none worked."""
+        from . import play
+        from .ui import listing
+        try:
+            candidate, url, remaining = play.resolve_fallback(pending)
+        except Exception:
+            kodi.log_exception("falling back to the next source failed")
+            candidate, url, remaining = None, "", []
+        with PLAYBACK_LOCK:
+            if self._playback_generation != generation:
+                return          # something else started while we resolved
+        if not url:
+            kodi.notify(kodi.localize(32284))
+            return
+        retried = dict(pending)
+        retried.pop("_stream_id", None)
+        retried.pop("_handoff_time", None)
+        retried["source"] = play.source_record(candidate)
+        retried["fallbacks"] = remaining
+        retried["_retry"] = int(pending.get("_retry") or 0) + 1
+        retried["stream_url"] = url
+        kodi.notify(kodi.localize(32528))
+        set_now_playing(retried)
+        listing.resolve(-1, url, retried.get("item"))
 
     def _finish(self, completed=False):
         with PLAYBACK_LOCK:

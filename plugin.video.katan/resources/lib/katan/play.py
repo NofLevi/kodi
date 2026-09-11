@@ -219,7 +219,24 @@ def play(handle, request, force_picker=False):
         kodi.log_exception("could not read the resume point")
 
     from . import player
-    meta["source"] = {
+    meta["source"] = source_record(chosen)
+    if not force_picker:
+        # The next candidates travel with the hand-off, because the ranked
+        # list dies with this process the moment Kodi has the URL - and it
+        # is the service, which outlives it, that hears when Kodi cannot open
+        # the stream. Never after the viewer chose in the picker: they asked
+        # for that release, and quietly playing another is worse than saying
+        # it would not open.
+        meta["fallbacks"] = _fallbacks_after(chosen, sources)
+        meta["_retry"] = 0
+    meta["stream_url"] = url
+    player.set_now_playing(meta)
+    listing.resolve(handle, url, meta.get("item"))
+
+
+def source_record(chosen):
+    """What the player keeps about the source that is playing."""
+    return {
         "group": chosen.get("group", ""),
         "provider": chosen.get("provider", ""),
         "quality": chosen.get("quality", ""),
@@ -236,9 +253,66 @@ def play(handle, request, force_picker=False):
         "file_id": chosen.get("file_id"),
         "torrent_hash": chosen.get("hash", ""),
     }
-    meta["stream_url"] = url
-    player.set_now_playing(meta)
-    listing.resolve(handle, url, meta.get("item"))
+
+
+# How many further sources a failed open can fall back to. Two: each costs a
+# resolve and a reachability check on a box that may be waiting on wifi, and a
+# viewer watching a spinner for half a minute has already given up.
+MAX_FALLBACKS = 2
+
+
+def _fallbacks_after(chosen, sources):
+    """The next few untried sources, in a form safe to hand across processes.
+
+    Autoplay tries sources in order, so everything after the one that opened
+    has not been tried. Only cached sources with a hash: those re-resolve
+    through the debrid service from the service process. A source with a
+    direct url is left out, because that url may be signed, and the hand-off
+    is a window property any add-on on the box can read.
+    """
+    position = next((index for index, entry in enumerate(sources)
+                     if entry is chosen), -1)
+    found = []
+    for candidate in sources[position + 1:]:
+        if len(found) >= MAX_FALLBACKS:
+            break
+        if (candidate.get("url") or not candidate.get("hash")
+                or not candidate.get("cached") or not candidate.get("cached_by")):
+            continue
+        found.append({
+            "title": candidate.get("title", ""),
+            "hash": candidate.get("hash", ""),
+            "provider": candidate.get("provider", ""),
+            "quality": candidate.get("quality", ""),
+            "group": candidate.get("group", ""),
+            "cached": True,
+            "cached_by": candidate.get("cached_by", ""),
+            "file_name": candidate.get("file_name", ""),
+            "file_index": candidate.get("file_index"),
+            "file_id": candidate.get("file_id"),
+            # What the debrid client needs to pick the right file out of a
+            # season pack - the same context the aggregator attaches.
+            "extra": {"meta": dict(
+                (candidate.get("extra") or {}).get("meta") or {})},
+        })
+    return found
+
+
+def resolve_fallback(meta):
+    """Open the next fallback a hand-off carries: (source, url, remaining).
+
+    Through the same `_resolve` and `_reachable` as ordinary playback, so a
+    fallback is judged exactly as the first choice was.
+    """
+    fallbacks = list(meta.get("fallbacks") or [])
+    while fallbacks:
+        candidate = dict(fallbacks.pop(0))
+        kodi.log("the stream would not open; trying %s"
+                 % (candidate.get("title", "")[:70]), kodi.LOG_INFO)
+        url = _resolve(candidate)
+        if url and _reachable(url):
+            return candidate, url, fallbacks
+    return None, "", []
 
 
 # How many sources autoplay will try before giving up.
