@@ -61,6 +61,13 @@ def build_meta(request):
     if request.get("imdb") and not meta["ids"].get("imdb"):
         meta["ids"]["imdb"] = request["imdb"]
 
+    # The length, from the item already fetched above. The subtitle path
+    # prefers the player's own figure and falls back to this, and it is what
+    # tools/survey_subtitles.py reads - which is why its "covers under 60% of
+    # runtime" line had never once counted anything: the item carried the
+    # runtime all along and it was never lifted to where anyone looked.
+    meta["duration"] = int((meta.get("item") or {}).get("duration") or 0)
+
     _name_it_the_way_the_indexes_do(meta, tmdb_id)
     return meta
 
