@@ -1648,3 +1648,15 @@ msgstr ""
 msgctxt "#32528"
 msgid "That source would not open - trying the next one"
 msgstr ""
+
+msgctxt "#30151"
+msgid "Find where the intro and credits are"
+msgstr ""
+
+msgctxt "#30152"
+msgid "Skip the intro automatically"
+msgstr ""
+
+msgctxt "#32529"
+msgid "Skipped the intro"
+msgstr ""

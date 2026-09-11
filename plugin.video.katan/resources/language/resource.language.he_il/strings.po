@@ -1608,3 +1608,15 @@ msgstr "אפשר Dolby Vision ללא גיבוי HDR10"
 msgctxt "#32528"
 msgid "That source would not open - trying the next one"
 msgstr "המקור לא נפתח, מנסה את הבא"
+
+msgctxt "#30151"
+msgid "Find where the intro and credits are"
+msgstr "איתור הפתיח וכתוביות הסיום"
+
+msgctxt "#30152"
+msgid "Skip the intro automatically"
+msgstr "דילוג אוטומטי על הפתיח"
+
+msgctxt "#32529"
+msgid "Skipped the intro"
+msgstr "הפתיח דולג"

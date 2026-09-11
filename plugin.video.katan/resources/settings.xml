@@ -924,6 +924,17 @@
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="ui.skip_segments" type="boolean" label="30151">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ui.auto_skip" type="boolean" label="30152">
+                    <level>0</level><default>false</default>
+                    <control type="toggle"/>
+                    <dependencies>
+                        <dependency type="visible" setting="ui.skip_segments" operator="is">true</dependency>
+                    </dependencies>
+                </setting>
                 <setting id="ui.rows" type="string" label="30100">
                     <default/>
                     <constraints>

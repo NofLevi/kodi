@@ -47,6 +47,12 @@ def kodi_environment(tmp_path):
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(tmdb, "BUNDLED_KEY", "")
 
+    # IntroDB is asked from a worker the moment an episode starts, so without
+    # this every test that starts one would go to the network. A test that
+    # wants an answer patches it.
+    from katan import skip
+    monkeypatch.setattr(skip, "_fetch", lambda *args: None)
+
     kodi.refresh_addon()
     # The router remembers the handle it was invoked with, and a handle left
     # over from another test is exactly the sort of thing that makes a suite

@@ -100,6 +100,12 @@ class Player(object):
     def stop(self):
         pass
 
+    # Where seekTime was asked to go, for the same reason as PLAYED.
+    SEEKS = []
+
+    def seekTime(self, seconds):
+        Player.SEEKS.append(seconds)
+
     def setSubtitles(self, path):
         pass
 

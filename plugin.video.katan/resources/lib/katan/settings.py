@@ -122,6 +122,8 @@ DEFAULTS = {
     "ui.hide_watched": "false",
     "ui.show_unaired": "false",
     "ui.upnext": "true",
+    "ui.skip_segments": "true",
+    "ui.auto_skip": "false",
     "ui.poster_size": "w185",
     "ui.row_items": "12",
     # The one switch that trades memory for looks. Off, so the shipped state
