@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window type="dialog">
+    <!-- One button in the bottom corner, clear of the subtitles and of the
+         seek bar Kodi draws along the bottom edge. -->
+    <defaultcontrol always="true">9210</defaultcontrol>
+    <controls>
+
+        <control type="button" id="9210">
+            <left>1540</left>
+            <top>880</top>
+            <width>320</width>
+            <height>72</height>
+            <font>font13</font>
+            <textcolor>white</textcolor>
+            <focusedcolor>FF141414</focusedcolor>
+            <align>center</align>
+            <aligny>center</aligny>
+            <label>$ADDON[plugin.video.katan 32530]</label>
+            <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+            <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+            <onleft>9210</onleft>
+            <onright>9210</onright>
+            <onup>9210</onup>
+            <ondown>9210</ondown>
+        </control>
+
+    </controls>
+</window>

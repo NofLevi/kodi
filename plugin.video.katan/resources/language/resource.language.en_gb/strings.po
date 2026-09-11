@@ -1660,3 +1660,7 @@ msgstr ""
 msgctxt "#32529"
 msgid "Skipped the intro"
 msgstr ""
+
+msgctxt "#32530"
+msgid "Skip intro"
+msgstr ""
