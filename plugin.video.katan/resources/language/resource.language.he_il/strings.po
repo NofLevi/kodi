@@ -1604,3 +1604,7 @@ msgstr "Dolby Vision ללא גיבוי HDR10"
 msgctxt "#30150"
 msgid "Allow Dolby Vision without an HDR10 fallback"
 msgstr "אפשר Dolby Vision ללא גיבוי HDR10"
+
+msgctxt "#32528"
+msgid "That source would not open - trying the next one"
+msgstr "המקור לא נפתח, מנסה את הבא"
