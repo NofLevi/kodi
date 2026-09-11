@@ -288,17 +288,22 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
         kodi.log("best %s subtitle: %s %r"
                  % (wanted, matcher.explain(winner),
                     (winner.get("release") or "")[:60]))
+    # Known once and used by every check below. From the player when there is
+    # one, because that is this file's length rather than the title's rounded
+    # runtime; 0 when nobody knows, which makes the coverage check stand aside.
+    runtime = runtime_of(player, meta)
     if winner and winner.get("accepted"):
         winner, cues, report = _best_supported(
             winner, _ranked, wanted, languages, winners, report, threshold,
             downloads)
         if cues:
             cues, report = verify_and_sync(cues, winners, languages, report,
-                                           downloads)
-            if not cues and report.get("hash_mismatch"):
+                                           downloads, runtime)
+            if not cues and (report.get("hash_mismatch")
+                             or report.get("short")):
                 winner, cues, report = _verified_fallback(
                     _ranked, winner, wanted, winners, languages, report,
-                    downloads, threshold)
+                    downloads, threshold, runtime)
             if cues:
                 report["reason"] = (report.get("reason")
                                     or (winner or {}).get("reason", ""))
@@ -316,7 +321,7 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
         chosen, cues = _first_usable(_ranked, wanted, downloads)
         if cues:
             cues, report = verify_and_sync(cues, winners, languages, report,
-                                           downloads)
+                                           downloads, runtime)
             if cues:
                 report["reason"] = "below threshold, used anyway"
                 return store(meta, wanted, cues), report
@@ -584,38 +589,99 @@ def _best_supported(winner, candidates, wanted, languages, winners, report,
     return chosen, cues, report
 
 
-def verify_and_sync(cues, winners, languages, report, downloads):
+# How far into the film a subtitle has to reach before it is believed to be
+# for this cut: the last line's end over the runtime. It is the definition
+# tools/survey_subtitles.py already reports on, and until now it existed only
+# there - the playback path had no runtime check at all, so a subtitle that
+# stopped sixty percent of the way through (a shorter version, one part of a
+# split file, or simply incomplete) was shown whenever its filename scored
+# well enough. Conservative on purpose: credits and a silent ending rarely
+# take a film's last line below ninety percent.
+MIN_RUNTIME_COVERAGE = 0.6
+
+
+def runtime_of(player, meta):
+    """The length of what is playing, in seconds, or 0 when it is not known.
+
+    The player's own figure first, because it is this file, cut and all,
+    where TMDB's is a rounded number for the title. Unknown is a real answer -
+    a live stream, or a player that has not learned the length yet - and it
+    makes the coverage check stand aside rather than guess.
+    """
+    try:
+        total = float(player.getTotalTime() or 0) if player is not None else 0.0
+    except Exception:
+        total = 0.0
+    if total > 0:
+        return total
+    try:
+        return float((meta or {}).get("duration") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def covers_runtime(cues, runtime):
+    """Does this subtitle reach far enough into the film to be for it?"""
+    if not cues or runtime <= 0:
+        return True
+    return cues[-1].end / float(runtime) >= MIN_RUNTIME_COVERAGE
+
+
+def verify_and_sync(cues, winners, languages, report, downloads, runtime=0):
     """Check the chosen subtitle against a trusted reference, and re-time it.
 
     The reference is a hash-matched subtitle in another language. Its timings
     are known to be right for this exact file, so it doubles as proof that the
     chosen subtitle belongs to this episode at all: an unrelated file scores
     near zero however it is shifted, and is then rejected rather than shown.
+
+    Then, reference or not, the result has to reach far enough into the film.
+    After re-timing rather than before, because a framerate correction moves
+    the last line by four percent and it is the corrected subtitle that will
+    be shown. A rejection returns no cues with a flag set, exactly as a
+    disproved hash does, so the caller's fallback to the next candidate
+    handles both.
     """
     reference = reference_cues(winners, languages, downloads)
-    if not reference:
-        return cues, report
+    if reference:
+        fitted, result = sync.synchronise(cues, reference)
+        report["confidence"] = result["confidence"]
+        if result["applied"]:
+            report["synchronised"] = True
+            kodi.log("subtitle re-timed by %.2fs, scale %.5f, confidence %.2f"
+                     % (result["offset"], result["scale"],
+                        result["confidence"]))
+        elif result["confidence"] < sync.MIN_CONFIDENCE:
+            report["hash_mismatch"] = True
+            report["reason"] = "hash reference disproved subtitle"
+            kodi.log("subtitle rejected against exact-file hash reference: "
+                     "%.2f" % result["confidence"])
+            return [], report
+        else:
+            kodi.log("subtitle timing left alone: %s" % result["reason"])
+        cues = fitted
 
-    fitted, result = sync.synchronise(cues, reference)
-    report["confidence"] = result["confidence"]
-    if result["applied"]:
-        report["synchronised"] = True
-        kodi.log("subtitle re-timed by %.2fs, scale %.5f, confidence %.2f"
-                 % (result["offset"], result["scale"], result["confidence"]))
-    elif result["confidence"] < sync.MIN_CONFIDENCE:
-        report["hash_mismatch"] = True
-        report["reason"] = "hash reference disproved subtitle"
-        kodi.log("subtitle rejected against exact-file hash reference: %.2f"
-                 % result["confidence"])
+    if not covers_runtime(cues, runtime):
+        reached = cues[-1].end / float(runtime)
+        report["short"] = True
+        report["reason"] = "ends %d%% of the way through" % int(reached * 100)
+        kodi.log("subtitle rejected: its last line is at %ds of a %ds film"
+                 % (cues[-1].end, runtime))
         return [], report
-    else:
-        kodi.log("subtitle timing left alone: %s" % result["reason"])
-    return fitted, report
+    return cues, report
 
 
 def _verified_fallback(candidates, rejected, wanted, winners, languages,
-                       report, downloads, minimum_score):
-    """Try another target after exact-file evidence disproves the first."""
+                       report, downloads, minimum_score, runtime=0):
+    """Try another target after the first was disproved.
+
+    Disproved by exact-file evidence, or by stopping too early for the film -
+    both return no cues with a flag set, and both deserve the same answer:
+    the next candidate that clears the threshold, checked the same way.
+    """
+    because = ("a higher-ranked candidate was too short for this film"
+               if report.get("short")
+               else "hash reference rejected higher-ranked candidate")
     rejected_key = downloads._key(rejected, wanted)
     for candidate in candidates:
         if (candidate.get("language") != wanted
@@ -628,9 +694,9 @@ def _verified_fallback(candidates, rejected, wanted, winners, languages,
                 break
             continue
         cues, report = verify_and_sync(cues, winners, languages, report,
-                                       downloads)
+                                       downloads, runtime)
         if cues:
-            report["reason"] = "hash reference rejected higher-ranked candidate"
+            report["reason"] = because
             return candidate, cues, report
         if downloads.remaining() <= 0:
             break
