@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window type="dialog">
+    <!-- Play now takes focus, so OK on the remote does the likely thing. -->
+    <defaultcontrol always="true">9310</defaultcontrol>
+    <controls>
+
+        <control type="group">
+            <left>1180</left>
+            <top>640</top>
+            <width>700</width>
+            <height>320</height>
+
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>700</width>
+                <height>320</height>
+                <texture>special://home/addons/plugin.video.katan/resources/media/scrim.png</texture>
+            </control>
+
+            <control type="image">
+                <left>20</left>
+                <top>20</top>
+                <width>320</width>
+                <height>180</height>
+                <aspectratio>keep</aspectratio>
+                <texture>$INFO[Window.Property(katan.next.thumb)]</texture>
+            </control>
+
+            <control type="label">
+                <left>360</left>
+                <top>20</top>
+                <width>320</width>
+                <height>36</height>
+                <font>font13</font>
+                <textcolor>grey</textcolor>
+                <label>$ADDON[plugin.video.katan 32531]</label>
+            </control>
+            <control type="label">
+                <left>360</left>
+                <top>60</top>
+                <width>320</width>
+                <height>40</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <label>$INFO[Window.Property(katan.next.number)]</label>
+            </control>
+            <control type="textbox">
+                <left>360</left>
+                <top>100</top>
+                <width>320</width>
+                <height>100</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <label>$INFO[Window.Property(katan.next.title)]</label>
+            </control>
+
+            <control type="label">
+                <left>20</left>
+                <top>208</top>
+                <width>660</width>
+                <height>36</height>
+                <font>font13</font>
+                <textcolor>grey</textcolor>
+                <label>$INFO[Window.Property(katan.next.countdown)]</label>
+            </control>
+
+            <control type="button" id="9310">
+                <left>20</left>
+                <top>250</top>
+                <width>320</width>
+                <height>56</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <align>center</align>
+                <aligny>center</aligny>
+                <label>$ADDON[plugin.video.katan 32532]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+                <onleft>9311</onleft>
+                <onright>9311</onright>
+                <onup>9310</onup>
+                <ondown>9310</ondown>
+            </control>
+            <control type="button" id="9311">
+                <left>360</left>
+                <top>250</top>
+                <width>320</width>
+                <height>56</height>
+                <font>font13</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <align>center</align>
+                <aligny>center</aligny>
+                <label>$ADDON[plugin.video.katan 32465]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.katan/resources/media/button.png</texturenofocus>
+                <onleft>9310</onleft>
+                <onright>9310</onright>
+                <onup>9311</onup>
+                <ondown>9311</ondown>
+            </control>
+        </control>
+
+    </controls>
+</window>

@@ -1624,3 +1624,15 @@ msgstr "הפתיח דולג"
 msgctxt "#32530"
 msgid "Skip intro"
 msgstr "דלג על הפתיח"
+
+msgctxt "#32531"
+msgid "Up next"
+msgstr "הפרק הבא"
+
+msgctxt "#32532"
+msgid "Play now"
+msgstr "נגן עכשיו"
+
+msgctxt "#32533"
+msgid "Next episode in %d"
+msgstr "הפרק הבא בעוד %d"

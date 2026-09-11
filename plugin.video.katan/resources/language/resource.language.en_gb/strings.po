@@ -1664,3 +1664,15 @@ msgstr ""
 msgctxt "#32530"
 msgid "Skip intro"
 msgstr ""
+
+msgctxt "#32531"
+msgid "Up next"
+msgstr ""
+
+msgctxt "#32532"
+msgid "Play now"
+msgstr ""
+
+msgctxt "#32533"
+msgid "Next episode in %d"
+msgstr ""
