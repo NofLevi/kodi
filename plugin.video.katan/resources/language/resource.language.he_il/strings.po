@@ -1342,8 +1342,8 @@ msgid "Hebrew inside"
 msgstr "עברית מוטמעת"
 
 msgctxt "#32475"
-msgid "Subtitles %d%%"
-msgstr "כתוביות %d%%"
+msgid "Subtitles %d%% estimate"
+msgstr "כתוביות %d%% (הערכה)"
 
 msgctxt "#32476"
 msgid "No Hebrew found"

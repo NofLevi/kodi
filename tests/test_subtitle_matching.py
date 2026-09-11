@@ -314,10 +314,45 @@ def test_the_same_group_is_nearly_certain():
     assert scored("The.Film.2024.1080p.BluRay.x264-AMIABLE.HEB") >= 90
 
 
-def test_source_resolution_and_codec_together_are_a_good_match():
-    """The case that used to read 33%. It is the best a Hebrew provider can
-    normally offer, because Hebrew subtitles are rarely made per group."""
-    assert scored("The.Film.2024.1080p.BluRay.x264-OTHER") == 70
+def test_title_source_and_resolution_reach_the_threshold_on_their_own():
+    """The case that used to read 33%, and then 65.
+
+    It is the best a Hebrew provider can normally offer, because Hebrew
+    subtitles are rarely made per group - and it must clear the default
+    threshold of 70 without needing a codec token too. The test that stood
+    here used a name with x264 on both sides, so it reached 70 through the
+    codec and never noticed the rung itself added to 65.
+    """
+    assert scored("The.Film.2024.1080p.BluRay-OTHER") == 70
+
+
+def test_a_matching_codec_is_a_bonus_on_top():
+    assert scored("The.Film.2024.1080p.BluRay.x264-OTHER") == 75
+
+
+def test_every_documented_rung_holds_without_a_codec():
+    """The ladder in matcher.py is a promise; each rung is checked bare."""
+    assert scored("The.Film.2024.1080p.BluRay-AMIABLE") == 95   # group
+    assert scored("The.Film.2024.1080p.BluRay-OTHER") == 70     # title+source+res
+    assert scored("The.Film.2024.BRRip-OTHER") == 55            # title+source
+    assert scored("The Film") == 40                             # title
+
+
+def test_only_certainty_scores_a_hundred():
+    """100 means the same file or the same name, and nothing else may say it.
+
+    Group, source, resolution and codec together sum past 100. That is very
+    nearly the same release - and still not the same file, which is the only
+    thing 100 is allowed to mean, because the chooser shows a bare "100%" as
+    exact and the picker sorts on it.
+    """
+    # An audio token the matcher does not score keeps the name distinct from
+    # the target. Not ".HEB": that is a subtitle language tag, stripped before
+    # comparing, so it *is* the identical release name and rightly scores 100.
+    nearly = scored("The.Film.2024.1080p.BluRay.DTS.x264-AMIABLE")
+    assert nearly == 99
+    assert scored("The.Film.2024.1080p.BluRay.x264-AMIABLE") == 100
+    assert scored("The.Film.2024.1080p.BluRay.x264-AMIABLE.HEB") == 100
 
 
 def test_the_same_source_alone_is_a_maybe():

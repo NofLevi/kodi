@@ -30,9 +30,12 @@ def candidate_key(candidate, effective_language=None):
             str(candidate.get("release") or "").strip().lower(), language)
 
 # The scale is a probability that this subtitle fits this file, and the
-# weights are chosen so the arithmetic lands where a person would:
+# weights are chosen so the arithmetic lands where a person would. Each rung
+# holds on its own; a matching codec adds five on top and is never needed to
+# reach one:
 #
-#     100   the same file by hash, or the same release name. Certain.
+#     100   the same file by hash, or the same release name. Certain - and
+#           nothing else may claim it, so the additive path stops at 99.
 #      95   the same group as well as the same source and resolution. Groups
 #           mux their own timings, so a subtitle made for a group release
 #           fits it.
@@ -42,6 +45,14 @@ def candidate_key(candidate, effective_language=None):
 #      55   the right title and the same source, nothing else known.
 #      40   the right title and nothing else.
 #       0   demonstrably the wrong episode.
+#
+# The 70 and the 95 used to be true only when the codec agreed as well.
+# Resolution was worth 10, so title, source and resolution came to 65 - under
+# the default threshold of 70 - and a film matched on everything except a
+# codec token was used "below threshold" or not at all. Episodes hid it,
+# because their episode bonus carried them over. The calibration test that
+# was meant to guard the 70 happened to include an x264 on both sides, so it
+# passed throughout.
 #
 # WEIGHT_TITLE is the piece that was missing, and it was the largest one. Every
 # candidate in this list is the answer to a search for one specific film or
@@ -55,8 +66,13 @@ WEIGHT_HASH = 100
 WEIGHT_TITLE = 40
 WEIGHT_GROUP = 25
 WEIGHT_SOURCE = 15
-WEIGHT_RESOLUTION = 10
+WEIGHT_RESOLUTION = 15
 WEIGHT_CODEC = 5
+
+# Where evidence that is not certainty has to stop. 100 is reserved for the
+# same file or the same name: the chooser shows a bare "100%" as exact, and
+# group, source, resolution and codec together would otherwise add up to it.
+ADDITIVE_CEILING = 99
 WEIGHT_PROVIDER_SYNC = 15
 WEIGHT_EXACT_NAME = 100
 WEIGHT_EPISODE = 12
@@ -161,7 +177,8 @@ def rate(candidate, target, video_hash=""):
         # Popularity is weak evidence, worth a nudge and no more.
         total += min(6, int(candidate["downloads"]) // 500)
 
-    return max(0, min(100, total)), ", ".join(reasons) or "title only"
+    return (max(0, min(ADDITIVE_CEILING, total)),
+            ", ".join(reasons) or "title only")
 
 
 def _contradicts_episode(parsed, target):
