@@ -163,10 +163,13 @@ def test_kan_offers_only_what_plays():
     assert "כאן חינוכית 23" not in options, "kankids.org.il does not play"
 
 
-def test_kan_kids_site_is_left_out():
+def test_kan_kids_and_kan_digital_are_left_out():
     assert not vod.playable({"extra": {
         "module": "kan", "mode": "2",
         "ref": "https://www.kankids.org.il/content/kids/hinuchit-main/p-869745/"}})
+    assert not vod.playable({"extra": {
+        "module": "kan", "mode": "2",
+        "ref": "https://kan.org.il/content/dig/digital/p-12150/"}})
     assert vod.playable({"extra": {
         "module": "kan", "mode": "2",
         "ref": "https://www.kan.org.il/content/kan/kan-11/p-11486/"}})
