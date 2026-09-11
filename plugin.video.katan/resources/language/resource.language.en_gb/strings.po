@@ -1676,3 +1676,7 @@ msgstr ""
 msgctxt "#32533"
 msgid "Next episode in %d"
 msgstr ""
+
+msgctxt "#32534"
+msgid "Another production of the same name"
+msgstr ""

@@ -290,6 +290,7 @@ REASON_STRINGS = {
     "AV1 is switched off": 32482,
     "HDR is switched off": 32483,
     "Dolby Vision without an HDR10 fallback": 32527,
+    "another production of the same name": 32534,
     "above the resolution limit": 32484,
     "below the resolution limit": 32485,
     "larger than the size limit": 32486,

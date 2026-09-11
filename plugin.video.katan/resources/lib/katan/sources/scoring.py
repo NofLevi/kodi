@@ -9,6 +9,7 @@ any uncached one, because on a weak device waiting for a download to start is
 the difference between watching something and giving up.
 """
 import math
+import re
 
 from .. import cache, settings
 from ..utils import release
@@ -160,6 +161,49 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
     if prefs.cached_only and not source.get("cached"):
         return "not cached"
 
+    return ""
+
+
+# What a leading "[Group]" looks like, so the title after it can be read.
+_LEADING_GROUP = re.compile(r"^\s*\[[^\]]*\]\s*")
+# A year that opens the rest of the name, and what follows it.
+_YEAR_FIRST = re.compile(r"(19\d{2}|20\d{2})\b ?(.*)")
+# "2024 03 01" is a daily show's air date, not a year of production.
+_MONTH_DAY = re.compile(r"(?:0[1-9]|1[0-2]) (?:0[1-9]|[12]\d|3[01])\b")
+
+
+def _another_production(source, meta):
+    """Is this release of a different production that shares the title?
+
+    Asked for episode 1 of the 2001 Hikaru no Go anime, Torrentio answered
+    with "Hikaru no Go (2020) - 01" - the Chinese live-action drama - under
+    the anime's own IMDb address. A year straight after the title is the
+    release saying which production it is, and one more than a year from the
+    show's own says it is another.
+
+    Only a year *directly* after the title counts: "Fargo.S05E01.2023" is the
+    year that episode aired. Only shows and episodes: a film's TMDB year and
+    its release year are two apart often enough that the same rule would
+    throw real releases away.
+    """
+    meta = meta or {}
+    year = int(meta.get("year") or 0)
+    if not year or meta.get("type") not in ("episode", "show"):
+        return ""
+    name = release.normalise(
+        _LEADING_GROUP.sub("", release.strip_site_tags(source.get("title") or "")))
+    titles = {release.normalise(meta.get(key) or "")
+              for key in ("search_title", "original_title", "title",
+                          "show_title")}
+    for title in sorted((t for t in titles if t), key=len, reverse=True):
+        if not name.startswith(title + " "):
+            continue
+        found = _YEAR_FIRST.match(name[len(title) + 1:])
+        if not found or _MONTH_DAY.match(found.group(2)):
+            return ""
+        if abs(int(found.group(1)) - year) > 1:
+            return "another production of the same name"
+        return ""
     return ""
 
 
@@ -330,7 +374,8 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
     kept = []
     rejected = {}
     for source in sources:
-        reason = rejection_reason(source, prefs, runtime_hours)
+        reason = (rejection_reason(source, prefs, runtime_hours)
+                  or _another_production(source, meta))
         if reason:
             rejected[reason] = rejected.get(reason, 0) + 1
             continue
