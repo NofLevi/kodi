@@ -1636,3 +1636,11 @@ msgstr ""
 msgctxt "#32526"
 msgid "Removed from your watchlist"
 msgstr ""
+
+msgctxt "#32527"
+msgid "Dolby Vision without an HDR10 fallback"
+msgstr ""
+
+msgctxt "#30150"
+msgid "Allow Dolby Vision without an HDR10 fallback"
+msgstr ""

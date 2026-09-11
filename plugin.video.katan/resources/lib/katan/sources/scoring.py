@@ -78,6 +78,7 @@ class Preferences(object):
         self.allow_hevc = settings.get_bool("sources.allow_hevc")
         self.allow_av1 = settings.get_bool("sources.allow_av1")
         self.allow_hdr = settings.get_bool("sources.allow_hdr")
+        self.allow_dv = settings.get_bool("sources.allow_dv")
         self.allow_cam = settings.get_bool("sources.allow_cam", False)
         self.cached_only = settings.get_bool("sources.cached_only")
         self.prefer_hebrew = settings.get_bool("sources.prefer_hebrew")
@@ -121,6 +122,17 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
 
     if source.get("hdr") and not prefs.allow_hdr:
         return "HDR is switched off"
+
+    # Dolby Vision is its own question even once HDR is allowed. A release
+    # carrying an HDR10 (or HDR10+) layer beside it plays that layer on a
+    # screen without Dolby Vision; one carrying Dolby Vision alone has nothing
+    # to fall back to, and on a display that cannot decode it the picture
+    # comes out purple and green. The parser tags the fallback as "hdr" or
+    # "hdr10plus", so a lone "dv" is the case with nothing underneath.
+    flags = source.get("hdr") or []
+    if ("dv" in flags and "hdr" not in flags and "hdr10plus" not in flags
+            and not prefs.allow_dv):
+        return "Dolby Vision without an HDR10 fallback"
 
     rank = settings.resolution_rank(source.get("quality"))
     # An unknown resolution is judged by neither limit. Treating it as the

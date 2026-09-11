@@ -340,6 +340,13 @@
                     <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="sources.allow_dv" type="boolean" label="30150">
+                    <level>2</level><default>false</default>
+                    <control type="toggle"/>
+                    <dependencies>
+                        <dependency type="visible" setting="sources.allow_hdr" operator="is">true</dependency>
+                    </dependencies>
+                </setting>
                 <setting id="sources.prefer_hebrew" type="boolean" label="30033">
                     <level>0</level><default>true</default>
                     <control type="toggle"/>
