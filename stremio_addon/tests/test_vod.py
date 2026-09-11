@@ -157,9 +157,19 @@ def test_kan_offers_only_what_plays():
         for preview in vod.catalog("series", "kv-kan", {"skip": str(skip)}):
             assert vod.parse_id(preview["id"])[2] == "2"
     kan = next(c for c in vod.catalogs() if c["id"] == "kv-kan")
-    options = next(e for e in kan["extra"] if e["name"] == "genre")["options"]
-    assert "כאן 11" in options
+    genre = [e for e in kan["extra"] if e["name"] == "genre"]
+    options = genre[0]["options"] if genre else []
     assert "כאן פודקאסטים" not in options and "כאן 88" not in options
+    assert "כאן חינוכית 23" not in options, "kankids.org.il does not play"
+
+
+def test_kan_kids_site_is_left_out():
+    assert not vod.playable({"extra": {
+        "module": "kan", "mode": "2",
+        "ref": "https://www.kankids.org.il/content/kids/hinuchit-main/p-869745/"}})
+    assert vod.playable({"extra": {
+        "module": "kan", "mode": "2",
+        "ref": "https://www.kan.org.il/content/kan/kan-11/p-11486/"}})
 
 
 def test_paging():
