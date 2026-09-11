@@ -67,6 +67,14 @@ def search(meta, target, languages, video_hash="", video_size=0):
     is the only evidence that a subtitle belongs to *this file* rather than to
     something with the same name, and the matcher scores it at 100.
     """
+    from . import common
+
+    # One title query per way this episode is numbered. For almost everything
+    # that is one. For anime it can be two, because TMDB numbers a
+    # long-running series by season and OpenSubtitles files it the way IMDb
+    # does - often one season counted from the first episode. Asking TMDB's
+    # numbering alone is how anime came to get nothing on 48% of titles.
+    numberings = common.episode_numberings(meta) or [None]
     results = []
     for language in languages:
         code = THREE_LETTER.get(language)
@@ -76,7 +84,10 @@ def search(meta, target, languages, video_hash="", video_size=0):
             results.extend(_search_one(meta, language, code,
                                        video_hash=video_hash,
                                        video_size=video_size))
-        results.extend(_search_one(meta, language, code))
+        for numbering in numberings:
+            asked = meta if numbering is None else dict(
+                meta, season=numbering[0], episode=numbering[1])
+            results.extend(_search_one(asked, language, code))
     return results
 
 
