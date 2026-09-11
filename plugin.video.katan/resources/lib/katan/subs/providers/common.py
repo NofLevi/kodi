@@ -63,6 +63,31 @@ def candidate(provider, language, release_name, download, **extra):
     return entry
 
 
+def episode_numberings(meta):
+    """Every (season, episode) an episode may be filed under, likeliest first.
+
+    Empty for a film. One pair for almost every episode. Two for an anime
+    whose absolute number differs from its season-relative one, because the
+    two numbering schemes disagree about long-running anime and the
+    subtitle indexes follow IMDb rather than TMDB: TMDB's Reborn season 8
+    episode 14 is episode 149 counted from the first, and a site asked only
+    for 8x14 answers with nothing - or with episode 14. `meta["absolute"]`
+    is set only for anime (play._name_it_the_way_the_indexes_do), so this
+    costs nothing for anything else.
+
+    Asking both is safe. A row found under the second numbering still has to
+    get past the matcher, which knows the absolute number too and scores a
+    wrong episode at zero.
+    """
+    if meta.get("type") != "episode":
+        return []
+    numberings = [(int(meta.get("season") or 1), int(meta.get("episode") or 1))]
+    absolute = int(meta.get("absolute") or 0)
+    if absolute and (1, absolute) not in numberings:
+        numberings.append((1, absolute))
+    return numberings
+
+
 def fetch_bytes(url, timeout=(5, 15), **kwargs):
     response = http.get(url, timeout=timeout, stream=True, **kwargs)
     if response is None or response.status_code >= 400:

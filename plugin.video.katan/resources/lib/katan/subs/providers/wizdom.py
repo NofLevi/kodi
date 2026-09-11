@@ -23,14 +23,19 @@ def search(meta, target, languages):
     if not imdb:
         return []
 
-    params = {"action": "by_id", "imdb": imdb}
-    if meta.get("type") == "episode":
-        params["season"] = int(meta.get("season") or 1)
-        params["episode"] = int(meta.get("episode") or 1)
-
-    payload = http.get_json("%s/api/search" % BASE, params=params,
-                            timeout=(4, 8), default=None)
-    if not isinstance(payload, list):
+    # Every numbering this episode might be filed under: two for an anime whose
+    # absolute number differs from TMDB's season-relative one, one for
+    # everything else, none for a film. See common.episode_numberings.
+    payload = []
+    for numbering in common.episode_numberings(meta) or [None]:
+        params = {"action": "by_id", "imdb": imdb}
+        if numbering is not None:
+            params["season"], params["episode"] = numbering
+        answer = http.get_json("%s/api/search" % BASE, params=params,
+                               timeout=(4, 8), default=None)
+        if isinstance(answer, list):
+            payload.extend(answer)
+    if not payload:
         return []
 
     results = []

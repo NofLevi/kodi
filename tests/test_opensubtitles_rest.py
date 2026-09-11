@@ -73,6 +73,75 @@ def test_a_film_asks_for_no_season(monkeypatch, provider):
     assert "season-" not in seen["url"] and "episode-" not in seen["url"]
 
 
+# --------------------------------------------------------------------------
+# anime is filed under more than one numbering
+# --------------------------------------------------------------------------
+
+
+def _asked_every(monkeypatch, module):
+    """Every URL or params dict a provider asked with, in order."""
+    seen = []
+
+    def get_json(url, default=None, params=None, **kwargs):
+        seen.append(params if params is not None else url)
+        return []
+
+    monkeypatch.setattr(module.http, "get_json", get_json)
+    return seen
+
+
+ANIME = {"type": "episode", "title": "reborn", "season": 8, "episode": 14,
+         "absolute": 149, "ids": {"imdb": "tt0993038"}}
+
+
+def test_an_anime_episode_is_asked_for_by_its_absolute_number_too(
+        monkeypatch, provider):
+    """TMDB numbers Reborn's episode 149 as season 8 episode 14. OpenSubtitles
+    files it the way IMDb does, from the first episode. Asking one numbering
+    found nothing, or found episode 14 - which is how anime came to get no
+    subtitle on 48% of the titles surveyed."""
+    seen = _asked_every(monkeypatch, provider)
+    provider.search(ANIME, None, ["he"])
+    assert any("season-8" in url and "episode-14" in url for url in seen), seen
+    assert any("season-1" in url and "episode-149" in url for url in seen), seen
+
+
+def test_an_ordinary_episode_is_asked_for_once(monkeypatch, provider):
+    """No absolute number means not anime, and costs nothing extra."""
+    seen = _asked_every(monkeypatch, provider)
+    provider.search({"type": "episode", "title": "silo", "season": 2,
+                     "episode": 3, "ids": {"imdb": "tt14688458"}}, None, ["he"])
+    assert len(seen) == 1, seen
+
+
+def test_an_absolute_number_that_is_the_same_asks_once(monkeypatch, provider):
+    """A first season counted from one is already absolute: asking twice for
+    the same thing is a request spent on nothing."""
+    seen = _asked_every(monkeypatch, provider)
+    provider.search(dict(ANIME, season=1, episode=30, absolute=30), None, ["he"])
+    assert len(seen) == 1, seen
+
+
+def test_the_numberings_are_ordered_most_likely_first():
+    from katan.subs.providers import common
+
+    assert common.episode_numberings(ANIME) == [(8, 14), (1, 149)]
+    assert common.episode_numberings({"type": "movie"}) == []
+    assert common.episode_numberings(
+        {"type": "episode", "season": 2, "episode": 3}) == [(2, 3)]
+
+
+def test_wizdom_asks_for_both_numberings_as_well(monkeypatch):
+    """Hebrew-only, and asked by IMDb id and number the same way - so the same
+    numbering problem, and the same fix."""
+    from katan.subs.providers import wizdom
+
+    seen = _asked_every(monkeypatch, wizdom)
+    wizdom.search(ANIME, None, ["he"])
+    asked = [(params.get("season"), params.get("episode")) for params in seen]
+    assert asked == [(8, 14), (1, 149)], asked
+
+
 def test_two_letter_languages_become_three(monkeypatch, provider):
     """The API speaks ISO 639-2; everything else here speaks two letters."""
     seen = _asked(monkeypatch, provider)
