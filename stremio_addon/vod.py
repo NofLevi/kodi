@@ -146,16 +146,18 @@ def _catalog_items(catalog_id, extra):
 # strategy, a radio programme lists nothing or answers 404. Offering them
 # would fill the catalogue with tiles that never play, so only Kan's TV is.
 UNPLAYABLE = {("kan", "23"), ("kan", "32"), ("kan", "34")}
-# Kan Educational (102 programmes) lives on kankids.org.il, which Katan's Kan
-# extractor does not read: every one sampled listed no episodes at all.
-UNPLAYABLE_SITES = ("kankids.org.il",)
+# Parts of Kan's site that Katan's Kan extractor does not read, measured:
+# Kan Educational on kankids.org.il (102 programmes) and Kan Digital under
+# /content/dig/ (100) - every one sampled listed no episodes at all, while
+# Kan 11's programmes list and play.
+UNPLAYABLE_REFS = ("kankids.org.il", "/content/dig/")
 
 
 def playable(item):
     extra = item.get("extra") or {}
     if (extra.get("module"), extra.get("mode")) in UNPLAYABLE:
         return False
-    return not any(site in (extra.get("ref") or "") for site in UNPLAYABLE_SITES)
+    return not any(part in (extra.get("ref") or "") for part in UNPLAYABLE_REFS)
 
 
 def _module_items(module):
