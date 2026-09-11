@@ -196,11 +196,14 @@ class KatanPlayer(xbmc.Player):
         self.scrobbled = False
         self.upnext_sent = False
         self.prefetched = False
+        self._segments = {}
+        self._intro_skipped = False
 
         self._scrobble("start")
         self._apply_subtitles()
         self._announce_audio_tracks()
         self._send_upnext()
+        self._find_segments()
 
     def onPlayBackPaused(self):
         if self.meta:
@@ -333,6 +336,7 @@ class KatanPlayer(xbmc.Player):
             return
         self._maybe_prefetch()
         progress = self._progress()          # and records where we are
+        self._maybe_skip_intro()
         now = time.time()
         if now - getattr(self, "_bookmarked_at", 0.0) >= self.BOOKMARK_EVERY:
             self._bookmarked_at = now
@@ -361,6 +365,55 @@ class KatanPlayer(xbmc.Player):
             kodi.log_exception("could not keep the resume point")
 
     # -- features ----------------------------------------------------------
+
+    def _find_segments(self):
+        """Look up where this episode's intro and credits are, off the
+        callback thread - it is a network call."""
+        if not settings.get_bool("ui.skip_segments") or not self._is_episode():
+            return
+        worker = threading.Thread(target=self._segments_job,
+                                  args=(self.meta, self._playback_generation),
+                                  name="katan-skip")
+        worker.daemon = True
+        worker.start()
+
+    def _segments_job(self, meta, generation):
+        from . import skip
+        try:
+            found = skip.segments(meta)
+        except Exception:
+            kodi.log_exception("could not look up the intro and credits")
+            return
+        with PLAYBACK_LOCK:
+            if self._playback_generation == generation and self.meta is meta:
+                self._segments = found
+
+    def _maybe_skip_intro(self):
+        """Jump past the intro, once, when the viewer asked for that.
+
+        Once per playback: somebody who seeks back into the intro wants to
+        see it, and being thrown forward again would be a fight.
+        """
+        found = getattr(self, "_segments", None)
+        if not found or getattr(self, "_intro_skipped", False):
+            return
+        if not settings.get_bool("ui.auto_skip"):
+            return
+        from . import skip
+        intro = skip.usable(found, self.total_time).get("intro")
+        if not intro:
+            return
+        start, end = intro
+        # Not in its last seconds: a jump that saves two seconds is only a
+        # stutter.
+        if not start <= getattr(self, "_position", 0.0) < end - 2:
+            return
+        self._intro_skipped = True
+        try:
+            self.seekTime(end)
+        except RuntimeError:
+            return
+        kodi.notify(kodi.localize(32529))
 
     def _apply_subtitles(self):
         """Schedule subtitle search/translation away from Kodi's callback."""
