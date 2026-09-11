@@ -133,8 +133,3 @@ repo/
 
 # wrangler's upload cache
 .wrangler/
-
-# The Stremio add-on's own keys (Gemini, TMDB, its access token) and
-# everything it writes - its cache, subtitles and translations.
-stremio_addon/config.json
-stremio_addon/data/
