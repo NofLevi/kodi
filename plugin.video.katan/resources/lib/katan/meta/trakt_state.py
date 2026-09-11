@@ -44,17 +44,26 @@ def state_key(item_type, ids, season=None, episode=None):
 
 
 def annotate(entries):
-    """Fill playcount and resume on a list of items, in place."""
-    if not entries or not enabled():
+    """Fill playcount and resume on a list of items, in place.
+
+    Resume comes from Trakt where Trakt has an entry, and from the local
+    bookmark where it does not - including when Trakt is not connected at
+    all, which used to mean every film started from the beginning.
+    """
+    if not entries:
         return entries
-    watched = _watched_map()
-    playback = _playback_map()
-    if not watched and not playback:
+    from .. import bookmarks
+
+    trakt_on = enabled()
+    watched = _watched_map() if trakt_on else {}
+    playback = _playback_map() if trakt_on else {}
+    local = bookmarks.all_entries()
+    if not watched and not playback and not local:
         return entries
     for item in entries:
         item_type = item.get("type")
         if item_type == "episode":
-            key = state_key("episode", item.get("extra", {}).get("show_ids") or item.get("ids"),
+            key = state_key("episode", _show_ids(item),
                             item.get("season"), item.get("episode"))
         elif item_type in ("movie", "show"):
             key = state_key(item_type, item.get("ids"))
@@ -72,7 +81,27 @@ def annotate(entries):
                                   "total": duration}
             elif "position" in resume:  # legacy/local second-based snapshot
                 item["resume"] = resume
+        elif key in local:
+            mark = local[key]
+            item["resume"] = {"position": float(mark.get("position") or 0),
+                              "total": float(mark.get("total") or 0)}
     return entries
+
+
+def _show_ids(item):
+    """The series an episode belongs to, whichever way the list carries it.
+
+    Resume points are keyed on the show - playback only ever knows the
+    series ids - and episode lists carry them two ways: `show_ids` from
+    Trakt, `tmdb_show` from TMDB's own episode lists. Reading only the first
+    meant an episode listed from TMDB could never find its place.
+    """
+    extra = item.get("extra") or {}
+    if extra.get("show_ids"):
+        return extra["show_ids"]
+    if extra.get("tmdb_show"):
+        return {"tmdb": extra["tmdb_show"]}
+    return item.get("ids")
 
 
 def mark_watched(params):
@@ -86,6 +115,10 @@ def mark_watched(params):
     watched = _watched_map()
     watched[key] = 0 if watched.get(key) else 1
     store(watched=watched)
+    if watched[key]:
+        # Watched means finished, and a finished thing has no place to resume.
+        from .. import bookmarks
+        bookmarks.clear(key)
 
     if not enabled():
         return
