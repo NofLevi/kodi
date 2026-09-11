@@ -101,6 +101,15 @@ class KatanPlayer(xbmc.Player):
         self._subtitle_thread = None
         self._subtitle_pending = None
         self._subtitle_lock = threading.Lock()
+        # What is drawn over the video, and what decides whether it is.
+        self._segments = {}
+        self._intro_skipped = False
+        self._skip_dismissed = False
+        self._skip_button = None
+        self._next = None
+        self._next_checked = False
+        self._card_dismissed = False
+        self._next_card = None
 
     def shutdown(self):
         """Invalidate playback-owned background work before service teardown."""
@@ -109,6 +118,8 @@ class KatanPlayer(xbmc.Player):
             self._playback_generation += 1
             self.meta = None
             clear_now_playing()
+        self._close_skip_button()
+        self._close_next_card()
         with self._subtitle_lock:
             self._subtitle_pending = None
             thread = self._subtitle_thread
@@ -171,6 +182,7 @@ class KatanPlayer(xbmc.Player):
 
     def onAVStarted(self):
         self._close_skip_button()           # one left over from the last file
+        self._close_next_card()
         actual_url = self.getPlayingFile() or ""
         with PLAYBACK_LOCK:
             self._subtitle_generation += 1
@@ -200,6 +212,9 @@ class KatanPlayer(xbmc.Player):
         self._segments = {}
         self._intro_skipped = False
         self._skip_dismissed = False
+        self._next = None
+        self._next_checked = False
+        self._card_dismissed = False
 
         self._scrobble("start")
         self._apply_subtitles()
@@ -222,7 +237,11 @@ class KatanPlayer(xbmc.Player):
         self._finish()
 
     def onPlayBackEnded(self):
+        # A card that was waiting for the end: this is the end.
+        url = self._next_on_end()
         self._finish(completed=True)
+        if url:
+            self.play(url)
 
     # How many times one playback may fall back after Kodi fails to open a
     # stream, however many candidates the hand-off still carries.
@@ -246,6 +265,7 @@ class KatanPlayer(xbmc.Player):
             self.meta = None
             self._forget_position()
         self._close_skip_button()
+        self._close_next_card()
         if never_started and self._worth_retrying(pending):
             # Resolving takes seconds and this is Kodi's callback thread, which
             # the service loop also waits on - so a daemon worker, as the
@@ -301,6 +321,7 @@ class KatanPlayer(xbmc.Player):
 
     def _finish(self, completed=False):
         self._close_skip_button()
+        self._close_next_card()
         with PLAYBACK_LOCK:
             self._subtitle_generation += 1
             meta = self.meta
@@ -342,6 +363,7 @@ class KatanPlayer(xbmc.Player):
         progress = self._progress()          # and records where we are
         self._maybe_skip_intro()
         self._offer_skip_button()
+        self._offer_next_card(progress)
         now = time.time()
         if now - getattr(self, "_bookmarked_at", 0.0) >= self.BOOKMARK_EVERY:
             self._bookmarked_at = now
@@ -461,6 +483,114 @@ class KatanPlayer(xbmc.Player):
         if button is not None:
             try:
                 button.close()
+            except Exception:
+                pass
+
+    # How long the card counts down before the next episode starts by itself.
+    NEXT_COUNTDOWN = 10
+    # Without credits timing the card goes up this close to the end, and the
+    # next episode starts only when this one ends by itself: without knowing
+    # where the credits are, a countdown could cut off the last scene.
+    NEXT_WITHOUT_CREDITS = 20
+
+    def _offer_next_card(self, progress):
+        """Katan's next-episode card, when Up Next is not here to draw one.
+
+        Up at the start of the credits with a countdown, or near the end
+        with none when the credits are not known. Once put away - or once it
+        has started the next episode - it stays away for this one.
+        """
+        if (progress < 50 or not self._is_episode()
+                or getattr(self, "_card_dismissed", False)):
+            return
+        if not self._next_episode():
+            return
+        wanted = self._next_card_mode()
+        card = getattr(self, "_next_card", None)
+        if card is None and wanted:
+            from .ui import nextup_window
+            self._next_card = nextup_window.open_card(
+                self._next,
+                self.NEXT_COUNTDOWN if wanted == "countdown" else 0,
+                on_play=self._play_next, on_dismiss=self._dismiss_next)
+        elif card is not None and not wanted:
+            self._close_next_card()         # the viewer went back before it
+        elif card is not None and card.autoplay:
+            left = self.NEXT_COUNTDOWN - (time.time() - card.opened_at)
+            if left <= 0:
+                self._play_next()
+            else:
+                card.set_countdown(int(left + 0.999))
+
+    def _next_card_mode(self):
+        """"countdown" in the credits, "wait" near an end with no credits
+        known, or None when the card has no business being up."""
+        from . import skip
+        position = getattr(self, "_position", 0.0)
+        credits = skip.usable(getattr(self, "_segments", None),
+                              self.total_time).get("credits")
+        if credits:
+            end = credits[1] or self.total_time
+            # After the credits is a scene somebody stayed for.
+            return "countdown" if credits[0] <= position < end else None
+        if self.total_time and 0 < self.total_time - position <= self.NEXT_WITHOUT_CREDITS:
+            return "wait"
+        return None
+
+    def _next_episode(self):
+        """The episode after this one, looked up once per playback.
+
+        Not with Up Next installed: it draws its own card, and two would
+        both start the next episode.
+        """
+        if not getattr(self, "_next_checked", False):
+            self._next_checked = True
+            self._next = None
+            from . import upnext
+            if settings.get_bool("ui.upnext") and not upnext.installed():
+                try:
+                    self._next = upnext.next_episode(self.meta)
+                except Exception:
+                    kodi.log_exception("could not find the next episode")
+        return getattr(self, "_next", None)
+
+    def _next_url(self):
+        nxt = getattr(self, "_next", None)
+        if not nxt:
+            return ""
+        from . import router
+        return router.url_for("episode", tmdb=(nxt.get("ids") or {}).get("tmdb"),
+                              season=nxt["season"], episode=nxt["episode"])
+
+    def _play_next(self):
+        url = self._next_url()
+        self._card_dismissed = True
+        self._close_next_card()
+        if not url:
+            return
+        # Finished here rather than when Kodi gets round to stopping it: this
+        # one counts as watched, and its resume point goes.
+        self._finish(completed=True)
+        self.play(url)
+
+    def _dismiss_next(self):
+        self._card_dismissed = True
+        self._close_next_card()
+
+    def _next_on_end(self):
+        """The next episode's address, when its card was up as this ended."""
+        if getattr(self, "_next_card", None) is None:
+            return ""
+        if getattr(self, "_card_dismissed", False):
+            return ""
+        return self._next_url()
+
+    def _close_next_card(self):
+        card = getattr(self, "_next_card", None)
+        self._next_card = None
+        if card is not None:
+            try:
+                card.close()
             except Exception:
                 pass
 
