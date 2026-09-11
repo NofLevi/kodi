@@ -106,6 +106,21 @@ def test_the_subtitle_line_is_separate_from_the_badge():
     assert "82" in item.getProperty("subs")
 
 
+def test_a_name_match_is_labelled_as_an_estimate():
+    """Before playback nothing has been downloaded or fitted.
+
+    The number is how alike two filenames are, and measured against real
+    timing that predicts little: subtitles whose names scored 70-89 fitted in
+    none of three cases, while a 62 fitted at 0.95. It is a guess, and the
+    picker now says so in the same word the subtitle chooser already used.
+    """
+    from katan.subs import outlook
+
+    line = _subs_line({"kind": outlook.EXTERNAL, "score": 82})
+    assert "82" in line
+    assert "estimate" in line.lower()
+
+
 def test_a_source_nobody_looked_up_draws_without_a_subtitle_line():
     """The lookup can fail or be skipped, and a row must still draw."""
     assert sources_window._badge(CACHED)

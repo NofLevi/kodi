@@ -1382,7 +1382,7 @@ msgid "Hebrew inside"
 msgstr ""
 
 msgctxt "#32475"
-msgid "Subtitles %d%%"
+msgid "Subtitles %d%% estimate"
 msgstr ""
 
 msgctxt "#32476"
