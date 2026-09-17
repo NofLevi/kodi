@@ -416,20 +416,28 @@ the branch is not what publishes - **a tag is**, and nothing else is.
     git push origin main              nothing happens
     git push --follow-tags            .github/workflows/release.yml runs
 
-`release.yml` fires on `v*`: it runs the suite, checks the tag against
-`addon.xml`, builds `repo/`, cuts the GitHub release with both zips attached,
-**uploads the folder to Pages with `wrangler pages deploy`**, and then polls
-the live index until it serves the tagged version. That last step is the only
-automated proof a release reached the devices; everything before it can pass
-while the site still serves the previous version.
+`release.yml` fires on `v*`: it runs the suite, checks the tag against every
+place the version is written, builds `repo/`, cuts the GitHub release with
+both zips **and `addons.xml` plus its `.md5`** attached, **deploys `repo/` to
+GitHub Pages** (`actions/upload-pages-artifact`, then `actions/deploy-pages`),
+and then polls `noflevi.github.io/kodi/addons.xml` until it serves the tagged
+version. That last step is the only automated proof a release reached the
+devices; everything before it can pass while the site still serves the
+previous version. `concurrency: pages` keeps two releases from racing for the
+one site, and is not cancel-in-progress because the loser would be a
+half-published repository.
 
-Publishing needs `CLOUDFLARE_API_TOKEN` (Account -> Pages -> Edit) and
-`CLOUDFLARE_ACCOUNT_ID`, held as repository secrets and, for `tools/deploy.py`,
-as gitignored `.cf-token` and `.cf-account`. Secrets rather than a file on one
-laptop is what lets a release be cut from either machine. `deploy.py` is the
-same build-and-upload by hand, for when the workflow failed after the release
-was already created; it builds rather than uploading whatever is sitting in
-`repo/`, because nothing keeps that folder current any more.
+The index is attached to the release because the in-add-on updater reads
+`github.com/NofLevi/kodi/releases/latest/download/addons.xml` - a stable alias
+for whichever release is newest. Without it that URL is a 404 and no device is
+ever told there is anything new.
+
+**Publishing needs no secrets.** `deploy-pages` authenticates over OIDC with
+the workflow's own token (`pages: write`, `id-token: write`) and `gh release
+create` uses `github.token`, so a release can be cut from any machine that can
+push a tag and nothing has to be copied between them. There is no manual
+publish script: if the workflow fails after the GitHub release was created,
+re-run it from the Actions tab (`workflow_dispatch`).
 
 **Nothing runs on a push.** `e2e.yml` and `upgrade.yml` fire on a daily cron
 and on the button, and that is all: they are the slow ones - a dozen live
@@ -459,65 +467,47 @@ a changelog nobody reads.
 
 ### Where the files live
 
-Kodi fetches a repository anonymously, so "private with a login" is not
-possible and the only lever is discoverability. `NofLevi/kodi` stays private;
-**Cloudflare Pages publishes only the `repo/` folder** at an unguessable
-`pages.dev` address - **noflevi.github.io/kodi**.
+Kodi fetches a repository anonymously, so wherever it lives has to be
+publicly readable. `NofLevi/kodi` is public, and releases are published to
+**GitHub Pages at `noflevi.github.io/kodi`**, with `repo/` uploaded as the site
+root so the URLs baked into `repository.katan` need no path juggling.
 
-**The project is not connected to the repository, and that is the point.** It
-was, and every push wrote a row into the deployment list - `main`, `development`,
-each one reading "No deployment available" with a skip icon. Those are not
-builds. Cloudflare records every push to a repository it watches and then says
-what it decided, so pausing automatic deployments stopped the *builds* and not
-the *rows*, and neither did branch control, preview branches set to `None`, or
-build watch paths. Nothing suppresses them, because they are the log of a
-decision rather than the result of one.
+**Why GitHub and not Cloudflare, which is where this used to be.** Cloudflare
+Pages never answered a ranged read: every `Range` request came back 200 with
+the whole file. Kodi does not read a zip front to back - it reads the central
+directory at the end and then seeks to each member - so the 123-member add-on
+zip meant a 475 KB download *per seek* on a television, while the 2-member
+repository zip was small enough not to notice. That is precisely the split
+that was reported: the repository installed, and installing the add-on took
+Kodi down with it on Android. Measured on The Crew and Fishenzon, GitHub answers
+206 with `Accept-Ranges` on a 2.9 MB zip, and it is where the rest of the Kodi
+world already hosts. The Cloudflare project, its secrets, `wrangler` and
+`tools/deploy.py` are all gone. Anything in this repository's history about
+disconnecting a Cloudflare project to empty its deployment list is about a host
+that no longer exists.
 
-Disconnecting the repository is the only thing that does, and it works:
-Cloudflare never sees the push, so there is nothing to record. A deployment now
-exists **if and only if** somebody published one.
+Nothing watches the repository, so a push cannot publish: a Pages deployment
+exists only because `release.yml` ran on a tag.
 
-Cloudflare's documentation says *"If you deploy using the Git integration, you
-cannot switch to Direct Upload later"*, which was read here as closing the
-door and does not. That sentence is about *switching*; the dashboard's
-**Disconnect** button on the Git repository card is a different thing, and
-after pressing it `wrangler pages deploy` is accepted. Measured, in this
-order: `Git Provider` went `Yes` -> `No`, the upload succeeded, and
-`noflevi.github.io/kodi` served the same index on the same hostname.
+**`repo/` is not in the repository.** It is built by `release.yml` - or by
+`tools/build.py` by hand - at publish time. It used to be committed, and that
+was a trap with a sharp edge: `release.py` tells you to `git commit -am`, and
+**`-a` stages only tracked files**, while every release produces a zip under a
+filename that has never existed before. So the index could name a zip that was
+never pushed. Nothing in CI could catch it either, because `e2e.yml` runs
+`build.py` and overwrites `repo/` in the checkout before anything looks at it.
+Building at publish time removes the class rather than guarding it.
 
-That the hostname survived is what made this safe to try at all. It is baked
-into every installed copy of `repository.katan`, so a project that had to be
-*recreated* rather than converted would have stranded every device, and the
-whole thing would have been a shorter list bought with a broken update path.
-
-    Framework preset        None
-    Git repository          disconnected  <- the whole trick
-    Production branch       main
-    Build command           n/a           - nothing builds on Cloudflare now
-    Build output directory  n/a
-
-**`repo/` is not in the repository either.** It is built - by `release.yml`,
-or by `tools/build.py` under `deploy.py` - and uploaded. It used to be
-committed, and that was a trap with a sharp edge: `release.py` tells you to
-`git commit -am`, and **`-a` stages only tracked files**, while every release
-produces a zip under a filename that has never existed before. So the index
-could name a zip that was never pushed. Nothing in CI could catch it either,
-because `e2e.yml` runs `build.py` and overwrites `repo/` in the checkout before
-anything looks at it. Building at publish time removes the class rather than
-guarding it.
-
-The first project was wired to `development` instead of `main`, which is the
-same fault the other way round: three pushes to `main` published nothing
-while the published zip matched `development`'s tip byte for byte. **The
-hostname is baked into every installed copy of `repository.katan`**, so
-moving it means republishing the repository add-on at the *old* address first
-and bumping its version, or every existing device is stranded. Moving host
-later is three URLs in `repository.katan/addon.xml` and one in `updater.py`.
+**The hostname is baked into every installed copy of `repository.katan`** -
+three URLs in `repository.katan/addon.xml`, and the updater's in `updater.py`.
+Moving host means republishing the repository add-on at the *old* address
+first, version bumped and pointing at the new one, or every existing device is
+stranded.
 
 A custom domain in front of Pages is the real cure for that lock-in, because
 then the name devices hold is one we own and the host behind it can be
-replaced invisibly. It is worth buying the day a box other than this one has
-Katan installed; until then the migration it avoids costs nothing.
+replaced invisibly. It is worth buying the day boxes other than our own have
+Katan installed.
 
 ### On a device
 
@@ -602,16 +592,12 @@ produced it. `python tools/e2e.py --only upgrade` is the same thing by hand.
 
 `update.channel` is `stable` or `test`, at expert level in the settings.
 Stable is the last release, at `noflevi.github.io/kodi`. Test is whatever
-`development` was last built into, at **`raw.githubusercontent.com/NofLevi/kodi/test-channel`** - a
-second Pages project rather than a folder or a branch alias on the first, and
-both of those were tried:
-
-* A direct upload **replaces the whole site**, so two channels sharing one
-  project would overwrite each other every time either published.
-* Pages puts branch aliases behind **Cloudflare Access**. Measured:
-  `development.noflevi.github.io/kodi/addons.xml` answers `302` to
-  `cloudflareaccess.com`, so Kodi - which fetches anonymously and follows
-  nothing useful - sees no index at all.
+`testbuild.yml` last built, pushed to the **`test-channel` branch** and read
+from **`raw.githubusercontent.com/NofLevi/kodi/test-channel`**. It is a branch
+rather than a folder on the Pages site because a Pages deployment **replaces
+the whole site**, so two channels sharing one would delete each other every
+time either published. Until a test build has been published that address
+answers 404 - measured on 17 September 2026, with no test build yet.
 
 A test build is versioned as a pre-release of what is current -
 `0.0.4~dev.12` - which is what Kodi's own comparison expects and sorts
@@ -627,30 +613,20 @@ So on the test channel *any difference* is an update, because a test build is
 "what the branch is now" rather than "a newer version". The stable channel
 keeps the greater-than, and a test asserts it does.
 
-`.github/workflows/testbuild.yml` publishes one, **by hand only**. Not on
-every push: a test build is a deployment, and a deployment list in which
-almost nothing was asked for is exactly what the Cloudflare disconnect was
-for.
+`.github/workflows/testbuild.yml` publishes one, **by hand only**, from the
+Actions tab. Not on every push: a test build is a deployment, and a deployment
+nobody asked for is noise.
 
 ### The tag is the only record of what was published
 
-Cloudflare is not connected to the repository any more, so **nothing on the
-Cloudflare side knows which commit a deployment came from**. A deployment is a
-folder of files somebody uploaded; that is the whole of what it is. So the tag
-is not bookkeeping, it is the only link between a version people are running
-and the source that produced it - and without it, "what is in 0.0.1?" has no
-answer a year from now.
+A Pages deployment is a folder of files a workflow uploaded; that is the whole
+of what it is. So the tag is not bookkeeping, it is the link between a version
+people are running and the source that produced it - and without it, "what is
+in 0.0.1?" has no answer a year from now.
 
 Which is why the tag is also the *trigger*: a release cannot happen without
-one, so the record cannot be forgotten. Two supports either side of it - every
-upload carries a `--commit-message` naming the version and the commit, and the
-GitHub release keeps the zips themselves. Left to itself wrangler labels a
-deployment with whatever the local `HEAD` happens to say, which is how a
-*stable* deployment came to be described as "A test channel: install the
-branch instead of the release".
-
-Publishing by hand with `tools/deploy.py` skips all of that, which is the
-price of it being the escape hatch. Tag afterwards.
+one, so the record cannot be forgotten. The GitHub release beside it keeps the
+zips and the index themselves.
 
 ### Releases are deliberate
 
@@ -1256,9 +1232,6 @@ settings that promised a provider with no code behind them were removed, and
   results identical to no filter at all. Shipping something here would mean
   shipping a stub, so nothing was shipped. Hebrew release hints in the parser
   and the `prefer_hebrew` ranking weight remain the honest version of this.
-* Auto-update needs the Cloudflare Pages project connected and the three URLs
-  in `repository.katan/addon.xml` pointed at it. Until then the in-add-on
-  updater reports no update rather than failing, and installing by zip works.
 
 **Done since this list was written**
 
