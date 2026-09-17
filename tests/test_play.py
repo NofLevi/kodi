@@ -46,6 +46,33 @@ def test_a_film_gets_its_title_and_ids(film):
     assert meta["year"] == 1994
 
 
+def test_a_series_keeps_its_own_language_on_every_episode(monkeypatch,
+                                                          settings_module):
+    """meta["item"] is the episode, and TMDB episodes carry no language - so
+    reading it from there left every series blank: a Turkish drama's Turkish
+    releases were ranked as foreign, and its language was never searched to
+    translate a subtitle from. Measured: Hikaru no Go and Game of Thrones
+    both reached the source ranking as ''."""
+    monkeypatch.setattr(tmdb, "show", lambda tmdb_id: {
+        "ids": {"tmdb": 1}, "title": "Magnificent Century", "year": 2011,
+        "art": {}, "original_title": "Muhtesem Yuzyil",
+        "original_language": "tr"})
+    monkeypatch.setattr(tmdb, "episodes", lambda tmdb_id, season: [
+        {"episode": 3, "title": "Episode 3", "art": {}, "original_language": ""}])
+    meta = play.build_meta({"type": "episode", "tmdb": 1, "season": 1,
+                            "episode": 3})
+    assert meta["original_language"] == "tr"
+
+
+def test_a_film_carries_its_language_where_it_is_read(monkeypatch, settings_module):
+    monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
+        "ids": {"tmdb": 496243}, "title": "Parasite", "year": 2019,
+        "art": {}, "original_title": "Gisaengchung",
+        "original_language": "ko"})
+    assert play.build_meta({"type": "movie", "tmdb": 496243})[
+        "original_language"] == "ko"
+
+
 def test_an_imdb_id_from_the_route_fills_a_gap(monkeypatch, settings_module):
     """The route carries one; TMDB does not always."""
     monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {

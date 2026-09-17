@@ -365,7 +365,8 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
     # A Turkish drama is in Turkish, and that is not a foreign-language
     # release - it is the only honest one there is.
     item = meta.get("item") or meta
-    prefs.original_language = (item.get("original_language") or "").strip()
+    prefs.original_language = (meta.get("original_language")
+                               or item.get("original_language") or "").strip()
     if prefs.original_language:
         prefs.readable = prefs.readable | {prefs.original_language}
     remembered = remembered_group(meta)
