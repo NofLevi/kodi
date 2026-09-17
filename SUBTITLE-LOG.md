@@ -10,12 +10,15 @@ what does *not* travel.
 
 Three commits carry this work, newest last:
 
-    814a9e2  One offset is the wrong model for a file cut differently
-    0d473e9  The file hash stops being something the search waits for
-    0303621  Looking for a split only when the file already scores well is circular
+    f20754b  One offset is the wrong model for a file cut differently
+    2c7e0f5  The file hash stops being something the search waits for
+    b8dd089  Looking for a split only when the file already scores well is circular
+
+(Hashes as they are after the history rewrite of mid-September; the originals
+were 814a9e2, 0d473e9 and 0303621.)
 
 **Nothing here has been released.** `main` is behind `development` and the last
-tag is v0.0.1. The next one would be v0.0.2 and would carry eight commits.
+tag is v0.0.1. `python tools/release.py --dry-run` says the next is v0.0.2.
 
 ---
 
@@ -62,38 +65,57 @@ lightweight tag, which looks exactly like forgetting to tag at all.
    git: it used to be, and `git commit -am` stages only tracked files while
    every release produces a zip under a filename that never existed before, so
    the index could name a zip that was never pushed.
-4. Cuts the GitHub release with both zips attached.
-5. Uploads `repo/` to Cloudflare Pages with `wrangler pages deploy`.
-6. **Polls the live index until it serves the tagged version.** That last step
-   is the only automated proof a release reached the devices; everything before
-   it can pass while the site still serves the previous version.
+4. Cuts the GitHub release with both zips **and `addons.xml` plus its `.md5`**
+   attached. The in-add-on updater reads
+   `github.com/NofLevi/kodi/releases/latest/download/addons.xml`, a stable
+   alias for the newest release, so without those two files attached no device
+   is ever told there is a new version.
+5. Uploads `repo/` as the site root to **GitHub Pages**
+   (`actions/upload-pages-artifact` then `actions/deploy-pages`).
+6. **Polls `noflevi.github.io/kodi/addons.xml` until it serves the tagged
+   version**, for up to five minutes. That last step is the only automated
+   proof a release reached the devices; everything before it can pass while the
+   site still serves the previous version.
+
+Only one release publishes at a time (`concurrency: pages`, not cancelled in
+progress), because two racing for the one site would leave a half-published
+repository.
 
 ### Where it goes
 
 | | |
 |---|---|
-| Stable channel | **noflevi.github.io/kodi** — what every device updates from |
-| Test channel | **raw.githubusercontent.com/NofLevi/kodi/test-channel** — `update.channel = test`, expert settings |
-| GitHub release | `NofLevi/kodi`, private, so the zips there are for you, not for Kodi |
+| Stable channel | **noflevi.github.io/kodi** — GitHub Pages, what `repository.katan` points every device at |
+| In-add-on update check | `github.com/NofLevi/kodi/releases/latest/download/addons.xml` |
+| Test channel | **raw.githubusercontent.com/NofLevi/kodi/test-channel** — the `test-channel` branch; `update.channel = test`, expert settings |
+| GitHub release | the zips themselves, per tag |
 
-The Cloudflare project is **deliberately disconnected from the repository**.
-Cloudflare never sees a push, so it cannot log one, and a deployment exists if
-and only if somebody published it. Do not reconnect it to "fix" anything — that
-is what filled the deployment list with rows that were not builds.
+**Why GitHub and not Cloudflare any more.** Cloudflare Pages never answered a
+ranged read: every `Range` request came back 200 with the whole file. Kodi
+does not read a zip front to back - it reads the central directory at the end
+and then seeks to each member - so the 123-member add-on zip meant a 475 KB
+download per seek on a television, while the 2-member repository zip was small
+enough not to notice. That is exactly the failure that was reported: the
+repository installed, and installing the add-on took Kodi down with it. GitHub
+answers 206 with `Accept-Ranges`, and it is where the rest of the Kodi world
+already hosts. The Cloudflare project and its secrets are gone.
 
-The `pages.dev` hostname is baked into every installed copy of
-`repository.katan`, so moving host strands every device unless the repository
-add-on is republished at the *old* address first.
+The Pages site and the test channel are deliberately separate. A Pages
+deployment replaces the whole site, so one shared site would have the two
+channels deleting each other every time either published.
+
+**The hostname is baked into every installed copy of `repository.katan`** -
+three URLs in `repository.katan/addon.xml`, and the updater's in `updater.py`.
+Moving host again strands every device unless the repository add-on is first
+republished, version bumped, at the *old* address pointing at the new one.
 
 ### Credentials it needs
 
-* GitHub repository secrets `CLOUDFLARE_API_TOKEN` (Account → Pages → Edit) and
-  `CLOUDFLARE_ACCOUNT_ID`. Secrets rather than a file on one laptop is exactly
-  what lets a release be cut from either machine — **so the workflow route
-  needs nothing copied across.**
-* Gitignored `.cf-token` and `.cf-account`, only for `tools/deploy.py`. Those
-  do have to be copied by hand if you want the manual escape hatch on the
-  second machine.
+**None to copy.** `deploy-pages` authenticates over OIDC with the workflow's
+own token (`permissions: pages: write, id-token: write`), and `gh release
+create` uses `github.token`. There is no Cloudflare token, no secret, and no
+gitignored credential file involved in publishing any more, so a release can
+be cut from any machine that can push a tag.
 
 ### Before you tag
 
@@ -108,20 +130,22 @@ other workflow except before a release.** They are slow — a dozen live service
 and a real release downloaded from the live site — and running them after every
 commit is a run for every small change nobody reads.
 
-### The escape hatches
+### A test build, and putting it on a box
 
-    python tools/deploy.py            build and upload by hand, when the
-                                      workflow failed after the release was
-                                      already created. Tag afterwards.
-    python tools/deploy.py --test     publish the working tree to the test
-                                      channel
+`.github/workflows/testbuild.yml` builds a branch (default `development`),
+versions it as a pre-release of what is current - `0.0.2~dev.12`, which sorts
+*below* the release it previews - and force-pushes it to the `test-channel`
+branch. **By hand only**, from the Actions tab: a test build is a deployment,
+and a deployment nobody asked for is noise.
+
     python tools/deploy_android.py    push the zips to a device over adb
+    python tools/install_ftp.py       install onto an Android box over its
+                                      own FTP server
 
-`deploy.py` skips the tag, the version check and the commit message that names
-what was published — that is the price of it being the escape hatch.
-`.github/workflows/testbuild.yml` publishes a test build, **by hand only**;
-a test build is a deployment, and a deployment list where almost nothing was
-asked for is what the disconnect was for.
+There is no manual publish script any more: `tools/deploy.py` uploaded to
+Cloudflare and left with it. If a release workflow fails after the GitHub
+release was created, re-run `release.yml` from the Actions tab
+(`workflow_dispatch`) rather than publishing by hand.
 
 ---
 
@@ -134,7 +158,6 @@ The measurement is the valuable part of this work and **none of it is in git**:
 | `subtitles.jsonl` | 422 surveyed titles, one JSON line each. Every number in this file came from it. | `python tools/survey_subtitles.py --count 400 --debrid` — hours, and it spends your debrid account |
 | `.survey/` | the survey's own cache, kept separate so it never evicts what a real Kodi warmed | rebuilt on demand |
 | `.kodi-test/` | portable Kodi 21.3, 232 MB | `python tools/setup_kodi.py` |
-| `.cf-token`, `.cf-account` | Cloudflare Pages credentials for publishing | copy by hand, or rely on the GitHub secrets |
 
 **Copy `subtitles.jsonl` across by hand.** It is 422 rows of live measurement
 against real services and re-running it is expensive; `--report` reads it and
