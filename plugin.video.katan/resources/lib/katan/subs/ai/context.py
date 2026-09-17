@@ -96,12 +96,12 @@ GENDER_MARKING = (
 
 # How much a source language is worth, in the same units the subtitle matcher
 # scores in. The order is Arabic, then any other language that marks gender,
-# then English, then Japanese. Arabic first because it marks gender the way
-# Hebrew does and is the closest to it, which is why POV's MoranSubs downloads
-# an Arabic subtitle as a gender oracle. English carries no gender at all.
-# Japanese is the last resort: often the original script of an anime, but it
-# drops the subject so often that the model is left guessing who is speaking
-# as well as their gender.
+# then English, then Japanese, Korean and Chinese. Arabic first because it
+# marks gender the way Hebrew does and is the closest to it, which is why POV's
+# MoranSubs downloads an Arabic subtitle as a gender oracle. English carries no
+# gender at all. The three East Asian languages are the last resort: often the
+# original script of the show, but they drop the subject so often that the
+# model is left guessing who is speaking as well as their gender.
 #
 # Bonuses rather than a strict order, and that is deliberate. A translation
 # keeps its source's timings exactly, so an Arabic subtitle for a different cut
@@ -110,7 +110,8 @@ GENDER_MARKING = (
 # that does not fit over one that does.
 ARABIC_BONUS = 25
 GENDER_BONUS = 18
-JAPANESE_PENALTY = 10
+SUBJECT_DROPPING = ("ja", "ko", "zh")
+SUBJECT_DROPPING_PENALTY = 10
 
 
 def source_bonus(language):
@@ -120,8 +121,8 @@ def source_bonus(language):
         return ARABIC_BONUS
     if code in GENDER_MARKING:
         return GENDER_BONUS
-    if code == "ja":
-        return -JAPANESE_PENALTY
+    if code in SUBJECT_DROPPING:
+        return -SUBJECT_DROPPING_PENALTY
     return 0
 
 

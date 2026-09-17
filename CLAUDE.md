@@ -1136,21 +1136,28 @@ add-on already fetches for the details screen, is named in the prompt. The same
 insight also picks the translation source: a Spanish or Arabic subtitle carries
 gender through for free, so it wins a close call against English.
 
-The order is Arabic, then any other gender-marking language, then English,
-then Japanese - Arabic because it is the closest to Hebrew and what POV itself
-uses, Japanese last because it drops the subject so often that the model has
-to guess who is speaking. It is a bonus on the match score (`source_bonus`),
-not a strict order, because a translation keeps its source's timings: an
-Arabic file for a different cut becomes a well-gendered Hebrew subtitle that
-is minutes out.
+The order is Arabic, then any other gender-marking language (French, Spanish,
+Italian, Russian...), then English and Turkish, then Japanese, Korean and
+Chinese - Arabic because it is the closest to Hebrew and what POV itself uses,
+the East Asian three last because they drop the subject so often that the
+model has to guess who is speaking. It is a bonus on the match score
+(`source_bonus`), not a strict order, because a translation keeps its
+source's timings: an Arabic file for a different cut becomes a well-gendered
+Hebrew subtitle that is minutes out.
 
-**Source selection assumes the LLM.** With a translation engine configured,
-Arabic, English and Japanese are searched alongside Hebrew - both when a film
-starts and for the picker's subtitle outlook - and a release whose only
-well-fitting subtitle is in one of them is shown as "AI subtitles" and ranked
-above a release with Hebrew that does not fit. It never outranks a Hebrew
-subtitle that clears the threshold. Without an engine none of this is asked,
-because every language is another request per provider.
+**Source selection assumes the LLM, but only pays for it when Hebrew does not
+fit.** With a translation engine configured, a release whose only
+well-fitting subtitle is in another language is shown as "AI subtitles" and
+ranked above a release whose Hebrew does not fit - never above Hebrew that
+clears the threshold. What it translates from is searched in a *second*
+round, and only when needed: when a film starts, once no Hebrew subtitle fits
+or the one that looked right fails its checks; in the picker, once no release
+has Hebrew that fits. That round asks for Arabic and English, plus the show's
+own language when it is Chinese, French, Korean, Spanish, Italian, Turkish or
+Japanese - a Turkish drama is asked for Turkish, an American film is not
+asked for Korean. Choosing AI translation by hand asks for every language.
+Without an engine none of this is requested, because every language is
+another request per provider.
 
 **Taken: progressive delivery.** Translating a feature film takes minutes.
 Showing each finished chunk as it arrives means the viewer starts watching

@@ -30,34 +30,43 @@ VARIANT_AI = "ai"
 # them costs nothing extra - it is one more value in the same request, and the
 # only provider that reads it is OpenSubtitles. Wizdom and Ktuvit are Hebrew
 # sites and ignore it.
+# Asked for when the viewer chooses AI translation themselves: any language
+# will do, so every one worth translating from is searched.
 WIDE_LANGUAGES = ("en", "es", "ar", "pt", "fr", "ru", "de", "it", "tr", "pl",
-                  "ja")
+                  "ja", "ko", "zh")
 
-# What an AI translation is made from, in the order it is preferred - see
-# ai/context.source_bonus for why Arabic leads and Japanese trails.
-AI_SOURCE_LANGUAGES = ("ar", "en", "ja")
+# What an automatic AI translation is made from once no Hebrew subtitle fits:
+# Arabic and English for everything, and the show's own language when it is
+# one of these - a Turkish drama is asked for Turkish, a Korean one for Korean.
+# Not all of them every time. Every language is another request per provider,
+# and a Korean subtitle is worth nothing to an American film. See
+# ai/context.source_bonus for the order they are preferred in.
+AI_SOURCE_LANGUAGES = ("ar", "en")
+FOREIGN_SOURCE_LANGUAGES = ("zh", "fr", "ko", "es", "it", "tr", "ja")
+
+# TMDB's codes that are not ISO 639-1. "cn" is its code for Cantonese, which
+# subtitle sites file under Chinese.
+_TMDB_LANGUAGE = {"cn": "zh"}
 
 
-def with_translation_sources(languages):
-    """The configured languages, plus what AI can translate from, if it can.
+def translation_source_languages(meta, already=()):
+    """The languages an automatic translation should be made from, if any.
 
-    With a translation engine configured, a subtitle does not have to exist in
-    Hebrew to become a good Hebrew subtitle: an Arabic or English file that
-    fits this release is one translation away from it. So those are searched
-    alongside the configured languages. Without an engine they are worth
-    nothing and nothing extra is asked, because every language is another
-    request per provider.
+    Empty without a translation engine, because a subtitle it cannot use is
+    only a wasted request.
     """
-    languages = list(languages)
     try:
         from .ai import translator
-        ready = translator.available()
+        if not translator.available():
+            return []
     except Exception:
-        ready = False
-    if ready:
-        languages.extend(code for code in AI_SOURCE_LANGUAGES
-                         if code not in languages)
-    return languages
+        return []
+    wanted = list(AI_SOURCE_LANGUAGES)
+    original = (meta.get("original_language") or "").lower()
+    original = _TMDB_LANGUAGE.get(original, original)
+    if original in FOREIGN_SOURCE_LANGUAGES:
+        wanted.append(original)
+    return [code for code in wanted if code not in already]
 TIMING_EVIDENCE_LANGUAGES = ("en", "es")
 
 
@@ -273,10 +282,6 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
     report = {"translated": False, "synchronised": False, "reason": ""}
     downloads = _DownloadBudget(consensus.budget())
     wanted = languages[0]
-    # Arabic, English and Japanese are searched too when AI can use them, so a
-    # title with no Hebrew that fits is translated from the best source rather
-    # than only from whichever second language happened to be configured.
-    languages = with_translation_sources(languages)
 
     get_hash = video_hash_later(meta)
     candidates = search_candidates(meta, languages, get_hash)
@@ -339,6 +344,20 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
                 report["reason"] = (report.get("reason")
                                     or (winner or {}).get("reason", ""))
                 return store(meta, wanted, cues), report
+
+    # No Hebrew subtitle fits, or the one that looked right failed its checks.
+    # Only now is it worth asking for what AI could translate from: while a
+    # fitting Hebrew subtitle exists those requests buy nothing.
+    extra = translation_source_languages(meta, languages)
+    if extra and not is_cancelled():
+        more = search_candidates(meta, extra, video_hash)
+        seen = {matcher.candidate_key(candidate) for candidate in candidates}
+        candidates.extend(candidate for candidate in more
+                          if matcher.candidate_key(candidate) not in seen)
+        languages = list(languages) + extra
+        winners, _ranked = matcher.best(candidates, target, threshold,
+                                        video_hash, languages)
+        winner = winners.get(wanted)
 
     path, report = translate_fallback(
         meta, winners, languages, report, player, cancelled=cancelled,
