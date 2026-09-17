@@ -430,11 +430,50 @@ def sort_key(source, prefs=None):
 
     return (
         0 if source.get("cached") else 1,
+        _unwatchable(source, prefs),
         -settings.resolution_rank(source.get("quality")),
+        _dubbed(source, prefs),
         -outlook.ranking_score(source),
         size_term,
         -(source.get("score") or 0.0),
     )
+
+
+def _unwatchable(source, prefs):
+    """1 for a release only in a language nobody here reads, else 0.
+
+    WEIGHT_WRONG_LANGUAGE says a release like that should lose to any ordinary
+    one, and as a weight it could not: the weighted score is the last thing
+    this sort looks at, after size, so an Italian dub only lost to a release
+    of exactly the same size. A 4K Italian dub beat a 1080p English release
+    and autoplay took it. As its own term, ahead of resolution, it loses to
+    every watchable release and still beats nothing at all.
+    """
+    if prefs is None:
+        return 0
+    return 1 if _wrong_language(source, prefs, prefs.original_language) else 0
+
+
+def _dubbed(source, prefs):
+    """1 for a dub of a show whose own language the viewer does not read.
+
+    An anime is released twice, Japanese with subtitles and an English dub,
+    and the Hebrew or AI subtitle is made from the original dialogue - so it
+    follows the Japanese audio and not the English rewrite. After resolution,
+    so it never costs picture, and before subtitles and size, so it decides
+    between two releases of the same episode. The dub is still in the list
+    and still marked DUB, for anybody who wants it.
+
+    Not in kids mode, where a child who cannot read subtitles is exactly who a
+    dub is for.
+    """
+    if prefs is None or source.get("dub") != "dub":
+        return 0
+    original = prefs.original_language
+    if not original or original in prefs.languages:
+        return 0
+    from .. import kids
+    return 0 if kids.enabled() else 1
 
 
 def rank_all(sources, meta=None, runtime_hours=2.0):

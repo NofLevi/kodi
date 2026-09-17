@@ -35,6 +35,8 @@ NONE = "none"
 # No Hebrew subtitle fits this release, but one in a language AI translates
 # from does - so the Hebrew is made rather than found.
 AI = "ai"
+# The title is in Hebrew to begin with, so there is nothing to subtitle.
+NATIVE = "native"
 
 # How far a translation ranks below its source's own match. It also never
 # ranks level with a Hebrew subtitle that clears the threshold: "use the LLM
@@ -111,6 +113,14 @@ def annotate(meta, sources, found=None):
     """
     if not sources:
         return sources
+    from . import auto
+    if auto.normalise_language(meta.get("original_language")) == _hebrew_code():
+        # Every release of an Israeli film speaks Hebrew. Asking which has the
+        # better Hebrew subtitle is a search whose answer changes nothing.
+        for source in sources:
+            source["subs_kind"] = NATIVE
+            source["subs_score"] = 0
+        return sources
     if found is None:
         found = candidates(meta, strict=True)
     _write(meta, sources, found)
@@ -183,7 +193,7 @@ def ranking_score(source):
     the purpose of ordering it is the best possible outcome rather than an
     unscored one.
     """
-    if source.get("subs_kind") == EMBEDDED:
+    if source.get("subs_kind") in (EMBEDDED, NATIVE):
         return 100
     if source.get("subs_kind") == AI:
         score = int(source.get("subs_score") or 0)

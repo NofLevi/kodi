@@ -45,8 +45,14 @@ AI_SOURCE_LANGUAGES = ("ar", "en")
 FOREIGN_SOURCE_LANGUAGES = ("zh", "fr", "ko", "es", "it", "tr", "ja")
 
 # TMDB's codes that are not ISO 639-1. "cn" is its code for Cantonese, which
-# subtitle sites file under Chinese.
+# subtitle sites and audio tracks file under Chinese.
 _TMDB_LANGUAGE = {"cn": "zh"}
+
+
+def normalise_language(code):
+    """A title's original language as TMDB gives it, in the codes used here."""
+    code = (code or "").strip().lower()
+    return _TMDB_LANGUAGE.get(code, code)
 
 
 def translation_source_languages(meta, already=()):
@@ -62,8 +68,7 @@ def translation_source_languages(meta, already=()):
     except Exception:
         return []
     wanted = list(AI_SOURCE_LANGUAGES)
-    original = (meta.get("original_language") or "").lower()
-    original = _TMDB_LANGUAGE.get(original, original)
+    original = normalise_language(meta.get("original_language"))
     if original in FOREIGN_SOURCE_LANGUAGES:
         wanted.append(original)
     return [code for code in wanted if code not in already]
@@ -103,6 +108,14 @@ def on_playback_started(player, meta, cancelled=None):
         return
     languages = settings.subtitle_languages()
     if not languages:
+        return
+    if normalise_language(meta.get("original_language")) == languages[0]:
+        # An Israeli film is already in Hebrew. Searching for a Hebrew
+        # subtitle costs a round of requests and, when one is found, puts the
+        # dialogue on screen twice. The chooser still lists them for anybody
+        # who wants one - hard of hearing, or a noisy room.
+        kodi.log("%s is in %s already, so no subtitle is applied"
+                 % (meta.get("title") or "this title", languages[0]))
         return
 
     generation = coordinator.begin()

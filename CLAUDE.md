@@ -233,6 +233,24 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   release group *is* the quality, and SeaDex publishes which group won. It
   returns infohashes, the aggregator already merges by infohash, so a
   recommendation is a set of hashes to recognise rather than a name to match.
+* **A title's own language is TMDB's `original_language`, set once on the
+  meta by `play.build_meta`** - from the series, not the episode, because a
+  TMDB episode carries no language and reading it from `meta["item"]` left
+  every series blank. Four things hang off it:
+  * A Hebrew title gets **no automatic subtitle** and the picker shows
+    "Hebrew audio" without searching; the chooser still lists subtitles.
+  * The Series tab has a **Turkish, Spanish and Italian dramas** row - one
+    TMDB discover call, `with_original_language=tr|es|it`, drama genre.
+  * **The source sort** gained two terms. A release only in a language nobody
+    here reads now sorts *before resolution* (`_unwatchable`): as the -400
+    weight it sat after size and lost only to a release of the same size, so a
+    higher-resolution Italian dub beat an English release. And **a dub sorts
+    below the original audio** right after resolution (`_dubbed`) when the
+    show's language is not one the viewer reads - the subtitles follow the
+    original dialogue. The dub stays in the list for a manual choice, kids
+    mode is exempt, and MULTI counts as DUAL rather than DUB.
+  * **The audio track** is switched to the original language on a file with
+    several, or to Hebrew in kids mode; Kodi's audio menu still switches back.
 * `kids.py` replaces the home rows rather than filtering them. A TMDB list
   result carries no certification at all, so a filter alone would let
   everything through; the kid-safe rows ask TMDB for a ceiling instead.

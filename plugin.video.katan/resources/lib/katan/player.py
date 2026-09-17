@@ -652,6 +652,7 @@ class KatanPlayer(xbmc.Player):
         """
         try:
             from .subs import embedded
+            self._choose_audio_track(embedded)
             names = embedded.audio_languages()
         except ImportError:
             return
@@ -662,6 +663,35 @@ class KatanPlayer(xbmc.Player):
             return
         kodi.log("audio tracks: %s" % ", ".join(names))
         kodi.notify(kodi.localize(32521, ", ".join(names)))
+
+    def _choose_audio_track(self, embedded):
+        """Play the title in its own language - or in Hebrew, in kids mode.
+
+        A dual-audio release plays whichever track Kodi's default lands on,
+        and for an anime that is Japanese or an English dub by luck. The
+        subtitles are made from the original dialogue, so the original audio
+        is the one they follow. In kids mode a Hebrew track wins instead, for a
+        child who cannot read subtitles, and nothing is changed when there is
+        none. Kodi's own audio menu still switches it back.
+        """
+        from . import kids
+        if kids.enabled():
+            wanted = "he"
+        else:
+            from .subs import auto
+            wanted = auto.normalise_language(
+                (self.meta or {}).get("original_language"))
+        if not wanted:
+            return
+        streams = embedded.audio_streams()
+        if len({stream["language"] for stream in streams}) < 2:
+            return
+        match = next((stream for stream in streams
+                      if stream["language"] == wanted), None)
+        if match is None or match.get("current"):
+            return
+        self.setAudioStream(match["index"])
+        kodi.log("audio: switched to the %s track" % wanted)
 
     def _send_upnext(self):
         """Tell the Up Next add-on what plays after this episode."""

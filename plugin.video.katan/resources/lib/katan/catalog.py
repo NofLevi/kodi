@@ -35,6 +35,7 @@ S = {
     "new_netflix": 32213,
     "israeli_movies": 32214,
     "israeli_shows": 32215,
+    "foreign_dramas": 32536,
     "anime_trending": 32216,
     "israel_live": 32217,
     "israel_vod": 32218,
@@ -136,7 +137,7 @@ SECTION_ORDER = {
         "continue", "because_you_watched",
         "trending_shows", "shows_new", "airing_today", "shows_popular",
         "top_rated_shows", "shows_classics", "shows_gems", "returning",
-        "israeli_shows", "anime_trending",
+        "israeli_shows", "foreign_dramas", "anime_trending",
         "shows_drama", "shows_comedy", "shows_crime", "shows_scifi",
         "shows_documentary", "shows_reality",
     ],
@@ -356,6 +357,14 @@ def _build_rows():
         _row("israeli_shows", S["israeli_shows"],
              lambda page: _tmdb().by_original_language("he", "tv", page),
              TTL_LONG, sections=(HOME, SHOWS)),
+        # The dramas watched in this house in their own language, with Hebrew
+        # subtitles. One TMDB question: discover takes "tr|es|it" as an OR,
+        # measured to return all three mixed by popularity.
+        _row("foreign_dramas", S["foreign_dramas"],
+             lambda page: _tmdb().discover(
+                 "tv", page=page, with_original_language="tr|es|it",
+                 with_genres=str(GENRE_TV["drama"]), sort_by="popularity.desc"),
+             TTL_LONG, default=False, sections=(SHOWS,)),
 
         # "Trending this week" and "Popular" are the same films in a slightly
         # different order, and having both on one tab reads as a mistake -
