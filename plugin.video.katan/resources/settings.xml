@@ -665,7 +665,7 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
-                    <level>3</level>                    <control type="edit" format="string">
+                    <level>0</level>                    <control type="edit" format="string">
                         <heading>30103</heading>
                     </control>
                     <dependencies>
