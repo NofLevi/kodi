@@ -1680,3 +1680,7 @@ msgstr ""
 msgctxt "#32534"
 msgid "Another production of the same name"
 msgstr ""
+
+msgctxt "#32535"
+msgid "AI subtitles %d%% estimate"
+msgstr ""

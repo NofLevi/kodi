@@ -136,3 +136,48 @@ def test_the_prompt_omits_the_cast_block_when_there_is_none(monkeypatch):
     from katan.subs import srt
     translator.translate([srt.Cue(1, 0.0, 2.0, "hello")], "he", meta=None)
     assert "The people in this scene" not in sent[0]
+
+
+# --------------------------------------------------------------------------
+# the order a Hebrew translation is made from: Arabic, English, Japanese
+# --------------------------------------------------------------------------
+
+
+def test_arabic_wins_a_close_call_over_english():
+    """Arabic marks gender the way Hebrew does, which is why POV downloads it
+    as a gender oracle; English throws the speaker's gender away."""
+    winners = {"he": {"score": 20},
+               "en": {"score": 90, "release": "english"},
+               "ar": {"score": 72, "release": "arabic"}}
+    ranked = context.rank_translation_sources(winners, ["he", "en", "ar"])
+    assert ranked[0][0] == "ar"
+
+
+def test_arabic_is_preferred_over_another_gender_marking_language():
+    winners = {"es": {"score": 80, "release": "spanish"},
+               "ar": {"score": 76, "release": "arabic"}}
+    ranked = context.rank_translation_sources(winners, ["he", "es", "ar"])
+    assert ranked[0][0] == "ar"
+
+
+def test_japanese_is_the_last_resort():
+    winners = {"en": {"score": 65, "release": "english"},
+               "ja": {"score": 70, "release": "japanese"}}
+    ranked = context.rank_translation_sources(winners, ["he", "en", "ja"])
+    assert [language for language, _c in ranked] == ["en", "ja"]
+
+
+def test_an_arabic_file_that_does_not_fit_loses_to_one_that_does():
+    """A translation keeps its source's timings, so a well-gendered Arabic
+    subtitle for another cut is still a subtitle that is minutes out."""
+    winners = {"en": {"score": 100, "release": "english exact"},
+               "ar": {"score": 40, "release": "arabic title only"}}
+    ranked = context.rank_translation_sources(winners, ["he", "en", "ar"])
+    assert ranked[0][0] == "en"
+
+
+def test_japanese_can_still_be_used_when_it_is_all_there_is():
+    candidates = [{"provider": "a", "language": "ja", "download": 1,
+                   "score": 40}]
+    ranked = context.rank_translation_candidates(candidates, "he")
+    assert [language for language, _c in ranked] == ["ja"]
