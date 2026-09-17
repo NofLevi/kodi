@@ -19,6 +19,7 @@ import ssl
 import threading
 import zlib
 
+from email.message import Message
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import (HTTPRedirectHandler, HTTPSHandler, Request,
@@ -70,7 +71,7 @@ class Response(object):
     def __init__(self, url, status_code, headers, body):
         self.url = url
         self.status_code = status_code
-        self.headers = headers
+        self.headers = _case_insensitive(headers)
         self._body = body
         self._content = None
         self.raw = _Raw(self)
@@ -145,6 +146,27 @@ class _Raw(object):
                 return response._body.read(amount)
         data = response.content
         return data if amount is None else data[:amount]
+
+
+def _case_insensitive(headers):
+    """Header names are case-insensitive, and servers do send them lowercase.
+
+    This used to be dict(handle.headers), which throws the case-insensitivity
+    of the stdlib's own header object away. OpenSubtitles, behind Cloudflare,
+    answers `content-encoding: gzip`; get("Content-Encoding") then found
+    nothing, the gzip body was handed to the JSON parser as it was, and every
+    search on a Kodi without requests - which is every Kodi this add-on ships
+    to - logged "did not answer" while the service was answering in 0.2s.
+    requests has always matched case-insensitively, which is why a machine
+    with it installed never saw this. email.message.Message is the stdlib's
+    header type, and it is what urllib hands back before it is flattened.
+    """
+    if isinstance(headers, Message):
+        return headers
+    message = Message()
+    for name, value in (headers or {}).items():
+        message[name] = value
+    return message
 
 
 def _decompress(data, headers):
@@ -225,13 +247,12 @@ class Session(object):
             handle = opener.open(request, timeout=seconds)
         except HTTPError as error:
             # An HTTP error is still a response; the caller decides what it means.
-            return Response(url, error.code, dict(error.headers or {}),
-                            error.read())
+            return Response(url, error.code, error.headers, error.read())
         except (URLError, OSError, ValueError) as error:
             raise ConnectionError(str(error))
 
-        return Response(handle.geturl(), handle.getcode(),
-                        dict(handle.headers), handle)
+        return Response(handle.geturl(), handle.getcode(), handle.headers,
+                        handle)
 
     def get(self, url, **kwargs):
         return self.request("GET", url, **kwargs)

@@ -138,3 +138,20 @@ def test_a_certificate_bundle_is_found():
 def test_the_http_layer_reports_which_backend_it_uses():
     from katan import http
     assert http.backend() in ("requests", "standard library")
+
+
+def test_a_lowercase_content_encoding_is_still_decompressed():
+    """Measured against OpenSubtitles behind Cloudflare, which sends
+    `content-encoding: gzip`. A case-sensitive lookup missed it, the JSON
+    parser got gzip bytes, and every subtitle search on a Kodi without
+    requests reported that the service did not answer."""
+    import gzip
+    import json
+    from katan import urlsession
+
+    body = gzip.compress(json.dumps([{"SubFileName": "Hikaru No Go 05.srt"}]).encode())
+    response = urlsession.Response("https://example.invalid", 200,
+                                   {"content-encoding": "gzip",
+                                    "content-type": "application/json"}, body)
+    assert response.headers.get("Content-Encoding") == "gzip"
+    assert response.json()[0]["SubFileName"] == "Hikaru No Go 05.srt"
