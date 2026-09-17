@@ -38,6 +38,7 @@ _LANGUAGE_ALIASES = {
     "de": ("de", "ger", "deu", "german"),
     "pt": ("pt", "por", "portuguese"),
     "tr": ("tr", "tur", "turkish"),
+    "zh": ("zh", "chi", "zho", "chinese", "mandarin", "cantonese"),
 }
 
 # For saying "Japanese" rather than "ja" on a television.
@@ -45,6 +46,7 @@ LANGUAGE_NAMES = {
     "he": "Hebrew", "en": "English", "ar": "Arabic", "ru": "Russian",
     "es": "Spanish", "fr": "French", "ja": "Japanese", "ko": "Korean",
     "it": "Italian", "de": "German", "pt": "Portuguese", "tr": "Turkish",
+    "zh": "Chinese",
 }
 
 # Tracks that are not full dialogue, and should not be offered as if they were.
@@ -142,13 +144,16 @@ def audio_streams():
         return []
 
     result = (payload or {}).get("result") or {}
+    current = (result.get("currentaudiostream") or {}).get("index")
     out = []
     for entry in result.get("audiostreams") or []:
         name = entry.get("name") or entry.get("language") or ""
+        index = int(entry.get("index", len(out)))
         out.append({
-            "index": int(entry.get("index", len(out))),
+            "index": index,
             "language": _code_for(entry.get("language") or name),
             "name": name,
+            "current": current is not None and index == current,
         })
     return out
 

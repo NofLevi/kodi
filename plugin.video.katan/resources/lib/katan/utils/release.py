@@ -115,7 +115,10 @@ NEUTRAL_LANGUAGES = ("multi", "en")
 # it. "sub" is last for the same reason - almost every dub release also
 # carries subtitles and says so.
 DUB_PATTERNS = [
-    ("dual", r"\b(dual[\s-]?audio|multi[\s-]?audio|dual)\b"),
+    # A bare MULTI is several audio tracks - the original among them - and is
+    # as good as DUAL; "MULTi.DUB" was being read as a dub. "Multi-Subs" is a
+    # claim about subtitles, so it is left out.
+    ("dual", r"\b(dual[\s-]?audio|multi[\s-]?audio|dual|multi(?![\s._-]?subs?\b))\b"),
     ("dub", r"\b(dub|dubs|dubbed|eng(?:lish)?[\s-]?dub)\b"),
     # Not a bare "sub" or "subs". "MULTI.SUBS" on a live-action film is a
     # claim about its subtitles and says nothing at all about the audio,

@@ -115,6 +115,9 @@ class Player(object):
     def setSubtitleStream(self, index):
         pass
 
+    def setAudioStream(self, index):
+        self.audio_stream = index
+
     def showSubtitles(self, visible):
         pass
 

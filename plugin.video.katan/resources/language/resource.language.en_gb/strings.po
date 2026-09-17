@@ -1684,3 +1684,11 @@ msgstr ""
 msgctxt "#32535"
 msgid "AI subtitles %d%% estimate"
 msgstr ""
+
+msgctxt "#32536"
+msgid "Turkish, Spanish & Italian dramas"
+msgstr ""
+
+msgctxt "#32537"
+msgid "Hebrew audio"
+msgstr ""

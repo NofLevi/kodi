@@ -1644,3 +1644,11 @@ msgstr "הפקה אחרת באותו שם"
 msgctxt "#32535"
 msgid "AI subtitles %d%% estimate"
 msgstr "כתוביות AI %d%% (הערכה)"
+
+msgctxt "#32536"
+msgid "Turkish, Spanish & Italian dramas"
+msgstr "דרמות טורקיות, ספרדיות ואיטלקיות"
+
+msgctxt "#32537"
+msgid "Hebrew audio"
+msgstr "דובר עברית"
