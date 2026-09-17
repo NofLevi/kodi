@@ -389,6 +389,67 @@ def test_pressing_a_key_appends_to_the_query(search):
     assert search.getProperty("katan.search.text") == "ab"
 
 
+def _type_into_field(search, text, action_id=0):
+    """What Kodi does with a physical keyboard: the edit control takes the key
+    first, then the window's onAction runs with the field already updated."""
+    search.setFocusId(search_window.EDIT_QUERY)
+    search.getControl(search_window.EDIT_QUERY).setText(text)
+    search.onAction(Kodi21Action(action_id))
+
+
+def test_search_opens_ready_to_type(search):
+    """With the grid focused, a keyboard's first keys run the keymap: measured
+    in a real Kodi, Backspace was Back and walked out of the add-on."""
+    assert search.getFocusId() == search_window.EDIT_QUERY
+
+
+def test_a_physical_keyboard_types_into_the_field(search):
+    """Kodi 21 gives an action no character, so the grid was the only input
+    and a letter typed on a keyboard ran a keymap shortcut instead - one of
+    them opens the PVR channel list. A focused edit control is the one place
+    Kodi delivers keys as text."""
+    _type_into_field(search, "d")
+    _type_into_field(search, "du")
+    assert search.text == "du"
+    assert search.getProperty("katan.search.text") == "du"
+
+
+def test_backspace_in_the_field_deletes_one_character_not_two(search):
+    _type_into_field(search, "dune")
+    _type_into_field(search, "dun", search_window.ACTION_BACKSPACE)
+    assert search.text == "dun"
+
+
+def test_enter_in_the_field_searches_for_what_was_typed(search):
+    _type_into_field(search, "dune")
+    _type_into_field(search, "dune", search_window.ACTION_ENTER)
+    assert search.submitted == "dune"
+
+
+def test_enter_on_a_keyboard_arrives_as_select_and_still_searches(search):
+    """Measured in Kodi 21: the Return key reaches the field as action 7."""
+    _type_into_field(search, "hikaru")
+    _type_into_field(search, "hikaru", search_window.ACTION_SELECT_ITEM)
+    assert search.submitted == "hikaru"
+
+
+def test_ok_on_an_empty_field_leaves_kodis_keyboard_open(search):
+    """A remote pressing OK on the field wants to type, not to search."""
+    _type_into_field(search, "", search_window.ACTION_SELECT_ITEM)
+    assert search.submitted is None
+    assert search.closed is not True
+
+
+def test_the_key_grid_writes_into_the_same_field(search):
+    """One query, whichever way it was typed: the grid and the keyboard have
+    to be able to finish each other's words."""
+    _type_into_field(search, "du")
+    search.setFocusId(search_window.KEY_BASE)
+    search.onClick(search_window.KEY_BASE + 13)          # n
+    assert search.text == "dun"
+    assert search.getControl(search_window.EDIT_QUERY).getText() == "dun"
+
+
 def test_typing_survives_a_kodi_with_no_getUnicode(search):
     """Kodi 21's Action has no getUnicode, and calling it threw on every key.
 
@@ -415,12 +476,14 @@ def test_every_charset_fills_the_key_grid(search):
 
 
 def test_a_physical_keyboard_also_types(search):
+    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
     search.onAction(FakeAction(unicode_char="d"))
     search.onAction(FakeAction(unicode_char="u"))
     assert search.text == "du"
 
 
 def test_backspace_and_clear(search):
+    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
     search.onAction(FakeAction(unicode_char="d"))
     search.onAction(FakeAction(unicode_char="x"))
     search.onClick(search_window.BUTTON_BACKSPACE)
@@ -431,6 +494,7 @@ def test_backspace_and_clear(search):
 
 def test_suggestions_never_overwrite_what_was_typed(search):
     """Autocomplete offers, it does not complete for you."""
+    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
     for char in "dun":
         search.onAction(FakeAction(unicode_char=char))
     search._schedule_suggestions()
@@ -440,6 +504,7 @@ def test_suggestions_never_overwrite_what_was_typed(search):
 
 
 def test_submitting_returns_exactly_what_was_typed(search):
+    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
     for char in "dune":
         search.onAction(FakeAction(unicode_char=char))
     search.onClick(search_window.BUTTON_SEARCH)
@@ -448,6 +513,7 @@ def test_submitting_returns_exactly_what_was_typed(search):
 
 
 def test_a_query_that_is_too_short_is_not_submitted(search):
+    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
     search.onAction(FakeAction(unicode_char="d"))
     search.onClick(search_window.BUTTON_SEARCH)
     assert search.submitted is None
@@ -1218,6 +1284,7 @@ def test_pressing_ok_on_a_key_does_not_run_a_search(search):
     characters, so you could type exactly two and the *third* key closed the
     window and searched for the fragment. The keyboard looked broken because
     it was."""
+    search.setFocusId(search_window.KEY_BASE)       # OK on a key: the grid has focus
     for _ in range(4):
         search.onAction(Kodi21Action(7))            # ACTION_SELECT_ITEM
         search.onClick(search_window.KEY_BASE)
@@ -1227,7 +1294,8 @@ def test_pressing_ok_on_a_key_does_not_run_a_search(search):
 
 
 def test_enter_still_submits(search):
-    """135 is Kodi's real ACTION_ENTER, and a physical keyboard sends it."""
+    """135 is Kodi's real ACTION_ENTER. A physical keyboard's Return, measured
+    on Kodi 21, sends 7 instead - see the Select test beside the field ones."""
     search.onClick(search_window.KEY_BASE)
     search.onClick(search_window.KEY_BASE)
     search.onAction(Kodi21Action(search_window.ACTION_ENTER))

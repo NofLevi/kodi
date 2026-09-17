@@ -126,6 +126,14 @@ class _ControlList(object):
     def setVisible(self, visible):
         self.visible = visible
 
+    # ControlEdit. Every control in this stub is one generic object, so the
+    # edit methods live here too.
+    def setText(self, text):
+        self.text = text
+
+    def getText(self):
+        return getattr(self, "text", "")
+
 
 class WindowXML(object):
     def __init__(self, *args, **kwargs):
