@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <window>
-    <defaultcontrol always="true">4000</defaultcontrol>
+    <defaultcontrol always="true">3100</defaultcontrol>
     <controls>
 
         <control type="image">
@@ -19,24 +19,26 @@
             <height>64</height>
             <texture border="2">special://home/addons/plugin.video.katan/resources/media/field.png</texture>
         </control>
-        <control type="label" id="3100">
+        <!-- A real edit control rather than a label. When an edit control
+             has focus Kodi delivers a physical keyboard's keys to it as text
+             and skips the keymap, which is the only way this window can be
+             typed into: Kodi 21's Action carries no character, and a letter
+             pressed anywhere else runs whatever the keymap binds it to - one
+             of them opens the PVR channel list. Phone remotes (Kore, Yatse)
+             send text the same way, into a focused edit control. -->
+        <control type="edit" id="3100">
             <left>106</left>
             <top>70</top>
             <width>574</width>
             <height>64</height>
             <font>font16</font>
             <textcolor>white</textcolor>
-            <label>$INFO[Window.Property(katan.search.text)]</label>
-        </control>
-        <control type="label">
-            <left>106</left>
-            <top>70</top>
-            <width>574</width>
-            <height>64</height>
-            <font>font16</font>
-            <textcolor>grey</textcolor>
-            <label>$ADDON[plugin.video.katan 32290]</label>
-            <visible>String.IsEmpty(Window.Property(katan.search.text))</visible>
+            <focusedcolor>white</focusedcolor>
+            <hinttext>$ADDON[plugin.video.katan 32290]</hinttext>
+            <texturefocus border="2">special://home/addons/plugin.video.katan/resources/media/button-focus.png</texturefocus>
+            <texturenofocus />
+            <ondown>4000</ondown>
+            <onright>5100</onright>
         </control>
 
         <!-- suggestions and results -->
@@ -136,7 +138,7 @@
             <height>62</height>
             <onleft>4005</onleft>
             <onright>4001</onright>
-            <onup>4000</onup>
+            <onup>3100</onup>
             <ondown>4006</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
@@ -153,7 +155,7 @@
             <height>62</height>
             <onleft>4000</onleft>
             <onright>4002</onright>
-            <onup>4001</onup>
+            <onup>3100</onup>
             <ondown>4007</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
@@ -170,7 +172,7 @@
             <height>62</height>
             <onleft>4001</onleft>
             <onright>4003</onright>
-            <onup>4002</onup>
+            <onup>3100</onup>
             <ondown>4008</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
@@ -187,7 +189,7 @@
             <height>62</height>
             <onleft>4002</onleft>
             <onright>4004</onright>
-            <onup>4003</onup>
+            <onup>3100</onup>
             <ondown>4009</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
@@ -204,7 +206,7 @@
             <height>62</height>
             <onleft>4003</onleft>
             <onright>4005</onright>
-            <onup>4004</onup>
+            <onup>3100</onup>
             <ondown>4010</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>
@@ -221,7 +223,7 @@
             <height>62</height>
             <onleft>4004</onleft>
             <onright>5100</onright>
-            <onup>4005</onup>
+            <onup>3100</onup>
             <ondown>4011</ondown>
             <font>font14</font>
             <textcolor>white</textcolor>

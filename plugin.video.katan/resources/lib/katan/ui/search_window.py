@@ -31,6 +31,7 @@ ACTION_BACKSPACE = 110
 # that you could type exactly two and the *third* key closed the window and
 # searched for the fragment. The keyboard looked broken because it was.
 ACTION_ENTER = 135
+ACTION_SELECT_ITEM = 7
 
 KEY_BASE = 4000
 KEY_COUNT = 30
@@ -50,6 +51,10 @@ BUTTON_SEARCH = 3904
 # should have to be typed on a television.
 BUTTON_VOICE = 3905
 LIST_RESULTS = 5100
+
+# The text field. An edit control, so a physical keyboard or a phone remote can
+# type into it; the key grid writes into the same control.
+EDIT_QUERY = 3100
 
 DEBOUNCE_SECONDS = 0.25
 MIN_QUERY = 2
@@ -148,13 +153,36 @@ class SearchWindow(xbmcgui.WindowXML):
         self._paint_keys()
         self._set_text("")
         self._show_recent()
-        self.setFocusId(KEY_BASE)
+        # The field, not the grid. Someone at a keyboard just starts typing,
+        # and with the grid focused those keys run Kodi's keymap instead -
+        # Backspace is Back, and four of them walked out of search and out of
+        # Katan. A remote is one press Down from the grid.
+        self.setFocusId(EDIT_QUERY)
 
     def onAction(self, action):
         code = action.getId()
         if code in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
             self.close()
             return
+        if self.getFocusId() == EDIT_QUERY:
+            # The field has already applied the key - a character, a
+            # backspace, a cursor move - before this callback runs, so the
+            # only job here is to catch up with it. Handling backspace here as
+            # well would delete two characters.
+            self._sync_from_field()
+            if code == ACTION_ENTER:
+                self._submit()
+            elif code == ACTION_SELECT_ITEM and len(self.text.strip()) >= MIN_QUERY:
+                # Enter on a physical keyboard arrives as Select, not Enter -
+                # measured - and Select on an edit control has already opened
+                # Kodi's modal keyboard by the time this runs. With a query in
+                # the field, Enter and OK both mean "search", so the keyboard
+                # is closed again and the search runs. With nothing typed OK
+                # still opens it, which is what a remote needs.
+                kodi.run_builtin("Dialog.Close(virtualkeyboard,true)")
+                self._submit()
+            return
+        self._sync_from_field()
         if code == ACTION_BACKSPACE:
             self._backspace()
             return
@@ -172,6 +200,11 @@ class SearchWindow(xbmcgui.WindowXML):
             self._append(char)
 
     def onClick(self, control_id):
+        if control_id == EDIT_QUERY:
+            # OK on the field opens Kodi's own keyboard, and nothing else
+            # reports what it returned.
+            self._sync_from_field()
+            return
         if KEY_BASE <= control_id < KEY_BASE + KEY_COUNT:
             keys = CHARSETS[self.charset]
             index = control_id - KEY_BASE
@@ -233,10 +266,27 @@ class SearchWindow(xbmcgui.WindowXML):
             if len(self.text) < MIN_QUERY:
                 self._show_recent()
 
-    def _set_text(self, value):
+    def _set_text(self, value, from_field=False):
         self.text = value
         self.setProperty("katan.search.text", value)
+        if not from_field:
+            try:
+                self.getControl(EDIT_QUERY).setText(value)
+            except Exception:
+                pass
         self._schedule_suggestions()
+
+    def _sync_from_field(self):
+        """Take whatever the edit control now holds as the query."""
+        try:
+            typed = self.getControl(EDIT_QUERY).getText()
+        except Exception:
+            return
+        if typed is None or typed == self.text:
+            return
+        self._set_text(typed, from_field=True)
+        if len(typed) < MIN_QUERY:
+            self._show_recent()
 
     # -- suggestions -------------------------------------------------------
 
