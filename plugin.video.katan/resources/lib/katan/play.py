@@ -33,6 +33,7 @@ def build_meta(request):
             meta["ids"] = detail["ids"]
             meta["title"] = detail["title"]
             meta["original_title"] = detail.get("original_title", "")
+            meta["original_language"] = detail.get("original_language", "")
             meta["year"] = detail["year"]
             meta["art"] = detail.get("art", {})
             meta["item"] = detail
@@ -47,6 +48,12 @@ def build_meta(request):
             meta["ids"] = show["ids"]
             meta["title"] = show["title"]
             meta["original_title"] = show.get("original_title", "")
+            # The series', lifted here because meta["item"] becomes the
+            # episode below and a TMDB episode carries no language at all. It
+            # was read from the item, so for every series it was blank: a
+            # Turkish drama's Turkish releases took the wrong-language penalty,
+            # and the show's own language was never searched to translate from.
+            meta["original_language"] = show.get("original_language", "")
             meta["year"] = show["year"]
             meta["show_title"] = show["title"]
             meta["art"] = show.get("art", {})

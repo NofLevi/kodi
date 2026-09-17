@@ -701,3 +701,20 @@ def test_the_original_language_reaches_the_item():
                                    "original_language": "tr"})
     assert movie["original_language"] == "tr"
     assert items.new_item("movie")["original_language"] == ""
+
+
+def test_a_series_in_its_own_language_is_not_foreign_for_an_episode():
+    """The ranking reads the series' language from the meta, because an
+    episode's item has none; a Turkish release of a Turkish series must not
+    take the wrong-language penalty."""
+    from katan.sources import scoring
+    turkish = {"title": "Show.S01E03.1080p.WEB-DL.TURKISH-GRP", "hash": "t" * 40,
+               "quality": "1080p", "languages": ["tr"], "cached": True,
+               "size": 2 * 1024 ** 3, "seeders": 10, "provider": "torrentio"}
+    meta = {"type": "episode", "original_language": "tr",
+            "item": {"original_language": ""}}
+    kept, _rejected = scoring.rank([dict(turkish)], meta, 1.0, limit=0)
+    blind, _rejected = scoring.rank([dict(turkish)], {"type": "episode",
+                                    "item": {"original_language": ""}}, 1.0, limit=0)
+    assert kept[0]["score"] > blind[0]["score"]
+
