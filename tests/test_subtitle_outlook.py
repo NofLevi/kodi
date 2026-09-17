@@ -245,13 +245,41 @@ def test_the_picker_says_the_subtitle_will_be_made_by_ai():
     assert "92" in line
 
 
-def test_the_other_languages_are_only_searched_when_ai_can_use_them(monkeypatch):
-    """Every language is another request per provider; without an engine an
-    Arabic subtitle is worth nothing to a Hebrew viewer."""
+def test_translation_languages_are_arabic_english_and_the_shows_own(monkeypatch):
+    """A Turkish drama is asked for Turkish; an American film is not asked for
+    Korean. Every language is another request per provider."""
+    from katan.subs import auto
+    from katan.subs.ai import translator
+
+    monkeypatch.setattr(translator, "available", lambda: True)
+    languages = auto.translation_source_languages
+    assert languages({"original_language": "tr"}, ["he"]) == ["ar", "en", "tr"]
+    assert languages({"original_language": "ko"}, ["he"]) == ["ar", "en", "ko"]
+    assert languages({"original_language": "cn"}, ["he"]) == ["ar", "en", "zh"]
+    assert languages({"original_language": "en"}, ["he", "en"]) == ["ar"]
+    assert languages({"original_language": "de"}, ["he"]) == ["ar", "en"]
+
+
+def test_nothing_extra_is_asked_without_a_translation_engine(monkeypatch):
     from katan.subs import auto
     from katan.subs.ai import translator
 
     monkeypatch.setattr(translator, "available", lambda: False)
-    assert auto.with_translation_sources(["he", "en"]) == ["he", "en"]
-    monkeypatch.setattr(translator, "available", lambda: True)
-    assert auto.with_translation_sources(["he", "en"]) == ["he", "en", "ar", "ja"]
+    assert auto.translation_source_languages({"original_language": "tr"}) == []
+
+
+def test_the_picker_asks_for_translation_sources_only_when_no_hebrew_fits(
+        ai_ready, monkeypatch):
+    asked = []
+    monkeypatch.setattr(outlook, "translation_candidates",
+                        lambda meta: asked.append(meta) or _in("ar", EXACT))
+
+    fits = [source(EXACT + ".mkv")]
+    outlook.annotate(META, fits, _in("he", EXACT))
+    assert asked == [], "Hebrew fits, so nothing else should be asked"
+    assert fits[0]["subs_kind"] == outlook.EXTERNAL
+
+    misfits = [source(EXACT + ".mkv")]
+    outlook.annotate(META, misfits, _in("he", "A.Film.2020.2160p.BluRay.x265-OTHER"))
+    assert len(asked) == 1
+    assert misfits[0]["subs_kind"] == outlook.AI

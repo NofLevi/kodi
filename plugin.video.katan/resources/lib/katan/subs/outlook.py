@@ -61,13 +61,13 @@ def _claims_hebrew(name):
     return any(marker in lowered for marker in _HEBREW_MARKERS)
 
 
-def cache_key(meta):
+def cache_key(meta, languages=None):
     ids = meta.get("ids") or {}
-    # The languages asked for are part of the answer: an outlook cached before
-    # a translation key was entered holds Hebrew alone.
-    return cache.make_key("suboutlook", ids.get("imdb") or ids.get("tmdb"),
-                          meta.get("season"), meta.get("episode"),
-                          ",".join(_languages()))
+    parts = ["suboutlook", ids.get("imdb") or ids.get("tmdb"),
+             meta.get("season"), meta.get("episode")]
+    if languages:
+        parts.append(",".join(languages))
+    return cache.make_key(*parts)
 
 
 def candidates(meta, refresh=False, strict=False):
@@ -89,9 +89,9 @@ def candidates(meta, refresh=False, strict=False):
             return hit
     try:
         from . import auto
-        languages = _languages()
-        found = [c for c in auto.search_candidates(meta, languages)
-                 if c.get("language") in languages]
+        wanted = _hebrew_code()
+        found = [c for c in auto.search_candidates(meta, [wanted])
+                 if c.get("language") == wanted]
     except Exception:
         kodi.log_exception("could not look up subtitles")
         if strict:
@@ -113,13 +113,57 @@ def annotate(meta, sources, found=None):
         return sources
     if found is None:
         found = candidates(meta, strict=True)
+    _write(meta, sources, found)
+    # Only when no release has Hebrew that fits is it worth asking what AI
+    # could translate from. While one does, a translation cannot outrank it,
+    # and the requests would buy nothing.
+    if not _hebrew_fits(sources):
+        extra = translation_candidates(meta)
+        if extra:
+            found = list(found) + extra
+            _write(meta, sources, found)
+    kodi.log("subtitle outlook: %d candidates over %d sources"
+             % (len(found), len(sources)))
+    return sources
+
+
+def translation_candidates(meta):
+    """Subtitles in the languages an AI translation would be made from.
+
+    Asked for only once no release has Hebrew that fits, and cached under its
+    own key, so a title that needed them once does not ask again.
+    """
+    from . import auto
+    languages = auto.translation_source_languages(meta, [_hebrew_code()])
+    if not languages:
+        return []
+    key = cache_key(meta, languages)
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    try:
+        found = [c for c in auto.search_candidates(meta, languages)
+                 if c.get("language") in languages]
+    except Exception:
+        kodi.log_exception("could not look up subtitles to translate from")
+        return []
+    cache.set(key, found, TTL)
+    return found
+
+
+def _write(meta, sources, found):
     for source in sources:
         entry = _for_one(meta, source, found)
         source["subs_kind"] = entry["kind"]
         source["subs_score"] = entry["score"]
-    kodi.log("subtitle outlook: %d candidates over %d sources"
-             % (len(found), len(sources)))
-    return sources
+
+
+def _hebrew_fits(sources):
+    threshold = _threshold()
+    return any(source.get("subs_kind") == EMBEDDED
+               or (source.get("subs_kind") == EXTERNAL
+                   and (source.get("subs_score") or 0) >= threshold)
+               for source in sources)
 
 
 def for_sources(meta, sources, refresh=False):
@@ -196,12 +240,6 @@ def _as_percent(score):
 def _hebrew_code():
     langs = settings.get_list("subs.languages") or ["he"]
     return langs[0]
-
-
-def _languages():
-    """Hebrew, plus what AI translates from when a translation engine is set."""
-    from . import auto
-    return auto.with_translation_sources([_hebrew_code()])
 
 
 def _threshold():

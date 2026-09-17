@@ -873,3 +873,31 @@ def test_a_stream_that_cannot_be_hashed_does_not_hold_the_search_up():
 class _FakeProvider(object):
     def __init__(self, search):
         self.search = search
+
+
+# --------------------------------------------------------------------------
+# what AI translates from is asked for only when Hebrew does not fit
+# --------------------------------------------------------------------------
+
+
+def test_translation_sources_are_not_searched_while_hebrew_fits(pipeline, monkeypatch):
+    from katan.subs.ai import translator
+    monkeypatch.setattr(translator, "available", lambda: True)
+    name = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    pipeline["candidates"] = [candidate(name)]
+    pipeline["downloads"][name] = srt_bytes()
+
+    auto.find_and_prepare(dict(MOVIE, original_language="en"), ["he", "en"])
+    assert pipeline["searched_languages"] == [["he", "en"]]
+
+
+def test_translation_sources_are_searched_once_hebrew_does_not_fit(pipeline, monkeypatch):
+    from katan.subs.ai import translator
+    monkeypatch.setattr(translator, "available", lambda: True)
+    name = "Dune.Part.Two.2024.2160p.BluRay.x265-OTHER"
+    pipeline["candidates"] = [candidate(name)]
+    pipeline["downloads"][name] = srt_bytes()
+
+    auto.find_and_prepare(dict(MOVIE, original_language="fr"), ["he", "en"])
+    assert pipeline["searched_languages"][:2] == [["he", "en"], ["ar", "fr"]]
+

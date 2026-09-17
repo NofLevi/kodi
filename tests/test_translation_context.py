@@ -181,3 +181,20 @@ def test_japanese_can_still_be_used_when_it_is_all_there_is():
                    "score": 40}]
     ranked = context.rank_translation_candidates(candidates, "he")
     assert [language for language, _c in ranked] == ["ja"]
+
+
+def test_korean_and_chinese_trail_like_japanese():
+    winners = {"en": {"score": 60, "release": "english"},
+               "ko": {"score": 66, "release": "korean"},
+               "zh": {"score": 66, "release": "chinese"}}
+    ranked = context.rank_translation_sources(winners, ["he", "en", "ko", "zh"])
+    assert ranked[0][0] == "en"
+
+
+def test_turkish_french_italian_spanish_are_ordinary_sources():
+    """French, Italian and Spanish mark gender; Turkish does not but drops no
+    more than English does."""
+    assert context.source_bonus("fr") == context.source_bonus("it") \
+        == context.source_bonus("es") == context.GENDER_BONUS
+    assert context.source_bonus("tr") == 0
+
