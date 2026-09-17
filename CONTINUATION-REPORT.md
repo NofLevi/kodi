@@ -1,214 +1,167 @@
-# Continuation report — 10 September 2026
+# Continuation report — 17 September 2026
 
-This report is the handoff for continuing Katan from another development host.
-Branch: `development`. No release was created and no version tag was added.
-Read `CLAUDE.md` first, then this file. `NIGHT-LOG.md` and `SUBTITLE-LOG.md`
-contain the earlier real-device and subtitle work.
+The handoff for continuing Katan on another development host. Branch:
+`development`, level with `origin/development` at the time of writing. **No
+release was created and no version tag was added** — the last tag is still
+`v0.0.1`, and `python tools/release.py --dry-run` offers `v0.0.2`.
+
+Read `CLAUDE.md` first, then `AGENTS.md`, then this file. `SUBTITLE-LOG.md`
+has the subtitle measurements and the release procedure; `NIGHT-LOG.md` has
+the earlier real-device work.
+
+## Before anything else on a new host
+
+* **History was rewritten** in mid-September. A clone made before then will
+  not fast-forward: every commit has a new hash. Compare content, not hashes,
+  and reset to `origin/development` rather than merging, or every commit
+  arrives twice.
+* **Hosting is GitHub Pages, not Cloudflare.** The repository is public,
+  releases publish to `noflevi.github.io/kodi`, the in-add-on updater reads
+  `github.com/NofLevi/kodi/releases/latest/download/addons.xml`, and the test
+  channel is the `test-channel` branch. Publishing needs no secrets. Anything
+  mentioning `wrangler`, `.cf-token` or `pages.dev` is history.
+* **Not in git, copy by hand if wanted:** `subtitles.jsonl` (422 surveyed
+  titles, the source of every subtitle number quoted), `.kodi-test/` (portable
+  Kodi, `python tools/setup_kodi.py` rebuilds it).
 
 ## Current verification state
 
-The latest broad suite before this handoff passed **1,670 tests** while excluding
-only the assertion that `AGENTS.md` was tracked. The protected `AGENTS.md`
-write was blocked by the host approval gate during handoff, so this report is
-the committed cross-host context. Recreate `AGENTS.md` from it on the next host
-if desired, then rerun the complete unfiltered suite.
+* **1,828 tests pass** (`python -m pytest tests`, Windows, Python 3.11, about
+  75 s).
+* Every Python file changed since the 10 September report parses under
+  **Python 3.8** grammar (`ast.parse(..., feature_version=(3, 8))`, 22 files) —
+  the suite itself ran on 3.11, so this is the check that stands in for Kodi's
+  interpreter. CI's 3.8 matrix has not been run for this batch.
+* Benchmark (`python tools/bench.py`): total 74 ms, `outlook.annotate` 18 ms,
+  `sync.synchronise` 38 ms — no regression.
+* No e2e or GitHub workflow was run, per the standing instruction: those run
+  before a release, not after commits.
 
-Latest focused results from this batch:
+## What this batch changed, and how each was checked
 
-- HTTP, URL-session, and audit redirect tests: **39 passed** after adding the
-  real `Trakt-Api-Key` header to both redirect-sensitive sets.
-- HTTP compression and failure-path tests: **49 passed**.
-- Release parser suite: **69 passed**.
-- Permanent cross-component audit regressions: **13 passed**.
-- Temporary Trakt/watch-state audit reproductions: **9 passed**.
-- Active playback/source/HTTP/Pastebox focused run: **90 passed**.
-- Ruff `E9,F`: passed.
-- `compileall`: passed.
-- `git diff --check`: passed.
-- Active ZIP install smoke: `ACTIVE_INSTALL_PASS files=128`.
-- Existing package inspection: two ZIPs opened, zero `AGENTS.md` leaks; updater
-  accepted the inspected add-on ZIP at 520,759 bytes.
+### Fixed — found in a real Kodi 21 on Windows
 
-These are historical results for the committed batch, not a substitute for a
-fresh run after pulling it.
+* **Every OpenSubtitles search failed on a real device** (`3bcb2f5`). The
+  stdlib HTTP path flattened response headers into a case-sensitive `dict`;
+  OpenSubtitles sends `content-encoding: gzip`, so gzip bytes reached the JSON
+  parser and every language logged "did not answer". Machines with `requests`
+  never saw it. Responses now keep `email.message.Message`, case-insensitive
+  for every header. *Checked:* live on the no-`requests` path, Hikaru no Go
+  1x05 now returns subtitles; regression test added.
+* **The search box could not be typed into on a keyboard** (`89ff406`). Kodi
+  21's `Action` has no character, so keys ran the keymap — one letter opened
+  "No PVR add-on enabled", Backspace walked out of Katan. The box is now an
+  `edit` control, focused on open. *Checked in Kodi with real keystrokes:*
+  "hikarx", Backspace, "u" gave "hikaru" with 5 suggestions; the log shows
+  keyboard mode. Return arrives as Select (7), which opens Kodi's modal
+  keyboard on an edit control — with a query typed it is closed and the search
+  runs. *Not fully confirmed:* the Enter-to-search path, because the test
+  harness could not reliably keep Kodi in the foreground.
+* **The Gemini key field was hidden at Expert level** (`0773633`); now shown at
+  every level under AI translation.
 
-## Active Linux Kodi run performed at handoff
+### Subtitles and AI translation — logic tested, not yet watched in Kodi
 
-Kodi and Xvfb were installed on the Ubuntu 24.04 development host:
+* **AI-native source selection** (`aa7b3fa`, `34dd167`). With a translation
+  engine configured, a release whose best-fitting subtitle is in another
+  language shows "AI subtitles NN% (estimate)" and ranks above a release whose
+  Hebrew does not fit — never above Hebrew that clears the threshold. The
+  translation sources are searched only in a *second* round: at playback once
+  no Hebrew fits (or the one that looked right fails its hash/coverage check),
+  in the picker once no release has fitting Hebrew. That round asks Arabic and
+  English plus the show's own language when it is zh/fr/ko/es/it/tr/ja.
+  Choosing AI translation by hand asks every language.
+* **Source-language preference** is a bonus on the match score: Arabic (+25,
+  POV's choice and closest to Hebrew), other gender-marking languages (+18),
+  English and Turkish (0), Japanese/Korean/Chinese (−10). A bonus, not an
+  order, because a translation keeps its source's timings.
+* *Checked live without an LLM call:* Hikaru no Go 1x05 finds Arabic, English
+  and Japanese subtitles at equal fit, and translation would start from the
+  Arabic. **Never checked:** that Gemini returns good Hebrew. That is the first
+  thing to watch on a real playback.
 
-- Kodi: **20.5 Nexus** from Ubuntu packages.
-- InputStream Adaptive: **20.3.18**.
-- Display: Xvfb, 1920x1080x24.
-- Renderer: Mesa llvmpipe, OpenGL 4.5 software rendering.
-- Profile: isolated under `/tmp/kodi-e2e/home/.kodi` as `hermesuser`.
+### A title's own language — `bb8f4ef`, `403fdf6`
 
-Observed successfully in the real Kodi process:
+* **It was being lost for every series.** `build_meta` put the episode in
+  `meta["item"]`, and TMDB episodes carry no language, so the ranking rule that
+  a Turkish release of a Turkish drama is the honest one never fired, and a
+  Turkish-audio release took the −400 wrong-language penalty. Now set once on
+  the meta from the film or series. *Checked live:* Hikaru no Go `ja`, Game of
+  Thrones `en`, Parasite `ko` (all blank or unreachable before).
+* A **Hebrew-language title** gets no automatic subtitle, and the picker shows
+  "Hebrew audio" without searching.
+* A **Turkish, Spanish and Italian dramas** row on the Series tab
+  (`with_original_language=tr|es|it`, measured to return all three).
+* **The source sort gained two terms.** `_unwatchable` puts a release only in
+  an unreadable language *before resolution* — as the −400 weight it sat after
+  size in the sort key and only ever broke ties, so a higher-resolution Italian
+  dub beat an English release. `_dubbed` puts a dub below the original audio
+  right after resolution when the show's language is not one the viewer reads;
+  kids mode is exempt, the dub stays listed, and a bare MULTI counts as DUAL.
+* **Audio track selection**: on a file with several audio languages, playback
+  switches to the original language, or to Hebrew in kids mode.
+* *None of these four have been seen in Kodi yet.* The row, the "Hebrew audio"
+  badge, the dub ordering against real sources and the audio switch all need
+  a look.
 
-- Kodi initialized its GUI, databases, JSON-RPC, and TCP server on port 9090.
-- Kodi discovered Katan 0.0.1 and loaded all 400 English strings.
-- Katan was enabled through `Addons.SetAddonEnabled`.
-- Kodi started the real `service.py` Python interpreter.
-- The log emitted `[Katan] service started, version 0.0.1`.
-- Kodi invoked the real `main.py` plugin source and activated Katan window
-  13000.
-- JSON-RPC confirmed the add-on was enabled with its required
-  `inputstream.adaptive` dependency.
+### Documentation
 
-The process was stopped when requested. It was killed rather than exited via
-`Application.Quit`, so graceful service shutdown is not proven by this run.
-
-### Finding to investigate on the next host
-
-A modal `Yes / No dialog` was active, with current control `No`. While that
-modal remained open, the service repeatedly logged:
-
-```text
-[Katan] back on Kodi's home screen, returning to Katan
-```
-
-and repeatedly invoked `plugin://plugin.video.katan/`; the final process output
-showed invoker number 135. Determine what owns the modal dialog and make the
-auto-return logic ignore modal dialogs or an already-running Katan window.
-This may be specific to a fresh Kodi 20/Xvfb profile, but it is a real runtime
-observation and should not be dismissed without reproducing on Kodi 21.
-
-Expected unrelated host warnings were missing audio sink, VDPAU unavailable,
-UPower/ConsoleKit unavailable, and optical-media authorization. They do not
-show a Katan Python crash. For playback testing, provide a PulseAudio/PipeWire
-null sink or disable audio output so the sink retry loop does not flood logs.
-
-## Implemented in the current batch
-
-### Playback and lifecycle
-
-- Bound pending playback metadata to a SHA-256 stream identity and a 60-second
-  handoff TTL, preventing unrelated playback from consuming stale Katan state.
-- Added playback generations so delayed stop/finalization work cannot clear a
-  newer playback.
-- Made start scrobbles use measured Kodi progress, preserving resumed starts.
-- Snapshot metadata for delayed scrobble/source persistence.
-- Added explicit player/background shutdown paths and closed shared HTTP/cache
-  resources.
-- Allowed valid direct HTTP/HTTPS sources to bypass debrid resolution.
-- Fixed custom-window resume playback to pass populated `ListItem` objects.
-
-### Trakt and state synchronization
-
-- Commit activity checkpoints only after all required pulls and mirror writes
-  succeed.
-- Preserve freshly updated watched mirrors after `set_watched()`.
-- Request watched shows with `extended=progress`.
-- Added bounded pagination: 100 rows per page, maximum 50 pages, repeated-page
-  detection.
-- Treat only returned episode rows as watched; show presence no longer marks an
-  entire show watched.
-- Invalidate continue/watchlist/recommendation/trending rows only after a
-  successful synchronization.
-- Clear synchronization state and related caches on sign-out.
-- Corrected percentage resume conversion.
-
-### Sources and debrid
-
-- Track positive cache ownership separately from definitive negative answers;
-  provider failures no longer erase previously known cache state.
-- Strengthened cache identity with title/year when IMDb/TMDb IDs are absent.
-- Preserve richer cached ownership when duplicate source rows merge.
-- Accept both `biggest` and `largest` size preference values.
-- Skip malformed AnimeTosho/Zilean rows.
-- Isolate malformed torrent files and prefer exact filename, file ID, and file
-  index hints before heuristic selection.
-- Moved raw, ranked, and resolved private source values to volatile memory and
-  made prefix invalidation clear all variants.
-
-### Subtitles
-
-- Added one operation-wide three-download coordinator shared by exact-hash,
-  consensus, language fallback, translation, and final synchronization work.
-- Added independent cross-language timing consensus and provenance checks.
-- Kept content confidence separate from timing confidence.
-- Hardened exact-hash identity, wrong-episode rejection, multilingual release
-  parsing, archive extraction, legacy decoding, decompression, cancellation,
-  stale generations, and translation echo handling.
-- Bounded decoded subtitle data to 8 MiB, cues to 20,000, gzip members to 8,
-  and gzip reads to 64 KiB chunks.
-- Tightened timing-scale agreement so PAL/NTSC conversions are not mislabeled
-  as identical timelines.
-- Account-bound Ktuvit sessions use a non-reversible email fingerprint.
-- Remote OpenSubtitles hashing now requires known exact size, valid 206 ranges,
-  matching `Content-Range`, identity encoding, and bounded 64 KiB reads.
-
-### HTTP, security, and storage
-
-- Both Requests and stdlib redirects strip authorization, proxy authorization,
-  cookies, generic API keys, and `Trakt-Api-Key` across origins.
-- HTTPS-to-HTTP redirects fail closed.
-- Retried responses close before sleeping.
-- Added an 8 MiB decoded response ceiling with bounded Requests and stdlib
-  materialization.
-- Added bounded stdlib gzip, x-gzip, zlib, and raw-deflate handling; malformed,
-  trailing, and oversized payloads fail closed.
-- Replaced per-call provider pools with one process-wide four-worker pool.
-- Made URL-containing cache keys opaque.
-- Signed Kaltura URLs, entitlement tickets, and source payloads are volatile
-  and covered by SQLite-absence regressions.
-- Profile directories use mode 0700 and cache SQLite uses 0600 where supported.
-- Logs omit exception values and private URL components.
-- QR images are deleted immediately after authentication windows close.
-- LAN Pastebox uses a random single-use exact capability path, body bound,
-  expiry, cancellation, and completion checks. It remains plain LAN HTTP, not
-  TLS.
-
-### Updater and parsing
-
-- Added 32 MiB ZIP transport, 1,024-member, 96 MiB expanded, and per-member
-  bounds.
-- Require canonical paths and required `addon.xml` plus `main.py` before and
-  during installation.
-- Validate add-on identity and version before replacement.
-- Bound versions to three 1–9 digit numeric components and 29 characters.
-- Fixed release parsing so DD5.1, 2.0, 5.1, and 7.1 are not interpreted as
-  absolute episode numbers.
-
-### UI hardening
-
-- Home context actions now use stable item identity rather than duplicate row
-  indices.
-- Stale search/home generations are ignored.
-- Cached subtitle sources display their known accuracy.
+* `CLAUDE.md` and `SUBTITLE-LOG.md` rewritten for GitHub Pages (they had been
+  find-and-replaced into sentences like "Cloudflare Pages publishes at an
+  unguessable pages.dev address - noflevi.github.io/kodi").
 
 ## Known gaps and next work
 
-1. Recreate and track a concise source-only `AGENTS.md`; the host blocked that
-   protected write during this handoff. Keep it out of packages and `repo/`.
-2. Reproduce and fix the Kodi modal/auto-return invocation loop described
-   above; add a regression for modal dialogs and window lifecycle.
-3. Run the full unfiltered test suite after pull, then fresh Ruff, compileall,
-   diff checks, package build, ZIP-member checks, and updater validation.
-4. Run under **Kodi 21**. Ubuntu 24.04 packaged Kodi 20.5, so use the existing
-   Windows `python tools/setup_kodi.py` flow or a Kodi 21 image/build.
-5. Exercise clean `Application.Quit` and verify `[Katan] service stopped`,
-   player shutdown, pool/session closure, and no surviving worker threads.
-6. UI workers in Search/Home/Auth still need a lifecycle-safe pattern: avoid
-   touching Kodi controls from worker threads, ignore work after close, and
-   move remote cache misses out of synchronous UI callbacks.
-7. Update authenticity still needs a signed manifest and pinned public key.
-8. Pastebox capability secrecy reduces exposure but does not provide encrypted
-   LAN transport.
-9. Validate real provider entitlement values stay volatile in an actual flow,
-   not only synthetic SQLite regressions.
-10. Physical Kodi 21 ARM validation is still required for decoder startup,
-   auto-resume without a chooser, InputStream Adaptive, subtitle application,
-   cancellation, memory behavior, and real TorBox range requests.
-11. Missing product work includes local-resume fallback, retrying the next
-    source after decoder/start failure, Trakt watchlist toggle, kids PIN
-    lifecycle, device capability filtering, and stronger subtitle runtime
-    completeness checks.
+Status against the 10 September list, then what this batch added.
+
+1. ~~Recreate and track `AGENTS.md`~~ — **done**, tracked.
+2. ~~Kodi modal/auto-return invocation loop~~ — **fixed** in `366fa40`; not
+   re-observed on Kodi 21.
+3. Full unfiltered suite after pull — **done here**, 1,828 passing. Ruff,
+   compileall, package build and ZIP-member checks were not re-run.
+4. Run under **Kodi 21** — partly: this host is Kodi 21.3 portable on Windows.
+5. **Clean `Application.Quit` — reproduced as broken.** On 17 September Quit
+   left Kodi running: `CPythonInvoker(... main.py): script didn't stop in 5
+   seconds - let's kill it`, the process still alive 40 s later, and no
+   `[Katan] service stopped` line. The Katan window's plugin invocation does
+   not honour Kodi's abort. This is the highest-priority runtime bug left.
+6. UI worker lifecycle in Search/Home/Auth — still open.
+7. Update authenticity (signed manifest, pinned key) — still open.
+8. Pastebox is plain LAN HTTP — still open.
+9. Entitlement values staying volatile in a real flow — still open.
+10. **Physical ARM validation (U4 projector, Mi Box) — still not done**, and
+    it is what this add-on exists for. Everything above is proven on Windows
+    at best.
+11. ~~Next source after a decoder failure~~ (`f1821c2`), ~~local resume~~
+    (`6a173b9`), ~~watchlist removal~~ (`366fa40`), ~~subtitle runtime
+    completeness~~ (`c7430e8`) — **done**. Kids PIN lifecycle and device
+    capability filtering remain.
+
+New from this batch:
+
+12. **Watch an AI translation end to end** with a real Gemini key, on a
+    playback with no fitting Hebrew subtitle.
+13. **See the four original-language features in Kodi**: the dramas row, the
+    "Hebrew audio" badge on an Israeli title, a dub ranked below its original
+    in the picker, and the audio track switching on a dual-audio anime file.
+14. **Re-run the subtitle survey.** Its numbers — 29% of titles with sources
+    get no subtitle, 48% of anime, 47% of foreign-language — were measured
+    before the header fix, which alone may change them substantially, and
+    before absolute anime numbering and the AI-native sources.
+15. **Subtitle coverage**: Podnapisi and SubDL (anonymous, strong on European
+    languages) are still not providers; 11% of downloaded subtitles failed to
+    parse and `failed_bytes` now records why on the next survey.
+16. **`fit_segments` still has a kill criterion**: re-survey the seven
+    badly-timed subtitles in `SUBTITLE-LOG.md`; if it repairs fewer than about
+    two, delete it.
+17. **Cut v0.0.2** once 5, 12 and 13 have been looked at, then install it on
+    the projector — the only place 10 can be closed.
 
 ## Safety and release state
 
-- No credentials, signed URLs, cookies, entitlement tickets, or private request
-  data belong in this report or any tracked file.
-- A future `AGENTS.md` must be source-only and stay outside generated ZIPs and
+* No credentials, signed URLs, cookies, entitlement tickets or private request
+  data belong in this report or any tracked file. The repository is public.
+* A future `AGENTS.md` must stay source-only and outside generated ZIPs and
   `repo/`.
-- Pushing `development` does not publish. Do not create or push a version tag
-  until the user explicitly requests a release.
+* Pushing `development` does not publish. Do not create or push a version tag
+  until the owner explicitly asks for a release.
