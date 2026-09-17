@@ -1640,3 +1640,7 @@ msgstr "הפרק הבא בעוד %d"
 msgctxt "#32534"
 msgid "Another production of the same name"
 msgstr "הפקה אחרת באותו שם"
+
+msgctxt "#32535"
+msgid "AI subtitles %d%% estimate"
+msgstr "כתוביות AI %d%% (הערכה)"

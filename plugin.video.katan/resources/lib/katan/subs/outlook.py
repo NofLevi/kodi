@@ -32,6 +32,14 @@ TTL = 3600
 EMBEDDED = "embedded"
 EXTERNAL = "external"
 NONE = "none"
+# No Hebrew subtitle fits this release, but one in a language AI translates
+# from does - so the Hebrew is made rather than found.
+AI = "ai"
+
+# How far a translation ranks below its source's own match. It also never
+# ranks level with a Hebrew subtitle that clears the threshold: "use the LLM
+# when nothing fits", stated as arithmetic.
+AI_PENALTY = 5
 
 # Release-name markers that claim Hebrew is inside the file. Deliberately
 # narrow: "MULTI" and "DUAL" describe audio far more often than subtitles and
@@ -55,8 +63,11 @@ def _claims_hebrew(name):
 
 def cache_key(meta):
     ids = meta.get("ids") or {}
+    # The languages asked for are part of the answer: an outlook cached before
+    # a translation key was entered holds Hebrew alone.
     return cache.make_key("suboutlook", ids.get("imdb") or ids.get("tmdb"),
-                          meta.get("season"), meta.get("episode"))
+                          meta.get("season"), meta.get("episode"),
+                          ",".join(_languages()))
 
 
 def candidates(meta, refresh=False, strict=False):
@@ -78,9 +89,9 @@ def candidates(meta, refresh=False, strict=False):
             return hit
     try:
         from . import auto
-        wanted = _hebrew_code()
-        found = [c for c in auto.search_candidates(meta, [wanted])
-                 if c.get("language") == wanted]
+        languages = _languages()
+        found = [c for c in auto.search_candidates(meta, languages)
+                 if c.get("language") in languages]
     except Exception:
         kodi.log_exception("could not look up subtitles")
         if strict:
@@ -130,6 +141,9 @@ def ranking_score(source):
     """
     if source.get("subs_kind") == EMBEDDED:
         return 100
+    if source.get("subs_kind") == AI:
+        score = int(source.get("subs_score") or 0)
+        return min(score - AI_PENALTY, _threshold() - 1)
     return int(source.get("subs_score") or 0)
 
 
@@ -145,9 +159,19 @@ def _for_one(meta, source, candidates):
         "group": source.get("group") or release.parse(name)["group"],
         "quality": source.get("quality") or "",
     })
-    best = 0
+    hebrew = _hebrew_code()
+    best = translatable = 0
     for candidate in candidates:
-        best = max(best, matcher.rate(candidate, target)[0])
+        score = matcher.rate(candidate, target)[0]
+        if candidate.get("language", hebrew) == hebrew:
+            best = max(best, score)
+        else:
+            translatable = max(translatable, score)
+    # A human Hebrew subtitle that clears the threshold is the better answer.
+    # A translation is offered in its place only when the Hebrew on offer does
+    # not fit this release and a subtitle in another language fits it better.
+    if best < _threshold() and translatable > best:
+        return {"kind": AI, "score": _as_percent(translatable)}
     if best <= 0:
         return {"kind": NONE, "score": 0}
     return {"kind": EXTERNAL, "score": _as_percent(best)}
@@ -172,3 +196,13 @@ def _as_percent(score):
 def _hebrew_code():
     langs = settings.get_list("subs.languages") or ["he"]
     return langs[0]
+
+
+def _languages():
+    """Hebrew, plus what AI translates from when a translation engine is set."""
+    from . import auto
+    return auto.with_translation_sources([_hebrew_code()])
+
+
+def _threshold():
+    return settings.get_int("subs.threshold", 70)

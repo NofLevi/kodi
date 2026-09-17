@@ -202,6 +202,8 @@ def _subtitle_badge(source, outlook=None):
         return kodi.localize(32474)
     if kind == module.EXTERNAL:
         return kodi.localize(32475, source.get("subs_score") or 0)
+    if kind == module.AI:
+        return kodi.localize(32535, source.get("subs_score") or 0)
     return kodi.localize(32476)
 
 

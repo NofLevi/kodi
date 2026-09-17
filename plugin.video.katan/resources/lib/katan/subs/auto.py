@@ -30,7 +30,34 @@ VARIANT_AI = "ai"
 # them costs nothing extra - it is one more value in the same request, and the
 # only provider that reads it is OpenSubtitles. Wizdom and Ktuvit are Hebrew
 # sites and ignore it.
-WIDE_LANGUAGES = ("en", "es", "ar", "pt", "fr", "ru", "de", "it", "tr", "pl")
+WIDE_LANGUAGES = ("en", "es", "ar", "pt", "fr", "ru", "de", "it", "tr", "pl",
+                  "ja")
+
+# What an AI translation is made from, in the order it is preferred - see
+# ai/context.source_bonus for why Arabic leads and Japanese trails.
+AI_SOURCE_LANGUAGES = ("ar", "en", "ja")
+
+
+def with_translation_sources(languages):
+    """The configured languages, plus what AI can translate from, if it can.
+
+    With a translation engine configured, a subtitle does not have to exist in
+    Hebrew to become a good Hebrew subtitle: an Arabic or English file that
+    fits this release is one translation away from it. So those are searched
+    alongside the configured languages. Without an engine they are worth
+    nothing and nothing extra is asked, because every language is another
+    request per provider.
+    """
+    languages = list(languages)
+    try:
+        from .ai import translator
+        ready = translator.available()
+    except Exception:
+        ready = False
+    if ready:
+        languages.extend(code for code in AI_SOURCE_LANGUAGES
+                         if code not in languages)
+    return languages
 TIMING_EVIDENCE_LANGUAGES = ("en", "es")
 
 
@@ -246,6 +273,10 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
     report = {"translated": False, "synchronised": False, "reason": ""}
     downloads = _DownloadBudget(consensus.budget())
     wanted = languages[0]
+    # Arabic, English and Japanese are searched too when AI can use them, so a
+    # title with no Hebrew that fits is translated from the best source rather
+    # than only from whichever second language happened to be configured.
+    languages = with_translation_sources(languages)
 
     get_hash = video_hash_later(meta)
     candidates = search_candidates(meta, languages, get_hash)

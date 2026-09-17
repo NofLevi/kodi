@@ -192,3 +192,66 @@ def test_no_sources_asks_nothing(monkeypatch):
     monkeypatch.setattr(auto, "search_candidates",
                         lambda *a, **k: pytest.fail("should not have asked"))
     assert outlook.for_sources(META, []) == {}
+
+
+# --------------------------------------------------------------------------
+# a subtitle AI can translate counts, when no Hebrew one fits
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def ai_ready(monkeypatch):
+    from katan.subs.ai import translator
+    monkeypatch.setattr(translator, "available", lambda: True)
+
+
+def _in(language, *names):
+    return [{"name": name, "language": language, "provider": "opensubtitles_rest",
+             "id": language + name} for name in names]
+
+
+EXACT = "A.Film.2020.1080p.WEB-DL.x264-GRP"
+
+
+def test_an_arabic_subtitle_that_fits_is_an_ai_subtitle_when_no_hebrew_does(ai_ready):
+    entry = outlook._for_one(
+        META, source(EXACT + ".mkv"),
+        _in("he", "A.Film.2020.2160p.BluRay.x265-OTHER") + _in("ar", EXACT))
+    assert entry["kind"] == outlook.AI
+    assert entry["score"] >= 90
+
+
+def test_a_hebrew_subtitle_that_fits_is_still_preferred(ai_ready):
+    """A human Hebrew subtitle that clears the threshold beats translating one."""
+    entry = outlook._for_one(META, source(EXACT + ".mkv"),
+                             _in("he", EXACT) + _in("ar", EXACT))
+    assert entry["kind"] == outlook.EXTERNAL
+
+
+def test_an_ai_subtitle_outranks_hebrew_that_does_not_fit_and_not_hebrew_that_does():
+    fits = {"subs_kind": outlook.EXTERNAL, "subs_score": 75}
+    misfit = {"subs_kind": outlook.EXTERNAL, "subs_score": 40}
+    translated = {"subs_kind": outlook.AI, "subs_score": 100}
+    assert outlook.ranking_score(misfit) < outlook.ranking_score(translated)
+    assert outlook.ranking_score(translated) < outlook.ranking_score(fits)
+
+
+def test_the_picker_says_the_subtitle_will_be_made_by_ai():
+    from katan import kodi
+    from katan.ui import sources_window
+    line = sources_window._subtitle_badge(
+        {"subs_kind": outlook.AI, "subs_score": 92})
+    assert line == kodi.localize(32535, 92)
+    assert "92" in line
+
+
+def test_the_other_languages_are_only_searched_when_ai_can_use_them(monkeypatch):
+    """Every language is another request per provider; without an engine an
+    Arabic subtitle is worth nothing to a Hebrew viewer."""
+    from katan.subs import auto
+    from katan.subs.ai import translator
+
+    monkeypatch.setattr(translator, "available", lambda: False)
+    assert auto.with_translation_sources(["he", "en"]) == ["he", "en"]
+    monkeypatch.setattr(translator, "available", lambda: True)
+    assert auto.with_translation_sources(["he", "en"]) == ["he", "en", "ar", "ja"]

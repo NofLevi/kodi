@@ -94,15 +94,35 @@ GENDER_MARKING = (
     "hi", "ur", "pa",                                      # Indo-Aryan
 )
 
-# How much a gender-marking source is worth, in the same units the subtitle
-# matcher scores in. Enough to break a near tie, not enough to pick a subtitle
-# for the wrong episode.
+# How much a source language is worth, in the same units the subtitle matcher
+# scores in. The order is Arabic, then any other language that marks gender,
+# then English, then Japanese. Arabic first because it marks gender the way
+# Hebrew does and is the closest to it, which is why POV's MoranSubs downloads
+# an Arabic subtitle as a gender oracle. English carries no gender at all.
+# Japanese is the last resort: often the original script of an anime, but it
+# drops the subject so often that the model is left guessing who is speaking
+# as well as their gender.
+#
+# Bonuses rather than a strict order, and that is deliberate. A translation
+# keeps its source's timings exactly, so an Arabic subtitle for a different cut
+# becomes a beautifully gendered Hebrew subtitle that is two minutes out. The
+# bonus decides between files that fit about as well; it cannot choose one
+# that does not fit over one that does.
+ARABIC_BONUS = 25
 GENDER_BONUS = 18
+JAPANESE_PENALTY = 10
 
 
 def source_bonus(language):
-    """Extra score for translating out of a language that marks gender."""
-    return GENDER_BONUS if (language or "").lower() in GENDER_MARKING else 0
+    """Extra score for the language a Hebrew translation starts from."""
+    code = (language or "").lower()
+    if code == "ar":
+        return ARABIC_BONUS
+    if code in GENDER_MARKING:
+        return GENDER_BONUS
+    if code == "ja":
+        return -JAPANESE_PENALTY
+    return 0
 
 
 def rank_translation_candidates(candidates, target):
