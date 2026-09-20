@@ -1652,3 +1652,15 @@ msgstr "דרמות טורקיות, ספרדיות ואיטלקיות"
 msgctxt "#32537"
 msgid "Hebrew audio"
 msgstr "דובר עברית"
+
+msgctxt "#30321"
+msgid "OpenRouter API key"
+msgstr "מפתח API של OpenRouter"
+
+msgctxt "#30322"
+msgid "OpenRouter model"
+msgstr "דגם OpenRouter"
+
+msgctxt "#32538"
+msgid "Open an account at %s and paste a key. Some models are free."
+msgstr "פתחו חשבון ב-%s והעתיקו מפתח. חלק מהדגמים בחינם."

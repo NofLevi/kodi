@@ -8,6 +8,7 @@ from .. import kodi, settings
 
 TMDB_SIGNUP = "https://www.themoviedb.org/settings/api"
 GEMINI_SIGNUP = "https://aistudio.google.com/apikey"
+OPENROUTER_SIGNUP = "openrouter.ai/keys"
 OPENSUBTITLES_KEYS = "https://www.opensubtitles.com/en/consumers"
 
 
@@ -249,6 +250,11 @@ def step_opensubtitles():
 
 
 def step_ai():
+    # Whichever engine is selected. Asking for a Gemini key while the engine
+    # is OpenRouter stores it where nothing reads it, and the accounts screen
+    # then reports a connection that cannot translate anything.
+    if (settings.get("subs.ai.engine") or "gemini").strip() == "openrouter":
+        return _step_openrouter()
     kodi.ok_dialog(kodi.localize(32326, GEMINI_SIGNUP), kodi.localize(32313))
     key = kodi.keyboard(settings.get("subs.ai.gemini_key"), kodi.localize(32313))
     if key is None:
@@ -265,3 +271,21 @@ def step_ai():
         kodi.notify(kodi.localize(32318))
     else:
         kodi.notify(kodi.localize(32319))
+
+
+def _step_openrouter():
+    """The same conversation for OpenRouter, whose free models cost nothing.
+
+    No key test: OpenRouter has no free "is this key valid" call, and spending
+    a request out of somebody's daily allowance to find out is the wrong
+    trade - the first translation says so soon enough.
+    """
+    kodi.ok_dialog(kodi.localize(32538, OPENROUTER_SIGNUP),
+                   kodi.localize(32313))
+    key = kodi.keyboard(settings.get("subs.ai.openrouter_key"),
+                        kodi.localize(32313))
+    if key is None:
+        return
+    settings.set("subs.ai.openrouter_key", key.strip())
+    if key.strip():
+        kodi.notify(kodi.localize(32318))

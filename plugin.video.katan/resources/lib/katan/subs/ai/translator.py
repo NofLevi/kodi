@@ -87,6 +87,9 @@ def engine():
     if name == "gemini":
         from . import gemini
         return gemini if gemini.configured() else None
+    if name == "openrouter":
+        from . import openrouter
+        return openrouter if openrouter.configured() else None
     if name == "openai":
         from . import openai_compat
         return openai_compat if openai_compat.configured() else None
@@ -124,7 +127,12 @@ def translate(cues, target_language="he", on_progress=None, meta=None,
     base_requests = (total + size - 1) // size
     budget = {
         "calls": 0,
-        "max_calls": base_requests + MAX_EXTRA_REQUESTS,
+        # Room to split, which has to grow a little with the file: a failed
+        # chunk is halved and retried, and six spare calls is under one split
+        # when a film is a hundred chunks. Half the chunk count rather than
+        # all of it, because the point of the cap is that one failing model
+        # cannot turn a film into hundreds of requests.
+        "max_calls": base_requests + max(MAX_EXTRA_REQUESTS, base_requests // 2),
         "deadline": time.monotonic() + MAX_TRANSLATION_SECONDS,
         "cancelled": cancelled or (lambda: False),
     }

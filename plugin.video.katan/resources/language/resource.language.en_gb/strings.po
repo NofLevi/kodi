@@ -1692,3 +1692,15 @@ msgstr ""
 msgctxt "#32537"
 msgid "Hebrew audio"
 msgstr ""
+
+msgctxt "#30321"
+msgid "OpenRouter API key"
+msgstr ""
+
+msgctxt "#30322"
+msgid "OpenRouter model"
+msgstr ""
+
+msgctxt "#32538"
+msgid "Open an account at %s and paste a key. Some models are free."
+msgstr ""

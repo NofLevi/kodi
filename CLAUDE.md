@@ -1177,6 +1177,26 @@ asked for Korean. Choosing AI translation by hand asks for every language.
 Without an engine none of this is requested, because every language is
 another request per provider.
 
+**The engine is a setting, and one of them is free.** Gemini, OpenRouter or
+any OpenAI-compatible endpoint. OpenRouter is the interesting one: it speaks
+the OpenAI protocol, so it is a preset - an address, two identifying headers
+and a model name - rather than a second client, and its free catalogue removes
+the cost argument against translating every subtitle that does not fit. Two
+things the free models do that the hosted ones do not: several answer **HTTP
+400** to any request carrying `response_format`, so it is asked for once and
+then dropped, and an exhausted model arrives as a **200 with an error object**,
+which would otherwise read as a subtitle with nothing in it. The model name is
+a setting because OpenRouter's free list changes; the default is a starting
+point, not a promise.
+
+Chunks are **120 lines** by default, 200 and 300 on the richer profiles. The
+old 50 was a memory decision, and the memory it saves is a few kilobytes of
+JSON against a 6 MB artwork budget - while fewer, larger requests is exactly
+what a model with a daily request allowance wants, and gives the model more of
+the scene to translate in context. The request budget grows with the chunk
+count so a split still has room, but only by half of it: the cap exists so one
+misbehaving model cannot turn a film into hundreds of requests.
+
 **Taken: progressive delivery.** Translating a feature film takes minutes.
 Showing each finished chunk as it arrives means the viewer starts watching
 almost immediately. Kodi caches a subtitle by path, so the file name alternates

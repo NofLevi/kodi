@@ -764,6 +764,15 @@ def profile(params):
     kodi.notify(kodi.localize(32385, changed))
 
 
+def _translation_ready():
+    """Any translation engine that is usable, not only a Gemini key."""
+    try:
+        from ..subs.ai import translator
+        return translator.available()
+    except Exception:
+        return False
+
+
 def _mark(connected):
     """The signed-in marker. Deliberately not an emoji: the Kodi list font
     renders one as a box on some Android builds, and a box beside every
@@ -832,8 +841,7 @@ def accounts(params):
             ("tmdb", "TMDB", tmdb.has_key()),
             ("opensubtitles", "OpenSubtitles",
              bool(settings.get("subs.opensubtitles.apikey"))),
-            ("ai", kodi.localize(32313),
-             bool(settings.get("subs.ai.gemini_key")))):
+            ("ai", kodi.localize(32313), _translation_ready())):
         entries.append(("%s %s" % (_mark(connected), label), name))
 
     if handle < 0:
