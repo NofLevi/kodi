@@ -121,6 +121,22 @@ def test_a_named_season_and_episode_still_wins():
     assert release.matches_episode(parsed, 1, 46, 46)
 
 
+def test_season_one_counted_to_the_end_is_the_absolute_number():
+    """Netflix and Jimaku file Hikaru no Go's TMDB 3x06 as S01E66."""
+    parsed = release.parse("ヒカルの碁.S01E66.WEBRip.Netflix.ja[cc]")
+    assert release.matches_episode(parsed, 3, 6, 66)
+    assert not release.matches_episode(parsed, 3, 6, 67)
+    assert not release.matches_episode(parsed, 3, 6), "only when the absolute number is known"
+
+
+def test_a_stated_season_has_to_agree_with_a_bare_number():
+    """Measured on Jimaku: "S3 - 06" was offered for season one's episode six."""
+    parsed = release.parse("[NanakoRaws] Oshi no Ko S3 - 06 (AT-X 1080p HEVC AAC)")
+    assert not release.matches_episode(parsed, 1, 6, 6)
+    assert release.matches_episode(parsed, 3, 6, 28)
+    assert not release.matches_episode(release.parse("[Grp] Show S1 - 11"), 3, 11, 35)
+
+
 # --------------------------------------------------------------------------
 # working the absolute number out
 # --------------------------------------------------------------------------

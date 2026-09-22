@@ -152,6 +152,23 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   SubSource are anonymous; Ktuvit is a members' site, so it is off until an
   account is entered and is asked after the faster sources.
 
+  **Anime subtitles from Jimaku were built, measured and not shipped.** Over
+  a thousand anime shows, Jimaku had about 58% of episodes (Kitsunekko 5% as
+  a single file; AnimeTosho's extracted tracks were better still and the
+  service closes in October 2026), and for about one episode in six it was
+  the only translatable subtitle. It was dropped because that sixth only
+  matters with AI translation on, Japanese is the weakest source for Hebrew
+  (it drops the subject, so gender is guessed), and it cost a provider, an id
+  mapping and a key the viewer has to make. What finding it needed, for next
+  time: Jimaku is keyed by **AniList id, one per cour** - searching by name
+  missed Naruto Shippuden and Symphogear, which it had - and ARM
+  (arm.haglund.dev) maps a TMDB show to AniList per TMDB season but carries
+  no episode offset, which a Kitsu episode-count walk or Fribb/anime-lists'
+  `episode_offset` supplies. Two fixes it forced are general and stayed, in
+  `release.matches_episode`: `S01E66` is the 66th episode counted from the
+  first, which is how Hikaru no Go's 3x06 is filed, and a stated season has
+  to agree, so "Oshi no Ko S3 - 06" is not season one's episode six.
+
   **The file hash pays off 10% of the time and is worth keeping anyway**,
   which is not obvious and was nearly dropped for it. Measured over 147 titles
   with candidates, fifteen had a hash match: five where the match was itself in
@@ -354,7 +371,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1292 tests, all running against Kodi stubs, so no Kodi install is needed:
+1864 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -374,7 +391,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_aggregator.py` | 23 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |
 | `test_providers.py` | 17 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
-| `test_anime_numbering.py` | 33 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. |
+| `test_anime_numbering.py` | 33 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. And two found by testing a Japanese source: `S01E66` being the 66th episode (Hikaru no Go's 3x06), and a stated season having to agree - "Oshi no Ko S3 - 06" is not 1x06. |
 | `test_release_parser.py` | 56 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. |
 | `test_sources.py` | 36 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |

@@ -476,15 +476,21 @@ def matches_episode(parsed, season, episode, absolute=None):
     wanted = int(absolute) if absolute else int(episode)
 
     if parsed["season"] and parsed["episode"]:
-        return parsed["season"] == int(season) and parsed["episode"] == int(episode)
+        # Or season one counted to the end, which is how Netflix and the
+        # subtitle indexes file a long-running anime: Hikaru no Go's TMDB
+        # 3x06 is S01E66 on Jimaku, and was being thrown out as the wrong
+        # episode by the very number that proves it is the right one.
+        return (parsed["season"] == int(season) and parsed["episode"] == int(episode)) \
+            or bool(absolute and parsed["season"] == 1 and parsed["episode"] == wanted)
 
     if parsed["absolute"]:
-        if parsed["absolute"] == wanted:
-            return True
-        # The number is season-relative when the name also states a season.
-        return bool(parsed["season"]
-                    and parsed["season"] == int(season)
-                    and parsed["absolute"] == int(episode))
+        # The number is season-relative when the name also states a season,
+        # and then the season has to agree: "Oshi no Ko S3 - 06" was being
+        # offered for season one's episode six.
+        if parsed["season"]:
+            return (parsed["season"] == int(season) and parsed["absolute"] == int(episode)) \
+                or (parsed["season"] == 1 and parsed["absolute"] == wanted)
+        return parsed["absolute"] == wanted
 
     if parsed["season"]:
         return parsed["season"] == int(season)        # season pack
