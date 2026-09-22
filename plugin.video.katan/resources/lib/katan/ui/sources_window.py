@@ -195,6 +195,10 @@ def _subtitle_badge(source, outlook=None):
     del outlook               # kept so older callers are not an error
     from ..subs import outlook as module
 
+    mode = source.get("subs_mode")
+    if mode in MODE_COLOURS:
+        return _mode_line(source, mode)
+
     kind = source.get("subs_kind")
     if not kind:
         return ""
@@ -207,6 +211,27 @@ def _subtitle_badge(source, outlook=None):
     if kind == module.NATIVE:
         return kodi.localize(32537)
     return kodi.localize(32476)
+
+
+# The two ways of getting Hebrew onto a release, told apart at a glance.
+MODE_COLOURS = {"native": "FF5BD18B", "llm": "FFB38CFF"}
+
+
+def _mode_line(source, mode):
+    """NATIVE or LLM, in its own colour, and how well the subtitle fits."""
+    tag = "[COLOR %s][B]%s[/B][/COLOR]" % (
+        MODE_COLOURS[mode], kodi.localize(32539 if mode == "native" else 32540))
+    fit = int(source.get("subs_fit") or 0)
+    if mode == "native":
+        if "he" in (source.get("languages") or []) or fit >= 100 and \
+                source.get("subs_kind") == "embedded":
+            detail = kodi.localize(32474)
+        else:
+            detail = kodi.localize(32541, fit)
+    else:
+        detail = kodi.localize(32542, (source.get("subs_from") or "?").upper(),
+                               fit)
+    return "%s   [COLOR %s]%s[/COLOR]" % (tag, MODE_COLOURS[mode], detail)
 
 
 def _badge(source, outlook=None):
@@ -329,6 +354,27 @@ def _why_hidden(entries, meta):
     return kodi.localize(32470, found, hidden, biggest)
 
 
+def _first_page(meta, short, full):
+    """Up to ten NATIVE rows and ten LLM rows, or the plain short list.
+
+    Asked for in so many words: the first page should put the two ways of
+    getting Hebrew side by side, so that which one works better is something
+    the viewer sees rather than something decided for them. The ordinary
+    short list comes back whenever there is nothing to split - a Hebrew
+    title, or a search where no release has a subtitle of either kind.
+    """
+    try:
+        from ..subs import outlook
+        native, llm = outlook.split_rows(meta, full or short)
+    except Exception:
+        kodi.log_exception("could not split the sources into native and AI")
+        return list(short)
+    if not native and not llm:
+        return list(short)
+    kodi.log("sources picker: %d native rows, %d AI rows" % (len(native), len(llm)))
+    return native + llm
+
+
 def pick_source(sources, meta, all_sources=None):
     """Open the picker. Returns the chosen source, or None.
 
@@ -337,8 +383,8 @@ def pick_source(sources, meta, all_sources=None):
     """
     from ..sources import aggregator
 
-    short = list(sources)
     full = list(all_sources) if all_sources is not None else aggregator.all_sources(meta)
+    short = _first_page(meta, sources, full)
 
     while True:
         window = SourcesWindow("katan-sources.xml", kodi.addon_path(),
@@ -360,8 +406,9 @@ def pick_source(sources, meta, all_sources=None):
         if not refresh:
             return chosen
         aggregator.invalidate(meta)
-        short = aggregator.find(meta, force=True)
+        found = aggregator.find(meta, force=True)
         full = aggregator.all_sources(meta)
+        short = _first_page(meta, found, full)
         if not short and not full:
             kodi.notify(kodi.localize(32283))
             return None

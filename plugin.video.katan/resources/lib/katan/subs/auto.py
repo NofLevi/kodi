@@ -99,6 +99,10 @@ def search_timing_evidence(meta, languages, video_hash=""):
 
 
 
+def _subs_mode(meta):
+    return ((meta or {}).get("source") or {}).get("subs_mode") or ""
+
+
 def on_playback_started(player, meta, cancelled=None):
     """Entry point called by the player monitor."""
     from .ai import coordinator
@@ -125,6 +129,20 @@ def on_playback_started(player, meta, cancelled=None):
                 or not coordinator.current(generation))
 
     wanted = languages[0]
+
+    if _subs_mode(meta) == "llm":
+        # Chosen from the picker's AI rows: translate, and do not go looking
+        # for Hebrew first - the viewer asked to see what the model makes of
+        # this release. The picker has already fetched what to translate
+        # from, so this asks nothing new.
+        from . import outlook
+        kodi.log("AI subtitles were chosen for this release")
+        path = translate_now(meta, wanted, player,
+                             candidates=outlook.translation_candidates(meta) or None,
+                             cancelled=is_cancelled, generation=generation)
+        if path and not is_cancelled():
+            kodi.notify(kodi.localize(32334, kodi.localize(32494)))
+        return
 
     if settings.get_bool("subs.embedded_first"):
         committed, selected = coordinator.commit(
@@ -357,6 +375,19 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
                 report["reason"] = (report.get("reason")
                                     or (winner or {}).get("reason", ""))
                 return store(meta, wanted, cues), report
+
+    if _subs_mode(meta) == "native":
+        # Chosen from the picker's Hebrew rows. The best Hebrew there is,
+        # below the threshold if it has to be, and never a translation in its
+        # place - otherwise a "native" row that fell back to AI would count
+        # for the wrong side of the comparison.
+        if winner:
+            chosen, cues = _first_usable(_ranked, wanted, downloads)
+            if cues:
+                report["reason"] = "native row: best Hebrew available"
+                return store(meta, wanted, cues), report
+        report["reason"] = "native row: no Hebrew subtitle could be used"
+        return "", report
 
     # No Hebrew subtitle fits, or the one that looked right failed its checks.
     # Only now is it worth asking for what AI could translate from: while a

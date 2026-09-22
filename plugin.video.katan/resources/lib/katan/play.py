@@ -259,6 +259,10 @@ def source_record(chosen):
         "file_index": chosen.get("file_index"),
         "file_id": chosen.get("file_id"),
         "torrent_hash": chosen.get("hash", ""),
+        # Which row of the picker this came from. "llm" means translate, and
+        # skip the Hebrew search; "native" means Hebrew and never AI, so a
+        # row does what it said it would and the comparison stays honest.
+        "subs_mode": chosen.get("subs_mode", ""),
     }
 
 

@@ -1704,3 +1704,19 @@ msgstr ""
 msgctxt "#32538"
 msgid "Open an account at %s and paste a key. Some models are free."
 msgstr ""
+
+msgctxt "#32539"
+msgid "NATIVE"
+msgstr ""
+
+msgctxt "#32540"
+msgid "LLM"
+msgstr ""
+
+msgctxt "#32541"
+msgid "Hebrew subtitle, %d%% fit"
+msgstr ""
+
+msgctxt "#32542"
+msgid "translated from %s, %d%% fit"
+msgstr ""

@@ -1664,3 +1664,19 @@ msgstr "דגם OpenRouter"
 msgctxt "#32538"
 msgid "Open an account at %s and paste a key. Some models are free."
 msgstr "פתחו חשבון ב-%s והעתיקו מפתח. חלק מהדגמים בחינם."
+
+msgctxt "#32539"
+msgid "NATIVE"
+msgstr "מקורי"
+
+msgctxt "#32540"
+msgid "LLM"
+msgstr "AI"
+
+msgctxt "#32541"
+msgid "Hebrew subtitle, %d%% fit"
+msgstr "כתובית עברית, התאמה %d%%"
+
+msgctxt "#32542"
+msgid "translated from %s, %d%% fit"
+msgstr "תרגום מ-%s, התאמה %d%%"

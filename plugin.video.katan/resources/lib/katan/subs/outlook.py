@@ -176,6 +176,79 @@ def _hebrew_fits(sources):
                for source in sources)
 
 
+# How many rows of each kind the picker opens on.
+SPLIT_ROWS = 10
+
+
+def split_rows(meta, sources, limit=SPLIT_ROWS):
+    """The picker's first page: the best releases for Hebrew, and for AI.
+
+    Every release is judged twice - by its best-fitting Hebrew subtitle, and by
+    the best-fitting subtitle in a language AI translates from - and the top
+    `limit` of each are returned as copies marked `subs_mode` "native" or
+    "llm". The same release can be in both lists; that is the point, because
+    what is being compared is the two ways of getting Hebrew onto the one
+    file, and the viewer's choices are the measurement.
+
+    The AI rows pick their source language the way playback will
+    (`context.source_bonus`: Arabic, then gender-marking languages, then
+    English), so the language the row names is the one that gets translated.
+    The percentage is how well that subtitle fits this release: its timing
+    is what the translation inherits. The quality of the Hebrew itself is
+    not known until it exists, and the row does not pretend otherwise.
+
+    Returns ([], []) for a title already in Hebrew, and no AI rows without a
+    translation engine.
+    """
+    from . import auto
+    from .ai import context
+
+    hebrew = _hebrew_code()
+    if auto.normalise_language(meta.get("original_language")) == hebrew:
+        return [], []
+    native_found = candidates(meta)
+    llm_found = translation_candidates(meta)
+    native, llm = [], []
+    for index, source in enumerate(sources):
+        name = source.get("title") or ""
+        target = matcher.target_from(meta, {
+            "release": name,
+            "group": source.get("group") or release.parse(name)["group"],
+            "quality": source.get("quality") or "",
+        })
+        if _claims_hebrew(name) or "he" in (source.get("languages") or []):
+            native_fit = 100
+        else:
+            native_fit = max([matcher.rate(c, target)[0] for c in native_found]
+                             or [0])
+        if native_fit > 0:
+            native.append((_order(source, native_fit, index),
+                           dict(source, subs_mode="native",
+                                subs_fit=_as_percent(native_fit))))
+        best = None
+        for candidate in llm_found:
+            fit = matcher.rate(candidate, target)[0]
+            if fit <= 0:
+                continue
+            preference = fit + context.source_bonus(candidate.get("language"))
+            if best is None or preference > best[0]:
+                best = (preference, fit, candidate.get("language", ""))
+        if best is not None:
+            llm.append((_order(source, best[1], index),
+                        dict(source, subs_mode="llm",
+                             subs_fit=_as_percent(best[1]),
+                             subs_from=best[2])))
+    native.sort(key=lambda row: row[0])
+    llm.sort(key=lambda row: row[0])
+    return ([row for _key, row in native[:limit]],
+            [row for _key, row in llm[:limit]])
+
+
+def _order(source, fit, index):
+    """Cached first, then fit, then the order the ranking already gave."""
+    return (0 if source.get("cached") else 1, -fit, index)
+
+
 def for_sources(meta, sources, refresh=False):
     """The outlook keyed by infohash, for callers that want a table."""
     if not sources:
