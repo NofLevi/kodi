@@ -113,7 +113,11 @@ def on_playback_started(player, meta, cancelled=None):
     languages = settings.subtitle_languages()
     if not languages:
         return
-    if normalise_language(meta.get("original_language")) == languages[0]:
+    if _subs_mode(meta) == "english":
+        # Chosen from the picker's English rows: English, whatever the
+        # configured languages say, and whatever language the film is in.
+        languages = ["en"]
+    elif normalise_language(meta.get("original_language")) == languages[0]:
         # An Israeli film is already in Hebrew. Searching for a Hebrew
         # subtitle costs a round of requests and, when one is found, puts the
         # dialogue on screen twice. The chooser still lists them for anybody
@@ -376,17 +380,17 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
                                     or (winner or {}).get("reason", ""))
                 return store(meta, wanted, cues), report
 
-    if _subs_mode(meta) == "native":
-        # Chosen from the picker's Hebrew rows. The best Hebrew there is,
+    if _subs_mode(meta) in ("native", "english"):
+        # Chosen from the picker's Hebrew or English rows. The best Hebrew there is,
         # below the threshold if it has to be, and never a translation in its
         # place - otherwise a "native" row that fell back to AI would count
         # for the wrong side of the comparison.
         if winner:
             chosen, cues = _first_usable(_ranked, wanted, downloads)
             if cues:
-                report["reason"] = "native row: best Hebrew available"
+                report["reason"] = "native row: best %s available" % wanted
                 return store(meta, wanted, cues), report
-        report["reason"] = "native row: no Hebrew subtitle could be used"
+        report["reason"] = "native row: no %s subtitle could be used" % wanted
         return "", report
 
     # No Hebrew subtitle fits, or the one that looked right failed its checks.

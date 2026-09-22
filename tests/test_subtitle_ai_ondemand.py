@@ -278,7 +278,7 @@ def test_the_row_still_appears_without_a_key_and_says_so(fake_world,
     entry = service._ai_entry([], "he")
 
     assert entry is not None
-    assert entry["release"] == service.kodi.localize(32497)
+    assert entry["release"].startswith(service.kodi.localize(32497))
 
 
 def test_no_row_when_ai_is_switched_off(fake_world, settings_module):

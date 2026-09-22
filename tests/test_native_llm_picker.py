@@ -36,12 +36,15 @@ def found(monkeypatch):
     state = {"he": subs("he", EXACT), "llm": subs("en", OTHER) + subs("ar", OTHER)}
     monkeypatch.setattr(outlook, "candidates", lambda meta, **k: state["he"])
     monkeypatch.setattr(outlook, "translation_candidates", lambda meta: state["llm"])
+    monkeypatch.setattr(outlook, "english_candidates",
+                        lambda meta, already=None: [c for c in state["llm"]
+                                                    if c["language"] == "en"])
     return state
 
 
 def test_every_release_is_judged_for_hebrew_and_for_ai(found):
     sources = [source(EXACT, 1), source(OTHER, 2)]
-    native, llm = outlook.split_rows(META, sources)
+    native, llm, _english = outlook.split_rows(META, sources)
     assert [row["subs_mode"] for row in native] == ["native", "native"]
     assert native[0]["title"].startswith(EXACT), "best Hebrew fit first"
     assert llm[0]["title"].startswith(OTHER), "best AI source fit first"
@@ -51,34 +54,64 @@ def test_every_release_is_judged_for_hebrew_and_for_ai(found):
 
 def test_the_same_release_can_be_on_both_lists(found):
     found["llm"] = subs("en", EXACT)
-    native, llm = outlook.split_rows(META, [source(EXACT, 1)])
+    native, llm, _english = outlook.split_rows(META, [source(EXACT, 1)])
     assert native[0]["hash"] == llm[0]["hash"]
 
 
 def test_each_list_stops_at_ten(found):
     many = [source(EXACT, i) for i in range(25)]
-    native, llm = outlook.split_rows(META, many)
+    native, llm, _english = outlook.split_rows(META, many)
     assert len(native) == outlook.SPLIT_ROWS == 10
     assert len(llm) <= 10
 
 
 def test_no_ai_rows_without_an_engine(found):
     found["llm"] = []
-    native, llm = outlook.split_rows(META, [source(EXACT, 1)])
+    native, llm, _english = outlook.split_rows(META, [source(EXACT, 1)])
     assert native and llm == []
 
 
 def test_a_hebrew_title_is_not_split(found):
     assert outlook.split_rows(dict(META, original_language="he"),
-                              [source(EXACT, 1)]) == ([], [])
+                              [source(EXACT, 1)]) == ([], [], [])
 
 
-def test_the_first_page_is_native_then_llm(found, monkeypatch):
+ORDER = {"native": 0, "llm": 1, "english": 2}
+
+
+def test_the_first_page_is_hebrew_then_llm_then_english(found):
     sources = [source(EXACT, 1), source(OTHER, 2)]
     page = sources_window._first_page(META, sources, sources)
     modes = [row["subs_mode"] for row in page]
-    assert modes == sorted(modes, key=lambda mode: mode != "native")
-    assert "llm" in modes and "native" in modes
+    assert modes == sorted(modes, key=ORDER.get)
+    assert set(modes) == {"native", "llm", "english"}
+
+
+def test_no_hebrew_anywhere_still_opens_on_llm_and_english(found):
+    """Measured: 5 of 7 anime and both Turkish dramas tested had no Hebrew
+    subtitle at all. Those are exactly what this page is for."""
+    found["he"] = []
+    sources = [source(EXACT, 1), source(OTHER, 2)]
+    page = sources_window._first_page(META, sources, sources)
+    modes = [row["subs_mode"] for row in page]
+    assert "native" not in modes
+    assert modes[0] == "llm" and "english" in modes
+
+
+def test_english_rows_stop_at_five(found):
+    found["llm"] = subs("en", EXACT)
+    _native, _llm, english = outlook.split_rows(META, [source(EXACT, i) for i in range(12)])
+    assert len(english) == outlook.ENGLISH_ROWS == 5
+    assert all(row["subs_mode"] == "english" for row in english)
+
+
+def test_english_rows_need_no_translation_engine(monkeypatch):
+    monkeypatch.setattr(outlook, "candidates", lambda meta, **k: [])
+    monkeypatch.setattr(outlook, "translation_candidates", lambda meta: [])
+    monkeypatch.setattr(outlook, "english_candidates",
+                        lambda meta, already=None: subs("en", EXACT))
+    native, llm, english = outlook.split_rows(META, [source(EXACT, 1)])
+    assert native == [] and llm == [] and english
 
 
 def test_nothing_to_split_leaves_the_plain_list(found):
@@ -97,6 +130,9 @@ def test_the_rows_say_which_kind_they_are_in_different_colours():
     assert sources_window.MODE_COLOURS["native"] in native
     assert sources_window.MODE_COLOURS["llm"] in llm
     assert sources_window.MODE_COLOURS["native"] != sources_window.MODE_COLOURS["llm"]
+    english = sources_window._subtitle_badge({"subs_mode": "english", "subs_fit": 77})
+    assert kodi.localize(32543) in english and "77" in english
+    assert len(set(sources_window.MODE_COLOURS.values())) == 3
 
 
 def test_the_chosen_row_travels_to_playback():
@@ -138,3 +174,22 @@ def test_a_native_row_never_turns_into_ai(monkeypatch, settings_module):
     path, report = auto.find_and_prepare(meta, ["he", "en"])
     assert translated == []
     assert report["reason"].startswith("native row")
+
+
+def test_an_english_row_plays_english_and_never_translates(monkeypatch, settings_module):
+    settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en",
+                              "subs.embedded_first": "false"})
+    asked = []
+    monkeypatch.setattr(auto, "find_and_prepare",
+                        lambda meta, languages, *a, **k: asked.append(list(languages)) or ("", {}))
+    monkeypatch.setattr(auto, "translate_now",
+                        lambda *a, **k: asked.append("translate") or "")
+    auto.on_playback_started(object(), dict(META, source={"subs_mode": "english"}))
+    assert asked == [["en"]], "even for a film made in English"
+
+
+def test_the_player_offers_ai_into_hebrew_first_and_english_second(settings_module):
+    from katan.subs import service
+    settings_module.set("subs.languages", "he,en")
+    assert service.ai_targets() == ["he", "en"]
+

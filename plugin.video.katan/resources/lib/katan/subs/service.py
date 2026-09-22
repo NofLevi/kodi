@@ -113,9 +113,10 @@ def _search(handle, params):
     ranked = matcher.rank(found, target, video_hash, languages) if found else []
 
     entries = inside + ranked
-    offer = _ai_entry(ranked, _target_language(languages))
-    if offer:
-        entries = entries + [offer]
+    for target in ai_targets():
+        offer = _ai_entry(ranked, target)
+        if offer:
+            entries = entries + [offer]
     if not entries:
         kodi.notify(kodi.localize(32336))
         return
@@ -133,6 +134,24 @@ def _target_language(languages):
     on a stock Kodi, which asks for English whatever the interface language.
     """
     return (languages or settings.subtitle_languages() or ["he"])[0]
+
+
+def ai_targets():
+    """The languages the player's subtitle list offers to translate into.
+
+    Hebrew first, because it is the default and the point of the add-on, then
+    English - for an anime or a Korean drama somebody may simply prefer to read
+    English, and a machine translation into English from Arabic or Japanese is
+    a real alternative to no English subtitle at all. Two rows rather than one
+    whose language followed Kodi's own subtitle setting, which on a stock Kodi
+    is English and so turned the only AI row into an English one for a Hebrew
+    household.
+    """
+    targets = []
+    for code in (settings.subtitle_languages() or ["he"])[:1] + ["en"]:
+        if code and code not in targets:
+            targets.append(code)
+    return targets
 
 
 def _ai_entry(ranked, target):
@@ -183,7 +202,10 @@ def _ai_entry(ranked, target):
         "language": target,
         "score": 0,
         "ai": True,
-        "release": detail,
+        # The target in the words as well as in the language column: with a
+        # Hebrew and an English row side by side, two lines that read the same
+        # are one line somebody has to press to tell apart.
+        "release": "%s  → %s" % (detail, target.upper()),
     }
 
 

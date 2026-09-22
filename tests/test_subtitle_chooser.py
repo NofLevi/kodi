@@ -320,10 +320,12 @@ def test_the_ai_row_comes_last(chooser, settings_module):
         [{"index": 0, "language": "heb", "name": "Hebrew"}],
         [downloadable("X.2024.1080p.WEB-DL-FLUX")])
 
-    assert len(labels) == 3
+    assert len(labels) == 4
     assert "embedded" in labels[0]
     assert labels[1].startswith("100%")
-    assert labels[2] == "%s  %s" % (kodi.localize(32494), kodi.localize(32497))
+    # Two offers, Hebrew first and English second, told apart in the text.
+    assert labels[2] == u"%s  %s  → HE" % (kodi.localize(32494), kodi.localize(32497))
+    assert labels[3] == u"%s  %s  → EN" % (kodi.localize(32494), kodi.localize(32497))
 
 
 def test_a_film_with_nothing_is_still_offered_a_translation(chooser,
@@ -339,8 +341,8 @@ def test_a_film_with_nothing_is_still_offered_a_translation(chooser,
 
     labels = chooser([], [])
 
-    assert len(labels) == 1
-    assert kodi.localize(32494) in labels[0]
+    assert len(labels) == 2, "into Hebrew, and into English"
+    assert all(kodi.localize(32494) in label for label in labels)
     assert not xbmcgui.NOTIFICATIONS, "there was something to offer"
 
 

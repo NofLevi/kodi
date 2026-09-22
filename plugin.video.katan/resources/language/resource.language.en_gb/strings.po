@@ -1720,3 +1720,11 @@ msgstr ""
 msgctxt "#32542"
 msgid "translated from %s, %d%% fit"
 msgstr ""
+
+msgctxt "#32543"
+msgid "ENGLISH"
+msgstr ""
+
+msgctxt "#32544"
+msgid "English subtitle, %d%% fit"
+msgstr ""

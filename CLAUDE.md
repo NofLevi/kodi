@@ -1197,6 +1197,20 @@ the scene to translate in context. The request budget grows with the chunk
 count so a split still has room, but only by half of it: the cap exists so one
 misbehaving model cannot turn a film into hundreds of requests.
 
+**The picker opens on three lists, as a comparison.** Up to ten releases
+ranked by their best Hebrew subtitle (NATIVE, green), up to ten by the best
+subtitle AI can translate from (LLM, violet, naming the source language), and
+up to five by their best English subtitle (ENGLISH, blue); the same release can
+be in more than one. It is more than the "top-K only" eight on purpose: the
+point is to see which way of getting Hebrew works, and twenty-five list rows
+cost nothing next to artwork. The row chosen decides playback - LLM translates
+without searching for Hebrew, NATIVE and ENGLISH use that language and never
+turn into AI. Measured on real searches: 5 of 7 anime and both Turkish dramas
+tried had no Hebrew subtitle at all and a full LLM list, which is the case the
+page exists for. In the player's own subtitle list AI translation is offered
+twice, into Hebrew and into English, rather than once in whatever language
+Kodi's subtitle setting names - English, on a stock Kodi.
+
 **Taken: progressive delivery.** Translating a feature film takes minutes.
 Showing each finished chunk as it arrives means the viewer starts watching
 almost immediately. Kodi caches a subtitle by path, so the file name alternates

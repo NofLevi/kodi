@@ -178,6 +178,7 @@ def _hebrew_fits(sources):
 
 # How many rows of each kind the picker opens on.
 SPLIT_ROWS = 10
+ENGLISH_ROWS = 5
 
 
 def split_rows(meta, sources, limit=SPLIT_ROWS):
@@ -197,18 +198,26 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
     is what the translation inherits. The quality of the Hebrew itself is
     not known until it exists, and the row does not pretend otherwise.
 
-    Returns ([], []) for a title already in Hebrew, and no AI rows without a
-    translation engine.
+    A third list, of up to ENGLISH_ROWS, is the releases with the best
+    *English* subtitle, marked "english" - for somebody who would rather read
+    English than a translation, which for anime is a real choice. It does not
+    depend on a translation engine.
+
+    Returns ([], [], []) for a title already in Hebrew, and no AI rows without
+    a translation engine. A title with no Hebrew subtitle anywhere - most anime,
+    and the Turkish dramas measured - has an empty first list and full second
+    and third ones, and that is the case the whole page exists for.
     """
     from . import auto
     from .ai import context
 
     hebrew = _hebrew_code()
     if auto.normalise_language(meta.get("original_language")) == hebrew:
-        return [], []
+        return [], [], []
     native_found = candidates(meta)
     llm_found = translation_candidates(meta)
-    native, llm = [], []
+    english_found = english_candidates(meta, llm_found)
+    native, llm, english = [], [], []
     for index, source in enumerate(sources):
         name = source.get("title") or ""
         target = matcher.target_from(meta, {
@@ -238,10 +247,43 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
                         dict(source, subs_mode="llm",
                              subs_fit=_as_percent(best[1]),
                              subs_from=best[2])))
+        english_fit = max([matcher.rate(c, target)[0] for c in english_found]
+                          or [0])
+        if english_fit > 0:
+            english.append((_order(source, english_fit, index),
+                            dict(source, subs_mode="english",
+                                 subs_fit=_as_percent(english_fit))))
     native.sort(key=lambda row: row[0])
     llm.sort(key=lambda row: row[0])
+    english.sort(key=lambda row: row[0])
     return ([row for _key, row in native[:limit]],
-            [row for _key, row in llm[:limit]])
+            [row for _key, row in llm[:limit]],
+            [row for _key, row in english[:ENGLISH_ROWS]])
+
+
+def english_candidates(meta, already=None):
+    """English subtitles for this title, without asking twice.
+
+    The translation round already asks for English whenever there is an
+    engine, so those are reused; only without one is English asked for on its
+    own, and that answer is cached like every other.
+    """
+    found = [c for c in (already or []) if c.get("language") == "en"]
+    if found:
+        return found
+    key = cache_key(meta, ["en"])
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    try:
+        from . import auto
+        found = [c for c in auto.search_candidates(meta, ["en"])
+                 if c.get("language") == "en"]
+    except Exception:
+        kodi.log_exception("could not look up English subtitles")
+        return []
+    cache.set(key, found, TTL)
+    return found
 
 
 def _order(source, fit, index):

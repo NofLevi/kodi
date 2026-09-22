@@ -214,15 +214,18 @@ def _subtitle_badge(source, outlook=None):
 
 
 # The two ways of getting Hebrew onto a release, told apart at a glance.
-MODE_COLOURS = {"native": "FF5BD18B", "llm": "FFB38CFF"}
+MODE_COLOURS = {"native": "FF5BD18B", "llm": "FFB38CFF", "english": "FF6FB7FF"}
+MODE_TAGS = {"native": 32539, "llm": 32540, "english": 32543}
 
 
 def _mode_line(source, mode):
     """NATIVE or LLM, in its own colour, and how well the subtitle fits."""
     tag = "[COLOR %s][B]%s[/B][/COLOR]" % (
-        MODE_COLOURS[mode], kodi.localize(32539 if mode == "native" else 32540))
+        MODE_COLOURS[mode], kodi.localize(MODE_TAGS[mode]))
     fit = int(source.get("subs_fit") or 0)
-    if mode == "native":
+    if mode == "english":
+        detail = kodi.localize(32544, fit)
+    elif mode == "native":
         if "he" in (source.get("languages") or []) or fit >= 100 and \
                 source.get("subs_kind") == "embedded":
             detail = kodi.localize(32474)
@@ -355,7 +358,7 @@ def _why_hidden(entries, meta):
 
 
 def _first_page(meta, short, full):
-    """Up to ten NATIVE rows and ten LLM rows, or the plain short list.
+    """Ten NATIVE Hebrew, ten LLM, five NATIVE English - or the plain list.
 
     Asked for in so many words: the first page should put the two ways of
     getting Hebrew side by side, so that which one works better is something
@@ -365,14 +368,15 @@ def _first_page(meta, short, full):
     """
     try:
         from ..subs import outlook
-        native, llm = outlook.split_rows(meta, full or short)
+        native, llm, english = outlook.split_rows(meta, full or short)
     except Exception:
         kodi.log_exception("could not split the sources into native and AI")
         return list(short)
-    if not native and not llm:
+    if not native and not llm and not english:
         return list(short)
-    kodi.log("sources picker: %d native rows, %d AI rows" % (len(native), len(llm)))
-    return native + llm
+    kodi.log("sources picker: %d native rows, %d AI rows, %d English rows"
+             % (len(native), len(llm), len(english)))
+    return native + llm + english
 
 
 def pick_source(sources, meta, all_sources=None):
