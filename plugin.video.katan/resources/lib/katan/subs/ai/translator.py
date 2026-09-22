@@ -19,6 +19,7 @@ from .. import srt
 DEFAULT_CHUNK = 80
 MIN_CHUNK = 8        # smallest configurable chunk size
 MIN_SPLIT = 2        # smallest chunk worth splitting again
+FIRST_CHUNK = 40     # lines in the first request, sent to the fastest model
 MAX_RETRIES = 2
 MAX_EXTRA_REQUESTS = 6
 MAX_TRANSLATION_SECONDS = 10 * 60
@@ -124,7 +125,15 @@ def translate(cues, target_language="he", on_progress=None, meta=None,
     size = chunk_size()
     translated = {}
     total = len(cues)
-    base_requests = (total + size - 1) // size
+    # A short first chunk on the engine's fastest model, so the first Hebrew
+    # line is on screen in seconds rather than after a full chunk. Measured on
+    # Gemini: 40 lines on the lite model in 2.5 s, against 43 s for the first
+    # 100 on the full one. Every later chunk arrives well before the film
+    # reaches it, so only the first is worth hurrying.
+    first = min(FIRST_CHUNK, size, total)
+    ranges = [(0, first)] + [(start, min(start + size, total))
+                             for start in range(first, total, size)]
+    base_requests = len(ranges)
     budget = {
         "calls": 0,
         # Room to split, which has to grow a little with the file: a failed
@@ -132,32 +141,50 @@ def translate(cues, target_language="he", on_progress=None, meta=None,
         # when a film is a hundred chunks. Half the chunk count rather than
         # all of it, because the point of the cap is that one failing model
         # cannot turn a film into hundreds of requests.
-        "max_calls": base_requests + max(MAX_EXTRA_REQUESTS, base_requests // 2),
+        "max_calls": (base_requests
+                      + (1 if hasattr(backend, "fast") else 0)   # first chunk, redone
+                      + max(MAX_EXTRA_REQUESTS, base_requests // 2)),
         "deadline": time.monotonic() + MAX_TRANSLATION_SECONDS,
         "cancelled": cancelled or (lambda: False),
     }
 
-    for start in range(0, total, size):
+    for index, (start, end) in enumerate(ranges):
         if budget["cancelled"]():
             raise TranslationCancelled("translation cancelled")
-        batch = cues[start:start + size]
+        batch = cues[start:end]
+        engine_for_chunk = getattr(backend, "fast", backend) if index == 0 else backend
         try:
             translated.update(
-                _translate_batch(backend, batch, language, start, context,
-                                 budget=budget))
+                _translate_batch(engine_for_chunk, batch, language, start,
+                                 context, budget=budget))
         except (TranslationCancelled, TranslationBudgetExceeded):
             raise
         except TranslationError:
             kodi.log_exception("chunk starting at %d failed" % start)
         if on_progress is not None:
             try:
-                on_progress(min(start + size, total), total,
-                            _merge(cues, translated))
+                on_progress(end, total, _merge(cues, translated))
             except TypeError:
                 # Callers that only want the counts.
-                on_progress(min(start + size, total), total)
+                on_progress(end, total)
             except Exception:
                 kodi.log_exception("progress callback failed")
+
+    # The first chunk went to the fast model so the film had words on it in
+    # seconds, and it pays for that: measured, the lite model made a male
+    # speaker female ("אני יכולה") where the full model did not. Those lines
+    # have long since been read by now, but the file is kept and watched
+    # again, so they are redone on the full model - one request - and only a
+    # better answer replaces the quick one.
+    fast = getattr(backend, "fast", None)
+    if fast is not None and first and not budget["cancelled"]():
+        try:
+            translated.update(_translate_batch(
+                backend, cues[:first], language, 0, context, budget=budget))
+        except (TranslationCancelled, TranslationBudgetExceeded):
+            pass
+        except TranslationError:
+            kodi.log("kept the quick translation of the first %d lines" % first)
 
     completed = sum(1 for position in range(total)
                     if translated.get(str(position)))
@@ -246,8 +273,15 @@ def _translate_batch(backend, batch, language, offset, context="", depth=0,
         if not missing:
             return expected
         if len(missing) <= max(1, len(payload) // 10):
-            # Partial progress is safe to display, but final completion is
-            # measured only against expected cue keys by translate().
+            # A line or two dropped from an otherwise good reply. Ask again
+            # for exactly those lines, because translate() refuses a film
+            # with even one line missing - measured: a 300-line chunk came
+            # back 299 of 300 and the whole translation was thrown away.
+            # Re-sending the whole chunk would pay for 299 lines twice.
+            if depth < 4:
+                expected.update(_retry_missing(
+                    backend, batch, language, offset, context, missing,
+                    depth, budget))
             return expected
         last_error = "%d of %d entries came back empty" % (len(missing), len(payload))
         # A structurally valid partial reply usually means the batch is too
@@ -266,6 +300,31 @@ def _translate_batch(backend, batch, language, offset, context="", depth=0,
         return result
 
     raise TranslationError(last_error or "translation failed")
+
+
+def _retry_missing(backend, batch, language, offset, context, missing, depth,
+                   budget):
+    """Translate only the lines a reply left out, one run of them at a time."""
+    positions = sorted(int(key) - offset for key in missing)
+    runs, run = [], [positions[0]]
+    for position in positions[1:]:
+        if position == run[-1] + 1:
+            run.append(position)
+        else:
+            runs.append(run)
+            run = [position]
+    runs.append(run)
+    recovered = {}
+    for run in runs:
+        try:
+            recovered.update(_translate_batch(
+                backend, batch[run[0]:run[-1] + 1], language, offset + run[0],
+                context, depth + 1, budget))
+        except (TranslationCancelled, TranslationBudgetExceeded):
+            raise
+        except TranslationError:
+            kodi.log("could not recover %d dropped line(s)" % len(run))
+    return recovered
 
 
 def _parse_reply(text):

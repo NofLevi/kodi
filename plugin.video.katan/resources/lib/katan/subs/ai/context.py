@@ -140,11 +140,23 @@ def rank_translation_candidates(candidates, target):
         if identity:
             seen.add(identity)
         bonus = source_bonus(language) if target == "he" else 0
-        ranked.append(((candidate.get("score") or 0) + bonus,
+        ranked.append((_exact(candidate), (candidate.get("score") or 0) + bonus,
                        -position, language, candidate))
-    ranked.sort(key=lambda row: (-row[0], -row[1]))
-    return [(language, candidate) for _score, _position, language, candidate
-            in ranked]
+    ranked.sort(key=lambda row: (-row[0], -row[1], -row[2]))
+    return [(language, candidate)
+            for _exact_file, _score, _position, language, candidate in ranked]
+
+
+def _exact(candidate):
+    """1 for a subtitle proven to belong to this exact file, else 0.
+
+    It comes before the language bonus, not after it. A translation keeps its
+    source's timings exactly, so a hash-matched English subtitle becomes Hebrew
+    that fits by construction - and it was losing to a name-matched Arabic
+    one, 100 + 0 against 76 + 25, whose timing is a guess. The bonus exists to
+    choose between guesses, not to overrule a certainty.
+    """
+    return 1 if candidate.get("reason") == "hash" else 0
 
 
 def rank_translation_sources(winners, languages):
@@ -162,6 +174,7 @@ def rank_translation_sources(winners, languages):
             continue
         bonus = source_bonus(language) if target == "he" else 0
         score = (candidate.get("score") or 0) + bonus
-        candidates.append((score, language, candidate))
-    candidates.sort(key=lambda row: -row[0])
-    return [(language, candidate) for _score, language, candidate in candidates]
+        candidates.append((_exact(candidate), score, language, candidate))
+    candidates.sort(key=lambda row: (-row[0], -row[1]))
+    return [(language, candidate)
+            for _exact_file, _score, language, candidate in candidates]

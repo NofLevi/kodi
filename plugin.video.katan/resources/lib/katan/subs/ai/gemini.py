@@ -14,6 +14,21 @@ from ... import http, kodi, settings
 
 BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
+# A tested model first, and a chain behind it, because every single name has
+# failed in its own way. Google retires versions for new users: on 22
+# September 2026 gemini-2.5-flash and gemini-2.5-flash-lite answered every
+# request from a new key with HTTP 404, which made AI translation fail for
+# anyone with a new key while every test here passed. The -latest alias that
+# fixes that answered **503, "high demand"**, the same day. So the default is
+# the model measured to get Hebrew gender right, gemini-3.6-flash, and a model
+# that is retired (404), overloaded (503) or out of quota (429) hands the
+# request to the next name - each model has its own quota, so a spent one is
+# not the end of the film. gemini-pro-latest is never in the chain: it
+# answered 429 because Pro is not in the free tier.
+DEFAULT_MODEL = "gemini-3.6-flash"
+FAST_MODEL = "gemini-flash-lite-latest"
+CHAIN = (DEFAULT_MODEL, "gemini-flash-latest", FAST_MODEL)
+
 # Conservative pacing per model family, a little under the published limits.
 RATE_LIMITS = {
     "flash-lite": 14,
@@ -39,7 +54,7 @@ def api_key():
 
 
 def model():
-    return settings.get("subs.ai.gemini_model") or "gemini-2.5-flash"
+    return settings.get("subs.ai.gemini_model").strip() or DEFAULT_MODEL
 
 
 def configured():
@@ -54,9 +69,9 @@ def _requests_per_minute(name):
     return DEFAULT_RPM
 
 
-def _pace():
+def _pace(name=None):
     """Serialise requests so the whole process stays under the rate limit."""
-    interval = 60.0 / float(_requests_per_minute(model()))
+    interval = 60.0 / float(_requests_per_minute(name or model()))
     with _gate:
         now = time.time()
         wait = _next_slot[0] - now
@@ -66,13 +81,53 @@ def _pace():
         _next_slot[0] = now + interval
 
 
-def complete(system_prompt, prompt, timeout=(10, 90)):
-    """Send one prompt and return the text of the reply."""
+def complete(system_prompt, prompt, timeout=(10, 90), model_name=None):
+    """Send one prompt and return the text of the reply.
+
+    Tries the requested model and then the rest of CHAIN, stopping at the
+    first that answers. Only for a model that cannot serve the request -
+    retired, overloaded, out of quota. A bad key or a bad reply is not the
+    model's fault and is raised as it is.
+    """
+    first = model_name or model()
+    names = [first] + [name for name in CHAIN if name != first]
+    last = None
+    for name in names:
+        try:
+            return _complete(system_prompt, prompt, timeout, name)
+        except ModelUnavailable as error:
+            last = error
+            kodi.log("Gemini model %s could not take the request (%s)"
+                     % (name, error))
+    raise last
+
+
+class _Fast(object):
+    """The same engine on the quickest model, for the first chunk of a film.
+
+    Measured: the lite model returned 40 lines in 2.5 s where the full model
+    took 43 s for its first 100 - and nothing is on screen until the first
+    chunk is back. The rest of the film goes to the better model, which gets
+    the Hebrew gender right where the lite one did not.
+    """
+
+    def complete(self, system_prompt, prompt, timeout=(10, 90)):
+        return complete(system_prompt, prompt, timeout, model_name=FAST_MODEL)
+
+
+fast = _Fast()
+
+
+class ModelUnavailable(GeminiError):
+    """This model cannot take the request now: retired, overloaded or spent."""
+
+
+def _complete(system_prompt, prompt, timeout, name):
     key = api_key()
     if not key:
         raise InvalidKey("no Gemini key is configured")
 
-    _pace()
+    _pace(name)
     body = {
         "systemInstruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
@@ -82,16 +137,16 @@ def complete(system_prompt, prompt, timeout=(10, 90)):
         },
     }
     response = http.post(
-        "%s/%s:generateContent" % (BASE, model()),
+        "%s/%s:generateContent" % (BASE, name),
         params={"key": key}, json=body, timeout=timeout, retries=1,
         headers={"Content-Type": "application/json"})
 
     if response is None:
         raise GeminiError("no response from Gemini")
+    if response.status_code in (404, 429, 503):
+        raise ModelUnavailable("HTTP %s" % response.status_code)
     if response.status_code in (400, 403):
         raise InvalidKey("Gemini rejected the key (HTTP %s)" % response.status_code)
-    if response.status_code == 429:
-        raise GeminiError("Gemini rate limit reached")
     if response.status_code >= 400:
         raise GeminiError("Gemini returned HTTP %s" % response.status_code)
 
@@ -123,7 +178,10 @@ def test_key(key=None, model_name=None):
         "contents": [{"role": "user", "parts": [{"text": "Reply with: ok"}]}],
         "generationConfig": {"maxOutputTokens": 8},
     }
-    response = http.post("%s/%s:generateContent" % (BASE, model_name or model()),
+    # The fast alias, not the configured model: a retired model answers 404,
+    # and reporting that as "the key is invalid" sent people to make a new key
+    # that failed in exactly the same way.
+    response = http.post("%s/%s:generateContent" % (BASE, model_name or FAST_MODEL),
                          params={"key": key}, json=body, timeout=(5, 20),
                          retries=0, headers={"Content-Type": "application/json"})
     if response is None:

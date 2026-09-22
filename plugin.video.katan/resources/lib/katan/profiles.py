@@ -71,7 +71,7 @@ LOW_MEMORY = {
     # has no anonymous search left - not to save the device anything.
     "subs.provider.subsource": "false",
     "subs.cache_files": "30",
-    "subs.ai.chunk": "120",
+    "subs.ai.chunk": "100",
     "cache.max_mb": "25",
 
     # The custom screens stay on. See the note at the top of this file.
@@ -104,7 +104,7 @@ BALANCED = {
     # and has no anonymous search left. See subs/providers/subsource.py.
     "subs.provider.subsource": "false",
     "subs.cache_files": "60",
-    "subs.ai.chunk": "200",
+    "subs.ai.chunk": "100",
     "cache.max_mb": "50",
 
     "ui.poster_size": "w342",
@@ -136,7 +136,7 @@ POWERFUL = {
     # and has no anonymous search left. See subs/providers/subsource.py.
     "subs.provider.subsource": "false",
     "subs.cache_files": "200",
-    "subs.ai.chunk": "300",
+    "subs.ai.chunk": "100",
     "cache.max_mb": "200",
 
     "ui.poster_size": "w500",

@@ -106,11 +106,11 @@ DEFAULTS = {
     "subs.ai.gemini_key": "",
     "subs.ai.openrouter_key": "",
     "subs.ai.openrouter_model": "deepseek/deepseek-chat-v3-0324:free",
-    "subs.ai.gemini_model": "gemini-2.5-flash",
+    "subs.ai.gemini_model": "gemini-3.6-flash",
     "subs.ai.openai_url": "",
     "subs.ai.openai_key": "",
     "subs.ai.openai_model": "",
-    "subs.ai.chunk": "120",
+    "subs.ai.chunk": "100",
     "subs.cache_files": "30",
     # israeli vod
     "vod.channels_url": "",

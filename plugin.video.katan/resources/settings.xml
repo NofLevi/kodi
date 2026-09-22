@@ -674,7 +674,7 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ai.gemini_model" type="string" label="30073">
-                    <level>2</level><default>gemini-2.5-flash</default>
+                    <level>2</level><default>gemini-3.6-flash</default>
                     <control type="edit" format="string">
                         <heading>30073</heading>
                     </control>
@@ -742,8 +742,8 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ai.chunk" type="integer" label="30077">
-                    <level>2</level><default>120</default>
-                    <constraints><minimum>20</minimum><step>20</step><maximum>400</maximum></constraints>
+                    <level>2</level><default>100</default>
+                    <constraints><minimum>20</minimum><step>10</step><maximum>200</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
             </group>
