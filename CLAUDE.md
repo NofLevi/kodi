@@ -306,6 +306,13 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   healthy file, because a block already sitting where the global fit put it
   scores well at zero lag and is never searched at all; only a block that looks
   wrong pays for a wide search.
+
+  Measured on 22 September 2026, because no popular Kodi or Stremio add-on
+  re-times at all and this had to earn its place: over 350 titles with real
+  debrid streams, 12 had a hash-matched reference and 1 of them needed a
+  split - a Supernatural special, whose fit rose from 0.64 on one offset to
+  0.78 on two. One in twelve is a small sample, but it is a real gain on a
+  real file and costs nothing on the other eleven, so it stays.
 * `vod/` is Israeli television. Live channels and the on-demand catalogue are
   separate sections on purpose, because they are browsed differently. A
   programme **opens on its seasons** where the broadcaster has any, and the
@@ -371,7 +378,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1864 tests, all running against Kodi stubs, so no Kodi install is needed:
+1868 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1148,6 +1155,16 @@ A forced or signs-only embedded track is scored lower and labelled as such. It
 captions on-screen text rather than translating dialogue, so the automatic path
 skips it entirely and the chooser warns before the viewer picks it.
 
+**The automatic path is strictly Hebrew, then AI, then English**, each tried
+to the end before the next. Hebrew: the track inside the file, one saved from
+an earlier play, the best downloaded one that fits, then the best there is
+below the threshold - a Hebrew subtitle somebody made for this title comes
+ahead of one a model makes, which reverses what this did before. AI: from the
+source that fits best, then from anything at all. English: the file's own
+track, which is how every other anime add-on shows subtitles at all, then a
+downloaded one - which without an AI engine was never used, so a film with a
+good English file and no Hebrew played with nothing.
+
 `subs/embedded.py` owns the listing and both the chooser and the automatic path
 use it, because two implementations of "find the Hebrew track in this file"
 would answer differently the moment either changed.
@@ -1185,9 +1202,8 @@ fit.** With a translation engine configured, a release whose only
 well-fitting subtitle is in another language is shown as "AI subtitles" and
 ranked above a release whose Hebrew does not fit - never above Hebrew that
 clears the threshold. What it translates from is searched in a *second*
-round, and only when needed: when a film starts, once no Hebrew subtitle fits
-or the one that looked right fails its checks; in the picker, once no release
-has Hebrew that fits. That round asks for Arabic and English, plus the show's
+round, and only when needed: when a film starts, once there is no usable
+Hebrew subtitle at all; in the picker, once no release has Hebrew that fits. That round asks for Arabic and English, plus the show's
 own language when it is Chinese, French, Korean, Spanish, Italian, Turkish or
 Japanese - a Turkish drama is asked for Turkish, an American film is not
 asked for Korean. Choosing AI translation by hand asks for every language.
@@ -1215,9 +1231,9 @@ count so a split still has room, but only by half of it: the cap exists so one
 misbehaving model cannot turn a film into hundreds of requests.
 
 **The picker opens on three lists, as a comparison.** Up to ten releases
-ranked by their best Hebrew subtitle (NATIVE, green), up to ten by the best
-subtitle AI can translate from (LLM, violet, naming the source language), and
-up to five by their best English subtitle (ENGLISH, blue); the same release can
+ranked by their best Hebrew subtitle (NATIVE, blue), up to ten by the best
+subtitle AI can translate from (LLM, yellow, naming the source language), and
+up to five by their best English subtitle (ENGLISH, red); the same release can
 be in more than one. It is more than the "top-K only" eight on purpose: the
 point is to see which way of getting Hebrew works, and twenty-five list rows
 cost nothing next to artwork. The row chosen decides playback - LLM translates

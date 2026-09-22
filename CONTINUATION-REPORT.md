@@ -1,9 +1,11 @@
-# Continuation report — 17 September 2026
+# Continuation report — 22 September 2026
 
 The handoff for continuing Katan on another development host. Branch:
 `development`, level with `origin/development` at the time of writing. **No
-release was created and no version tag was added** — the last tag is still
-`v0.0.1`, and `python tools/release.py --dry-run` offers `v0.0.2`.
+release was created and no version tag was pushed** — the only tag is
+`v0.0.1`, which exists locally and is deliberately not on GitHub yet (pushing
+a `v*` tag runs `release.yml` and publishes). `python tools/release.py
+--dry-run` offers `v0.0.2`.
 
 Read `CLAUDE.md` first, then `AGENTS.md`, then this file. `SUBTITLE-LOG.md`
 has the subtitle measurements and the release procedure; `NIGHT-LOG.md` has
@@ -11,44 +13,143 @@ the earlier real-device work.
 
 ## Before anything else on a new host
 
-* **History was rewritten** in mid-September. A clone made before then will
-  not fast-forward: every commit has a new hash. Compare content, not hashes,
-  and reset to `origin/development` rather than merging, or every commit
-  arrives twice.
-* **Hosting is GitHub Pages, not Cloudflare.** The repository is public,
-  releases publish to `noflevi.github.io/kodi`, the in-add-on updater reads
-  `github.com/NofLevi/kodi/releases/latest/download/addons.xml`, and the test
-  channel is the `test-channel` branch. Publishing needs no secrets. Anything
-  mentioning `wrangler`, `.cf-token` or `pages.dev` is history.
-* **Not in git, copy by hand if wanted:** `subtitles.jsonl` (422 surveyed
-  titles, the source of every subtitle number quoted), `.kodi-test/` (portable
-  Kodi, `python tools/setup_kodi.py` rebuilds it).
+* **History was rewritten again on 22 September, and the repository was
+  re-created.** Every commit now has one author identity, the personal one,
+  and no co-author trailer. A clone from before that date shares no commit
+  ids with this one: **delete it and clone fresh** — pulling would merge the
+  two histories and bring every commit back twice under the old identities.
+* **Set the commit identity before the first commit.** On a machine signed
+  into Windows with a work account, Git for Windows silently takes the work
+  sign-in as the author when `user.email` is unset — that is how the wrong
+  address got into the history. Set `user.name`/`user.email` for this repo
+  (or an `includeIf gitdir` rule for the folder) and check with
+  `git var GIT_AUTHOR_IDENT` before committing.
+* **The repository is private for now.** Kodi fetches anonymously and GitHub
+  Pages on a private repository needs a paid plan, so until it is made public
+  and Pages is set to "GitHub Actions", `noflevi.github.io/kodi` answers 404
+  and no device can install or update. The address is unchanged, so installed
+  devices recover as soon as a release is published there.
+* **Hosting is GitHub Pages, not Cloudflare.** Releases publish to
+  `noflevi.github.io/kodi`, the in-add-on updater reads
+  `github.com/NofLevi/kodi/releases/latest/download/addons.xml`, the test
+  channel is the `test-channel` branch, and publishing needs no secrets.
+* **Not in git, copy by hand if wanted:** `subtitles.jsonl` and
+  `.survey-subtitles-2026-09.jsonl` (the subtitle surveys), `split.jsonl` (the
+  picker survey), `.kodi-test/` (`python tools/setup_kodi.py` rebuilds it).
 
 ## Current verification state
 
-* **1,828 tests pass** (`python -m pytest tests`, Windows, Python 3.11, about
-  75 s).
-* Every Python file changed since the 10 September report parses under
-  **Python 3.8** grammar (`ast.parse(..., feature_version=(3, 8))`, 22 files) —
-  the suite itself ran on 3.11, so this is the check that stands in for Kodi's
-  interpreter. CI's 3.8 matrix has not been run for this batch.
-* Benchmark (`python tools/bench.py`): total 74 ms, `outlook.annotate` 18 ms,
-  `sync.synchronise` 38 ms — no regression.
-* No e2e or GitHub workflow was run, per the standing instruction: those run
-  before a release, not after commits.
+* **1,868 tests pass** (`python -m pytest tests`, Windows, Python 3.11, about
+  85 s). `python tools/build.py --check` is valid.
+* No e2e or GitHub workflow was run, per the standing instruction.
+* Nothing in this batch has been watched in a real Kodi; all of it is logic
+  proven against the stubs and, where marked, against live services.
 
 ## What this batch changed, and how each was checked
 
+### The automatic subtitle order is strictly Hebrew, then AI, then English
+
+* **Hebrew:** the track inside the file, one saved from an earlier play, the
+  best downloaded one that fits (70+, verified against a hash reference when
+  there is one), then the best there is *below* the threshold. That last step
+  used to come after AI translation; a Hebrew subtitle somebody made now wins
+  over one a model makes. *Deliberate reversal, the owner's decision.*
+* **AI:** the second search for sources (Arabic, English, plus the show's own
+  language for zh/fr/ko/es/it/tr/ja), translation from the best fit, then the
+  last-resort translation from anything.
+* **English:** the file's own track, then a **downloaded English subtitle**.
+  Before this, without an AI engine, a film with a good English file and no
+  Hebrew played with nothing, and an anime episode with English inside the
+  file played with that track switched off.
+* *Checked:* new pipeline tests for each part, and the full suite.
+
+### The picker's three lists recoloured
+
+* NATIVE Hebrew **blue** `FF6CB8FF`, LLM **yellow** `FFFFD23F`, ENGLISH
+  **red** `FFFF7373`, chosen by contrast ratio against the picker's real row
+  textures (at least 4.5:1 focused, 7:1 plain), with a black label shadow for
+  a bright frame behind the window. *Not yet seen in Kodi.*
+
+### Two episode-matching fixes, for every provider
+
+* `S01E66` is the 66th episode counted from the first — how Hikaru no Go's
+  TMDB 3x06 is filed — and was refused as the wrong episode.
+* A stated season now has to agree: "Oshi no Ko S3 - 06" was offered for
+  season one's episode six. These also decide which file plays from a torrent.
+
+### Anime subtitles: Jimaku built, measured, not shipped
+
+* Over 1,000 anime shows, Jimaku had about 58% of episodes and was the only
+  translatable subtitle for about one in six. Found by AniList id (via ARM,
+  with Kitsu episode counts for split seasons), 0 wrong over 143 replayed
+  episodes. **Dropped** by the owner: it only matters with AI on, Japanese is
+  the weakest source for Hebrew, and it costs a provider, a mapping and a key.
+  The record is in `CLAUDE.md`. Kitsunekko was rejected (5% as single files).
+* Research into a4kSubtitles, the OpenSubtitles.com add-on, the Stremio
+  protocol and the Stremio Jimaku add-ons: none of them re-times subtitles,
+  and for anime they rely on the English inside fansub files — which is what
+  the new English part of the order now does.
+
+### The subtitle survey was re-run with real streams
+
+`tools/survey_subtitles.py --count 400 --debrid`, 350 titles:
+
+* 86% of titles with sources had a subtitle candidate; none claimed the wrong
+  language; the name-score threshold of 70 let nothing badly fitting through
+  (median fit 0.93 at 70-89).
+* **`fit_segments` keeps its place:** 1 of 12 hash-referenced titles needed a
+  split (a Supernatural special, fit 0.64 on one offset, 0.78 on two). The
+  kill criterion was under 5%.
+* A zero for Fight Club late in the run was transient; asked again it returns
+  26 Hebrew and 24 English candidates.
+
+### Hardening
+
+* `subs/embedded.py` no longer crashes when Kodi's JSON-RPC answer is not the
+  expected shape, for both subtitle and audio streams.
+* `.gitignore` regained two broader rules that had narrowed over time:
+  `.env*` and `settings.local.*`.
+
+## Known gaps and next work
+
+1. **Make the repository public, set Pages to GitHub Actions, and cut a
+   release** (`python tools/release.py`, then push the tag). Until then no
+   device can install or update. Decide separately whether `v0.0.1` goes up
+   as a historical tag — pushing it also runs `release.yml`.
+2. **Clean `Application.Quit`** — still broken: the Katan window's plugin
+   invocation does not honour Kodi's abort.
+3. **Watch an AI translation end to end** with a real Gemini key.
+4. **See this batch in Kodi:** the picker colours, and an anime episode with
+   no Hebrew switching on its own English track.
+5. **Proposed, not built** (the owner to choose):
+   * search Spanish, French and Russian too in the automatic AI round, so a
+     gender-marking source is fetched when there is no Arabic;
+   * SubDL and Podnapisi as English providers (what a4kSubtitles uses beyond
+     OpenSubtitles and BSPlayer);
+   * ask OpenSubtitles by the episode's own IMDb id — measured +4% of anime
+     episodes overall, +13% of popular ones.
+6. **Retire the AnimeTosho *source* provider before October 2026**, when its
+   feed server shuts down; Nyaa and Torrentio already cover anime.
+7. Still open from before: UI worker lifecycle in Search/Home/Auth, update
+   authenticity (signed manifest), Pastebox is plain LAN HTTP, kids PIN
+   lifecycle, device capability filtering, and **physical validation on the
+   U4 projector and the Mi Box**, which is what this add-on exists for.
+
+## Previous batch — 17 September 2026
+
+Commit ids from that report no longer exist after the rewrite and have been
+removed; the descriptions stand.
+
 ### Fixed — found in a real Kodi 21 on Windows
 
-* **Every OpenSubtitles search failed on a real device** (`3bcb2f5`). The
+* **Every OpenSubtitles search failed on a real device**. The
   stdlib HTTP path flattened response headers into a case-sensitive `dict`;
   OpenSubtitles sends `content-encoding: gzip`, so gzip bytes reached the JSON
   parser and every language logged "did not answer". Machines with `requests`
   never saw it. Responses now keep `email.message.Message`, case-insensitive
   for every header. *Checked:* live on the no-`requests` path, Hikaru no Go
   1x05 now returns subtitles; regression test added.
-* **The search box could not be typed into on a keyboard** (`89ff406`). Kodi
+* **The search box could not be typed into on a keyboard**. Kodi
   21's `Action` has no character, so keys ran the keymap — one letter opened
   "No PVR add-on enabled", Backspace walked out of Katan. The box is now an
   `edit` control, focused on open. *Checked in Kodi with real keystrokes:*
@@ -57,12 +158,12 @@ the earlier real-device work.
   keyboard on an edit control — with a query typed it is closed and the search
   runs. *Not fully confirmed:* the Enter-to-search path, because the test
   harness could not reliably keep Kodi in the foreground.
-* **The Gemini key field was hidden at Expert level** (`0773633`); now shown at
+* **The Gemini key field was hidden at Expert level**; now shown at
   every level under AI translation.
 
 ### Subtitles and AI translation — logic tested, not yet watched in Kodi
 
-* **AI-native source selection** (`aa7b3fa`, `34dd167`). With a translation
+* **AI-native source selection**. With a translation
   engine configured, a release whose best-fitting subtitle is in another
   language shows "AI subtitles NN% (estimate)" and ranks above a release whose
   Hebrew does not fit — never above Hebrew that clears the threshold. The
@@ -80,7 +181,7 @@ the earlier real-device work.
   Arabic. **Never checked:** that Gemini returns good Hebrew. That is the first
   thing to watch on a real playback.
 
-### A title's own language — `bb8f4ef`, `403fdf6`
+### A title's own language
 
 * **It was being lost for every series.** `build_meta` put the episode in
   `meta["item"]`, and TMDB episodes carry no language, so the ranking rule that
@@ -110,57 +211,14 @@ the earlier real-device work.
   find-and-replaced into sentences like "Cloudflare Pages publishes at an
   unguessable pages.dev address - noflevi.github.io/kodi").
 
-## Known gaps and next work
-
-Status against the 10 September list, then what this batch added.
-
-1. ~~Recreate and track `AGENTS.md`~~ — **done**, tracked.
-2. ~~Kodi modal/auto-return invocation loop~~ — **fixed** in `366fa40`; not
-   re-observed on Kodi 21.
-3. Full unfiltered suite after pull — **done here**, 1,828 passing. Ruff,
-   compileall, package build and ZIP-member checks were not re-run.
-4. Run under **Kodi 21** — partly: this host is Kodi 21.3 portable on Windows.
-5. **Clean `Application.Quit` — reproduced as broken.** On 17 September Quit
-   left Kodi running: `CPythonInvoker(... main.py): script didn't stop in 5
-   seconds - let's kill it`, the process still alive 40 s later, and no
-   `[Katan] service stopped` line. The Katan window's plugin invocation does
-   not honour Kodi's abort. This is the highest-priority runtime bug left.
-6. UI worker lifecycle in Search/Home/Auth — still open.
-7. Update authenticity (signed manifest, pinned key) — still open.
-8. Pastebox is plain LAN HTTP — still open.
-9. Entitlement values staying volatile in a real flow — still open.
-10. **Physical ARM validation (U4 projector, Mi Box) — still not done**, and
-    it is what this add-on exists for. Everything above is proven on Windows
-    at best.
-11. ~~Next source after a decoder failure~~ (`f1821c2`), ~~local resume~~
-    (`6a173b9`), ~~watchlist removal~~ (`366fa40`), ~~subtitle runtime
-    completeness~~ (`c7430e8`) — **done**. Kids PIN lifecycle and device
-    capability filtering remain.
-
-New from this batch:
-
-12. **Watch an AI translation end to end** with a real Gemini key, on a
-    playback with no fitting Hebrew subtitle.
-13. **See the four original-language features in Kodi**: the dramas row, the
-    "Hebrew audio" badge on an Israeli title, a dub ranked below its original
-    in the picker, and the audio track switching on a dual-audio anime file.
-14. **Re-run the subtitle survey.** Its numbers — 29% of titles with sources
-    get no subtitle, 48% of anime, 47% of foreign-language — were measured
-    before the header fix, which alone may change them substantially, and
-    before absolute anime numbering and the AI-native sources.
-15. **Subtitle coverage**: Podnapisi and SubDL (anonymous, strong on European
-    languages) are still not providers; 11% of downloaded subtitles failed to
-    parse and `failed_bytes` now records why on the next survey.
-16. **`fit_segments` still has a kill criterion**: re-survey the seven
-    badly-timed subtitles in `SUBTITLE-LOG.md`; if it repairs fewer than about
-    two, delete it.
-17. **Cut v0.0.2** once 5, 12 and 13 have been looked at, then install it on
-    the projector — the only place 10 can be closed.
-
 ## Safety and release state
 
-* No credentials, signed URLs, cookies, entitlement tickets or private request
-  data belong in this report or any tracked file. The repository is public.
+* No credentials, signed URLs, cookies, entitlement tickets, private request
+  data or work identities belong in this report or any tracked file. Before
+  the 22 September push every tracked file and every version in history was
+  scanned for tokens, private keys, API keys and email addresses: the only
+  real key is `tmdb.BUNDLED_KEY`, a deliberately public read-only catalogue
+  key, and the only addresses are `example.com` fixtures.
 * A future `AGENTS.md` must stay source-only and outside generated ZIPs and
   `repo/`.
 * Pushing `development` does not publish. Do not create or push a version tag

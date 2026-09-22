@@ -92,6 +92,7 @@
                     <font>font12</font>
                     <align>right</align>
                     <textcolor>grey</textcolor>
+                    <shadowcolor>FF000000</shadowcolor>
                     <label>$INFO[ListItem.Property(subs)]</label>
                 </control>
             </itemlayout>
@@ -140,6 +141,7 @@
                     <font>font12</font>
                     <align>right</align>
                     <textcolor>grey</textcolor>
+                    <shadowcolor>FF000000</shadowcolor>
                     <label>$INFO[ListItem.Property(subs)]</label>
                 </control>
             </focusedlayout>

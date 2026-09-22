@@ -78,7 +78,9 @@ def _streams_via_jsonrpc():
     except (ValueError, TypeError):
         return []
 
-    result = (payload or {}).get("result") or {}
+    result = payload.get("result") if isinstance(payload, dict) else None
+    if not isinstance(result, dict):
+        return []                          # no player, or an answer of another shape
     out = []
     for entry in result.get("subtitles") or []:
         out.append({
@@ -143,7 +145,9 @@ def audio_streams():
     except (ValueError, TypeError):
         return []
 
-    result = (payload or {}).get("result") or {}
+    result = payload.get("result") if isinstance(payload, dict) else None
+    if not isinstance(result, dict):
+        return []
     current = (result.get("currentaudiostream") or {}).get("index")
     out = []
     for entry in result.get("audiostreams") or []:

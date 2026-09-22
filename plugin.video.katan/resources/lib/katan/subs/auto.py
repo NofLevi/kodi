@@ -1,11 +1,14 @@
 """Choosing and applying one subtitle when playback starts.
 
-The order is deliberate, and each step is cheaper than the one after it:
+Strictly in three parts, and each is tried to the end before the next:
 
-1. A Hebrew track already inside the file. Free, and perfectly timed.
-2. A file-hash match. Two range requests, and a guaranteed correct timing.
-3. The best release-name correlation above the threshold.
-4. AI translation of the best English match, which inherits its timings.
+1. Hebrew. The track inside the file, one saved from an earlier play, the
+   best downloaded one that fits - checked against a file-hash match when
+   there is one - and then the best there is below the threshold.
+2. AI. Translated from the source that fits best, Arabic preferred for its
+   gender marking, and then from anything at all. Only with an engine.
+3. English. The track inside the file, which is how every other anime
+   add-on shows subtitles at all, and then a downloaded one.
 
 The pipeline stops at the first step that succeeds, so a normal playback
 downloads one small file and often none at all. When a trustworthy reference
@@ -161,9 +164,19 @@ def on_playback_started(player, meta, cancelled=None):
         return
 
     kodi.log("looking for %s subtitles" % wanted)
+
+    def embedded_track(code):
+        committed, selected = coordinator.commit(
+            generation, lambda: use_embedded(player, code, is_cancelled))
+        return committed and selected
+
     path, report = find_and_prepare(meta, languages, player,
                                     cancelled=is_cancelled,
-                                    translation_generation=generation)
+                                    translation_generation=generation,
+                                    embedded=embedded_track)
+    if report.get("embedded") and not is_cancelled():
+        kodi.notify(kodi.localize(32350))
+        return
     if is_cancelled() or not path:
         kodi.log("no usable subtitle was found: %s" % report.get("reason"))
         return
@@ -309,8 +322,16 @@ def search_candidates(meta, languages, video_hash="", split_languages=False):
 
 
 def find_and_prepare(meta, languages, player=None, cancelled=None,
-                     translation_generation=None):
-    """Find, download, verify and store one subtitle. Returns (path, report)."""
+                     translation_generation=None, embedded=None):
+    """Find, download, verify and store one subtitle. Returns (path, report).
+
+    Strictly in three parts, each tried to the end before the next:
+    Hebrew - a fitting one, then the best there is below the threshold; then
+    AI - translated from what fits best, then from anything at all; then
+    English - the file's own track, then a downloaded one. `embedded(code)`
+    switches on the file's own track in that language and says whether it
+    did; the report then carries `embedded` and the path is empty.
+    """
     from . import consensus
 
     is_cancelled = cancelled or (lambda: False)
@@ -331,9 +352,12 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
         # catalogue and translate whatever it does have - which for anything
         # outside the mainstream is the difference between watching it and
         # not.
-        return _last_resort(meta, languages, report, player, video_hash,
-                            "no candidates", cancelled, downloads,
-                            generation=translation_generation)
+        path, report = _last_resort(meta, languages, report, player, video_hash,
+                                    "no candidates", cancelled, downloads,
+                                    generation=translation_generation)
+        if path or is_cancelled():
+            return path, report
+        return _english(meta, languages, [], {}, report, downloads, 0, embedded)
 
     target = matcher.target_from(meta)
     threshold = settings.get_int("subs.threshold", 70)
@@ -393,28 +417,9 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
         report["reason"] = "native row: no %s subtitle could be used" % wanted
         return "", report
 
-    # No Hebrew subtitle fits, or the one that looked right failed its checks.
-    # Only now is it worth asking for what AI could translate from: while a
-    # fitting Hebrew subtitle exists those requests buy nothing.
-    extra = translation_source_languages(meta, languages)
-    if extra and not is_cancelled():
-        more = search_candidates(meta, extra, video_hash)
-        seen = {matcher.candidate_key(candidate) for candidate in candidates}
-        candidates.extend(candidate for candidate in more
-                          if matcher.candidate_key(candidate) not in seen)
-        languages = list(languages) + extra
-        winners, _ranked = matcher.best(candidates, target, threshold,
-                                        video_hash, languages)
-        winner = winners.get(wanted)
-
-    path, report = translate_fallback(
-        meta, winners, languages, report, player, cancelled=cancelled,
-        generation=translation_generation, downloads=downloads)
-    if path:
-        return path, report
-
-    # Last resort: the best available match, even below the threshold, because
-    # an imperfect subtitle beats none and the viewer can still switch it off.
+    # Still Hebrew: the best there is, below the threshold if it has to be,
+    # before any translation. A Hebrew subtitle somebody made for this title
+    # comes ahead of one a model makes, and the viewer can switch it off.
     if winner:
         chosen, cues = _first_usable(_ranked, wanted, downloads)
         if cues:
@@ -424,9 +429,58 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
                 report["reason"] = "below threshold, used anyway"
                 return store(meta, wanted, cues), report
 
-    return _last_resort(meta, languages, report, player, video_hash,
-                        "nothing usable", cancelled, downloads,
-                        generation=translation_generation)
+    # No Hebrew at all. Only now is it worth asking for what AI could
+    # translate from: while any Hebrew exists those requests buy nothing.
+    extra = translation_source_languages(meta, languages)
+    if extra and not is_cancelled():
+        more = search_candidates(meta, extra, video_hash)
+        seen = {matcher.candidate_key(candidate) for candidate in candidates}
+        candidates.extend(candidate for candidate in more
+                          if matcher.candidate_key(candidate) not in seen)
+        ai_languages = list(languages) + extra
+        winners, _ranked = matcher.best(candidates, target, threshold,
+                                        video_hash, ai_languages)
+    else:
+        ai_languages = languages
+
+    path, report = translate_fallback(
+        meta, winners, ai_languages, report, player, cancelled=cancelled,
+        generation=translation_generation, downloads=downloads)
+    if path:
+        return path, report
+    path, report = _last_resort(meta, languages, report, player, video_hash,
+                                "nothing usable", cancelled, downloads,
+                                generation=translation_generation)
+    if path or is_cancelled():
+        return path, report
+    return _english(meta, languages, _ranked, winners, report, downloads,
+                    runtime, embedded)
+
+
+def _english(meta, languages, ranked, winners, report, downloads, runtime,
+             embedded=None):
+    """The last part: a subtitle in the next language down, as it is.
+
+    The file's own track first, because it is in time by construction - for
+    anime, the English a fansub release carries inside, which is how every
+    other anime add-on shows subtitles at all. Then a downloaded one, which
+    without an AI engine was never used: a film with a good English file on
+    OpenSubtitles and no Hebrew played with nothing.
+    """
+    for code in languages[1:]:
+        if embedded and embedded(code):
+            report["embedded"] = code
+            report["reason"] = "the file's own %s track" % code
+            return "", report
+        chosen, cues = _first_usable(ranked, code, downloads)
+        if cues:
+            cues, report = verify_and_sync(cues, winners, languages, report,
+                                           downloads, runtime)
+            if cues:
+                report["reason"] = "%s subtitle, nothing in %s" % (code, languages[0])
+                report["language"] = code
+                return store(meta, code, cues), report
+    return "", report
 
 
 def _last_resort(meta, languages, report, player, video_hash, reason,

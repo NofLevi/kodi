@@ -107,9 +107,11 @@ def test_an_unusable_top_match_falls_back_to_the_next_candidate(pipeline):
 
 
 
-def test_broken_accepted_match_does_not_jump_ahead_of_translation(
+def test_a_weak_hebrew_subtitle_comes_before_a_translation(
         pipeline, monkeypatch, settings_module):
-    """A weak Hebrew guess stays behind a strong translatable English match."""
+    """Strictly Hebrew, then AI, then English: a Hebrew subtitle somebody made
+    for this title, even one below the threshold, comes ahead of one a model
+    makes. It used to be the other way round."""
     settings_module.set("subs.ai.enabled", "true")
     exact = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
     weak = "Some.Unrelated.Release.2019.DVDRip-XYZ"
@@ -122,14 +124,13 @@ def test_broken_accepted_match_does_not_jump_ahead_of_translation(
 
     from katan.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
-    monkeypatch.setattr(
-        translator, "translate",
-        lambda cues, language, on_progress=None, meta=None, **kwargs:
-        [srt.Cue(c.index, c.start, c.end, "HE " + c.text) for c in cues])
+    monkeypatch.setattr(translator, "translate", lambda *a, **k: pytest.fail(
+        "translated while a Hebrew subtitle existed"))
 
     path, report = auto.find_and_prepare(MOVIE, ["he", "en"])
-    assert path and report["translated"] is True
-    assert weak not in pipeline["downloaded"]
+    assert path.endswith(".he.srt") and report["translated"] is False
+    assert report["reason"] == "below threshold, used anyway"
+    assert pipeline["searched_languages"] == [["he", "en"]],         "no AI sources are searched while Hebrew exists"
 
 
 def test_broken_candidates_share_one_three_download_budget(pipeline):
@@ -576,7 +577,7 @@ def test_automatic_search_claims_translation_before_provider_work(
     observed = []
 
     def search(meta, languages, player=None, cancelled=None,
-               translation_generation=None):
+               translation_generation=None, **kwargs):
         observed.append(coordinator.current(translation_generation))
         coordinator.begin()  # A manual translation starts while providers run.
         observed.append(cancelled())
@@ -891,13 +892,63 @@ def test_translation_sources_are_not_searched_while_hebrew_fits(pipeline, monkey
     assert pipeline["searched_languages"] == [["he", "en"]]
 
 
-def test_translation_sources_are_searched_once_hebrew_does_not_fit(pipeline, monkeypatch):
+def test_translation_sources_are_searched_once_no_hebrew_exists(pipeline, monkeypatch):
     from katan.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
     name = "Dune.Part.Two.2024.2160p.BluRay.x265-OTHER"
-    pipeline["candidates"] = [candidate(name)]
+    pipeline["candidates"] = [candidate(name, language="en")]
     pipeline["downloads"][name] = srt_bytes()
 
     auto.find_and_prepare(dict(MOVIE, original_language="fr"), ["he", "en"])
     assert pipeline["searched_languages"][:2] == [["he", "en"], ["ar", "fr"]]
 
+
+def test_without_ai_a_downloaded_english_subtitle_is_used(pipeline):
+    """It used to be translation material only, so a film with a good English
+    file and no Hebrew played with nothing when there was no AI engine."""
+    name = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    pipeline["candidates"] = [candidate(name, language="en")]
+    pipeline["downloads"][name] = srt_bytes()
+
+    path, report = auto.find_and_prepare(MOVIE, ["he", "en"])
+    assert path.endswith(".en.srt")
+    assert report["language"] == "en" and report["translated"] is False
+
+
+def test_the_files_own_english_comes_before_a_downloaded_one(pipeline):
+    """In time by construction, which a download is not."""
+    name = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    pipeline["candidates"] = [candidate(name, language="en")]
+    pipeline["downloads"][name] = srt_bytes()
+    asked = []
+
+    path, report = auto.find_and_prepare(
+        MOVIE, ["he", "en"], embedded=lambda code: asked.append(code) or True)
+    assert asked == ["en"] and path == "" and report["embedded"] == "en"
+    assert pipeline["downloaded"] == [], "nothing downloaded once the file had it"
+
+
+def test_an_embedded_english_track_is_used_when_nothing_else_exists(pipeline, monkeypatch, settings_module):
+    """A fansub release carries English inside. With no Hebrew anywhere the
+    add-on used to stop, leaving that track switched off."""
+    settings_module.set("subs.embedded_first", "true")
+    asked = []
+    monkeypatch.setattr(auto, "use_embedded",
+                        lambda player, language, cancelled=None: asked.append(language) or language == "en")
+    monkeypatch.setattr(auto, "cached_subtitle", lambda meta, language: "")
+    auto.on_playback_started(object(), {"title": "Frieren", "type": "episode",
+                                        "original_language": "ja"})
+    assert asked == ["he", "en"], "Hebrew inside the file first, English only after the search"
+
+
+def test_a_found_hebrew_subtitle_is_not_replaced_by_embedded_english(monkeypatch, settings_module):
+    settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en",
+                              "subs.embedded_first": "false"})
+    asked = []
+    monkeypatch.setattr(auto, "use_embedded",
+                        lambda player, language, cancelled=None: asked.append(language) or True)
+    monkeypatch.setattr(auto, "cached_subtitle", lambda meta, language: "")
+    monkeypatch.setattr(auto, "find_and_prepare",
+                        lambda *a, **k: ("/tmp/film.he.srt", {"applied": True}))
+    auto.on_playback_started(object(), {"title": "Film", "original_language": "en"})
+    assert asked == []

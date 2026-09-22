@@ -214,7 +214,10 @@ def _subtitle_badge(source, outlook=None):
 
 
 # The two ways of getting Hebrew onto a release, told apart at a glance.
-MODE_COLOURS = {"native": "FF5BD18B", "llm": "FFB38CFF", "english": "FF6FB7FF"}
+# Hebrew blue, AI yellow, English red. Chosen for contrast on the picker's own
+# rows, not for looks: each is at least 4.5:1 on a highlighted row and 7:1 on
+# a plain one, and the label carries a black shadow for a bright frame behind.
+MODE_COLOURS = {"native": "FF6CB8FF", "llm": "FFFFD23F", "english": "FFFF7373"}
 MODE_TAGS = {"native": 32539, "llm": 32540, "english": 32543}
 
 

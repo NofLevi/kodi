@@ -59,13 +59,14 @@ portable_data/
 **/userdata/
 **/addon_data/
 settings.local.xml
+settings.local.*
 *.local.xml
 secrets.*
 credentials.*
 *_secrets.*
 *.secret
 .env
-.env.*
+.env*
 *.env
 
 # keys and certificates
