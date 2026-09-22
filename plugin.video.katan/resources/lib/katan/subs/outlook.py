@@ -287,8 +287,18 @@ def english_candidates(meta, already=None):
 
 
 def _order(source, fit, index):
-    """Cached first, then fit, then the order the ranking already gave."""
-    return (0 if source.get("cached") else 1, -fit, index)
+    """Cached, then fit, then resolution, then the smaller file.
+
+    Written out rather than left to the ranking's own order, because that
+    order also weighs the Hebrew outlook and a dozen other signals - so two
+    releases with the same fit and the same resolution came out in whichever
+    order those put them, and the 8 GB one could sit above the 2 GB one. With
+    everything that matters to the viewer equal, the smaller file is the
+    better answer on a box with little storage and a wifi connection.
+    """
+    return (0 if source.get("cached") else 1, -fit,
+            -settings.resolution_rank(source.get("quality")),
+            source.get("size") or 0, index)
 
 
 def for_sources(meta, sources, refresh=False):

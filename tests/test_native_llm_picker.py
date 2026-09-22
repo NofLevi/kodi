@@ -193,3 +193,20 @@ def test_the_player_offers_ai_into_hebrew_first_and_english_second(settings_modu
     settings_module.set("subs.languages", "he,en")
     assert service.ai_targets() == ["he", "en"]
 
+
+def test_equal_fit_and_resolution_puts_the_smaller_file_first(found):
+    """In every list: with the same fit and resolution, the lower storage."""
+    found["llm"] = subs("en", EXACT) + subs("ar", EXACT)
+    big = source(EXACT, 1, size=8 * 1024 ** 3)
+    small = source(EXACT, 2, size=2 * 1024 ** 3)
+    for rows in outlook.split_rows(META, [big, small]):
+        assert [row["hash"] for row in rows] == [small["hash"], big["hash"]]
+
+
+def test_resolution_still_comes_before_size(found):
+    found["llm"] = subs("en", EXACT)
+    small_720 = source(EXACT, 1, quality="720p", size=1 * 1024 ** 3)
+    big_1080 = source(EXACT, 2, quality="1080p", size=8 * 1024 ** 3)
+    native, _llm, _english = outlook.split_rows(META, [small_720, big_1080])
+    assert native[0]["hash"] == big_1080["hash"]
+
