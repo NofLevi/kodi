@@ -105,6 +105,7 @@ commitmsg.txt
 # survey output: generated data, and large
 survey.jsonl
 subtitles.jsonl
+split.jsonl
 .survey-*.jsonl
 .survey/
 .survey2/
