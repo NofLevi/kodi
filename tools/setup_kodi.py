@@ -168,29 +168,6 @@ def write_advanced_settings(portable):
     print("wrote advancedsettings.xml with debug logging on")
 
 
-def install_splash(portable):
-    """Katan's own art as Kodi's boot splash.
-
-    What Kodi shows while it starts is `special://home/media/splash.jpg`, and
-    that is the Kodi *home* directory rather than anything inside an add-on -
-    so it cannot ship in the zip, and it is installed here instead. It is
-    worth doing: the first thing a viewer sees should not be the Kodi logo on
-    a box that exists to run one add-on.
-
-    `fanart.jpg` is already 1280x720, which is the U4's native panel exactly.
-    """
-    media = os.path.join(portable, "media")
-    target = os.path.join(media, "splash.jpg")
-    source = os.path.join(ROOT, "plugin.video.katan", "resources", "media",
-                          "fanart.jpg")
-    if not os.path.isfile(source):
-        return
-    if not os.path.isdir(media):
-        os.makedirs(media)
-    shutil.copyfile(source, target)
-    print("installed Katan's splash at %s" % target)
-
-
 def main():
     portable = make_portable()
 
@@ -202,7 +179,6 @@ def main():
         make_portable()
 
     link_addons(portable)
-    install_splash(portable)
     write_advanced_settings(portable)
     enable_addons(portable)
 
