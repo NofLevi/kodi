@@ -338,6 +338,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -449,6 +467,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -562,6 +598,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -673,6 +727,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -786,6 +858,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -897,6 +987,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1010,6 +1118,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -1121,6 +1247,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1234,6 +1378,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -1345,6 +1507,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1458,6 +1638,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -1569,6 +1767,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1682,6 +1898,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -1793,6 +2027,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -1906,6 +2158,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -2017,6 +2287,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -2130,6 +2418,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -2241,6 +2547,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -2354,6 +2678,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -2465,6 +2807,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -2578,6 +2938,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -2689,6 +3067,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
@@ -2802,6 +3198,24 @@
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
                         </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
@@ -2913,6 +3327,24 @@
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
+                        </control>
+                        <!-- Every poster carries its name, not only the
+                             selected one. The title used to live in the
+                             focused layout alone, so a row showed one label
+                             and eleven anonymous posters - readable if you
+                             were already on the thing you wanted, useless for
+                             finding it. This one never scrolls; the focused
+                             copy does that. -->
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>grey</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
                         </control>
                     </itemlayout>
                     <focusedlayout width="190" height="286">

@@ -11,9 +11,12 @@ HTTP calls. Three jobs, all cheap:
 The loop wakes every second because the player monitor has to react quickly,
 but each job has its own interval and does nothing in between.
 """
+import os
+import shutil
 import time
 
 import xbmc
+import xbmcvfs
 
 from . import cache, catalog, kodi, settings
 
@@ -43,6 +46,68 @@ OPEN_TICK = 0.2           # how often to look, while we are still looking
 # its home for a frame or two between windows, and reopening on that would
 # fight every single navigation.
 LEFT_SETTLE = 1.5
+
+
+def install_splash():
+    """Katan's artwork as the picture Kodi boots on.
+
+    This is the one place a plain add-on can get in front of what Kodi draws.
+    `CUtil::GetSplashPath()` looks for `special://home/media/splash.jpg`
+    before its own bundled copy, so writing one there replaces the Kodi logo
+    for the whole of boot - add-on scanning, skin load, the lot, which on a
+    four-core A53 is the several seconds that actually feel slow. Kodi draws
+    it with `CAspectRatio::SCALE`, so it fills any panel without letterboxing.
+
+    It is **not** a way to skip Kodi's home screen, and nothing is. Kodi
+    activates the skin's first window before it starts service add-ons,
+    measured here at 281 ms ahead of us, and that order is fixed in
+    `Application.cpp`; `start="startup"` went in Kodi 18 and `autoexec.py` in
+    Kodi 19. Two ways past it were tried and are recorded so they are not
+    tried again:
+
+    * re-activating Kodi's own splash window, id 12997. The id is accepted
+      and `Activating window ID: 12997` is logged, and Home stays up. It will
+      not displace a live window.
+    * a `WindowXML` of our own, opened by the service, which *does* displace
+      home - but closing it again pops Kodi's window stack and takes Katan's
+      window down with it. Measured: katan-home deinited 530 ms after it
+      opened and Kodi fell back to its home screen. Leaving it open instead
+      puts it behind Katan, where Back would land on it.
+
+    A build like POV IL has a branded first screen because it forks the skin,
+    so that home screen *is* theirs - their repo ships `skin.povil.nox` and
+    leaves `lookandfeel.startupwindow` on plain 10000. That is the only real
+    answer, and it costs a skin to maintain forever.
+
+    Three things make writing this file safe to do unasked:
+
+    * `special://home/media` is outside the add-on folder, so an update does
+      not wipe it and `test_upgrade.py`'s rule about writing inside
+      `addon_path()` is untouched.
+    * It is written once, and never over a picture somebody else put there.
+    * It is its own file rather than the fanart, because a boot screen and a
+      backdrop are different jobs and should be changeable apart.
+
+    Failure is silently fine: a boot splash is decoration, and a read-only
+    filesystem is not worth a log line on every start.
+    """
+    try:
+        target_dir = xbmcvfs.translatePath("special://home/media/")
+        target = os.path.join(target_dir, "splash.jpg")
+        if os.path.exists(target) or os.path.exists(
+                os.path.join(target_dir, "splash.png")):
+            return False
+        source = os.path.join(kodi.addon_path(), "resources", "media",
+                              "splash.jpg")
+        if not os.path.isfile(source):
+            return False
+        if not os.path.isdir(target_dir):
+            os.makedirs(target_dir)
+        shutil.copyfile(source, target)
+        kodi.log("installed Katan's boot splash at %s" % target, kodi.LOG_INFO)
+        return True
+    except Exception:
+        return False
 
 
 class Service(xbmc.Monitor):
@@ -267,6 +332,8 @@ class Service(xbmc.Monitor):
 
     def run(self):
         kodi.log("service started, version %s" % kodi.addon_version(), kodi.LOG_INFO)
+        # Takes effect on the *next* boot, which is the nature of a splash.
+        install_splash()
         try:
             from .player import KatanPlayer
             self.player = KatanPlayer()
