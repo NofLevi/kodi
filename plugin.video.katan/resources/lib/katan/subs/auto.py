@@ -261,6 +261,10 @@ def search_candidates(meta, languages, video_hash="", split_languages=False):
     providers = _providers()
     if not providers:
         return []
+    memo_key = _search_memo_key(meta, languages, video_hash, split_languages)
+    remembered = _recall_search(memo_key)
+    if remembered is not None:
+        return remembered
     target = matcher.target_from(meta)
 
     def make(name, module, asked_languages=None):
@@ -318,7 +322,51 @@ def search_candidates(meta, languages, video_hash="", split_languages=False):
             if key:
                 seen.add(key)
             candidates.append(candidate)
+    _remember_search(memo_key, candidates)
     return candidates
+
+
+# One playback asks the providers the same questions several times over: once
+# for the picker's outlook, again for what AI could translate from, again for
+# the English rows, then again when the film actually starts, and again for
+# timing evidence. Measured by tracing one film, four to seven rounds - and
+# `outlook` is the only one of them that cached anything, under a key the
+# others never match.
+#
+# So this is a short memo, not a cache. It exists to stop one playback asking
+# twice, and nothing longer: a minute is far more than the seconds those
+# rounds span, and far less than anything a viewer would notice as stale.
+_SEARCHES = {}
+_SEARCH_TTL = 60.0
+_SEARCH_MAX = 8
+
+
+def _search_memo_key(meta, languages, video_hash, split_languages):
+    ids = meta.get("ids") or {}
+    return (ids.get("tmdb"), ids.get("imdb"), meta.get("season"),
+            meta.get("episode"), tuple(languages), bool(video_hash),
+            bool(split_languages))
+
+
+def _recall_search(key):
+    held = _SEARCHES.get(key)
+    if not held:
+        return None
+    when, found = held
+    if time.time() - when > _SEARCH_TTL:
+        _SEARCHES.pop(key, None)
+        return None
+    # Copies, because `matcher.rank` writes its score onto every candidate it
+    # is given and the next caller must not inherit the last one's opinion.
+    return [dict(candidate) for candidate in found]
+
+
+def _remember_search(key, candidates):
+    if not candidates:
+        return          # a failure is not a result - see outlook.candidates
+    if len(_SEARCHES) >= _SEARCH_MAX:
+        _SEARCHES.clear()
+    _SEARCHES[key] = (time.time(), [dict(c) for c in candidates])
 
 
 def find_and_prepare(meta, languages, player=None, cancelled=None,

@@ -504,3 +504,55 @@ def test_a_provider_may_not_return_an_unbounded_candidate_list():
     from katan.subs.providers import ktuvit
 
     assert ktuvit.MAX_RESULTS <= 60
+
+
+# --------------------------------------------------------------------------
+# the same question is not worth asking twice
+# --------------------------------------------------------------------------
+
+
+def test_one_playback_asks_the_providers_once_per_question(providers):
+    """Tracing one film found the providers asked four to seven times.
+
+    The picker's outlook, then what AI could translate from, then the English
+    rows, then the search when the film actually starts, then timing evidence
+    - and `outlook` was the only one caching anything, under a key none of the
+    others match. On a projector each round is real seconds of somebody's
+    evening.
+    """
+    wizdom = FakeProvider("wizdom", [candidate("Pulp.Fiction.1994.1080p")])
+    providers(wizdom=wizdom, bsplayer=FakeProvider("bsplayer", []),
+              opensubtitles_rest=FakeProvider("opensubtitles_rest", []))
+
+    first = auto.search_candidates(MOVIE, ["he", "en"])
+    second = auto.search_candidates(MOVIE, ["he", "en"])
+
+    assert wizdom.searched == 1, "asked %d times" % wizdom.searched
+    assert [c["release"] for c in second] == [c["release"] for c in first]
+    assert second[0] is not first[0], \
+        "a remembered candidate must be a copy - the matcher writes its score on"
+
+
+def test_a_different_question_is_still_asked(providers):
+    wizdom = FakeProvider("wizdom", [candidate("Pulp.Fiction.1994.1080p")])
+    providers(wizdom=wizdom, bsplayer=FakeProvider("bsplayer", []),
+              opensubtitles_rest=FakeProvider("opensubtitles_rest", []))
+
+    auto.search_candidates(MOVIE, ["he", "en"])
+    auto.search_candidates(MOVIE, ["ar", "es"])          # the AI round
+    auto.search_candidates(dict(MOVIE, season=2, episode=3), ["he", "en"])
+
+    assert wizdom.searched == 3
+
+
+def test_a_search_that_found_nothing_is_asked_again(providers):
+    """A failure is not a result. Remembering "none" would turn one provider
+    outage into a whole playback with no subtitles, and the next round is
+    exactly where it would have recovered."""
+    empty = FakeProvider("wizdom", [])
+    providers(wizdom=empty, bsplayer=FakeProvider("bsplayer", []),
+              opensubtitles_rest=FakeProvider("opensubtitles_rest", []))
+
+    assert auto.search_candidates(MOVIE, ["he", "en"]) == []
+    assert auto.search_candidates(MOVIE, ["he", "en"]) == []
+    assert empty.searched == 2

@@ -44,6 +44,10 @@ def kodi_environment(tmp_path):
 
     from katan import cache, kodi
     from katan.meta import tmdb
+    from katan.subs import auto as _auto
+    # The subtitle search memoises a playback's repeated rounds in the
+    # process, so it is per-test state like the caches around it.
+    _auto._SEARCHES.clear()
 
     # The add-on ships a TMDB key so a fresh install has content. Tests must
     # not inherit it: "no key configured" is a real state the code still has
