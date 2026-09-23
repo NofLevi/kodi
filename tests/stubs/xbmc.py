@@ -48,6 +48,17 @@ JSONRPC_CALLS = []
 JSONRPC_RESULTS = {}
 
 
+# Answers that are not a result. Real Kodi returns a JSON-RPC error envelope
+# when it cannot serve a request - asking Player.GetProperties with nothing
+# playing is the everyday case - and the add-on has to survive that. A stub
+# that can only succeed makes a whole class of failure untestable, and this
+# one did: the guards in `subs/embedded.py` had to be written by guessing at
+# what Kodi does rather than by asserting it.
+JSONRPC_ERROR = object()        # a {"error": ...} envelope
+JSONRPC_NO_RESULT = object()    # a reply with neither result nor error
+JSONRPC_GARBAGE = object()      # not JSON at all
+
+
 def executeJSONRPC(request):
     """Record the call, and answer from JSONRPC_RESULTS when a test set one."""
     import json
@@ -57,17 +68,35 @@ def executeJSONRPC(request):
     except ValueError:
         method = ""
     if method in JSONRPC_RESULTS:
+        answer = JSONRPC_RESULTS[method]
+        if answer is JSONRPC_ERROR:
+            return json.dumps({"id": 1, "jsonrpc": "2.0",
+                               "error": {"code": -32100,
+                                         "message": "Failed to execute method."}})
+        if answer is JSONRPC_NO_RESULT:
+            return json.dumps({"id": 1, "jsonrpc": "2.0"})
+        if answer is JSONRPC_GARBAGE:
+            return "<html>not json at all</html>"
         return json.dumps({"id": 1, "jsonrpc": "2.0",
-                           "result": JSONRPC_RESULTS[method]})
+                           "result": answer})
     return '{"result":"OK"}'
 
 
 class Monitor(object):
+    """Kodi's shutdown signal, which tests can now actually raise.
+
+    It answered "not aborting, and yes your wait finished" forever, so nothing
+    could ask what a worker does when Kodi is going down while it is still
+    holding a subtitle job.
+    """
+
+    ABORT = False
+
     def abortRequested(self):
-        return False
+        return Monitor.ABORT
 
     def waitForAbort(self, timeout=0):
-        return True
+        return Monitor.ABORT
 
     def onSettingsChanged(self):
         pass

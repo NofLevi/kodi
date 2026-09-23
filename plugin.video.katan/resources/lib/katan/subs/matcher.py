@@ -174,8 +174,15 @@ def rate(candidate, target, video_hash=""):
             pass
 
     if candidate.get("downloads"):
-        # Popularity is weak evidence, worth a nudge and no more.
-        total += min(6, int(candidate["downloads"]) // 500)
+        # Popularity is weak evidence, worth a nudge and no more - and not
+        # worth an exception. The line above already treats `sync_percent`
+        # this way; this one did not, so a provider reporting "1,234" or
+        # "many" raised out of `rank()` and cost the playback every candidate
+        # from every provider, not just its own.
+        try:
+            total += min(6, int(candidate["downloads"]) // 500)
+        except (TypeError, ValueError):
+            pass
 
     return (max(0, min(ADDITIVE_CEILING, total)),
             ", ".join(reasons) or "title only")

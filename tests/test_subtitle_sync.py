@@ -228,3 +228,44 @@ def test_pieces_that_do_not_beat_the_whole_are_dropped():
     assert report["applied"] is False
     assert report["reason"] == "confidence below threshold"
     assert [c.start for c in fixed] == [c.start for c in unrelated]
+
+
+# --------------------------------------------------------------------------
+# a subtitle is untrusted input
+# --------------------------------------------------------------------------
+
+
+def test_an_absurd_timestamp_cannot_build_an_enormous_mask():
+    """A cue may legally claim to end 999 hours in, and one did not have to.
+
+    `srt._TIME` accepts three-digit hours, so a downloaded file can name a cue
+    ending at 3.6 million seconds. At a 100 ms bin that is a **36-million-bit
+    integer**, which `_best_offset` then shifts, ANDs and popcounts 3601 times
+    per scale across nine scales - minutes to hours of a four-core A53, or
+    MemoryError, from one bad download. The timeline is now clamped, so a
+    ridiculous timestamp costs a ridiculous cue rather than the device.
+    """
+    absurd = [srt.Cue(1, 0.0, 2.0, "fine"),
+              srt.Cue(2, 3_600_000.0, 3_600_002.0, "999 hours in")]
+    mask = sync.activity_mask(absurd, sync.COARSE_BIN_MS)
+    ceiling = int(sync.MAX_TIMELINE_SECONDS / (sync.COARSE_BIN_MS / 1000.0))
+    assert mask.bit_length() <= ceiling, \
+        "the mask should be clamped to a plausible running time"
+    assert mask.bit_length() < 1_000_000, "a 36 Mbit integer is not a subtitle"
+
+
+def test_a_subtitle_with_an_absurd_timestamp_is_refused_quickly():
+    """And it must be refused rather than obeyed, inside a sane time."""
+    import time
+
+    reference = make_cues(400)
+    nonsense = [srt.Cue(1, 0.0, 2.0, "one real line")]
+    nonsense += [srt.Cue(i + 2, 3_600_000.0 + i * 5, 3_600_002.0 + i * 5,
+                         "line %d" % i) for i in range(30)]
+
+    started = time.time()
+    _offset, _scale, confidence = sync.fit(nonsense, reference)
+    elapsed = time.time() - started
+
+    assert confidence < sync.MIN_CONFIDENCE, "this is not a fit, it is nonsense"
+    assert elapsed < 5.0, "took %.1fs - unbounded input reached the correlator" % elapsed

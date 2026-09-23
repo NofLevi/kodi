@@ -811,7 +811,7 @@ def _best_supported(winner, candidates, wanted, languages, winners, report,
     target = next(((candidate, cues) for candidate, cues in fetched
                    if candidate.get("language") == wanted), None)
     if target and reference:
-        fitted, timing = sync.synchronise(target[1], reference)
+        fitted, timing = _synchronise_safely(target[1], reference)
         if timing["applied"] or timing["reason"] == "already in sync":
             report["timing_evidence"] = "cross-language consensus"
             report["supported"] = evidence["supported"]
@@ -874,6 +874,26 @@ def covers_runtime(cues, runtime):
     return cues[-1].end / float(runtime) >= MIN_RUNTIME_COVERAGE
 
 
+def _synchronise_safely(cues, reference):
+    """`sync.synchronise`, which correlates attacker-supplied numbers.
+
+    The input is a file somebody uploaded, and this is the one place where its
+    contents decide how much work the device does. The timeline is clamped in
+    `sync.activity_mask` so the pathological case is cheap now, but the
+    correlator is still the most data-driven code here, and `consensus.agree`
+    has always wrapped its own `sync.fit` call for exactly this reason while
+    the two main callers did not. A refusal to align is a normal outcome - the
+    subtitle is simply shown at its original timing - so there is nothing to
+    gain from letting an exception end the playback's subtitle search.
+    """
+    try:
+        return sync.synchronise(cues, reference)
+    except Exception:
+        kodi.log_exception("could not align this subtitle, leaving its timing")
+        return cues, {"applied": False, "offset": 0.0, "scale": 1.0,
+                      "confidence": 0.0, "reason": "alignment failed"}
+
+
 def verify_and_sync(cues, winners, languages, report, downloads, runtime=0):
     """Check the chosen subtitle against a trusted reference, and re-time it.
 
@@ -891,7 +911,7 @@ def verify_and_sync(cues, winners, languages, report, downloads, runtime=0):
     """
     reference = reference_cues(winners, languages, downloads)
     if reference:
-        fitted, result = sync.synchronise(cues, reference)
+        fitted, result = _synchronise_safely(cues, reference)
         report["confidence"] = result["confidence"]
         if result["applied"]:
             report["synchronised"] = True

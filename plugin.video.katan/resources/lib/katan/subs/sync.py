@@ -50,6 +50,11 @@ FRAME_RATIOS = [
     29970.0 / 30000.0,
 ]
 
+# No timeline may be longer than this. A subtitle is for something a person
+# sits and watches, so six hours is already past every film and episode there
+# is, and anything claiming more is a corrupt file rather than a long one.
+MAX_TIMELINE_SECONDS = 6 * 3600
+
 COARSE_BIN_MS = 100
 FINE_BIN_MS = 20
 COARSE_MAX_OFFSET = 180.0    # seconds searched either way
@@ -98,9 +103,25 @@ def _popcount(value):
 
 
 def activity_mask(cues, bin_ms, limit_bins=None, offset=0.0, scale=1.0):
-    """Turn cues into a big integer where each set bit is a bin with speech."""
-    mask = 0
+    """Turn cues into a big integer where each set bit is a bin with speech.
+
+    The timeline is clamped, because a subtitle is untrusted input and this is
+    where its numbers become the size of an allocation. `srt._TIME` accepts
+    three-digit hours, so a downloaded file may legally name a cue ending 999
+    hours in; at a 100 ms bin that is a **36-million-bit integer**, and
+    `_best_offset` then shifts, ANDs and popcounts it 3601 times per scale
+    across nine scales. Measured before this clamp: 119 seconds on a fast
+    desktop for one such file, which on the target A53 is a projector frozen
+    for a quarter of an hour.
+
+    `limit_bins` was always a parameter here and not one of the three call
+    sites passed it, so the default is the fix - anything added later is
+    covered without having to remember.
+    """
     step = bin_ms / 1000.0
+    if limit_bins is None:
+        limit_bins = int(MAX_TIMELINE_SECONDS / step)
+    mask = 0
     for cue in cues:
         start = cue.start * scale + offset
         end = cue.end * scale + offset

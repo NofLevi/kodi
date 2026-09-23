@@ -23,6 +23,7 @@ for path in (STUBS_DIR, LIB_DIR):
 @pytest.fixture(autouse=True)
 def kodi_environment(tmp_path):
     """Fresh settings, profile directory and caches for every test."""
+    import xbmc
     import xbmcaddon
     import xbmcgui
     import xbmcplugin
@@ -30,6 +31,11 @@ def kodi_environment(tmp_path):
     profile = tmp_path / "profile"
     profile.mkdir()
     xbmcaddon.reset(str(profile), ADDON_DIR)
+    # The stub can now answer badly and can be told Kodi is shutting down;
+    # both are process-wide, so they are cleared per test like the rest.
+    xbmc.JSONRPC_RESULTS.clear()
+    del xbmc.JSONRPC_CALLS[:]
+    xbmc.Monitor.ABORT = False
     xbmcaddon.load_strings(os.path.join(
         ADDON_DIR, "resources", "language", "resource.language.en_gb", "strings.po"))
     xbmcgui.Window.PROPERTIES.clear()

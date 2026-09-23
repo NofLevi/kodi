@@ -81,10 +81,30 @@ def _streams_via_jsonrpc():
     result = payload.get("result") if isinstance(payload, dict) else None
     if not isinstance(result, dict):
         return []                          # no player, or an answer of another shape
+    return _tracks(result.get("subtitles"))
+
+
+def _tracks(entries):
+    """Read a track list, skipping anything that is not one.
+
+    Every field here comes from whatever demuxed the file, so none of it is
+    ours to trust. A track whose index is missing, `None` or a word used to
+    raise out of this function - and this runs inside `coordinator.commit`,
+    which holds a process-wide lock, so one odd container took the lock with
+    it. A track that cannot be read is simply not a track.
+    """
+    if not isinstance(entries, (list, tuple)):
+        return []
     out = []
-    for entry in result.get("subtitles") or []:
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            index = int(entry.get("index", len(out)))
+        except (TypeError, ValueError):
+            continue
         out.append({
-            "index": int(entry.get("index", len(out))),
+            "index": index,
             "language": _code_for(entry.get("language") or entry.get("name") or ""),
             "name": entry.get("name") or entry.get("language") or "",
         })
@@ -148,17 +168,12 @@ def audio_streams():
     result = payload.get("result") if isinstance(payload, dict) else None
     if not isinstance(result, dict):
         return []
-    current = (result.get("currentaudiostream") or {}).get("index")
+    playing = result.get("currentaudiostream")
+    current = playing.get("index") if isinstance(playing, dict) else None
     out = []
-    for entry in result.get("audiostreams") or []:
-        name = entry.get("name") or entry.get("language") or ""
-        index = int(entry.get("index", len(out)))
-        out.append({
-            "index": index,
-            "language": _code_for(entry.get("language") or name),
-            "name": name,
-            "current": current is not None and index == current,
-        })
+    for track in _tracks(result.get("audiostreams")):
+        track["current"] = current is not None and track["index"] == current
+        out.append(track)
     return out
 
 
