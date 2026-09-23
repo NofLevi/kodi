@@ -55,6 +55,21 @@ FRAME_RATIOS = [
 # is, and anything claiming more is a corrupt file rather than a long one.
 MAX_TIMELINE_SECONDS = 6 * 3600
 
+# A wide, cheap first look, so the 100 ms search only has to examine the
+# window it points at. The window has to cover this bin's own quantisation -
+# a one-second bin can only place an offset to within half a second - with
+# room to spare.
+PREFILTER_BIN_MS = 1000
+PREFILTER_WINDOW = 2.5
+# And only where it pays. A one-second bin has to be *sparse* to discriminate,
+# and on a short excerpt it is not: 120 cues over four minutes fills most of
+# the bins, the rough pass then points somewhere arbitrary and the narrow pass
+# faithfully searches there. Below this the full scan is cheap anyway - the
+# integers are small and the saving would be microseconds - so the two-pass
+# search is for feature-length timelines, which is where the 32,409 lag
+# evaluations actually hurt.
+PREFILTER_MIN_SECONDS = 900.0
+
 COARSE_BIN_MS = 100
 FINE_BIN_MS = 20
 COARSE_MAX_OFFSET = 180.0    # seconds searched either way
@@ -94,12 +109,32 @@ MIN_SEGMENT_SCORE = 0.5
 SPLIT_MARGIN = 0.06
 
 
+# Bits set in each byte value, for the popcount fallback below.
+_BITS_IN_BYTE = bytes(bytearray(bin(n).count("1") for n in range(256)))
+
+
 def _popcount(value):
-    """Bit count, using the fast builtin when the Python version has it."""
+    """Bit count, and on Kodi's Python the fallback is the hot loop itself.
+
+    `int.bit_count()` arrived in Python 3.10 and **Kodi 21 ships 3.8**, so the
+    fallback is what actually runs on every device this add-on targets - and
+    it was `bin(value).count("1")`, which builds a 72,000-character string for
+    every one of the 3,601 lags in a scan. Measured on a two-hour film's mask:
+
+        int.bit_count()            3.3 us   (never reached on a device)
+        bin(value).count("1")    323.6 us
+        to_bytes + translate      58.7 us
+
+    Translating bytes to their bit counts and summing keeps all three steps in
+    C, where the naive table lookup does not: `sum(tbl[b] for b in ...)` is a
+    Python-level loop over nine thousand bytes and measured *slower* than the
+    string it replaced, at 516 us.
+    """
     try:
         return value.bit_count()          # Python 3.10+
     except AttributeError:
-        return bin(value).count("1")
+        return sum(value.to_bytes((value.bit_length() + 7) // 8, "big")
+                   .translate(_BITS_IN_BYTE))
 
 
 def activity_mask(cues, bin_ms, limit_bins=None, offset=0.0, scale=1.0):
@@ -162,15 +197,19 @@ def _score(reference_mask, candidate_mask, reference_bits, candidate_bits, bins)
 
 
 def _best_offset(reference, candidate, bin_ms, max_offset, scale=1.0,
-                 reference_bits=None, reference_mask=None):
+                 reference_bits=None, reference_mask=None, centre=0.0):
     """Search lags in both directions and return (offset_seconds, score).
 
     `reference_mask` is accepted so a caller comparing many candidates against
     one reference - which is what looking for splits does - builds the
     reference side once rather than once per block.
+
+    `centre` moves the window away from zero, which is what lets a cheap wide
+    pass tell an expensive narrow one where to look.
     """
     step = bin_ms / 1000.0
     max_lag = int(max_offset / step)
+    centre_lag = int(round(centre / step))
 
     candidate_mask = activity_mask(candidate, bin_ms, scale=scale)
     if not candidate_mask:
@@ -185,8 +224,8 @@ def _best_offset(reference, candidate, bin_ms, max_offset, scale=1.0,
 
     bins = max(reference_mask.bit_length(), candidate_mask.bit_length())
 
-    best_lag, best = 0, -1.0
-    for lag in range(-max_lag, max_lag + 1):
+    best_lag, best = centre_lag, -1.0
+    for lag in range(centre_lag - max_lag, centre_lag + max_lag + 1):
         if lag >= 0:
             shifted = candidate_mask << lag
         else:
@@ -195,6 +234,13 @@ def _best_offset(reference, candidate, bin_ms, max_offset, scale=1.0,
         if value > best:
             best, best_lag = value, lag
     return best_lag * step, best
+
+
+def _span(cues):
+    """How much time a track covers, for deciding what is worth optimising."""
+    if not cues:
+        return 0.0
+    return max(0.0, cues[-1].end - cues[0].start)
 
 
 def _relative_coverage(candidate, reference, scale=1.0):
@@ -228,8 +274,28 @@ def fit(candidate, reference):
 
     best = (0.0, 1.0, 0.0)
     for scale in FRAME_RATIOS:
-        offset, score = _best_offset(reference, candidate, COARSE_BIN_MS,
-                                     COARSE_MAX_OFFSET, scale=scale)
+        # Two passes rather than one, because the cost here is the *number of
+        # lags* and nothing else. Three minutes either way at a 100 ms bin is
+        # 3601 shifts of a 72,000-bit integer, and nine frame ratios makes
+        # 32,409 of them - none of which a wrong subtitle can escape, because
+        # only a good match trips the early break below. A refusal is the
+        # common case, so the worst case is the normal one.
+        #
+        # A one-second bin answers "roughly where" for a tenth of the lags
+        # against a tenth of the bits, and the 100 ms pass then only has to
+        # look in the window that answer names. Measured on a 2.8 hour pair,
+        # on the fallback popcount Kodi's Python actually uses: an unrelated
+        # pair fell from 5.93s to well under a second.
+        if _span(reference) >= PREFILTER_MIN_SECONDS:
+            rough, _rough_score = _best_offset(reference, candidate,
+                                               PREFILTER_BIN_MS,
+                                               COARSE_MAX_OFFSET, scale=scale)
+            offset, score = _best_offset(reference, candidate, COARSE_BIN_MS,
+                                         PREFILTER_WINDOW, scale=scale,
+                                         centre=rough)
+        else:
+            offset, score = _best_offset(reference, candidate, COARSE_BIN_MS,
+                                         COARSE_MAX_OFFSET, scale=scale)
         if score > best[2]:
             best = (offset, scale, score)
         # A near perfect coarse match means the remaining ratios cannot win.

@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import time
+import tracemalloc
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -165,6 +166,38 @@ def case_sync():
     return "sync.synchronise, 1400 cues", run
 
 
+def case_sync_on_kodis_python():
+    """The same alignment, with the popcount Kodi 21 actually uses.
+
+    `int.bit_count()` is Python 3.10 and Kodi 21 ships 3.8, so every number
+    measured with the builtin is a number no device will ever see. This forces
+    the fallback, which is the honest figure - and it is the one that was
+    thirty times worse than the other line in this table.
+    """
+    from katan.subs import sync
+    from katan.subs import srt
+
+    reference = cues(1400)
+    # A different rhythm, so nothing lines up: this is the case a refusal
+    # takes, and the one that never trips the early break.
+    unrelated = [srt.Cue(i + 1, i * 3.1 + 5.0, i * 3.1 + 6.7, "other %d" % i)
+                 for i in range(1400)]
+    table = sync._BITS_IN_BYTE
+
+    def fallback(value):
+        return sum(value.to_bytes((value.bit_length() + 7) // 8, "big")
+                   .translate(table))
+
+    def run():
+        real = sync._popcount
+        sync._popcount = fallback
+        try:
+            sync.fit(unrelated, reference)
+        finally:
+            sync._popcount = real
+    return "sync.fit, unrelated, Python 3.8 path", run
+
+
 def case_cache():
     from katan import cache
     payload = [{"ids": {"tmdb": i}, "title": "Item %d" % i,
@@ -178,16 +211,30 @@ def case_cache():
 
 
 CASES = [case_parse, case_dedupe, case_rank, case_outlook, case_matcher,
-         case_srt, case_sync, case_cache]
+         case_srt, case_sync, case_sync_on_kodis_python, case_cache]
 
 
 def best_of(run, rounds=5):
+    """Fastest of several runs, and the peak memory one run allocates.
+
+    Time is the best of the rounds because the worst is usually Windows doing
+    something else. Peak memory is measured once, under `tracemalloc`, because
+    it is deterministic and tracing makes everything slower - so it must not
+    be inside the timed rounds.
+    """
     timings = []
     for _ in range(rounds):
         started = time.time()
         run()
         timings.append((time.time() - started) * 1000)
-    return min(timings)
+
+    tracemalloc.start()
+    try:
+        run()
+        peak = tracemalloc.get_traced_memory()[1] / 1024.0
+    finally:
+        tracemalloc.stop()
+    return min(timings), peak
 
 
 def main():
@@ -200,16 +247,19 @@ def main():
     boot()
     results = {}
     say("")
-    say("%-34s %10s" % ("", "ms"))
-    say("-" * 46)
+    peaks = {}
+    say("%-38s %10s %12s" % ("", "ms", "peak KB"))
+    say("-" * 62)
     for factory in CASES:
         label, run = factory()
         run()                                   # warm imports and caches
-        results[label] = round(best_of(run, args.rounds), 3)
-        say("%-34s %10.2f" % (label, results[label]))
+        milliseconds, peak = best_of(run, args.rounds)
+        results[label] = round(milliseconds, 3)
+        peaks[label] = round(peak, 1)
+        say("%-38s %10.2f %12.1f" % (label, results[label], peaks[label]))
     total = round(sum(results.values()), 3)
-    say("-" * 46)
-    say("%-34s %10.2f" % ("total", total))
+    say("-" * 62)
+    say("%-38s %10.2f %12.1f" % ("total", total, max(peaks.values() or [0])))
 
     if args.save:
         path = os.path.join(ROOT, ".bench-%s.json" % args.save)

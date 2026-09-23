@@ -269,3 +269,47 @@ def test_a_subtitle_with_an_absurd_timestamp_is_refused_quickly():
 
     assert confidence < sync.MIN_CONFIDENCE, "this is not a fit, it is nonsense"
     assert elapsed < 5.0, "took %.1fs - unbounded input reached the correlator" % elapsed
+
+
+def test_the_popcount_fallback_is_correct_and_is_the_one_devices_use():
+    """`int.bit_count()` is Python 3.10; Kodi 21 ships 3.8.
+
+    So the fallback is not a fallback on any device this add-on targets - it
+    is the inner loop of the whole module, run 3601 times per scale across
+    nine scales. It was `bin(value).count("1")`, which builds a
+    72,000-character string every time.
+    """
+    import random
+
+    rng = random.Random(7)
+    for _ in range(200):
+        value = rng.getrandbits(rng.randint(0, 3000))
+        assert sync._popcount(value) == bin(value).count("1")
+    assert sync._popcount(0) == 0
+
+
+def test_alignment_stays_in_budget_on_the_python_kodi_ships(monkeypatch):
+    """The timing budget has to hold on 3.8, which is where it never did.
+
+    Measured before the fallback was fixed: 0.78s for a matching pair and
+    10.33s for an unrelated one, on a desktop four to eight times faster than
+    the projector. An unrelated pair is the common case - it is what refusing
+    a wrong subtitle looks like - and `consensus` runs six to eight of them
+    for one decision.
+    """
+    import time
+
+    monkeypatch.setattr(sync, "_popcount",
+                        lambda v: sum(v.to_bytes((v.bit_length() + 7) // 8, "big")
+                                      .translate(sync._BITS_IN_BYTE)))
+
+    reference = make_cues(1800)
+    unrelated = make_cues(1800, seed=99)
+
+    started = time.time()
+    _offset, _scale, confidence = sync.fit(unrelated, reference)
+    elapsed = time.time() - started
+
+    assert confidence < sync.MIN_CONFIDENCE
+    assert elapsed < 3.0, \
+        "%.1fs on the fallback; the device is several times slower" % elapsed
