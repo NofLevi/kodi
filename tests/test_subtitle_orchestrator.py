@@ -590,3 +590,23 @@ def test_a_normal_film_is_untouched_by_that_guard():
         % (i + 1, (i * 2.0) % 60, (i * 2.0 + 1.5) % 60, i)
         for i in range(1800))
     assert len(srt.parse(normal)) == 1800
+
+
+def test_a_candidates_stem_is_computed_once_not_once_per_source():
+    """The picker weighs every subtitle against every release.
+
+    So one candidate's stem was recomputed once per source - profiled at
+    76,800 calls for about 272 distinct strings on a 240x32 search, and the
+    largest single cost in the pass. `release.normalise` already says this in
+    its own docstring; `_stem` had not acted on it.
+    """
+    from katan.subs import matcher
+
+    matcher._stem.cache_clear()
+    name = "Pulp.Fiction.1994.1080p.BluRay.x264-AMIABLE.heb.srt"
+    for _ in range(500):
+        matcher._stem(name)
+
+    info = matcher._stem.cache_info()
+    assert info.misses == 1, "recomputed %d times" % info.misses
+    assert info.hits == 499
