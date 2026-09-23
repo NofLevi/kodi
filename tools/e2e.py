@@ -794,7 +794,15 @@ def _ktuvit_host():
     if "IsSuccess" not in (response.text or ""):
         raise AssertionError("%s answered something else: %s"
                              % (ktuvit.LOGIN, (response.text or "")[:60]))
-    return "%s answers the documented envelope" % ktuvit.BASE
+
+    # The salt keys the password, so losing it breaks every sign-in - and it
+    # is one `var` in one page, which is exactly the sort of thing that is
+    # renamed without warning. Checked here because nothing else can: it is
+    # scraped at runtime, so no test against a fixture would ever notice.
+    if not ktuvit._encryption_salt():
+        raise AssertionError("%s no longer publishes an encryption salt"
+                             % ktuvit.BASE)
+    return "%s answers, and still publishes its salt" % ktuvit.BASE
 
 
 @check("an Israeli channel resolves to a stream", "vod", required=False)

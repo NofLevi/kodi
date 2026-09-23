@@ -207,15 +207,60 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   three-download budget cannot outlast and which is not worth more downloads
   on every playback to rescue.
 
-  **Ktuvit was pointed at a hostname that no longer exists.** `members.ktuvit.me`
-  is NXDOMAIN; the same paths answer on the apex `ktuvit.me`. Every request
-  the provider ever made died at DNS, so no credentials could have worked.
-  Nothing caught it for months and the reason is worth keeping: the provider
-  ships **off**, so no unit test reaches the network and nobody without an
-  account would ever see a log line - it was invisible by construction.
-  `tools/e2e.py` now probes it with an *empty* login, which needs no account,
-  is the gentlest thing to ask of somebody else's server, and proves host,
-  path and response envelope in one request.
+  **Ktuvit was signed in to for the first time on 23 September 2026, and
+  almost nothing about it was right.** It had been written from a guess at the
+  site rather than from the site, shipped off by default, and so never
+  contradicted. Four independent faults, each fatal on its own:
+
+  * the host was `members.ktuvit.me`, retired and now **NXDOMAIN** - every
+    request died at DNS, so no credential could ever have worked. The same
+    paths answer on the apex `ktuvit.me`;
+  * the password was sent as a **SHA-1 digest**, which the site has never
+    wanted. It wants its own `Encrypt(email, password)`, out of
+    `js/Modules/LoginHandler.js`: PBKDF2 (salt as the password, email as the
+    salt, SHA-1, 3000 iterations) to a 128-bit key, AES-CBC over the password
+    with an IV that is `CryptoJS.enc.Hex.parse(email)` - nonsense on an email
+    address, which is the point, and reproducing the nonsense exactly is the
+    job - then SHA-256 of the ciphertext, base64 of that. The keying salt is
+    one `var` in the homepage and is scraped per login, because the site can
+    rotate it;
+  * the session cookie was taken as `ASP.NET_SessionId`, which Ktuvit hands
+    to **anonymous visitors**. So a refused login still produced a cookie,
+    cached for a day, used to fetch logged-out pages - a configured provider
+    silently finding nothing. The real one is `Login=u=<hex>&g=<hex>`;
+  * both subtitle-row regexes matched markup that does not exist. A row is
+    six plain cells: the release name in a `div` before the `<br>`, the id on
+    two `data-subtitle-id` links in the last cell.
+
+  And a fifth that produces a *wrong* episode rather than none:
+  `MovieInfo.aspx` accepts `&season=&episode=` and **ignores them**, so a
+  series asked that way gets season one whatever was wanted. Episodes have
+  their own fragment endpoint, `GetModuleAjax.ashx?moduleName=SubtitlesList`.
+
+  Two things about the shape of it are worth carrying elsewhere. The auth
+  boundary is not where it looks: search, the episode list and even issuing a
+  download identifier all work anonymously, so `IsSuccess: true` on the
+  identifier says nothing about the session - the refusal lands on the file
+  fetch, as **HTTP 200** with a sentence of Hebrew where a subtitle should be.
+  And `SearchPage_search` answers `IsSuccess: false` **on success**, so
+  nothing may gate on it.
+
+  Measured after: 66 Hebrew subtitles for Pulp Fiction, 1806 cues downloaded
+  and decoded, 7 for Breaking Bad 1x01 through the other endpoint.
+
+  Why none of it was caught: the provider ships **off**, so no unit test
+  reaches the network and nobody without an account ever saw a log line. It
+  was invisible by construction, and "implemented and fixture tested" meant
+  only that it matched what we had imagined. `tools/e2e.py` now probes the
+  host with an *empty* login, which needs no account and is the gentlest
+  thing to ask of somebody else's server, and checks the salt is still
+  published - the one runtime-scraped value no fixture could ever cover.
+
+  `utils/aes.py` exists for that login and nothing else: Kodi 21 is Python
+  3.8, whose standard library has PBKDF2 and SHA-256 but no block cipher, and
+  `pycryptodome` is compiled and could never sit in a `<platform>all</platform>`
+  zip. Encryption only, about 140 lines, checked against FIPS-197 and NIST
+  SP 800-38A rather than against itself - the same argument as `qr.py`.
 
   **Anime subtitles from Jimaku were built, measured and not shipped.** Over
   a thousand anime shows, Jimaku had about 58% of episodes (Kitsunekko 5% as
@@ -443,7 +488,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1873 tests, all running against Kodi stubs, so no Kodi install is needed:
+1886 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -474,7 +519,8 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
 | `test_subtitle_pipeline.py` | 50 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. |
-| `test_ktuvit.py` | 20 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
+| `test_aes.py` | 8 | AES, because one login depends on it and a cipher that is subtly wrong looks exactly like one that is right. Checked against FIPS-197 and NIST SP 800-38A rather than against itself, so none of the expected values came from this code. |
+| `test_ktuvit.py` | 24 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
 | `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
 | `test_vod_seasons.py` | 17 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video. |
