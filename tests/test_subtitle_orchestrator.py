@@ -328,3 +328,70 @@ def test_a_failure_setting_up_partials_still_closes_the_progress_bar(
                                       cancelled=None, generation=0)
 
     assert closed, "the progress bar was left on the screen"
+
+
+# --------------------------------------------------------------------------
+# a failure must be blamed on the thing that actually failed
+# --------------------------------------------------------------------------
+
+
+def test_a_bug_in_a_provider_does_not_disable_that_provider(providers):
+    """An exception here is our fault, or one payload's - not the service's.
+
+    `_DownloadBudget` writes a provider off after two *empty* answers, which
+    is right when the service is refusing. But the exception path recorded
+    itself as "served nothing", so a one-line code bug - a key that moved, a
+    shape that changed - disabled the provider's entire catalogue for the
+    playback and was reported as "no subtitles".
+    """
+    broken = FakeProvider("wizdom", raises=AttributeError("'NoneType' has no .get"))
+    providers(wizdom=broken, bsplayer=FakeProvider("bsplayer", []),
+              opensubtitles_rest=FakeProvider("opensubtitles_rest", []))
+
+    budget = auto._DownloadBudget(3)
+    for index in range(4):
+        budget.fetch(candidate("Release.%d" % index), expect_language="he")
+
+    assert broken.downloaded == 4, "every attempt should still have been made"
+    assert not budget.exhausted(candidate("Release.9")), \
+        "the provider was written off for a bug in our own reading of it"
+
+
+def test_a_provider_returning_text_instead_of_bytes_is_survived(providers):
+    """`decode` assumes bytes and `parse` assumes text that behaves."""
+
+    class Stringly(FakeProvider):
+        def download(self, candidate, expect_language=None):
+            self.downloaded += 1
+            return u"1\n00:00:01,000 --> 00:00:02,000\nline\n"
+
+    providers(wizdom=Stringly("wizdom"), bsplayer=FakeProvider("bsplayer", []),
+              opensubtitles_rest=FakeProvider("opensubtitles_rest", []))
+    assert auto.download_candidate(candidate("Release"),
+                                   expect_language="he") == []
+
+
+def test_a_look_up_that_failed_is_not_remembered_as_no_subtitles(
+        monkeypatch, settings_module):
+    """A failure is not a result, and this one was cached for an hour.
+
+    One bad moment - a provider down, the wifi dropping - told the title it
+    had no Hebrew subtitles until the TTL expired, and reopening the picker
+    could not undo it.
+    """
+    from katan.subs import outlook
+
+    calls = {"n": 0}
+
+    def flaky(meta, languages, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise IOError("the wifi dropped")
+        return [candidate("Pulp.Fiction.1994.1080p")]
+
+    monkeypatch.setattr(auto, "search_candidates", flaky)
+
+    assert outlook.candidates(MOVIE) == []
+    again = outlook.candidates(MOVIE)
+    assert [c["release"] for c in again] == ["Pulp.Fiction.1994.1080p"], \
+        "the failure was cached and the retry never happened"

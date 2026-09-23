@@ -595,6 +595,14 @@ def download_candidate(candidate, expect_language=None, outcome=None):
         data = module.download(candidate)
     except Exception:
         kodi.log_exception("downloading from %s failed" % candidate.get("provider"))
+        # An exception in here is *our* fault, or one payload's - a shape that
+        # changed, a key that moved. It is emphatically not "the service is
+        # not serving", and recording it as that was how a one-line code bug
+        # disabled a provider's entire catalogue: two of them and
+        # `_DownloadBudget` writes the provider off for the whole operation,
+        # reported to the viewer as "no subtitles".
+        if outcome is not None:
+            outcome["served"] = True
         return []
     # Whether the service handed over any bytes at all, which is a different
     # fault from an archive that arrived and would not parse: the first says
@@ -604,7 +612,16 @@ def download_candidate(candidate, expect_language=None, outcome=None):
         outcome["served"] = bool(data)
     if not data:
         return []
-    cues = srt.parse(srt.decode(data, expect_language))
+    try:
+        cues = srt.parse(srt.decode(data, expect_language))
+    except Exception:
+        # `decode` assumes bytes and `parse` assumes text that behaves. Both
+        # are handed whatever arrived over the network, and neither is inside
+        # the guard above - a provider returning str rather than bytes raised
+        # straight out of here.
+        kodi.log_exception("could not read the subtitle %s sent"
+                           % candidate.get("provider"))
+        return []
     if not cues:
         return []
     cues = srt.clean(cues)
@@ -829,7 +846,16 @@ def _best_supported(winner, candidates, wanted, languages, winners, report,
     chosen, cues, outcome = consensus.choose(same_language)
     report["consensus"] = outcome.get("reason", "")
     report["supported"] = outcome.get("supported", 0)
-    if chosen is not None and chosen is not winner:
+    if chosen is None:
+        # Consensus has no opinion, which is not a reason to have no subtitle.
+        # This used to return None, and the caller's `if winner:` then skipped
+        # the whole below-threshold Hebrew step - a usable candidate lost with
+        # no log line and nothing to read afterwards. This is a tie-breaker
+        # and never a gate, exactly as the docstring above says.
+        kodi.log("consensus reached no verdict, keeping the top-scored %s"
+                 % winner.get("provider"))
+        return winner, cues, report
+    if chosen is not winner:
         kodi.log("consensus preferred %s over the top-scored %s: %s"
                  % (chosen.get("provider"), winner.get("provider"),
                     outcome.get("reason")))

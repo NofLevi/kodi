@@ -98,7 +98,11 @@ def candidates(meta, refresh=False, strict=False):
         kodi.log_exception("could not look up subtitles")
         if strict:
             raise
-        found = []
+        # Not cached. A failure is not a result: caching it meant one bad
+        # moment - a provider down, the wifi dropping - told this title it had
+        # no Hebrew subtitles for the next hour, and reopening the picker
+        # could not undo it. `meta/anilist.py` already learned this one.
+        return []
     cache.set(key, found, TTL)
     return found
 
