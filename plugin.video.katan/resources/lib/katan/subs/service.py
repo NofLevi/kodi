@@ -42,12 +42,18 @@ def dispatch(argv):
     error, a payload that changed shape - left the viewer looking at a spinner
     with no way out but to close the dialog by hand. So the close lives here,
     in a finally, and nowhere else.
-    """
-    handle = int(argv[1]) if len(argv) > 1 else -1
-    params = dict(parse_qsl((argv[2] if len(argv) > 2 else "").lstrip("?")))
-    action = params.get("action", "")
 
+    Reading the arguments is inside the try for the same reason. It was
+    outside, which is the one way left to reach the symptom this docstring
+    promises to prevent: a handle that is not a number skipped the finally
+    entirely and left the spinner up forever.
+    """
+    handle = -1
+    action = ""
     try:
+        handle = int(argv[1]) if len(argv) > 1 else -1
+        params = dict(parse_qsl((argv[2] if len(argv) > 2 else "").lstrip("?")))
+        action = params.get("action", "")
         if action in ("search", "manualsearch"):
             _search(handle, params)
         elif action == "download":

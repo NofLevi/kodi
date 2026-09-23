@@ -1181,7 +1181,13 @@ def _translate_progressively(cues, meta, language, player, variant="",
 
     progress = xbmcgui.DialogProgressBG()
     progress.create("Katan", kodi.localize(32335))
-    slots = _partial_slots(meta, language, variant, generation)
+    # Everything from here is inside the try whose finally closes that bar.
+    # `_partial_slots` was outside it, and it is not as safe as it looks: it
+    # runs `int(meta["season"])` on a value that has round-tripped through
+    # JSON from a window property, and makes a directory in the profile. Either
+    # one raising left a progress bar on the screen with nothing left alive to
+    # close it - the viewer's only way out was restarting Kodi.
+    slots = []
     state = {"slot": 0, "shown": 0}
 
     def on_progress(done, total, partial=None):
@@ -1191,6 +1197,8 @@ def _translate_progressively(cues, meta, language, player, variant="",
                         message=kodi.localize(32335))
         if player is None or partial is None or done <= state["shown"]:
             return
+        if not slots:
+            return                  # nowhere to write one yet
         path = slots[state["slot"] % len(slots)]
 
         def apply_partial():
@@ -1211,6 +1219,7 @@ def _translate_progressively(cues, meta, language, player, variant="",
             kodi.log_exception("could not show a partial translation")
 
     try:
+        slots[:] = _partial_slots(meta, language, variant, generation)
         kwargs = {"on_progress": on_progress, "meta": meta,
                   "cancelled": stopped}
         return translator.translate(cues, language, **kwargs)

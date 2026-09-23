@@ -267,3 +267,64 @@ def test_a_subtitle_list_that_is_not_a_list_is_survived():
                                                     "audiostreams": 7}
     assert embedded.streams() == []
     assert embedded.audio_streams() == []
+
+
+# --------------------------------------------------------------------------
+# nothing may leave the viewer looking at something that will not go away
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("handle", ["not a number", "", "12x"])
+def test_a_bad_handle_still_closes_the_subtitle_dialog(handle):
+    """Kodi's "searching for subtitles" spinner ends only when we close it.
+
+    `dispatch` puts that close in a finally and its docstring says why - but
+    it read the handle *above* the try, so a handle that is not a number
+    skipped the finally entirely and left the spinner up with no way out but
+    closing the dialog by hand.
+    """
+    import xbmcplugin
+    from katan.subs import service
+
+    xbmcplugin.reset()
+    service.dispatch(["plugin://plugin.video.katan", handle, "?action=search"])
+    assert xbmcplugin.ENDED, "the directory was never closed"
+
+
+def test_a_failure_setting_up_partials_still_closes_the_progress_bar(
+        monkeypatch, settings_module):
+    """The background progress bar has exactly one close, in a finally.
+
+    `_partial_slots` ran before that try. It does `int(meta["season"])` on a
+    value that has round-tripped through JSON from a window property, and
+    makes a directory in the profile - either raising left a progress bar on
+    screen with nothing alive to close it.
+    """
+    import xbmcgui
+    from katan.subs.ai import translator
+
+    closed = []
+
+    class Bar(object):
+        def create(self, *args, **kwargs):
+            pass
+
+        def update(self, *args, **kwargs):
+            pass
+
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(xbmcgui, "DialogProgressBG", Bar)
+    monkeypatch.setattr(auto, "_partial_slots",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            ValueError("season was 'special'")))
+    monkeypatch.setattr(translator, "translate",
+                        lambda *a, **k: pytest.fail("should not get this far"))
+
+    cues = [srt.Cue(1, 0.0, 2.0, "line")]
+    with pytest.raises(ValueError):
+        auto._translate_progressively(cues, "he", None, {"type": "movie"},
+                                      cancelled=None, generation=0)
+
+    assert closed, "the progress bar was left on the screen"
