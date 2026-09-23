@@ -256,6 +256,28 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   thing to ask of somebody else's server, and checks the salt is still
   published - the one runtime-scraped value no fixture could ever cover.
 
+  **What it is worth, measured over 200 titles the day it started working.**
+  Ktuvit answered on 66 of them and offered 1081 candidates - more than
+  Wizdom's 908 - and it was the **only** provider on none of them and won
+  **two**: Practical Magic on an exact release name nobody else had, and
+  Palmer. So it adds depth, not reach: every title it could help with was
+  already covered by an anonymous source, and `below threshold, used anyway`
+  is still the largest route at 28 of 85, unchanged by its presence.
+
+  It stays on that evidence rather than in spite of it - the two it won were
+  score-100 exact matches, which is the *confident* kind of win, and it costs
+  nothing at all to anyone who does not configure it. But it must not be sold
+  as the answer to the weak tail, which is what it was assumed to be.
+
+  Two honest caveats on those figures. The corroboration in the same run rose
+  from 78% to 94%, and that is almost certainly the three download fixes
+  rather than Ktuvit - the chosen subtitle simply got better, so independent
+  uploaders agree with it more often. And the sample is stratified for
+  *source-finding* edge cases and is heavily English-language; the case Ktuvit
+  exists for is a Hebrew household watching Turkish drama and anime, where
+  Wizdom is thinnest, and that is under-represented. A Hebrew-weighted run
+  would be a fairer test and has not been done.
+
   `utils/aes.py` exists for that login and nothing else: Kodi 21 is Python
   3.8, whose standard library has PBKDF2 and SHA-256 but no block cipher, and
   `pycryptodome` is compiled and could never sit in a `<platform>all</platform>`
