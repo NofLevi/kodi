@@ -112,15 +112,44 @@ def close_session():
 
 
 def close_parallel():
-    """Cancel queued shared work during service shutdown."""
+    """Cancel queued shared work during service shutdown.
+
+    And let go of the worker threads, which is the part that matters. A
+    request already in flight runs to its own timeout - up to fifteen seconds
+    - while Kodi gives a service five to stop before it kills the interpreter:
+
+        service.py: waiting on thread 19824
+        service.py: script didn't stop in 5 seconds - let's kill it
+
+    Measured on a real quit, and the process then stayed alive holding its
+    files, so the next Kodi would not start at all.
+
+    Whether it happens depends on the Python: `ThreadPoolExecutor` made its
+    threads daemons until 3.8 and stopped in 3.9, and `concurrent.futures`
+    registers an atexit hook that *joins* them. Kodi 21 ships 3.8, so a device
+    is safe and a development machine on 3.11 is not - which is exactly the
+    kind of difference a Windows-only symptom hides behind.
+
+    Nothing is lost by letting go: the results are subtitle candidates for a
+    playback that is over, every task already runs under a wall-clock
+    deadline, and the alternative is Kodi killing the interpreter anyway.
+    """
     global _parallel_pool
     with _parallel_lock:
         pool, _parallel_pool = _parallel_pool, None
-    if pool is not None:
-        try:
-            pool.shutdown(wait=False, cancel_futures=True)
-        except TypeError:
-            pool.shutdown(wait=False)
+    if pool is None:
+        return
+    try:
+        pool.shutdown(wait=False, cancel_futures=True)
+    except TypeError:
+        pool.shutdown(wait=False)
+    try:
+        # Drop them from the atexit join. Private, and the only way to say
+        # "do not wait for these" - `shutdown(wait=False)` does not cover it.
+        for thread in list(getattr(pool, "_threads", ()) or ()):
+            futures.thread._threads_queues.pop(thread, None)
+    except Exception:
+        pass
 
 
 def _shared_pool():

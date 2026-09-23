@@ -253,3 +253,43 @@ def test_a_debrid_service_that_raises_does_not_stop_the_ranking(monkeypatch,
                                        provider="t", info_hash="a" * 40)]
     aggregator._check_debrid_cache(sources)
     assert sources[0]["cached"] is False, "unknown is not the same as cached"
+
+
+def test_a_request_in_flight_cannot_hold_kodis_shutdown():
+    """Kodi gives a service five seconds to stop, then kills the interpreter.
+
+    A provider request runs to its own timeout - up to fifteen seconds - so a
+    search in flight at quit outlives that budget:
+
+        service.py: waiting on thread 19824
+        service.py: script didn't stop in 5 seconds - let's kill it
+
+    Measured on a real quit, and the process then stayed alive holding its
+    files, so the next Kodi would not start at all. `shutdown(wait=False)` is
+    not enough on its own: `concurrent.futures` registers an atexit hook that
+    joins the worker threads, and they stopped being daemons in Python 3.9 -
+    Kodi 21 ships 3.8, so a device is safe and a desktop is not.
+    """
+    import concurrent.futures.thread as pool_module
+    import threading
+
+    from pinky import http
+
+    started, release = threading.Event(), threading.Event()
+
+    def slow():
+        started.set()
+        release.wait(10)
+        return "done"
+
+    try:
+        pool = http._shared_pool()
+        pool.submit(slow)
+        assert started.wait(5), "the task never ran"
+
+        http.close_parallel()
+
+        held = [t for t in pool._threads if t in pool_module._threads_queues]
+        assert not held, "%d worker threads would still be joined at exit" % len(held)
+    finally:
+        release.set()

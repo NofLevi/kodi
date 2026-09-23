@@ -15,6 +15,7 @@ The performance rules that matter here:
 """
 import threading
 
+import xbmc
 import xbmcgui
 
 from .. import catalog, kodi, router
@@ -825,12 +826,17 @@ class HomeWindow(xbmcgui.WindowXML):
             kodi.run_builtin(entries[choice][1])
 
     def _open_search(self):
+        """Open the search window, which now shows its own results.
+
+        It used to hand the typed query to the `search_query` directory route
+        and close the dashboard, which put the viewer in Kodi's video browser
+        - a different interface, where our details window and its "Choose a
+        source" button do not exist. Searching therefore lost the picker
+        entirely, while picking a *suggestion* kept it, because that path came
+        back through our own window.
+        """
         from .search_window import open_search
-        query = open_search(modal_result=True)
-        if query:
-            self._cleanup()
-            self.close()
-            kodi.activate_window(router.url_for("search_query", q=query))
+        open_search(modal_result=True)
 
     def _cleanup(self):
         for index in range(ROW_SLOTS):
@@ -886,11 +892,48 @@ def _hero_meta(item):
 
 def open_home():
     window = HomeWindow("pinky-home.xml", kodi.addon_path(), "default", "1080i")
+    stop = threading.Event()
     try:
         # The headings are set before the window is shown so its row groups are
         # already visible on the first render and can take focus.
         window.prepare()
         kodi.clear_busy_dialogs()
+        _close_on_abort(window, stop)
         window.doModal()
     finally:
+        stop.set()
         del window
+
+
+def _close_on_abort(window, stop):
+    """Close the window when Kodi is shutting down, so the plugin call ends.
+
+    `doModal` blocks until the window closes, and Kodi's abort does not close
+    a window - so on quit the invocation holding this window sat there, Kodi
+    waited its five seconds and killed the interpreter:
+
+        main.py: trigger Monitor abort request
+        main.py: script didn't stop in 5 seconds - let's kill it
+
+    Which is worse than untidy. The process stayed alive after the window had
+    gone, so starting Kodi again found the old one still holding its files and
+    simply would not open.
+
+    A thread rather than a check inside `doModal`, because there is no inside:
+    it does not return until the window is closed, and closing it is the whole
+    point. `waitForAbort` is the wait, so this costs nothing while Kodi runs.
+    """
+    def watch():
+        monitor = xbmc.Monitor()
+        while not stop.is_set():
+            if monitor.waitForAbort(0.5):
+                try:
+                    window.close()
+                except Exception:
+                    pass
+                return
+
+    thread = threading.Thread(target=watch, name="pinky-quit")
+    thread.daemon = True
+    thread.start()
+    return thread

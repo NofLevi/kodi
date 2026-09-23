@@ -503,13 +503,19 @@ def test_suggestions_never_overwrite_what_was_typed(search):
     assert search.text == "dun", "the typed text must survive suggestions"
 
 
-def test_submitting_returns_exactly_what_was_typed(search):
+def test_submitting_searches_here_rather_than_handing_kodi_the_query(search):
+    """Searching used to close this window and hand the query to the
+    `search_query` directory route, which Kodi draws in its own video browser.
+    That browser has no details window and no "Choose a source" button, so a
+    search could not reach the source picker at all - while picking a
+    *suggestion* could, because that path comes back through our own window.
+    So the feature looked fine and failed only when somebody searched."""
     search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
     for char in "dune":
         search.onAction(FakeAction(unicode_char=char))
     search.onClick(search_window.BUTTON_SEARCH)
     assert search.submitted == "dune"
-    assert search.closed is True
+    assert search.closed is False, "the results belong in this window"
 
 
 def test_a_query_that_is_too_short_is_not_submitted(search):
@@ -1449,3 +1455,60 @@ def test_every_key_on_the_search_keyboard_can_be_reached():
                 arrived_at.add(int(node.text.strip()))
     orphans = sorted(set(buttons) - arrived_at)
     assert not orphans, "no arrow reaches %s" % orphans
+
+
+def test_the_home_window_closes_when_kodi_is_shutting_down(monkeypatch):
+    """Quitting Kodi used to leave the process alive, holding its files.
+
+    `doModal` blocks until the window closes, and Kodi's abort does not close
+    a window - so the plugin invocation holding the home window sat there:
+
+        main.py: trigger Monitor abort request
+        main.py: script didn't stop in 5 seconds - let's kill it
+
+    The symptom was not a log line. Kodi appeared to close, the old process
+    kept running, and starting Kodi again found it still holding its files and
+    would not open at all.
+
+    Only testable since the stub learned to signal an abort; before that
+    `abortRequested` was hard-coded False and this whole class of bug was
+    unreachable from the suite.
+    """
+    import threading
+    import xbmc
+    from pinky.ui import home_window
+
+    closed = threading.Event()
+
+    class FakeWindow(object):
+        def close(self):
+            closed.set()
+
+    stop = threading.Event()
+    xbmc.Monitor.ABORT = True
+    try:
+        thread = home_window._close_on_abort(FakeWindow(), stop)
+        thread.join(2.0)
+        assert closed.is_set(), "the window was not closed on shutdown"
+    finally:
+        xbmc.Monitor.ABORT = False
+        stop.set()
+
+
+def test_the_quit_watcher_stops_when_the_window_closes_normally(monkeypatch):
+    """It must not outlive the window it watches: the thread is a daemon, but
+    a thread per playback that never ends is still a leak."""
+    import threading
+    import xbmc
+    from pinky.ui import home_window
+
+    class FakeWindow(object):
+        def close(self):
+            raise AssertionError("closed a window nobody asked to close")
+
+    xbmc.Monitor.ABORT = False
+    stop = threading.Event()
+    thread = home_window._close_on_abort(FakeWindow(), stop)
+    stop.set()
+    thread.join(2.0)
+    assert not thread.is_alive(), "the watcher outlived its window"

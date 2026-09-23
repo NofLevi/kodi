@@ -357,13 +357,50 @@ class SearchWindow(xbmcgui.WindowXML):
     # -- acting on a choice ------------------------------------------------
 
     def _submit(self):
-        """Run the full search with exactly what was typed."""
+        """Run the full search and show the results here.
+
+        This used to close the window and hand the query to the `search_query`
+        *directory* route, which Kodi renders in its own video browser. That
+        is a different interface with none of this one behind it: selecting a
+        show there walks Kodi's seasons and episodes listings and plays
+        whatever autoplay picks, so the source picker - the three lists this
+        add-on exists to offer - was simply not reachable from a search. It
+        was still reachable by pressing a *suggestion*, because that path goes
+        through `_open_selected` and opens our own details window, so the
+        feature appeared to work and only failed when somebody actually
+        searched.
+
+        The window already renders results and already routes them correctly.
+        All that was missing was asking it to.
+        """
         query = self.text.strip()
         if len(query) < MIN_QUERY:
             return
         unified.remember(query)
         self.submitted = query
-        self.close()
+
+        with self.lock:
+            self.generation += 1
+            generation = self.generation
+
+        def worker():
+            self._set_status(kodi.localize(32296))
+            try:
+                results = unified.search(query)
+            except Exception:
+                kodi.log_exception("search failed")
+                results = []
+            with self.lock:
+                if generation != self.generation:
+                    return              # something newer was typed meanwhile
+            if results:
+                self._render(results, kodi.localize(32297, len(results)))
+            else:
+                self._render([], kodi.localize(32258))
+
+        thread = threading.Thread(target=worker, name="pinky-search")
+        thread.daemon = True
+        thread.start()
 
     def _open_selected(self):
         try:
@@ -427,8 +464,7 @@ def open_search(modal_result=False):
         query = window.submitted
     finally:
         del window
-    if modal_result:
-        return query
-    if query:
-        kodi.activate_window(router.url_for("search_query", q=query))
+    # No hand-off to the `search_query` directory route: the window shows its
+    # own results now, and routes a chosen one through our details window.
+    # That route still exists for Kodi's own search and for a favourite.
     return query
