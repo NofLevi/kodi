@@ -315,15 +315,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -331,9 +331,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -341,31 +341,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5000)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5000)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5000)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -397,15 +427,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -413,9 +443,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -423,31 +453,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5001)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5001)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5001)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -479,15 +539,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -495,9 +555,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -505,31 +565,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5002)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5002)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5002)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -561,15 +651,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -577,9 +667,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -587,31 +677,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5003)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5003)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5003)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -643,15 +763,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -659,9 +779,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -669,31 +789,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5004)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5004)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5004)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -725,15 +875,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -741,9 +891,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -751,31 +901,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5005)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5005)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5005)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -807,15 +987,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -823,9 +1003,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -833,31 +1013,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5006)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5006)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5006)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -889,15 +1099,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -905,9 +1115,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -915,31 +1125,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5007)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5007)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5007)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -971,15 +1211,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -987,9 +1227,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -997,31 +1237,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5008)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5008)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5008)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1053,15 +1323,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1069,9 +1339,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1079,31 +1349,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5009)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5009)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5009)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1135,15 +1435,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1151,9 +1451,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1161,31 +1461,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5010)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5010)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5010)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1217,15 +1547,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1233,9 +1563,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1243,31 +1573,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5011)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5011)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5011)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1299,15 +1659,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1315,9 +1675,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1325,31 +1685,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5012)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5012)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5012)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1381,15 +1771,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1397,9 +1787,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1407,31 +1797,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5013)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5013)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5013)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1463,15 +1883,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1479,9 +1899,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1489,31 +1909,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5014)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5014)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5014)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1545,15 +1995,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1561,9 +2011,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1571,31 +2021,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5015)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5015)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5015)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1627,15 +2107,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1643,9 +2123,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1653,31 +2133,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5016)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5016)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5016)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1709,15 +2219,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1725,9 +2235,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1735,31 +2245,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5017)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5017)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5017)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1791,15 +2331,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1807,9 +2347,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1817,31 +2357,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5018)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5018)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5018)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1873,15 +2443,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1889,9 +2459,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1899,31 +2469,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5019)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5019)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5019)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -1955,15 +2555,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -1971,9 +2571,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -1981,31 +2581,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5020)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5020)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5020)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -2037,15 +2667,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -2053,9 +2683,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -2063,31 +2693,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5021)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5021)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5021)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -2119,15 +2779,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -2135,9 +2795,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -2145,31 +2805,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5022)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5022)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5022)</visible>
                         </control>
                     </focusedlayout>
                 </control>
@@ -2201,15 +2891,15 @@
                     <preloaditems>2</preloaditems>
                     <itemlayout width="190" height="286">
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
                         <control type="image">
-                            <left>140</left>
+                            <left>135</left>
                             <top>8</top>
                             <width>36</width>
                             <height>36</height>
@@ -2217,9 +2907,9 @@
                             <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                         </control>
                         <control type="progress">
-                            <left>4</left>
-                            <top>250</top>
-                            <width>176</width>
+                            <left>15</left>
+                            <top>234</top>
+                            <width>160</width>
                             <height>6</height>
                             <info>ListItem.Property(katan.percentplayed)</info>
                             <visible>Integer.IsGreater(ListItem.Property(katan.percentplayed),0)</visible>
@@ -2227,31 +2917,61 @@
                     </itemlayout>
                     <focusedlayout width="190" height="286">
                         <control type="image">
-                            <left>0</left>
+                            <left>11</left>
                             <top>0</top>
-                            <width>184</width>
-                            <height>264</height>
+                            <width>168</width>
+                            <height>248</height>
                             <texture border="3">special://home/addons/plugin.video.katan/resources/media/poster-focus.png</texture>
                             <visible>Control.HasFocus(5023)</visible>
                         </control>
                         <control type="image">
-                            <left>4</left>
+                            <left>15</left>
                             <top>4</top>
-                            <width>176</width>
-                            <height>256</height>
+                            <width>160</width>
+                            <height>240</height>
                             <aspectratio>scale</aspectratio>
                             <texture fallback="special://home/addons/plugin.video.katan/resources/media/poster.png">$INFO[ListItem.Art(poster)]</texture>
                         </control>
+                        <!-- Two labels, because Kodi parses <scroll> as a
+                             plain boolean and will not take a condition, and
+                             a row draws its selected item in the focused
+                             layout whether or not the row itself has focus -
+                             so a single scrolling label meant every row on
+                             screen animated at once and each was read
+                             mid-scroll with its opening characters gone.
+
+                             One line is all that is available: a label inside
+                             an item layout is a list label, which is always
+                             single-line, so <wrapmultiline> is accepted and
+                             then ignored - measured, it rendered one
+                             ellipsised line in a 40px box. A cell is 190px,
+                             about 29 characters at font10, so anything longer
+                             has to scroll to be read at all. It now does that
+                             only on the row you are actually on. -->
                         <control type="label">
-                            <left>4</left>
-                            <top>262</top>
-                            <width>176</width>
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
                             <height>24</height>
-                            <font>font12</font>
+                            <font>font10</font>
                             <align>center</align>
                             <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
+                            <label>$INFO[ListItem.Label]</label>
+                            <visible>!Control.HasFocus(5023)</visible>
+                        </control>
+                        <control type="label">
+                            <left>0</left>
+                            <top>248</top>
+                            <width>190</width>
+                            <height>24</height>
+                            <font>font10</font>
+                            <align>center</align>
+                            <textcolor>white</textcolor>
+                            <shadowcolor>black</shadowcolor>
                             <scroll>true</scroll>
                             <label>$INFO[ListItem.Label]</label>
+                            <visible>Control.HasFocus(5023)</visible>
                         </control>
                     </focusedlayout>
                 </control>

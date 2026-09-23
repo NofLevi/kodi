@@ -223,6 +223,29 @@ def extract_subtitle(data, prefer_language="", candidate=None):
         archive.close()
 
 
+def _names_tagged(names, aliases):
+    """Those of `names` whose filename marks it as one of `aliases`."""
+    short_aliases = {alias for alias in aliases if len(alias) == 2}
+    long_aliases = aliases - short_aliases
+    trailing_modifiers = {"forced", "foreign", "sdh", "cc", "hi", "default"}
+    tagged = []
+    for name in names:
+        all_tokens = [part for part in re.split(r"[^a-z0-9]+", name.lower())
+                      if part]
+        base_tokens = [part for part in re.split(
+            r"[^a-z0-9]+", os.path.splitext(os.path.basename(name.lower()))[0])
+                       if part]
+        # Two-letter words collide constantly with titles (He, It, Ar). Treat
+        # them as a language code only in the conventional suffix position,
+        # allowing standard accessibility/forced modifiers after the code.
+        while base_tokens and base_tokens[-1] in trailing_modifiers:
+            base_tokens.pop()
+        short_match = bool(base_tokens and base_tokens[-1] in short_aliases)
+        if short_match or set(all_tokens) & long_aliases:
+            tagged.append(name)
+    return tagged
+
+
 def _pick_from_archive(names, prefer_language):
     """Choose one unambiguous language/file, preferring SRT only afterward."""
     choices = list(names)
@@ -239,27 +262,28 @@ def _pick_from_archive(names, prefer_language):
 
     code = prefer_language.lower()
     aliases = LANGUAGE_ALIASES.get(code, {code})
-    short_aliases = {alias for alias in aliases if len(alias) == 2}
-    long_aliases = aliases - short_aliases
-    trailing_modifiers = {"forced", "foreign", "sdh", "cc", "hi", "default"}
-    tagged = []
-    for name in choices:
-        all_tokens = [part for part in re.split(r"[^a-z0-9]+", name.lower())
-                      if part]
-        base_tokens = [part for part in re.split(
-            r"[^a-z0-9]+", os.path.splitext(os.path.basename(name.lower()))[0])
-                       if part]
-        # Two-letter words collide constantly with titles (He, It, Ar). Treat
-        # them as a language code only in the conventional suffix position,
-        # allowing standard accessibility/forced modifiers after the code.
-        while base_tokens and base_tokens[-1] in trailing_modifiers:
-            base_tokens.pop()
-        short_match = bool(base_tokens and base_tokens[-1] in short_aliases)
-        if short_match or set(all_tokens) & long_aliases:
-            tagged.append(name)
+    tagged = _names_tagged(choices, aliases)
 
     if not tagged:
-        return choices[0] if len(choices) == 1 else ""
+        if len(choices) == 1:
+            return choices[0]
+        # Nothing here names *any* language, so there is no language to be
+        # ambiguous about - what differs is the release the file was named
+        # for. Refusing protected nothing and cost real subtitles: Wizdom is
+        # Hebrew-only and has no reason to tag anything, and its Pulp Fiction
+        # archive holds the same Hebrew subtitle under two release names, so
+        # this discarded it and the film played with none. Measured over 223
+        # titles, that was the largest single cause of "nothing usable".
+        #
+        # The guard that actually works is downstream and unconditional:
+        # `download_candidate` reads the cues and refuses a file whose script
+        # is not the language asked for, which catches a wrong guess here.
+        every_alias = set()
+        for group in LANGUAGE_ALIASES.values():
+            every_alias |= group
+        if not _names_tagged(choices, every_alias):
+            return preferred(choices)
+        return ""
     stems = {stem(name) for name in tagged}
     if len(stems) != 1:
         return ""

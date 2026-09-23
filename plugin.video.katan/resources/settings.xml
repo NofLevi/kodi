@@ -260,7 +260,7 @@
                     <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.torrentsdb" type="boolean" label="30148">
+                <setting id="sources.provider.torrentsdb" type="boolean" label="30323">
                     <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
@@ -602,6 +602,13 @@
                     <dependencies>
                         <dependency type="visible" setting="subs.provider.ktuvit" operator="is">true</dependency>
                     </dependencies>
+                </setting>
+                <setting id="action.connect.ktuvit" type="action" label="30323">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.katan/?action=connect&amp;service=ktuvit)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
                 </setting>
                 <setting id="action.connect.opensubtitles" type="action" label="30147">
                     <level>0</level>

@@ -59,9 +59,11 @@ def fake_world(monkeypatch, settings_module):
         state["asked_for"].append(list(languages))
         return list(state["candidates"])
 
-    def fake_download(cand, expect_language=None):
+    def fake_download(cand, expect_language=None, outcome=None):
         state["downloaded"].append(cand.get("download"))
         data = state["downloads"].get(cand.get("download"), b"")
+        if outcome is not None:
+            outcome["served"] = bool(data)
         cues = srt.parse(srt.decode(data)) if data else []
         return srt.clean(cues) if cues else []
 
@@ -202,13 +204,16 @@ def test_translation_failure_does_not_reset_budget_on_another_source(
 
 
 def test_translation_source_downloads_never_exceed_operation_budget(fake_world):
-    names = ["dead-%d" % index for index in range(5)]
+    names = ["dead-%d" % index for index in range(10)]
     fake_world["candidates"] = [
         candidate(name, "en", score=100 - index)
         for index, name in enumerate(names)]
 
     assert auto.translate_now(MOVIE, "he", video_hash="") == ""
-    assert fake_world["downloaded"] == names[:3]
+    # Every one of these serves no bytes at all, which is the provider being
+    # down rather than ten bad uploads - so it is written off after two and
+    # its remaining rows cost nothing.
+    assert fake_world["downloaded"] == names[:auto._DownloadBudget.PROVIDER_FAILURES]
 
 
 def test_no_engine_means_no_promise(fake_world, monkeypatch):

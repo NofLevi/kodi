@@ -73,9 +73,11 @@ def world(monkeypatch, settings_module):
     def fake_search(meta, languages, video_hash="", **kwargs):
         return list(state["candidates"])
 
-    def fake_download(cand, expect_language=None):
+    def fake_download(cand, expect_language=None, outcome=None):
         state["downloaded"].append(cand.get("download"))
         data = state["downloads"].get(cand.get("download"), b"")
+        if outcome is not None:
+            outcome["served"] = bool(data)
         parsed = srt.parse(srt.decode(data)) if data else []
         return srt.clean(parsed) if parsed else []
 

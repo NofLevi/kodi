@@ -52,6 +52,27 @@ def test_multipart_requested_language_archive_is_ambiguous():
     assert common._pick_from_archive(names, "he") == ""
 
 
+def test_an_archive_naming_no_language_at_all_is_not_ambiguous():
+    """A Hebrew-only provider has no reason to tag anything.
+
+    Wizdom's Pulp Fiction archive holds the same Hebrew subtitle under two
+    release names. Refusing it as "ambiguous" protected nothing - there is no
+    other language present to be confused with - and the film played with no
+    subtitles while both files were perfectly good. The guard that matters is
+    downstream: `download_candidate` refuses cues whose script is not the
+    language asked for.
+    """
+    names = ["Pulp.Fiction.1994.720p.BRRip.XviD.AC3-LiFT.srt",
+             "Pulp.Fiction.(1994).720p.BRRip.XviD.AC3-LiFT.srt"]
+    assert common._pick_from_archive(names, "he") in names
+
+
+def test_an_archive_naming_another_language_is_still_refused():
+    """The ambiguity guard still has to work where a language *is* named."""
+    names = ["Film.2024.eng.srt", "Film.2024.spa.srt"]
+    assert common._pick_from_archive(names, "he") == ""
+
+
 def test_webvtt_archive_entry_can_be_saved_as_srt(tmp_path):
     data = b"WEBVTT\n\n00:01.000 --> 00:03.000\nHello\n\n"
     path = common.save(data, str(tmp_path), "converted.srt")

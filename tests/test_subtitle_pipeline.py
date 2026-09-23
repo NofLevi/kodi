@@ -44,12 +44,14 @@ def pipeline(monkeypatch, settings_module):
         state["searched_languages"].append(list(languages))
         return list(state["candidates"])
 
-    def fake_download(candidate, expect_language=None):
+    def fake_download(candidate, expect_language=None, outcome=None):
         state["downloaded"].append(candidate.get("release"))
         state["expected"].append(expect_language)
         key = candidate.get("download") or candidate.get("release")
         data = state["downloads"].get(key) or state["downloads"].get(
             candidate.get("release"), b"")
+        if outcome is not None:
+            outcome["served"] = bool(data)
         cues = srt.parse(srt.decode(data)) if data else []
         return srt.clean(cues) if cues else []
 
@@ -133,17 +135,78 @@ def test_a_weak_hebrew_subtitle_comes_before_a_translation(
     assert pipeline["searched_languages"] == [["he", "en"]],         "no AI sources are searched while Hebrew exists"
 
 
-def test_broken_candidates_share_one_three_download_budget(pipeline):
-    names = ["Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"] + [
-        "Dune.Part.Two.2024.1080p.WEB-DL.H264-%s" % group
-        for group in ("AAA", "BBB", "CCC")]
+def test_broken_candidates_are_walked_past_but_not_forever(pipeline):
+    """Unusable files cost attempts rather than budget slots, up to a ceiling.
+
+    These arrive as bytes that will not parse, which is the upload's fault
+    rather than the provider's, so the provider is not written off - only the
+    overall attempt ceiling stops the walk.
+    """
+    names = ["Dune.Part.Two.2024.1080p.WEB-DL.H264-%s" % group
+             for group in ("FLUX", "AAA", "BBB", "CCC", "DDD", "EEE",
+                           "FFF", "GGG", "HHH", "III", "JJJ", "KKK")]
     pipeline["candidates"] = [candidate(name) for name in names]
     for name in names:
         pipeline["downloads"][name] = b"broken"
 
     path, _report = auto.find_and_prepare(MOVIE, ["he", "en"])
     assert path == ""
-    assert pipeline["downloaded"] == names[:3]
+    assert pipeline["downloaded"] == names[:auto._DownloadBudget.MAX_FAILURES], \
+        "a download that returns nothing costs an attempt, not a budget slot"
+
+
+def test_a_half_length_subtitle_is_replaced_by_a_whole_one(pipeline):
+    """A CD1 that ends half way through must not end the search.
+
+    `verify_and_sync` has always claimed "the caller's fallback to the next
+    candidate handles both". For the Hebrew step it did not exist, so one
+    partial file meant no subtitle at all: Harry Potter 2 had fourteen Hebrew
+    subtitles, the best-ranked was a 710-cue half, and the film played with
+    none.
+    """
+    half = "Harry.Potter.2002.1080p.BluRay.x264-CD1"
+    whole = "Harry.Potter.2002.1080p.BluRay.x264-DOMiNiON"
+    pipeline["candidates"] = [candidate(half), candidate(whole)]
+    # 30 cues four seconds apart reach 2 minutes; the film is an hour.
+    pipeline["downloads"][half] = srt_bytes(count=30, text="half")
+    pipeline["downloads"][whole] = srt_bytes(count=900, text="whole")
+    MOVIE["duration"] = 3600
+
+    try:
+        path, report = auto.find_and_prepare(MOVIE, ["he", "en"])
+    finally:
+        MOVIE.pop("duration", None)
+
+    assert path.endswith(".he.srt")
+    assert srt.read(path)[-1].text.startswith("whole"), \
+        "the partial subtitle should have been passed over"
+
+
+def test_a_dead_provider_does_not_hide_a_working_one(pipeline):
+    """The budget is three files to parse, not three requests to make.
+
+    Measured over 223 titles: when OpenSubtitles started refusing downloads
+    mid-run, its three empty fetches spent the whole budget and Pulp Fiction
+    played with nothing while 45 working Wizdom candidates sat behind them.
+    """
+    dead = ["Dune.Part.Two.2024.1080p.WEB-DL.H264-%s" % group
+            for group in ("AAA", "BBB", "CCC", "DDD", "EEE", "FFF",
+                          "GGG", "HHH", "III", "JJJ", "KKK")]
+    alive = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
+    pipeline["candidates"] = [candidate(name, provider="opensubtitles_rest")
+                              for name in dead]
+    pipeline["candidates"].append(candidate(alive, provider="wizdom"))
+    # A throttled service hands over no bytes at all, which is how it is told
+    # apart from an upload that arrives and will not parse.
+    for name in dead:
+        pipeline["downloads"][name] = b""
+    pipeline["downloads"][alive] = srt_bytes(text="hebrew")
+
+    path, _report = auto.find_and_prepare(MOVIE, ["he", "en"])
+    assert path.endswith(".he.srt")
+    assert alive in pipeline["downloaded"]
+    assert len(pipeline["downloaded"]) <= auto._DownloadBudget.PROVIDER_FAILURES + 1, \
+        "the sick provider should be written off after two empty answers"
 
 
 
@@ -166,7 +229,11 @@ def test_hash_reference_and_target_fallback_share_three_download_budget(
     path, _report = auto.find_and_prepare(MOVIE, ["he", "en"])
 
     assert path, "the third target candidate should consume the last slot"
-    assert pipeline["downloaded"] == [exact, second, usable]
+    # The two broken fetches cost attempts rather than slots, so the hash
+    # reference is still affordable - which matters more than it looks: it is
+    # the only thing that can confirm the chosen subtitle's timing, and under
+    # the old counting a pair of dead downloads made it unreachable.
+    assert pipeline["downloaded"] == [exact, second, usable, reference]
 
 
 def test_download_budget_deduplicates_the_provider_handle(monkeypatch):
@@ -174,7 +241,8 @@ def test_download_budget_deduplicates_the_provider_handle(monkeypatch):
     cues = [srt.Cue(1, 0.0, 1.0, "line")]
     monkeypatch.setattr(
         auto, "download_candidate",
-        lambda candidate, expect_language=None: calls.append(candidate) or cues)
+        lambda candidate, expect_language=None, outcome=None:
+            calls.append(candidate) or cues)
     budget = auto._DownloadBudget(3)
     left = candidate("release-a", download="same-handle")
     right = candidate("release-b", download="same-handle")
@@ -187,7 +255,7 @@ def test_download_budget_deduplicates_the_provider_handle(monkeypatch):
 def test_download_budget_keeps_languages_separate_in_one_archive(monkeypatch):
     calls = []
 
-    def download(candidate, expect_language=None):
+    def download(candidate, expect_language=None, outcome=None):
         language = expect_language or candidate.get("language")
         calls.append(language)
         return [srt.Cue(1, 0.0, 1.0, language)]
@@ -952,3 +1020,20 @@ def test_a_found_hebrew_subtitle_is_not_replaced_by_embedded_english(monkeypatch
                         lambda *a, **k: ("/tmp/film.he.srt", {"applied": True}))
     auto.on_playback_started(object(), {"title": "Film", "original_language": "en"})
     assert asked == []
+
+
+def test_a_subtitle_for_another_episode_is_never_applied(pipeline):
+    """A season-zero special has no subtitle anywhere, and the best candidate
+    is season one's first episode - which the matcher scores 0, "wrong
+    episode". The last-resort fallback used to take it anyway."""
+    wrong = "NCIS.S01E01.1080p.BluRay.x265-INFINITY"
+    pipeline["candidates"] = [candidate(wrong)]
+    pipeline["downloads"][wrong] = srt_bytes()
+    special = {"type": "episode", "title": "NCIS", "year": 2003,
+               "ids": {"imdb": "tt0364845", "tmdb": 4614},
+               "season": 0, "episode": 1,
+               "source": {"release": "NCIS.S00E01.1080p.WEB.H264-GRP"}}
+
+    path, report = auto.find_and_prepare(special, ["he", "en"])
+    assert path == "", report
+    assert pipeline["downloaded"] == [], "and it is not even downloaded"

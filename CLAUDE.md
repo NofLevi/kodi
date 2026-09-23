@@ -150,7 +150,72 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
 * `subs/` picks one subtitle: embedded track, then file hash, then release
   correlation, then AI translation of the best English match. Wizdom and
   SubSource are anonymous; Ktuvit is a members' site, so it is off until an
-  account is entered and is asked after the faster sources.
+  account is entered and is asked after the faster sources. Ktuvit is entered
+  through **one button in the subtitle settings at normal level**, not the
+  expert toggle and two fields it used to be: it offers the free signup page
+  as a scannable code, asks for the email and password, switches the provider
+  on and *tries the login while somebody is still looking at the screen*,
+  because a stored-but-wrong password otherwise surfaces days later as a film
+  playing with nothing. It cannot ship with a credential of its own - one
+  login shared by every installation is what closes an account, and the dead
+  credential would then be frozen into every installed copy until a release
+  replaced it.
+
+  **What the automatic path is actually worth, measured 23 September 2026**
+  over 223 stratified titles with real debrid streams, against two rulers: a
+  hash-matched subtitle where one exists (ground truth) and the best candidate
+  from a *different* provider (corroboration). Of the subtitles it applied,
+  100% were in the language claimed, 100% covered the whole runtime, 100% of
+  the hash-referenced ones fitted well, and 78% of 80 were corroborated to
+  within a second. Where a title had both rulers they agreed 7 times in 8,
+  which is what makes the wide number worth quoting. So **it is reliable at
+  "is this the right file" and blind to "is the Hebrew any good"** - nothing
+  in the pipeline reads the translation, and the case people complain about
+  is a subtitle that exists, is in the right language and is wrong. That is
+  why the manual chooser is not redundant and must stay.
+
+  Three defects it found, none of which any log would have shown, because all
+  three end at "nothing usable" next to dozens of candidates:
+  * **A download that returned nothing cost a budget slot.** The budget of
+    three is a memory decision - parse a few subtitles on a small device, not
+    fifty - and an empty response costs no memory at all. When
+    rest.opensubtitles.org began refusing downloads part way through the run,
+    three empty fetches spent the allowance and everything behind them was
+    unreachable: Pulp Fiction played with no subtitle while 45 working Wizdom
+    candidates sat unasked, and so did Titanic, Taxi Driver, The Lion King,
+    The Terminator and Apocalypse Now. It also silently disabled the hash
+    reference, which is the only thing that can verify timing. Failures are
+    correlated by provider rather than spread evenly, and a flat ceiling
+    cannot express that - OpenSubtitles ranks eleven rows above Wizdom's first
+    on Pulp Fiction - so a provider is written off after two *empty* answers
+    and its remaining rows skipped for free. An archive that arrives and will
+    not parse is the upload's fault and never counts against the provider.
+  * **An archive naming no language at all was refused as ambiguous.** Wizdom
+    is Hebrew-only and has no reason to tag anything, and its Pulp Fiction zip
+    holds the same subtitle under two release names. There is no language
+    present to be confused with, and the guard that actually works is
+    downstream and unconditional: `download_candidate` refuses cues whose
+    script is not the language asked for.
+  * **One partial file ended the search.** `verify_and_sync` has always said
+    "the caller's fallback to the next candidate handles both", and for the
+    Hebrew and English steps that fallback did not exist. Harry Potter 2 had
+    fourteen Hebrew subtitles, the best-ranked was a 710-cue CD1 half, and the
+    film played with none while thirteen whole ones sat behind it.
+
+  Eleven of the thirteen recoverable titles came back. The two that did not
+  are the case where the top three candidates are *all* CD1 halves, which the
+  three-download budget cannot outlast and which is not worth more downloads
+  on every playback to rescue.
+
+  **Ktuvit was pointed at a hostname that no longer exists.** `members.ktuvit.me`
+  is NXDOMAIN; the same paths answer on the apex `ktuvit.me`. Every request
+  the provider ever made died at DNS, so no credentials could have worked.
+  Nothing caught it for months and the reason is worth keeping: the provider
+  ships **off**, so no unit test reaches the network and nobody without an
+  account would ever see a log line - it was invisible by construction.
+  `tools/e2e.py` now probes it with an *empty* login, which needs no account,
+  is the gentlest thing to ask of somebody else's server, and proves host,
+  path and response envelope in one request.
 
   **Anime subtitles from Jimaku were built, measured and not shipped.** Over
   a thousand anime shows, Jimaku had about 58% of episodes (Kitsunekko 5% as
@@ -378,7 +443,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1868 tests, all running against Kodi stubs, so no Kodi install is needed:
+1873 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -408,8 +473,8 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
-| `test_subtitle_pipeline.py` | 16 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. |
-| `test_ktuvit.py` | 19 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
+| `test_subtitle_pipeline.py` | 50 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. |
+| `test_ktuvit.py` | 20 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
 | `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
 | `test_vod_seasons.py` | 17 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video. |

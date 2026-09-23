@@ -10,6 +10,7 @@ TMDB_SIGNUP = "https://www.themoviedb.org/settings/api"
 GEMINI_SIGNUP = "https://aistudio.google.com/apikey"
 OPENROUTER_SIGNUP = "openrouter.ai/keys"
 OPENSUBTITLES_KEYS = "https://www.opensubtitles.com/en/consumers"
+KTUVIT_SIGNUP = "https://ktuvit.me/Register.aspx"
 
 
 def run(open_home_after=True):
@@ -247,6 +248,52 @@ def step_opensubtitles():
         kodi.notify(kodi.localize(32318))
     else:
         kodi.notify(kodi.localize(32319))
+
+
+def step_ktuvit():
+    """The one subtitle provider with an account, made findable.
+
+    Ktuvit is a members' site, so it cannot ship with a credential: one login
+    shared by everyone who installs this is precisely what gets an account
+    closed, and the dead credential would then be frozen into every installed
+    copy until a release replaced it. A free account each is the only version
+    of this that keeps working.
+
+    What *was* wrong is that nothing said so. The toggle and its two fields
+    sit at expert level behind a visibility dependency, so finding them meant
+    knowing to raise Kodi's settings level first - and the registration page
+    is not where anybody would guess either. This is one button that offers
+    the signup page as a scannable code and then asks for the two fields,
+    which is how every other account here is entered.
+    """
+    from .. import settings as _settings
+    from . import signin
+
+    email = signin.ask_for_key(kodi.localize(30065),
+                               _settings.get("subs.ktuvit.user"),
+                               help_url=KTUVIT_SIGNUP)
+    if email is None:
+        return
+    password = signin.ask_for_key(kodi.localize(30066),
+                                  _settings.get("subs.ktuvit.password"))
+    if password is None:
+        return
+
+    _settings.set("subs.ktuvit.user", email)
+    _settings.set("subs.ktuvit.password", password)
+    _settings.set("subs.provider.ktuvit", "true" if (email and password) else "false")
+    if not (email and password):
+        return
+
+    try:
+        from ..subs.providers import ktuvit
+    except ImportError:
+        return
+    # A sign-in that is only stored is a sign-in nobody knows failed until a
+    # film plays with no subtitles, so it is tried here while somebody is
+    # still looking at the screen.
+    kodi.notify(kodi.localize(32318) if ktuvit.session_cookie(refresh=True)
+                else kodi.localize(32319))
 
 
 def step_ai():

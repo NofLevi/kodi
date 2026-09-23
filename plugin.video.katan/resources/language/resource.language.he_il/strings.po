@@ -1688,3 +1688,7 @@ msgstr "אנגלית"
 msgctxt "#32544"
 msgid "English subtitle, %d%% fit"
 msgstr "כתובית אנגלית, התאמה %d%%"
+
+msgctxt "#30323"
+msgid "Connect Ktuvit (free account)"
+msgstr "חיבור לכתובית (חשבון חינם)"

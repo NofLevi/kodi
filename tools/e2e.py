@@ -765,6 +765,38 @@ def _subtitles():
     return "%d candidates" % len(candidates)
 
 
+@check("the Ktuvit sign-in host still answers", "subtitles", required=False)
+def _ktuvit_host():
+    """Ktuvit's hostname, checked without an account.
+
+    This exists because the provider spent months pointed at
+    `members.ktuvit.me` after it was retired - NXDOMAIN, so every request
+    failed before it was sent and no credentials could have worked. Nothing
+    caught it: the provider ships off, so no unit test reaches the network and
+    nobody without an account would ever see a log line.
+
+    An empty login is enough and needs no credentials. The service answers
+    `{"d": "{\\"IsSuccess\\":false,...}"}`, which proves the host, the path
+    and the response envelope in one request - and a rejected empty login is
+    the gentlest possible thing to ask of somebody else's server.
+    """
+    from katan import http
+    from katan.subs.providers import ktuvit
+
+    response = http.post(ktuvit.LOGIN,
+                         json={"request": {"Email": "", "Password": ""}},
+                         headers=ktuvit.HEADERS, timeout=ktuvit.TIMEOUT)
+    if response is None:
+        raise AssertionError("%s did not answer at all" % ktuvit.BASE)
+    if response.status_code >= 400:
+        raise AssertionError("%s answered %s" % (ktuvit.LOGIN,
+                                                 response.status_code))
+    if "IsSuccess" not in (response.text or ""):
+        raise AssertionError("%s answered something else: %s"
+                             % (ktuvit.LOGIN, (response.text or "")[:60]))
+    return "%s answers the documented envelope" % ktuvit.BASE
+
+
 @check("an Israeli channel resolves to a stream", "vod", required=False)
 def _channel_stream():
     from katan.vod import channels

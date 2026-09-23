@@ -421,13 +421,11 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
     # before any translation. A Hebrew subtitle somebody made for this title
     # comes ahead of one a model makes, and the viewer can switch it off.
     if winner:
-        chosen, cues = _first_usable(_ranked, wanted, downloads)
+        _chosen, cues, report = _first_verified(
+            _ranked, wanted, downloads, winners, languages, report, runtime)
         if cues:
-            cues, report = verify_and_sync(cues, winners, languages, report,
-                                           downloads, runtime)
-            if cues:
-                report["reason"] = "below threshold, used anyway"
-                return store(meta, wanted, cues), report
+            report["reason"] = "below threshold, used anyway"
+            return store(meta, wanted, cues), report
 
     # No Hebrew at all. Only now is it worth asking for what AI could
     # translate from: while any Hebrew exists those requests buy nothing.
@@ -472,14 +470,12 @@ def _english(meta, languages, ranked, winners, report, downloads, runtime,
             report["embedded"] = code
             report["reason"] = "the file's own %s track" % code
             return "", report
-        chosen, cues = _first_usable(ranked, code, downloads)
+        _chosen, cues, report = _first_verified(
+            ranked, code, downloads, winners, languages, report, runtime)
         if cues:
-            cues, report = verify_and_sync(cues, winners, languages, report,
-                                           downloads, runtime)
-            if cues:
-                report["reason"] = "%s subtitle, nothing in %s" % (code, languages[0])
-                report["language"] = code
-                return store(meta, code, cues), report
+            report["reason"] = "%s subtitle, nothing in %s" % (code, languages[0])
+            report["language"] = code
+            return store(meta, code, cues), report
     return "", report
 
 
@@ -579,7 +575,7 @@ def video_hash_for(meta):
     return value
 
 
-def download_candidate(candidate, expect_language=None):
+def download_candidate(candidate, expect_language=None, outcome=None):
     """Fetch one subtitle and turn it into cues.
 
     `expect_language` is checked only when the add-on chose the file itself.
@@ -600,6 +596,12 @@ def download_candidate(candidate, expect_language=None):
     except Exception:
         kodi.log_exception("downloading from %s failed" % candidate.get("provider"))
         return []
+    # Whether the service handed over any bytes at all, which is a different
+    # fault from an archive that arrived and would not parse: the first says
+    # the provider is not serving, the second says this one file is bad.
+    # `_DownloadBudget` writes a provider off only for the first.
+    if outcome is not None:
+        outcome["served"] = bool(data)
     if not data:
         return []
     cues = srt.parse(srt.decode(data, expect_language))
@@ -620,37 +622,101 @@ def download_candidate(candidate, expect_language=None):
 
 
 class _DownloadBudget(object):
-    """One operation-wide, cached limit for all subtitle downloads."""
+    """One operation-wide, cached limit for all subtitle downloads.
+
+    Two allowances, because a download that comes back empty is not the thing
+    the limit exists to prevent. The limit is a memory decision - parse a few
+    subtitles on a small device rather than fifty - and a fetch that returns
+    nothing costs one request and no memory at all. Charging it anyway is how
+    one sick provider took whole titles down with it: measured over 223 titles
+    on 23 September 2026, `rest.opensubtitles.org` began refusing downloads
+    part way through the run, and from that point three empty fetches spent
+    the budget before anything else was asked. Pulp Fiction ended with no
+    subtitle at all with 45 working Wizdom candidates behind the failures, and
+    so did Taxi Driver, The Lion King, The Terminator and Harry Potter.
+
+    A viewer meets this as subtitles that work all evening and then silently
+    stop for every film, which is indistinguishable from the add-on breaking.
+    """
+
+    # Failures are correlated by provider, not spread evenly: when a service
+    # stops serving, every one of its rows fails. So a provider is dropped for
+    # the rest of the operation after this many empty fetches, and its
+    # remaining rows are skipped for free rather than charged for. A flat
+    # ceiling cannot do this - OpenSubtitles ranks eleven rows above Wizdom's
+    # first on Pulp Fiction, so any ceiling low enough to be safe gives up
+    # before reaching the provider that would have answered.
+    PROVIDER_FAILURES = 2
+    # A backstop across all providers, so a search returning 77 candidates can
+    # never become 77 requests however they are spread.
+    MAX_FAILURES = 10
 
     def __init__(self, limit):
         self.limit = max(0, int(limit))
         self.used = 0
+        self.failed = 0
+        self.failed_by_provider = {}
         self.cache = {}
 
     def _key(self, candidate, expect_language=None):
         return matcher.candidate_key(candidate, expect_language)
 
+    def exhausted(self, candidate):
+        """Has this candidate's provider already shown it is not serving?"""
+        provider = candidate.get("provider") or ""
+        return self.failed_by_provider.get(provider, 0) >= self.PROVIDER_FAILURES
+
     def fetch(self, candidate, expect_language=None):
         key = self._key(candidate, expect_language)
         if key in self.cache:
             return self.cache[key]
-        if self.used >= self.limit:
+        if self.remaining() <= 0 or self.exhausted(candidate):
             return []
-        self.used += 1
-        cues = download_candidate(candidate, expect_language=expect_language)
+        outcome = {}
+        cues = download_candidate(candidate, expect_language=expect_language,
+                                  outcome=outcome)
         self.cache[key] = cues
+        if cues:
+            self.used += 1
+            return cues
+        self.failed += 1
+        if outcome.get("served"):
+            # The file arrived and was unusable. That is this upload's fault,
+            # not the service's, and condemning the provider for it would
+            # throw away the rest of its catalogue over two bad archives.
+            return cues
+        provider = candidate.get("provider") or ""
+        self.failed_by_provider[provider] = (
+            self.failed_by_provider.get(provider, 0) + 1)
+        if self.failed_by_provider[provider] == self.PROVIDER_FAILURES:
+            kodi.log("%s served nothing twice, skipping its remaining rows "
+                     "for this subtitle search" % (provider or "?"))
         return cues
 
     def remaining(self):
+        if self.failed >= self.MAX_FAILURES:
+            return 0
         return max(0, self.limit - self.used)
 
 
-def _first_usable(candidates, wanted, downloads, minimum_score=0):
+# The matcher's base score for the right title is 40 and a name that states a
+# different episode costs 100, so a score of 0 means exactly "this is another
+# episode". Nothing may be applied on that evidence, however little else there
+# is: measured, three season-zero specials got season one's first episode,
+# because the "used anyway" fallback accepted any score down to zero and no
+# provider has subtitles for a special.
+MIN_USABLE_SCORE = 1
+
+
+def _first_usable(candidates, wanted, downloads, minimum_score=MIN_USABLE_SCORE,
+                  skip=None):
     """Try target candidates in rank order under one shared download budget."""
     for candidate in candidates:
         if candidate.get("language") != wanted:
             continue
         if candidate.get("score", 0) < minimum_score:
+            continue
+        if skip and matcher.candidate_key(candidate) in skip:
             continue
         cues = downloads.fetch(candidate, expect_language=wanted)
         if cues:
@@ -658,6 +724,35 @@ def _first_usable(candidates, wanted, downloads, minimum_score=0):
         if downloads.remaining() <= 0:
             break
     return None, []
+
+
+def _first_verified(candidates, wanted, downloads, winners, languages, report,
+                    runtime, minimum_score=MIN_USABLE_SCORE):
+    """The best candidate that also survives verification.
+
+    `verify_and_sync` rejects what `_first_usable` hands it whenever a hash
+    reference disproves the subtitle, or it ends too early to be the whole
+    film - and its docstring has always said "the caller's fallback to the
+    next candidate handles both". For the Hebrew and English steps that
+    fallback did not exist, so one bad file ended the search.
+
+    Measured over 223 titles: Harry Potter and the Chamber of Secrets had
+    fourteen Hebrew subtitles, the best-ranked was a 710-cue CD1 half, and
+    the film played with no subtitles at all while thirteen whole ones sat
+    behind it. The download budget bounds the loop - only a fetch that
+    succeeds costs a slot, and there are three.
+    """
+    tried = set()
+    while True:
+        chosen, cues = _first_usable(candidates, wanted, downloads,
+                                     minimum_score, skip=tried)
+        if not cues:
+            return None, [], report
+        cues, report = verify_and_sync(cues, winners, languages, report,
+                                       downloads, runtime)
+        if cues:
+            return chosen, cues, report
+        tried.add(matcher.candidate_key(chosen))
 
 
 def _best_supported(winner, candidates, wanted, languages, winners, report,

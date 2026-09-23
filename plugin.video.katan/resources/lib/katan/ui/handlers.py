@@ -877,6 +877,8 @@ def connect(params):
         wizard.step_debrid()
     elif service == "opensubtitles":
         wizard.step_opensubtitles()
+    elif service == "ktuvit":
+        wizard.step_ktuvit()
     elif service == "ai":
         wizard.step_ai()
     else:

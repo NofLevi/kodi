@@ -35,7 +35,12 @@ from ... import cache, http, kodi, settings
 from . import common
 
 NAME = "ktuvit"
-BASE = "https://members.ktuvit.me"
+# The apex domain, not `members.` - that hostname was retired and is now
+# NXDOMAIN, so every request this provider made failed before it was sent and
+# no credentials could ever have worked. Measured 23 September 2026: the same
+# paths on ktuvit.me answer, and an empty login returns the documented
+# {"d": "{\"IsSuccess\":false,...}"} envelope.
+BASE = "https://ktuvit.me"
 LANGUAGE = "he"
 
 LOGIN = BASE + "/Services/MembershipService.svc/Login"
