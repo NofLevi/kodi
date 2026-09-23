@@ -432,3 +432,75 @@ def test_a_superseded_search_writes_no_file(monkeypatch, settings_module):
     folder = auto_module.subtitle_dir()
     left = os.listdir(folder) if os.path.isdir(folder) else []
     assert left == [], "a cancelled playback left %r behind" % left
+
+
+# --------------------------------------------------------------------------
+# somebody else's service is allowed to be strange, not to cost us the search
+# --------------------------------------------------------------------------
+
+
+def test_a_charset_python_does_not_have_is_not_an_exception():
+    """The charset is a stranger's string used as a codec name.
+
+    A typo, or one this Python was not built with, made `.text` raise
+    `LookupError` - which is not what the callers guard for, so it escaped
+    `get_json` and reached the provider as an exception rather than as "no
+    subtitles from this one".
+    """
+    from katan import urlsession
+
+    response = urlsession.Response(
+        "https://example.com", 200,
+        {"Content-Type": "application/json; charset=utf-lolno"},
+        b'{"ok": true}')
+
+    assert response.encoding == "utf-8", "an unknown charset must fall back"
+    assert response.text == '{"ok": true}'
+    assert response.json() == {"ok": True}
+
+
+def test_a_real_charset_is_still_honoured():
+    """The fallback must not quietly break the encodings that do exist -
+    Hebrew subtitle sites serve windows-1255 and mean it."""
+    from katan import urlsession
+
+    hebrew = u"שלום"
+    response = urlsession.Response(
+        "https://example.com", 200,
+        {"Content-Type": "text/html; charset=windows-1255"},
+        hebrew.encode("windows-1255"))
+
+    assert response.encoding == "windows-1255"
+    assert response.text == hebrew
+
+
+def test_a_provider_may_not_hold_a_worker_thread_past_the_deadline(monkeypatch):
+    """One of four shared threads, against a ten second search deadline.
+
+    Three hosts, each retried once at a fifteen second read timeout, is up to
+    120 seconds for one SOAP call and 240 for a search. The deadline abandons
+    the result but cannot stop a running task, so everything else - including
+    the source search - queues behind a service that is simply down.
+    """
+    from katan import http
+    from katan.subs.providers import bsplayer
+
+    def slow_post(url, **kwargs):
+        time.sleep(5)
+        return None
+
+    monkeypatch.setattr(http, "post", slow_post)
+    started = time.time()
+    assert bsplayer._call("logIn", "") == ""
+    elapsed = time.time() - started
+    assert elapsed < bsplayer.MAX_CALL_SECONDS + 6, \
+        "held the thread for %.0fs" % elapsed
+
+
+def test_a_provider_may_not_return_an_unbounded_candidate_list():
+    """`outlook` weighs every candidate against every source when the picker
+    opens, so one uncapped provider is measured in hundreds of thousands of
+    comparisons. Every other provider caps; this one did not."""
+    from katan.subs.providers import ktuvit
+
+    assert ktuvit.MAX_RESULTS <= 60

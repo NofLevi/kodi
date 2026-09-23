@@ -26,6 +26,7 @@ the service asks that a client identify itself, so the User-Agent is not
 optional decoration.
 """
 import re
+import time
 
 from ... import http, kodi
 from . import common
@@ -55,6 +56,11 @@ TWO_LETTER = dict((three, two) for two, three in THREE_LETTER.items())
 
 MAX_RESULTS = 20
 
+# The whole of one SOAP call, hosts and retries included. The subtitle search
+# runs on a 10 second deadline through four shared worker threads, so a
+# provider is allowed a little longer than that and no more.
+MAX_CALL_SECONDS = 12.0
+
 # Attributes on every tag, so a bare <tag> pattern silently matches nothing.
 _FIELD = r"<%s[^>]*>([^<]*)</%s>"
 _ROW = re.compile(r"<item[^>]*>(.*?)</item>", re.S)
@@ -81,11 +87,25 @@ def _call(action, body, timeout=(5, 15)):
         "Content-Type": "text/xml; charset=utf-8",
         "SOAPAction": "\"http://api.bsplayer-subtitles.com/v1.php#%s\"" % action,
     }
+    # Under a wall-clock budget, because the worker slot is the scarce thing.
+    # Three hosts, each retried once at a 15 second read timeout, is up to 120
+    # seconds for one call and 240 for a search - on one of the four threads
+    # the whole add-on shares. The search deadline can abandon the *result*
+    # but cannot stop a running task, so without this the source search and
+    # every other provider queue behind a service that is simply down.
+    deadline = time.time() + MAX_CALL_SECONDS
     for host in HOSTS:
+        if time.time() >= deadline:
+            kodi.log("bsplayer took too long, giving up on the rest")
+            break
         response = http.post(host, data=envelope.encode("utf-8"),
-                             headers=headers, timeout=timeout)
+                             headers=headers, timeout=timeout, retries=0)
         if response is not None and response.status_code == 200:
-            return response.text or ""
+            try:
+                return response.text or ""
+            except LookupError:
+                # A charset the server named and Python does not have.
+                return ""
     return ""
 
 

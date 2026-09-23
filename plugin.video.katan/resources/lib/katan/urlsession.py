@@ -12,6 +12,7 @@ The add-on behaves identically either way, and the dependency became optional.
 Connections are reused per host, which is the one genuinely useful thing
 requests gives that plain urlopen does not.
 """
+import codecs
 import gzip
 import json as jsonlib
 import os
@@ -88,9 +89,25 @@ class Response(object):
 
     @property
     def encoding(self):
+        """The charset the server named, when Python actually has it.
+
+        The name is taken verbatim from a header, so it is a stranger's string
+        being used as a codec name. A typo, or a charset this Python was not
+        built with, made `.text` raise `LookupError` - and that is not a
+        decoding problem the callers were written for: `http._json_or` catches
+        only `ValueError`, so it escaped `get_json` entirely and reached the
+        provider as an exception rather than as "no subtitles". UTF-8 with
+        replacement is the right fallback: it always decodes, and a few odd
+        characters in a release name cost nothing.
+        """
         content_type = self.headers.get("Content-Type", "")
         if "charset=" in content_type:
-            return content_type.split("charset=", 1)[1].split(";")[0].strip()
+            named = content_type.split("charset=", 1)[1].split(";")[0].strip()
+            try:
+                codecs.lookup(named)
+                return named
+            except (LookupError, TypeError):
+                pass
         return "utf-8"
 
     @property

@@ -304,7 +304,11 @@ def _json_or(response, default):
         return default
     try:
         return response.json()
-    except ValueError:
+    except (ValueError, LookupError, UnicodeError):
+        # Not only "that was not JSON": decoding it can fail too, on a charset
+        # the server named that this Python does not have. `urlsession` now
+        # falls back rather than raising, and this is the belt to that brace -
+        # `requests` is the other backend and has its own opinions.
         return default
 
 

@@ -73,6 +73,14 @@ EPISODE_LIST = (BASE + "/Services/GetModuleAjax.ashx?moduleName=SubtitlesList"
 REQUEST_DOWNLOAD = BASE + "/Services/ContentProvider.svc/RequestSubtitleDownload"
 DOWNLOAD = BASE + "/Services/DownloadFile.ashx?DownloadIdentifier=%s"
 
+# Every other provider caps what it hands back - OpenSubtitles at 12 per
+# language, BSPlayer at 20 - and this one did not. A film with hundreds of
+# versions therefore put hundreds of candidates into `outlook`, which weighs
+# *every* candidate against *every* source when the picker opens. Measured:
+# Ktuvit answered Pulp Fiction with 1081, which alone turns that pass into
+# about a million comparisons and thrashes the release-name parse cache.
+MAX_RESULTS = 40
+
 SESSION_TTL = 24 * 3600
 TIMEOUT = (5, 12)
 
@@ -432,6 +440,8 @@ def _versions(meta, film_id, cookie):
     found = []
     seen = set()
     for row in _ROWS.findall(html):
+        if len(found) >= MAX_RESULTS:
+            break
         identifier = _ROW_ID.search(row)
         name = _ROW_NAME.search(row)
         if not identifier or not name:
