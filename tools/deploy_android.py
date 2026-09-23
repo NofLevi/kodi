@@ -2,6 +2,10 @@
 
     python tools/deploy_android.py           newest zip to every device
     python tools/deploy_android.py --list    show what adb can see
+    python tools/deploy_android.py --settings
+                                             copy this machine's Katan
+                                             settings, credentials and all,
+                                             to every device
 
 Kodi has no way to be told "install this zip" from outside, so this does the
 part that a remote control is bad at - getting the file onto the device - and
@@ -19,6 +23,13 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ZIPS = os.path.join(ROOT, "repo", "zips")
 REMOTE = "/sdcard/Download"
+
+ADDON_ID = "plugin.video.katan"
+# What this machine's own Kodi has written, which is where the accounts are.
+SETTINGS = os.path.join(ROOT, ".kodi-test", "portable_data", "userdata",
+                        "addon_data", ADDON_ID, "settings.xml")
+REMOTE_SETTINGS = ("/sdcard/Android/data/org.xbmc.kodi/files/.kodi/userdata/"
+                   "addon_data/%s/settings.xml" % ADDON_ID)
 
 
 def adb(*args):
@@ -53,6 +64,41 @@ def newest_zips():
     return found
 
 
+def push_settings(targets):
+    """Copy this machine's Katan settings onto every device.
+
+    Accounts are the reason this exists. Twenty-two credentials can be entered
+    on a keyboard in a couple of minutes and are miserable on a projector with
+    a remote - Ktuvit alone is an email address and a password - so they are
+    entered once here and copied. Kodi preserves `addon_data` across updates,
+    which `test_upgrade.py` holds, so this survives every later release.
+
+    It is a copy rather than anything in the source on purpose: credentials
+    belong to a device, not to a build. One login baked into a published
+    add-on is one account shared by everybody who installs it, which is how
+    an account gets closed - and it would be in the history for good.
+
+    Kodi must be closed on the box, because it rewrites this file on exit and
+    would put back what was there before.
+    """
+    if not os.path.isfile(SETTINGS):
+        raise SystemExit(
+            "no settings to copy: run Kodi here and set something first\n  %s"
+            % SETTINGS)
+
+    for serial in targets:
+        print("%s" % serial)
+        adb("-s", serial, "shell", "mkdir", "-p", os.path.dirname(REMOTE_SETTINGS))
+        out = adb("-s", serial, "push", SETTINGS, REMOTE_SETTINGS)
+        failed = "error" in out.lower() or "no such" in out.lower()
+        print("   settings.xml -> %s%s"
+              % (REMOTE_SETTINGS, "  FAILED: %s" % out.strip()[:60] if failed else ""))
+
+    print("\nClose Kodi on the box before doing this, and start it after:")
+    print("Kodi writes its settings on exit and would put back the old ones.")
+    return 0
+
+
 def main():
     if "--list" in sys.argv:
         print(adb("devices", "-l"))
@@ -64,6 +110,9 @@ def main():
         print("then Developer options -> USB or Network debugging.")
         print("Over the network: adb connect <box-ip>:5555")
         return 1
+
+    if "--settings" in sys.argv:
+        return push_settings(targets)
 
     payload = newest_zips()
     for serial in targets:
