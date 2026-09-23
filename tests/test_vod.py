@@ -12,7 +12,7 @@ def test_the_israeli_rows_page_through_everything_they_have():
     in memory, so a page is a slice and there is no reason a row built from
     it should stop at one.
     """
-    from katan import catalog
+    from pinky import catalog
 
     items = ["item %d" % n for n in range(46)]
     limit = catalog.row_limit()
@@ -36,17 +36,17 @@ def test_the_israeli_rows_page_through_everything_they_have():
 
 def test_a_page_past_the_end_is_empty_rather_than_wrapping():
     """An empty page is how a row knows it has finished."""
-    from katan import catalog
+    from pinky import catalog
     assert catalog._slice(["a", "b"], 9) == []
     assert catalog._slice([], 1) == []
     assert catalog._slice(None, 1) == []
 
 
 def test_page_zero_is_treated_as_the_first():
-    from katan import catalog
+    from pinky import catalog
     assert catalog._slice(["a", "b"], 0) == catalog._slice(["a", "b"], 1)
 
-from katan.vod import channels, library
+from pinky.vod import channels, library
 
 
 @pytest.fixture(autouse=True)
@@ -207,7 +207,7 @@ def test_broken_channels_can_be_shown_on_request(settings_module):
 
 
 def test_dash_channels_are_hidden_without_inputstream_adaptive(monkeypatch):
-    from katan import kodi
+    from pinky import kodi
 
     monkeypatch.setattr(kodi, "has_adaptive", lambda: True)
     with_adaptive = {c["ids"]["channel"] for c in channels.live_channels(kind="tv")}
@@ -230,7 +230,7 @@ def test_a_dash_channel_is_recognised_by_its_flag_or_its_url():
 
 
 def test_hls_channels_are_unaffected(monkeypatch):
-    from katan import kodi
+    from pinky import kodi
 
     monkeypatch.setattr(kodi, "has_adaptive", lambda: False)
     shown = channels.live_channels(kind="tv")
@@ -241,7 +241,7 @@ def test_hls_channels_are_unaffected(monkeypatch):
 
 
 def test_the_hidden_count_includes_unplayable_dash(monkeypatch):
-    from katan import kodi
+    from pinky import kodi
 
     monkeypatch.setattr(kodi, "has_adaptive", lambda: False)
     shown = len(channels.live_channels(kind="tv"))
@@ -378,7 +378,7 @@ def test_html_entities_do_not_reach_the_screen(tmp_path, monkeypatch):
 def test_a_cleaned_category_is_the_one_you_can_search_for():
     """Cleaning only on the way to the screen would leave search and
     by_category matching text nobody can type."""
-    from katan.vod import library as lib
+    from pinky.vod import library as lib
 
     for name, _count in lib.categories():
         assert "&#" not in name and "&amp;" not in name, name
@@ -393,8 +393,8 @@ def test_a_vod_programme_opens_as_a_folder(settings_module, monkeypatch):
     directories - only search sends these through target_url, which is
     exactly where "the search finds it and it will not open" came from.
     """
-    from katan.ui import listing
-    from katan.vod import library
+    from pinky.ui import listing
+    from pinky.vod import library
 
     library.refresh()
     entry = next(e for e in library.load() if e.get("n"))
@@ -407,8 +407,8 @@ def test_a_vod_programme_opens_as_a_folder(settings_module, monkeypatch):
 
 def test_a_live_channel_is_still_playable(settings_module):
     """The two share a type and must not share an answer."""
-    from katan.ui import listing
-    from katan.vod import channels
+    from pinky.ui import listing
+    from pinky.vod import channels
 
     channels.refresh()
     channel = channels.live_channels(limit=1)[0]

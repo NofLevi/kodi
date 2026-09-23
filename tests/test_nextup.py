@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Katan's own next-episode card, for a box without Up Next."""
+"""Pinky's own next-episode card, for a box without Up Next."""
 import pytest
 import xbmc
 
-from katan import player, router, upnext
-from katan.ui import nextup_window
+from pinky import player, router, upnext
+from pinky.ui import nextup_window
 
 EPISODE = {"type": "episode", "ids": {"imdb": "tt0903747", "tmdb": 1396},
            "season": 1, "episode": 2, "title": "Breaking Bad"}
@@ -32,7 +32,7 @@ def no_upnext(monkeypatch):
 
 
 def watching(monkeypatch, at, credits=True):
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     monitor.meta = dict(EPISODE)
     monitor.total_time = 2950.0
     monitor._segments = ({"credits": [2843.0, None]} if credits else {})
@@ -50,7 +50,7 @@ def test_the_card_comes_up_with_the_credits(monkeypatch, no_upnext):
     card = monitor._next_card
     assert isinstance(card, nextup_window.NextUpCard)
     assert getattr(card, "shown", False), "shown, never doModal"
-    assert card.getProperty("katan.next.number") == "S01E03"
+    assert card.getProperty("pinky.next.number") == "S01E03"
     assert card.autoplay
 
 
@@ -64,7 +64,7 @@ def test_the_countdown_starts_the_next_episode(monkeypatch, no_upnext):
     monitor = watching(monkeypatch, 2850.0)
     monitor.tick()
     card = monitor._next_card
-    card.opened_at -= player.KatanPlayer.NEXT_COUNTDOWN + 1
+    card.opened_at -= player.PinkyPlayer.NEXT_COUNTDOWN + 1
     monitor.tick()
     assert xbmc.Player.PLAYED[-1][0][0] == NEXT_URL
     assert card.closed

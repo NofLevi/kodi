@@ -12,9 +12,9 @@ no folder at all.
 import pytest
 
 import xbmcplugin
-from katan import kodi
-from katan.meta import items as meta_items
-from katan.ui import handlers
+from pinky import kodi
+from pinky.meta import items as meta_items
+from pinky.ui import handlers
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +24,7 @@ def handle():
 
 
 def episode(title, season=0, group="", module="reshet", ref="p1"):
-    extra = {"url": "plugin://plugin.video.katan/?action=play_vod",
+    extra = {"url": "plugin://plugin.video.pinky/?action=play_vod",
              "module": module, "ref": ref}
     if group:
         extra["group"] = group
@@ -33,7 +33,7 @@ def episode(title, season=0, group="", module="reshet", ref="p1"):
 
 
 def run(entries, monkeypatch, **params):
-    from katan.vod import extractors
+    from pinky.vod import extractors
     monkeypatch.setattr(extractors, "episodes",
                         lambda module, ref, mode="": list(entries))
     handlers.vod_show(dict({"module": "reshet", "ref": "p1"}, **params))
@@ -163,7 +163,7 @@ def test_the_unfiled_entry_is_still_playable(monkeypatch):
 
 def test_kan_reads_the_season_out_of_the_address():
     """It is the only place Kan puts it."""
-    from katan.vod.extractors import kan
+    from pinky.vod.extractors import kan
 
     assert kan._season_of(
         "https://www.kan.org.il/content/kan/kan-actual/p-12463/s4/1094610/") == 4
@@ -185,7 +185,7 @@ def test_mako_tells_a_season_page_from_a_video(link, is_season):
     was offered as something to play - so choosing one asked the player for a
     directory and nothing happened. An episode's address ends in its own VOD
     document; a season's does not."""
-    from katan.vod.extractors import mako
+    from pinky.vod.extractors import mako
 
     assert mako._is_a_season(link) is is_season
 
@@ -196,8 +196,8 @@ def test_mako_tells_a_season_page_from_a_video(link, is_season):
 
 
 def mako_item(link, title="x"):
-    from katan import router
-    from katan.vod.extractors import mako
+    from pinky import router
+    from pinky.vod.extractors import mako
     is_season = mako._is_a_season(link)
     url = (router.url_for("vod_show", module="keshet", ref=link) if is_season
            else router.url_for("play_vod", module="keshet", ref=link))
@@ -210,7 +210,7 @@ def test_a_season_folder_swallows_the_episodes_it_holds():
     """"נסלי ויואב" lists four seasons and a hundred and seventy-two
     episodes. Showing both leaves the flat list exactly where it was with
     four folders on top of it, which is not what opening on seasons means."""
-    from katan.vod.extractors import mako
+    from pinky.vod.extractors import mako
 
     base = "https://www.mako.co.il/mako-vod-keshet/show"
     entries = [
@@ -228,7 +228,7 @@ def test_a_season_folder_swallows_the_episodes_it_holds():
 def test_an_episode_whose_season_is_not_listed_stays():
     """Removing it would make it unreachable, which is worse than a stray
     row under the folders."""
-    from katan.vod.extractors import mako
+    from pinky.vod.extractors import mako
 
     base = "https://www.mako.co.il/mako-vod-keshet/show"
     entries = [
@@ -243,7 +243,7 @@ def test_an_episode_whose_season_is_not_listed_stays():
 
 
 def test_a_page_with_no_seasons_is_untouched():
-    from katan.vod.extractors import mako
+    from pinky.vod.extractors import mako
 
     base = "https://www.mako.co.il/mako-vod-keshet/show-s1"
     entries = [mako_item(base + "/VOD-%d.htm" % n, "e%d" % n) for n in range(4)]

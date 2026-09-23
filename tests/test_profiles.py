@@ -2,7 +2,7 @@
 import pytest
 
 import xbmc
-from katan import profiles, settings
+from pinky import profiles, settings
 
 
 def test_low_memory_actually_lowers_every_budget():
@@ -112,7 +112,7 @@ def test_low_memory_shrinks_the_artwork_budget():
 
 
 def test_the_poster_size_setting_is_actually_used(settings_module):
-    from katan.meta import items
+    from pinky.meta import items
 
     settings_module.set("ui.poster_size", "w185")
     assert "/w185/" in items.image_url("/abc.jpg")
@@ -122,12 +122,12 @@ def test_the_poster_size_setting_is_actually_used(settings_module):
 
 def test_an_absolute_url_is_left_alone(settings_module):
     url = "https://example.com/poster.jpg"
-    from katan.meta import items
+    from pinky.meta import items
     assert items.image_url(url) == url
 
 
 def test_the_row_length_setting_is_actually_used(settings_module):
-    from katan import catalog
+    from pinky import catalog
 
     settings_module.set("ui.row_items", "12")
     assert catalog.row_limit() == 12
@@ -137,7 +137,7 @@ def test_the_row_length_setting_is_actually_used(settings_module):
 
 def test_every_profile_can_describe_itself():
     """The description sits beside a Hebrew label in the chooser."""
-    from katan import profiles
+    from pinky import profiles
 
     for name in profiles.PROFILES:
         text = profiles.describe(name)
@@ -149,7 +149,7 @@ def test_every_profile_can_describe_itself():
 
 def test_the_recommendation_comes_with_a_readable_reason(monkeypatch):
     """It is shown to the viewer, so it goes through the string table."""
-    from katan import profiles
+    from pinky import profiles
 
     monkeypatch.setattr(profiles, "_free_megabytes", lambda: 200)
     name, why = profiles.recommend()
@@ -171,7 +171,7 @@ def test_the_shipped_defaults_are_the_lean_profile():
     being `balanced`, so an add-on written for a projector with a gigabyte of
     RAM shipped w342 posters and four workers to it.
     """
-    from katan import profiles, settings
+    from pinky import profiles, settings
 
     differ = {key: (settings.DEFAULTS.get(key, "<missing>"), value)
               for key, value in profiles.LOW_MEMORY.items()
@@ -180,7 +180,7 @@ def test_the_shipped_defaults_are_the_lean_profile():
 
 
 def test_the_shipped_profile_name_matches_the_shipped_settings():
-    from katan import profiles, settings
+    from pinky import profiles, settings
 
     assert profiles.DEFAULT == "low_memory"
     assert settings.DEFAULTS["device.profile"] == profiles.DEFAULT
@@ -194,7 +194,7 @@ def test_richer_artwork_is_off_out_of_the_box(settings_module):
 def test_the_switch_raises_the_artwork_and_takes_effect_at_once(settings_module):
     """Flipping the setting alone would change nothing until a profile was
     next applied, which for most people is never."""
-    from katan import profiles
+    from pinky import profiles
 
     profiles.apply("low_memory")
     assert settings_module.get("ui.poster_size") == "w185"
@@ -210,7 +210,7 @@ def test_the_switch_raises_the_artwork_and_takes_effect_at_once(settings_module)
 
 def test_the_switch_never_lowers_a_profile_that_already_asks_for_more():
     """It is a floor, not an assignment. Powerful uses w500."""
-    from katan import profiles, settings
+    from pinky import profiles, settings
 
     settings.set("ui.rich_visuals", "true")
     profiles.apply("powerful")
@@ -221,7 +221,7 @@ def test_the_switch_never_lowers_a_profile_that_already_asks_for_more():
 def test_the_cost_of_the_two_choices_is_what_the_project_says_it_is():
     """Roughly 6 MB lean against roughly 22 MB richer, per the calibration
     note. The numbers are shown to the viewer, so they had better be real."""
-    from katan import profiles
+    from pinky import profiles
 
     lean = profiles.artwork_megabytes("w185", 12)
     rich = profiles.artwork_megabytes("w342", 20)
@@ -231,7 +231,7 @@ def test_the_cost_of_the_two_choices_is_what_the_project_says_it_is():
 
 
 def test_an_unreadable_poster_width_does_not_break_the_estimate():
-    from katan import profiles
+    from pinky import profiles
 
     assert profiles.artwork_megabytes("nonsense", 12) > 0
 
@@ -244,7 +244,7 @@ def test_no_profile_switches_on_a_provider_that_cannot_answer():
     which cannot answer is the thing this project refuses to ship, so no
     profile turns it on.
     """
-    from katan import profiles, settings
+    from pinky import profiles, settings
 
     for name, values in profiles.PROFILES.items():
         assert values.get("subs.provider.subsource") == "false", name

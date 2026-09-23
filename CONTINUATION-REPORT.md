@@ -1,6 +1,6 @@
 # Continuation report — 22 September 2026
 
-The handoff for continuing Katan on another development host. Branch:
+The handoff for continuing Pinky on another development host. Branch:
 `development`, level with `origin/development` at the time of writing. **No
 release was created and no version tag was pushed** — the only tag is
 `v0.0.1`, which exists locally and is deliberately not on GitHub yet (pushing
@@ -116,7 +116,7 @@ the earlier real-device work.
    release** (`python tools/release.py`, then push the tag). Until then no
    device can install or update. Decide separately whether `v0.0.1` goes up
    as a historical tag — pushing it also runs `release.yml`.
-2. **Clean `Application.Quit`** — still broken: the Katan window's plugin
+2. **Clean `Application.Quit`** — still broken: the Pinky window's plugin
    invocation does not honour Kodi's abort.
 3. **Watch an AI translation end to end** with a real Gemini key.
 4. **See this batch in Kodi:** the picker colours, and an anime episode with
@@ -151,7 +151,7 @@ removed; the descriptions stand.
   1x05 now returns subtitles; regression test added.
 * **The search box could not be typed into on a keyboard**. Kodi
   21's `Action` has no character, so keys ran the keymap — one letter opened
-  "No PVR add-on enabled", Backspace walked out of Katan. The box is now an
+  "No PVR add-on enabled", Backspace walked out of Pinky. The box is now an
   `edit` control, focused on open. *Checked in Kodi with real keystrokes:*
   "hikarx", Backspace, "u" gave "hikaru" with 5 suggestions; the log shows
   keyboard mode. Return arrives as Select (7), which opens Kodi's modal

@@ -9,9 +9,9 @@ import json
 
 import pytest
 
-from katan import http
-from katan.vod import extractors
-from katan.vod.extractors import sport5
+from pinky import http
+from pinky.vod import extractors
+from pinky.vod.extractors import sport5
 
 MANIFEST = "https://sport5api.akamaized.net/Redirector/sport5/m/HLS/playlist.m3u8"
 PLAYER = ("https://watch.sport5.co.il?src=" + MANIFEST +
@@ -214,7 +214,7 @@ def test_sport5_is_registered_as_an_extractor():
 
 
 def test_the_catalogue_routes_sport5_through_the_extractor():
-    from katan.vod import library
+    from pinky.vod import library
     entries = library.by_module("sport5", limit=5)
     assert entries
     for entry in entries:

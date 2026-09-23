@@ -16,7 +16,7 @@ import time
 
 
 def test_an_unset_boolean_uses_its_registered_default():
-    from katan import settings
+    from pinky import settings
     assert settings.DEFAULTS["sources.autoplay"] == "true"
     assert settings.get_bool("sources.autoplay") is True
     assert settings.DEFAULTS["kids.enabled"] == "false"
@@ -25,7 +25,7 @@ def test_an_unset_boolean_uses_its_registered_default():
 
 def test_every_declared_boolean_reads_back_as_declared():
     """One assertion for the whole table, so a new setting cannot slip."""
-    from katan import settings
+    from pinky import settings
     wrong = []
     for key, value in settings.DEFAULTS.items():
         if value not in ("true", "false"):
@@ -36,13 +36,13 @@ def test_every_declared_boolean_reads_back_as_declared():
 
 
 def test_an_explicit_default_still_wins_when_unset(settings_module):
-    from katan import settings
+    from pinky import settings
     assert settings.get_bool("nothing.declared.here", True) is True
     assert settings.get_bool("nothing.declared.here", False) is False
 
 
 def test_a_written_value_beats_the_default(settings_module):
-    from katan import settings
+    from pinky import settings
     settings_module.set("sources.autoplay", "false")
     assert settings.get_bool("sources.autoplay") is False
 
@@ -53,14 +53,14 @@ def test_a_written_value_beats_the_default(settings_module):
 
 
 def test_cache_round_trips_unicode_and_structure():
-    from katan import cache
+    from pinky import cache
     payload = {"title": u"\u05e1\u05e8\u05d8", "items": [1, 2, {"a": None}]}
     cache.set("k", payload, 60)
     assert cache.get("k") == payload
 
 
 def test_cache_respects_ttl():
-    from katan import cache
+    from pinky import cache
     cache.set("k", {"v": 1}, 60)
     assert cache.get("k") is not None
     cache.set("expired", {"v": 1}, 1)
@@ -69,7 +69,7 @@ def test_cache_respects_ttl():
 
 
 def test_cache_compresses_large_values():
-    from katan import cache
+    from pinky import cache
     big = {"rows": [{"title": "x" * 200} for _ in range(100)]}
     cache.set("big", big, 60)
     assert cache.get("big") == big
@@ -80,7 +80,7 @@ def test_cache_compresses_large_values():
 
 
 def test_cached_helper_only_calls_the_producer_on_a_miss():
-    from katan import cache
+    from pinky import cache
     calls = []
 
     def producer():
@@ -94,7 +94,7 @@ def test_cached_helper_only_calls_the_producer_on_a_miss():
 
 
 def test_cached_helper_does_not_store_empty_results():
-    from katan import cache
+    from pinky import cache
     assert cache.cached("empty", lambda: None, 60) is None
     assert cache.cached("empty", lambda: {"v": 1}, 60) == {"v": 1}
 
@@ -104,7 +104,7 @@ def test_prune_evicts_least_recently_used_when_over_the_cap():
     import binascii
     import os
 
-    from katan import cache, settings
+    from pinky import cache, settings
     settings.set("cache.max_mb", "10")
     for index in range(80):
         blob = binascii.hexlify(os.urandom(120000)).decode("ascii")
@@ -120,7 +120,7 @@ def test_prune_evicts_least_recently_used_when_over_the_cap():
 
 
 def test_make_key_is_stable_and_compact():
-    from katan import cache
+    from pinky import cache
     assert cache.make_key("tmdb", "/movie", 5) == cache.make_key("tmdb", "/movie", 5)
     long_key = cache.make_key("x" * 300, u"\u05e2\u05d1\u05e8\u05d9\u05ea")
     assert len(long_key) < 130
@@ -133,15 +133,15 @@ def test_make_key_is_stable_and_compact():
 
 
 def test_url_for_round_trips_through_parse_params():
-    from katan import router
+    from pinky import router
     url = router.url_for("episodes", tmdb=1399, season=2)
-    assert url.startswith("plugin://plugin.video.katan/?")
+    assert url.startswith("plugin://plugin.video.pinky/?")
     params = router.parse_params(url.split("?", 1)[1])
     assert params == {"action": "episodes", "tmdb": "1399", "season": "2"}
 
 
 def test_url_for_drops_empty_values_but_keeps_zero():
-    from katan import router
+    from pinky import router
     params = router.parse_params(
         router.url_for("x", a=None, b="", c=0, d=False, e="v").split("?", 1)[1])
     assert "a" not in params and "b" not in params
@@ -151,7 +151,7 @@ def test_url_for_drops_empty_values_but_keeps_zero():
 
 
 def test_all_routes_register_without_error():
-    from katan import router
+    from pinky import router
     router._load_handlers()
     actions = router.registered_actions()
     for expected in ("home", "row", "search", "seasons", "episodes", "movie",
@@ -167,7 +167,7 @@ def test_all_routes_register_without_error():
 def test_the_metadata_cache_setting_actually_sets_the_ttl(settings_module):
     """It was in the settings dialog with a default of 6, and TTL_LIST was a
     constant of exactly six hours that nothing connected to it."""
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     assert tmdb.list_ttl() == 6 * 3600, "the shipped default"
     settings_module.set("cache.meta_hours", "24")
@@ -177,7 +177,7 @@ def test_the_metadata_cache_setting_actually_sets_the_ttl(settings_module):
 def test_a_silly_metadata_cache_value_is_floored(settings_module):
     """An advanced setting should not let someone turn every home screen into
     a fresh round of network calls."""
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     settings_module.set("cache.meta_hours", "0")
     assert tmdb.list_ttl() == 600
@@ -187,8 +187,8 @@ def test_a_silly_metadata_cache_value_is_floored(settings_module):
 
 def test_the_ttl_is_read_per_call_not_at_import(settings_module, monkeypatch):
     """A default argument is evaluated once and would never notice a change."""
-    from katan import cache
-    from katan.meta import tmdb
+    from pinky import cache
+    from pinky.meta import tmdb
 
     monkeypatch.setattr(tmdb, "api_key", lambda: "k")
     monkeypatch.setattr(tmdb, "language", lambda: "en-GB")

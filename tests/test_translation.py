@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from katan.subs import srt
-from katan.subs.ai import translator
+from pinky.subs import srt
+from pinky.subs.ai import translator
 
 
 class FakeEngine(object):
@@ -156,7 +156,7 @@ def test_long_valid_translation_is_not_blocked_by_retry_cap(
 
 
 def test_new_translation_supersedes_previous_process_wide_job():
-    from katan.subs.ai import coordinator
+    from pinky.subs.ai import coordinator
 
     first = coordinator.begin()
     second = coordinator.begin()

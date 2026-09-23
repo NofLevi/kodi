@@ -10,7 +10,7 @@ because the runtime it read was always 0.
 """
 import pytest
 
-from katan.subs import auto, srt
+from pinky.subs import auto, srt
 
 
 MOVIE = {
@@ -184,8 +184,8 @@ def test_without_a_runtime_the_short_subtitle_is_still_used(world):
 def test_playback_metadata_carries_the_runtime(monkeypatch):
     """The item had the runtime all along; `build_meta` never lifted it to
     where the subtitle path and the survey look."""
-    from katan import play
-    from katan.meta import tmdb
+    from pinky import play
+    from pinky.meta import tmdb
 
     detail = {"ids": {"tmdb": 278, "imdb": "tt0111161"},
               "title": "The Shawshank Redemption", "year": 1994,

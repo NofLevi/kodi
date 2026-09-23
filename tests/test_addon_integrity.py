@@ -9,13 +9,13 @@ from conftest import ADDON_DIR, ROOT, TESTS_DIR
 
 LANG_DIR = os.path.join(ADDON_DIR, "resources", "language")
 SKIN_DIR = os.path.join(ADDON_DIR, "resources", "skins", "default", "1080i")
-PACKAGE_ROOT = os.path.join(ADDON_DIR, "resources", "lib", "katan")
+PACKAGE_ROOT = os.path.join(ADDON_DIR, "resources", "lib", "pinky")
 
 
 def test_addon_xml_is_valid_and_declares_three_extension_points():
     tree = ET.parse(os.path.join(ADDON_DIR, "addon.xml"))
     root = tree.getroot()
-    assert root.get("id") == "plugin.video.katan"
+    assert root.get("id") == "plugin.video.pinky"
     points = {e.get("point") for e in root.findall("extension")}
     assert {"xbmc.python.pluginsource", "xbmc.subtitle.module",
             "xbmc.service"} <= points
@@ -76,7 +76,7 @@ def test_every_setting_the_code_uses_is_declared():
     this hid: the wizard's OAuth tokens and the chosen device profile were
     being written to a setting Kodi did not have and silently discarded.
     """
-    from katan import settings
+    from pinky import settings
 
     tree = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml"))
     declared = {node.get("id") for node in tree.iter("setting")}
@@ -159,7 +159,7 @@ def test_the_home_rows_fit_on_screen():
     then looks like it has no title, which is not an obvious symptom of a
     height being wrong. The arithmetic is cheap to check, so it is checked.
     """
-    tree = ET.parse(os.path.join(SKIN_DIR, "katan-home.xml"))
+    tree = ET.parse(os.path.join(SKIN_DIR, "pinky-home.xml"))
 
     grouplist = None
     for control in tree.getroot().iter("control"):
@@ -212,10 +212,10 @@ def test_the_home_screen_has_a_slot_for_every_row_on_by_default():
     there have to be enough of them for a fresh install to show its own
     default rows without any being cut.
     """
-    from katan import catalog
-    from katan.ui import home_window
+    from pinky import catalog
+    from pinky.ui import home_window
 
-    with open(os.path.join(SKIN_DIR, "katan-home.xml"),
+    with open(os.path.join(SKIN_DIR, "pinky-home.xml"),
               encoding="utf-8") as handle:
         body = handle.read()
     in_skin = sorted(int(i) for i in
@@ -225,7 +225,7 @@ def test_the_home_screen_has_a_slot_for_every_row_on_by_default():
                                  home_window.LIST_BASE + len(in_skin))), \
         "the row list ids must run consecutively from LIST_BASE: %s" % in_skin
     assert len(in_skin) == home_window.ROW_SLOTS, (
-        "ROW_SLOTS is %d but katan-home.xml has %d row lists, so %s"
+        "ROW_SLOTS is %d but pinky-home.xml has %d row lists, so %s"
         % (home_window.ROW_SLOTS, len(in_skin),
            "rows would be dropped" if home_window.ROW_SLOTS > len(in_skin)
            else "controls exist that nothing can fill"))
@@ -254,10 +254,10 @@ def test_the_section_rail_matches_the_catalog():
     a button in the wrong place does not fail - it quietly switches to the
     wrong section, which is the sort of thing that gets shipped.
     """
-    from katan import catalog
-    from katan.ui import home_window
+    from pinky import catalog
+    from pinky.ui import home_window
 
-    with open(os.path.join(SKIN_DIR, "katan-home.xml"),
+    with open(os.path.join(SKIN_DIR, "pinky-home.xml"),
               encoding="utf-8") as handle:
         body = handle.read()
 
@@ -267,7 +267,7 @@ def test_the_section_rail_matches_the_catalog():
         assert 'id="%d"' % control_id in body, (
             "section %s has no button in the skin"
             % catalog.SECTIONS[n]["id"])
-        assert 'Window.Property(katan.rail%d.title)' % n in body, (
+        assert 'Window.Property(pinky.rail%d.title)' % n in body, (
             "section %s has a button with no label bound to it"
             % catalog.SECTIONS[n]["id"])
 
@@ -275,7 +275,7 @@ def test_the_section_rail_matches_the_catalog():
     # rather than in the top bar, which is where people look for it.
     assert 'id="%d"' % home_window.BUTTON_RAIL_SETTINGS in body, \
         "the rail has no settings entry"
-    assert 'Window.Property(katan.rail%d.title)' % len(catalog.SECTIONS) in body
+    assert 'Window.Property(pinky.rail%d.title)' % len(catalog.SECTIONS) in body
 
     # No "Home" tab. A button called Home beside Films, Series and Live TV
     # does not say what it would show, and the viewer said so.
@@ -283,7 +283,7 @@ def test_the_section_rail_matches_the_catalog():
 
     # The accent bar for each section tests the property the window writes.
     for section in catalog.SECTIONS:
-        assert 'katan.section),%s)' % section["id"] in body, (
+        assert 'pinky.section),%s)' % section["id"] in body, (
             "no active marker for the %s section" % section["id"])
 
     # And every section has a title string that actually exists.
@@ -306,10 +306,10 @@ def test_the_rail_is_tall_enough_for_every_entry():
     to go wrong. The settings entry is the last one, and it is the only way
     into the settings from an interface somebody has locked down.
     """
-    from katan import catalog
-    from katan.ui import home_window
+    from pinky import catalog
+    from pinky.ui import home_window
 
-    tree = ET.parse(os.path.join(SKIN_DIR, "katan-home.xml"))
+    tree = ET.parse(os.path.join(SKIN_DIR, "pinky-home.xml"))
     rail = None
     for control in tree.getroot().iter("control"):
         if control.get("id") == str(home_window.RAIL):
@@ -344,7 +344,7 @@ def test_the_israeli_rows_are_near_the_top_of_the_home_screen():
     editorial choice for an Israeli add-on, not an accident of list order, so
     it is asserted rather than left to whoever next adds a row.
     """
-    from katan import catalog
+    from pinky import catalog
     order = [row["id"] for row in catalog.rows() if row.get("default")]
     for row_id in ("israel_live", "israel_vod"):
         assert row_id in order, "%s should be on by default" % row_id
@@ -362,16 +362,16 @@ def test_the_tmdb_helper_player_points_at_real_routes():
     """
     import json
 
-    from katan import router
-    from katan.ui import handlers      # noqa: F401  (registers the routes)
+    from pinky import router
+    from pinky.ui import handlers      # noqa: F401  (registers the routes)
 
-    path = os.path.join(ADDON_DIR, "resources", "players", "katan.json")
+    path = os.path.join(ADDON_DIR, "resources", "players", "pinky.json")
     assert os.path.isfile(path), "the TMDb Helper player file is missing"
 
     with open(path, encoding="utf-8") as handle:
         player = json.load(handle)
 
-    assert player.get("plugin") == "plugin.video.katan"
+    assert player.get("plugin") == "plugin.video.pinky"
 
     known = set(router.registered_actions())
     checked = 0
@@ -401,7 +401,7 @@ def _value_settings(root):
 
 def test_every_settings_id_has_a_default():
     """settings.xml and settings.DEFAULTS drift apart silently otherwise."""
-    from katan import settings
+    from pinky import settings
 
     root = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml")).getroot()
     declared = {s.get("id") for s in _value_settings(root)}
@@ -416,7 +416,7 @@ def test_every_action_setting_runs_a_route_that_exists():
     checks skip them - which would leave a button naming a route that does
     not exist as the one kind of settings entry nothing checked.
     """
-    from katan import router
+    from pinky import router
     router._load_handlers()
 
     root = ET.parse(os.path.join(ADDON_DIR, "resources",
@@ -437,7 +437,7 @@ def test_every_action_setting_runs_a_route_that_exists():
 
 
 def test_settings_xml_defaults_match_the_python_defaults():
-    from katan import settings
+    from pinky import settings
 
     root = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml")).getroot()
     mismatched = []
@@ -529,9 +529,9 @@ def test_every_provider_setting_has_a_module_behind_it():
     an absent feature: the user enables them, nothing changes, and there is no
     way to tell whether the provider is broken or imaginary.
     """
-    from katan import settings
+    from pinky import settings
 
-    lib = os.path.join(ADDON_DIR, "resources", "lib", "katan")
+    lib = os.path.join(ADDON_DIR, "resources", "lib", "pinky")
     missing = []
 
     for key in settings.DEFAULTS:
@@ -553,11 +553,11 @@ def test_every_route_referenced_in_the_ui_exists():
     """A url_for() to a route that was never registered is a dead button."""
     import re
 
-    from katan import router
+    from pinky import router
     router._load_handlers()
     known = set(router.registered_actions())
 
-    lib = os.path.join(ADDON_DIR, "resources", "lib", "katan")
+    lib = os.path.join(ADDON_DIR, "resources", "lib", "pinky")
     referenced = set()
     for folder, dirs, files in os.walk(lib):
         dirs[:] = [d for d in dirs if d != "__pycache__"]
@@ -575,13 +575,13 @@ def test_every_window_python_module_has_its_skin_file():
     """A WindowXML class without its XML fails only when opened."""
     import re
 
-    lib = os.path.join(ADDON_DIR, "resources", "lib", "katan", "ui")
+    lib = os.path.join(ADDON_DIR, "resources", "lib", "pinky", "ui")
     missing = []
     for name in os.listdir(lib):
         if not name.endswith("_window.py"):
             continue
         source = open(os.path.join(lib, name), encoding="utf-8").read()
-        for xml_name in re.findall(r'"(katan-[a-z]+\.xml)"', source):
+        for xml_name in re.findall(r'"(pinky-[a-z]+\.xml)"', source):
             if not os.path.isfile(os.path.join(SKIN_DIR, xml_name)):
                 missing.append("%s wants %s" % (name, xml_name))
     assert not missing, missing
@@ -729,7 +729,7 @@ def test_every_debrid_service_has_its_own_connect_button():
     no key to paste, TorBox has no link to open."""
     import xml.etree.ElementTree as ET
 
-    from katan.debrid import registry
+    from pinky.debrid import registry
 
     root = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml")).getroot()
     actions = {node.get("id") for node in root.iter("setting")
@@ -745,8 +745,8 @@ def test_each_connect_button_names_a_service_that_exists():
     import re
     import xml.etree.ElementTree as ET
 
-    from katan.debrid import registry
-    from katan import router
+    from pinky.debrid import registry
+    from pinky import router
     router._load_handlers()
 
     known = set(registry.names()) | {"trakt", "tmdb", "debrid", "opensubtitles",
@@ -784,13 +784,13 @@ def test_every_version_in_the_project_is_the_same_one():
     and the add-on would read 0.1.0 against the repository's 0.0.4, and after
     that they could never agree again.
     """
-    addon = _version("plugin.video.katan")
+    addon = _version("plugin.video.pinky")
     assert re.match(r"^\d+\.\d+\.\d+$", addon or ""), \
         "the add-on version %r is not a version" % addon
 
-    assert _version("repository.katan") == addon, \
-        "repository.katan says %s, the add-on says %s" % (
-            _version("repository.katan"), addon)
+    assert _version("repository.pinky") == addon, \
+        "repository.pinky says %s, the add-on says %s" % (
+            _version("repository.pinky"), addon)
 
     news = ET.parse(os.path.join(ADDON_DIR, "addon.xml")).find(".//news")
     assert news is not None and news.text, "no news field to show in Kodi"
@@ -799,7 +799,7 @@ def test_every_version_in_the_project_is_the_same_one():
             news.text.strip().splitlines()[0].strip(), addon)
 
     readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
-    linked = set(re.findall(r"repository\.katan-(\d+\.\d+\.\d+)\.zip", readme))
+    linked = set(re.findall(r"repository\.pinky-(\d+\.\d+\.\d+)\.zip", readme))
     assert linked <= {addon}, \
         "the README links to %s, which is not %s" % (sorted(linked), addon)
 
@@ -813,11 +813,11 @@ def test_the_screen_shows_the_version_kodi_installed():
     """
     source = open(os.path.join(PACKAGE_ROOT, "ui", "home_window.py"),
                   encoding="utf-8").read()
-    line = next((l for l in source.splitlines() if '"katan.version"' in l), "")
-    assert line, "nothing sets the katan.version property any more"
+    line = next((l for l in source.splitlines() if '"pinky.version"' in l), "")
+    assert line, "nothing sets the pinky.version property any more"
     assert "addon_version()" in line, \
         "the version label is not read from Kodi: %s" % line.strip()
 
-    skin = open(os.path.join(SKIN_DIR, "katan-home.xml"), encoding="utf-8").read()
-    assert "Window.Property(katan.version)" in skin, \
+    skin = open(os.path.join(SKIN_DIR, "pinky-home.xml"), encoding="utf-8").read()
+    assert "Window.Property(pinky.version)" in skin, \
         "the home skin no longer draws the version"

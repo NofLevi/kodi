@@ -6,7 +6,7 @@ and it is chosen automatically.
 """
 import pytest
 
-from katan.meta import anime, kitsu
+from pinky.meta import anime, kitsu
 
 
 # One record in the shape Kitsu actually returns.
@@ -58,7 +58,7 @@ def test_the_kitsu_id_is_stored_as_an_id_not_buried():
 
 
 def test_the_kitsu_id_reaches_the_source_layer():
-    from katan.sources.providers import stremio
+    from pinky.sources.providers import stremio
 
     item = kitsu.to_item(RECORD)
     kind, identifier = stremio.stream_id(
@@ -107,7 +107,7 @@ def test_junk_is_handled_rather_than_raising():
 
 class FakeCatalogue(object):
     def __init__(self, name, results=None, fails=False):
-        self.__name__ = "katan.meta." + name
+        self.__name__ = "pinky.meta." + name
         self.results = results if results is not None else [{"title": name}]
         self.fails = fails
         self.calls = 0

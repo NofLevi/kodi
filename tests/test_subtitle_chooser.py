@@ -12,8 +12,8 @@ trustworthy; a bare "82%" says plainly that it is a guess.
 import pytest
 
 import xbmc
-from katan import kodi
-from katan.subs import embedded, service
+from pinky import kodi
+from pinky.subs import embedded, service
 
 
 @pytest.fixture
@@ -139,7 +139,7 @@ def test_a_ninety_nine_percent_match_is_not_called_exact():
 def chooser(monkeypatch, settings_module, player_with_tracks):
     """Drive the real subtitle dialog handler with controlled inputs."""
     import xbmcplugin
-    from katan.subs import auto
+    from pinky.subs import auto
 
     settings_module.set("subs.languages", "he,en")
     # Off, so these tests keep describing the hierarchy of subtitles that
@@ -160,7 +160,7 @@ def chooser(monkeypatch, settings_module, player_with_tracks):
         player_with_tracks(tracks)
         state["found"] = candidates
         xbmcplugin.reset()
-        service.dispatch(["plugin://plugin.video.katan/", "1",
+        service.dispatch(["plugin://plugin.video.pinky/", "1",
                           "?action=search"])
         return [item.label2 for _url, item, _folder in xbmcplugin.ITEMS]
 
@@ -226,7 +226,7 @@ def test_a_provider_that_blows_up_still_closes_the_dialog(chooser, monkeypatch):
     """
     import xbmcgui
     import xbmcplugin
-    from katan.subs import auto
+    from pinky.subs import auto
 
     def broken(meta, languages, video_hash=""):
         raise IOError("the provider went away")
@@ -234,7 +234,7 @@ def test_a_provider_that_blows_up_still_closes_the_dialog(chooser, monkeypatch):
     monkeypatch.setattr(auto, "search_candidates", broken)
     del xbmcgui.NOTIFICATIONS[:]
     xbmcplugin.reset()
-    service.dispatch(["plugin://plugin.video.katan/", "1", "?action=search"])
+    service.dispatch(["plugin://plugin.video.pinky/", "1", "?action=search"])
 
     assert xbmcplugin.ENDED, "the dialog must close even when the search fails"
     assert xbmcgui.NOTIFICATIONS, "and it must say why"
@@ -253,7 +253,7 @@ def test_an_unknown_subtitle_action_closes_rather_than_hanging():
     import xbmcplugin
 
     xbmcplugin.reset()
-    service.dispatch(["plugin://plugin.video.katan/", "1", "?action=nonsense"])
+    service.dispatch(["plugin://plugin.video.pinky/", "1", "?action=nonsense"])
     assert len(xbmcplugin.ENDED) == 1
 
 
@@ -266,7 +266,7 @@ def test_choosing_an_embedded_track_switches_the_player(monkeypatch):
                         lambda index: switched.append(index) or True)
 
     xbmcplugin.reset()
-    service.dispatch(["plugin://plugin.video.katan/", "1",
+    service.dispatch(["plugin://plugin.video.pinky/", "1",
                       "?action=download&provider=embedded&id=2&language=he"])
 
     assert switched == ["2"]
@@ -365,7 +365,7 @@ def test_the_audio_tracks_are_read_at_all(monkeypatch):
     release that is Japanese or English by luck.
     """
     import xbmc
-    from katan.subs import embedded
+    from pinky.subs import embedded
 
     _audio(monkeypatch, [
         {"index": 0, "language": "jpn", "name": "Japanese"},
@@ -385,7 +385,7 @@ def test_japanese_and_korean_are_named_not_sliced(monkeypatch):
     So "jpn" became "jp", which is not a language code, and Korean was in the
     same position - the two languages this was actually asked for.
     """
-    from katan.subs import embedded
+    from pinky.subs import embedded
 
     assert embedded._code_for("jpn") == "ja"
     assert embedded._code_for("Japanese") == "ja"
@@ -396,7 +396,7 @@ def test_japanese_and_korean_are_named_not_sliced(monkeypatch):
 def test_one_language_is_not_worth_announcing(monkeypatch):
     """A stereo and a 5.1 English track are two streams and one choice."""
     import xbmc
-    from katan.subs import embedded
+    from pinky.subs import embedded
 
     _audio(monkeypatch, [
         {"index": 0, "language": "eng", "name": "English Stereo"},
@@ -410,7 +410,7 @@ def test_one_language_is_not_worth_announcing(monkeypatch):
 
 def test_several_languages_are_named_for_a_human(monkeypatch):
     import xbmc
-    from katan.subs import embedded
+    from pinky.subs import embedded
 
     _audio(monkeypatch, [
         {"index": 0, "language": "jpn", "name": "Japanese"},
@@ -431,7 +431,7 @@ def test_a_two_letter_alias_inside_a_longer_word_is_a_coincidence():
     subtitle tracks long before anything looked at audio; it only became
     visible when a test asked about the two languages this was built for.
     """
-    from katan.subs import embedded
+    from pinky.subs import embedded
 
     assert embedded._code_for("Japanese") == "ja"
     assert embedded._code_for("Portuguese") == "pt"

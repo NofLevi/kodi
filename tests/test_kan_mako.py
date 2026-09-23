@@ -11,8 +11,8 @@ tests below are mostly about the ways that comparison can go wrong.
 """
 import pytest
 
-from katan import http
-from katan.vod.extractors import kan, mako, page
+from pinky import http
+from pinky.vod.extractors import kan, mako, page
 
 
 class Response(object):

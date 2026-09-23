@@ -13,7 +13,7 @@ import os
 
 import pytest
 
-from katan.subs import auto, service, srt
+from pinky.subs import auto, service, srt
 
 
 MOVIE = {
@@ -73,7 +73,7 @@ def fake_world(monkeypatch, settings_module):
         return [srt.Cue(c.index, c.start, c.end, "translated %d" % c.index)
                 for c in cues]
 
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(auto, "search_candidates", fake_search)
     monkeypatch.setattr(auto, "download_candidate", fake_download)
     monkeypatch.setattr(translator, "available", lambda: True)
@@ -187,7 +187,7 @@ def test_a_dead_best_candidate_tries_the_next_one_in_the_same_language(fake_worl
 
 def test_translation_failure_does_not_reset_budget_on_another_source(
         fake_world, monkeypatch):
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
 
     first = "Shawshank.1994.1080p.BluRay.x264-AMIABLE"
     second = "Shawshank.1994.1080p.BluRay.x264-OTHER"
@@ -217,7 +217,7 @@ def test_translation_source_downloads_never_exceed_operation_budget(fake_world):
 
 
 def test_no_engine_means_no_promise(fake_world, monkeypatch):
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: False)
     fake_world["candidates"] = [candidate("x", "en")]
     fake_world["downloads"]["x"] = srt_bytes()
@@ -276,7 +276,7 @@ def test_the_row_still_appears_without_a_key_and_says_so(fake_world,
     """Hiding it until a key exists means the viewer who most needs it - the
     one staring at a film with no subtitles - is shown nothing and never
     learns the feature is there."""
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: False)
     settings_module.set("subs.ai.enabled", "true")
 
@@ -323,7 +323,7 @@ def test_kodis_own_language_choice_wins_over_the_add_ons(settings_module):
 
 
 def test_pressing_the_row_leaves_a_request_for_the_service(fake_world):
-    from katan import kodi
+    from pinky import kodi
     kodi.clear_property(service.AI_REQUEST)
 
     service._translate_with_ai("he")
@@ -333,7 +333,7 @@ def test_pressing_the_row_leaves_a_request_for_the_service(fake_world):
 
 def test_the_request_falls_back_to_the_configured_language(fake_world,
                                                            settings_module):
-    from katan import kodi
+    from pinky import kodi
     settings_module.set("subs.languages", "he,en")
     kodi.clear_property(service.AI_REQUEST)
 
@@ -344,9 +344,9 @@ def test_the_request_falls_back_to_the_configured_language(fake_world,
 
 def test_openai_selection_never_launches_the_gemini_wizard(
         fake_world, monkeypatch, settings_module):
-    from katan import settings
-    from katan.subs.ai import translator
-    from katan.ui import wizard
+    from pinky import settings
+    from pinky.subs.ai import translator
+    from pinky.ui import wizard
 
     settings_module.set("subs.ai.engine", "openai")
     monkeypatch.setattr(translator, "available", lambda: False)
@@ -370,7 +370,7 @@ def test_the_service_takes_a_request_once_and_only_once(fake_world):
 
 def test_a_second_press_while_one_runs_says_so(fake_world):
     import xbmcgui
-    from katan import kodi
+    from pinky import kodi
     kodi.set_property(service.AI_RUNNING, "1")
     kodi.clear_property(service.AI_REQUEST)
     del xbmcgui.NOTIFICATIONS[:]
@@ -386,7 +386,7 @@ def test_a_second_press_while_one_runs_says_so(fake_world):
 def test_the_running_flag_is_cleared_even_when_it_fails(fake_world,
                                                         monkeypatch):
     """Otherwise one failure means no translation for the rest of the session."""
-    from katan import kodi
+    from pinky import kodi
     monkeypatch.setattr(service, "_current_meta", lambda: dict(MOVIE))
     monkeypatch.setattr(auto, "translate_now",
                         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
@@ -438,7 +438,7 @@ def test_the_final_translation_replaces_temporary_partial_paths(
 def test_finished_translation_cannot_attach_to_a_new_playback(
         fake_world, monkeypatch):
     import xbmc
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
 
     old = dict(MOVIE, stream_url="https://cdn/old")
     new = dict(MOVIE, stream_url="https://cdn/new")

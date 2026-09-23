@@ -10,8 +10,8 @@ opens when someone deliberately asks to choose.
 """
 import pytest
 
-from katan import kodi
-from katan.ui import sources_window
+from pinky import kodi
+from pinky.ui import sources_window
 
 
 def source(title, **kwargs):
@@ -73,7 +73,7 @@ def _subs_line(entry):
 
 
 def test_a_release_carrying_hebrew_says_so():
-    from katan.subs import outlook
+    from pinky.subs import outlook
 
     line = _subs_line({"kind": outlook.EMBEDDED, "score": 0})
     assert kodi.localize(32474) in line
@@ -82,13 +82,13 @@ def test_a_release_carrying_hebrew_says_so():
 
 
 def test_an_external_subtitle_shows_how_well_it_matches():
-    from katan.subs import outlook
+    from pinky.subs import outlook
 
     assert "82" in _subs_line({"kind": outlook.EXTERNAL, "score": 82})
 
 
 def test_nothing_found_says_nothing_found():
-    from katan.subs import outlook
+    from pinky.subs import outlook
 
     assert kodi.localize(32476) in _subs_line({"kind": outlook.NONE,
                                                "score": 0})
@@ -97,7 +97,7 @@ def test_nothing_found_says_nothing_found():
 def test_the_subtitle_line_is_separate_from_the_badge():
     """They are on different rows of the layout, and the badge must not grow
     to include the subtitle text - that is what cut it off."""
-    from katan.subs import outlook
+    from pinky.subs import outlook
 
     item = sources_window._list_item(
         dict(CACHED, subs_kind=outlook.EXTERNAL, subs_score=82))
@@ -114,7 +114,7 @@ def test_a_name_match_is_labelled_as_an_estimate():
     none of three cases, while a 62 fitted at 0.95. It is a guess, and the
     picker now says so in the same word the subtitle chooser already used.
     """
-    from katan.subs import outlook
+    from pinky.subs import outlook
 
     line = _subs_line({"kind": outlook.EXTERNAL, "score": 82})
     assert "82" in line
@@ -188,9 +188,9 @@ def test_the_title_and_toggle_are_set_before_the_window_is_shown():
     window.meta = {"type": "movie", "title": "Film", "year": 2024}
     window.prepare()
 
-    assert window.getProperty("katan.sources.title") == "Film (2024)"
-    assert window.getProperty("katan.sources.toggle"), "the button would be blank"
-    assert window.getProperty("katan.sources.status")
+    assert window.getProperty("pinky.sources.title") == "Film (2024)"
+    assert window.getProperty("pinky.sources.toggle"), "the button would be blank"
+    assert window.getProperty("pinky.sources.status")
 
 
 def test_an_episode_heading_says_which_episode():
@@ -223,7 +223,7 @@ def test_an_empty_list_still_says_something():
     window.meta = {"title": "Film", "year": 2024}
     window.prepare()
     window.onInit()
-    assert window.getProperty("katan.sources.status"), \
+    assert window.getProperty("pinky.sources.status"), \
         "an empty picker must explain itself, not just be blank"
 
 
@@ -240,7 +240,7 @@ def test_the_dub_reaches_the_badge():
     rows of the same resolution, size and group are indistinguishable without
     it, so choosing the dub meant starting one and backing out.
     """
-    from katan.ui import sources_window
+    from pinky.ui import sources_window
 
     for value, expected in (("dub", "DUB"), ("sub", "SUB"), ("dual", "DUAL")):
         badge = sources_window._badge({"quality": "1080p", "dub": value})
@@ -254,7 +254,7 @@ def test_no_dub_claim_adds_nothing():
     nothing at all about the audio, so an empty field must stay invisible
     rather than becoming a third state on every row.
     """
-    from katan.ui import sources_window
+    from pinky.ui import sources_window
 
     badge = sources_window._badge({"quality": "1080p", "dub": ""})
     assert badge == "1080P", badge

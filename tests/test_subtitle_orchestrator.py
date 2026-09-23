@@ -19,7 +19,7 @@ import time
 
 import pytest
 
-from katan.subs import auto, srt
+from pinky.subs import auto, srt
 
 
 MOVIE = {
@@ -140,7 +140,7 @@ def test_a_candidate_carrying_junk_is_ranked_without_raising(providers):
     calls int() on it. That is one provider's bad day turning into no
     subtitles at all for the playback.
     """
-    from katan.subs import matcher
+    from pinky.subs import matcher
 
     junk = [
         candidate("Pulp.Fiction.1994.1080p.BluRay.x264-AAA", downloads="1,234"),
@@ -191,7 +191,7 @@ def test_an_alignment_that_raises_leaves_the_subtitle_at_its_own_timing(
     reason while the two main callers did not, so a failure in the most
     data-driven code here reached the top of the playback's subtitle work.
     """
-    from katan.subs import sync
+    from pinky.subs import sync
 
     cues = [srt.Cue(i + 1, i * 4.0, i * 4.0 + 2.0, "line %d" % i)
             for i in range(40)]
@@ -220,7 +220,7 @@ def test_kodi_refusing_to_answer_is_no_tracks_not_a_crash(answer):
     guess at Kodi rather than from Kodi. Now they are asserted.
     """
     import xbmc
-    from katan.subs import embedded
+    from pinky.subs import embedded
 
     xbmc.JSONRPC_RESULTS["Player.GetProperties"] = {
         "error": xbmc.JSONRPC_ERROR,
@@ -247,7 +247,7 @@ def test_a_track_with_an_unusable_index_is_skipped_not_fatal(entry):
     on the way out of the automatic path.
     """
     import xbmc
-    from katan.subs import embedded
+    from pinky.subs import embedded
 
     good = {"index": 1, "language": "eng", "name": "English"}
     xbmc.JSONRPC_RESULTS["Player.GetProperties"] = {"subtitles": [entry, good],
@@ -261,7 +261,7 @@ def test_a_track_with_an_unusable_index_is_skipped_not_fatal(entry):
 
 def test_a_subtitle_list_that_is_not_a_list_is_survived():
     import xbmc
-    from katan.subs import embedded
+    from pinky.subs import embedded
 
     xbmc.JSONRPC_RESULTS["Player.GetProperties"] = {"subtitles": "nonsense",
                                                     "audiostreams": 7}
@@ -284,10 +284,10 @@ def test_a_bad_handle_still_closes_the_subtitle_dialog(handle):
     closing the dialog by hand.
     """
     import xbmcplugin
-    from katan.subs import service
+    from pinky.subs import service
 
     xbmcplugin.reset()
-    service.dispatch(["plugin://plugin.video.katan", handle, "?action=search"])
+    service.dispatch(["plugin://plugin.video.pinky", handle, "?action=search"])
     assert xbmcplugin.ENDED, "the directory was never closed"
 
 
@@ -301,7 +301,7 @@ def test_a_failure_setting_up_partials_still_closes_the_progress_bar(
     screen with nothing alive to close it.
     """
     import xbmcgui
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
 
     closed = []
 
@@ -379,7 +379,7 @@ def test_a_look_up_that_failed_is_not_remembered_as_no_subtitles(
     had no Hebrew subtitles until the TTL expired, and reopening the picker
     could not undo it.
     """
-    from katan.subs import outlook
+    from pinky.subs import outlook
 
     calls = {"n": 0}
 
@@ -413,7 +413,7 @@ def test_a_superseded_search_writes_no_file(monkeypatch, settings_module):
     settings_module.set_many({"subs.languages": "he,en", "subs.threshold": "70",
                              "subs.hash_match": "false", "subs.ai.enabled": "false"})
     import os
-    from katan.subs import auto as auto_module
+    from pinky.subs import auto as auto_module
 
     good = candidate("Pulp.Fiction.1994.1080p.BluRay.x264-AAA")
     cues = [srt.Cue(i + 1, i * 4.0, i * 4.0 + 2.0, "line") for i in range(30)]
@@ -447,7 +447,7 @@ def test_a_charset_python_does_not_have_is_not_an_exception():
     `get_json` and reached the provider as an exception rather than as "no
     subtitles from this one".
     """
-    from katan import urlsession
+    from pinky import urlsession
 
     response = urlsession.Response(
         "https://example.com", 200,
@@ -462,7 +462,7 @@ def test_a_charset_python_does_not_have_is_not_an_exception():
 def test_a_real_charset_is_still_honoured():
     """The fallback must not quietly break the encodings that do exist -
     Hebrew subtitle sites serve windows-1255 and mean it."""
-    from katan import urlsession
+    from pinky import urlsession
 
     hebrew = u"שלום"
     response = urlsession.Response(
@@ -482,8 +482,8 @@ def test_a_provider_may_not_hold_a_worker_thread_past_the_deadline(monkeypatch):
     the result but cannot stop a running task, so everything else - including
     the source search - queues behind a service that is simply down.
     """
-    from katan import http
-    from katan.subs.providers import bsplayer
+    from pinky import http
+    from pinky.subs.providers import bsplayer
 
     def slow_post(url, **kwargs):
         time.sleep(5)
@@ -501,7 +501,7 @@ def test_a_provider_may_not_return_an_unbounded_candidate_list():
     """`outlook` weighs every candidate against every source when the picker
     opens, so one uncapped provider is measured in hundreds of thousands of
     comparisons. Every other provider caps; this one did not."""
-    from katan.subs.providers import ktuvit
+    from pinky.subs.providers import ktuvit
 
     assert ktuvit.MAX_RESULTS <= 60
 
@@ -600,7 +600,7 @@ def test_a_candidates_stem_is_computed_once_not_once_per_source():
     largest single cost in the pass. `release.normalise` already says this in
     its own docstring; `_stem` had not acted on it.
     """
-    from katan.subs import matcher
+    from pinky.subs import matcher
 
     matcher._stem.cache_clear()
     name = "Pulp.Fiction.1994.1080p.BluRay.x264-AMIABLE.heb.srt"

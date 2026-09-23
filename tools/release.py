@@ -116,7 +116,7 @@ def update_readme(repo_version):
     """Point the README's download links at the release just built.
 
     The links name a file - Cloudflare Pages serves no directory listing, so
-    ".../repository.katan/" is a 404 and there is nothing stable to link to.
+    ".../repository.pinky/" is a 404 and there is nothing stable to link to.
     That means the version is in the URL, and a version in a URL that nothing
     updates is a broken link one release later.
     """
@@ -126,7 +126,7 @@ def update_readme(repo_version):
     with io.open(path, encoding="utf-8") as handle:
         text = handle.read()
     updated = re.sub(r"repository\.katan-\d+\.\d+\.\d+\.zip",
-                     "repository.katan-%s.zip" % repo_version, text)
+                     "repository.pinky-%s.zip" % repo_version, text)
     if updated == text:
         return
     with io.open(path, "w", encoding="utf-8", newline="") as handle:

@@ -122,7 +122,7 @@ marked confirmed on the strength of a passing unit test alone.
 ## 00:50 — TorBox connected, and two facts we had been guessing at
 
 The key is stored only in
-`.kodi-test/portable_data/userdata/addon_data/plugin.video.katan/settings.xml`,
+`.kodi-test/portable_data/userdata/addon_data/plugin.video.pinky/settings.xml`,
 which git ignores twice over. Verified it appears in no tracked file.
 
 `debrid/torbox.py` had never executed once. It has now:
@@ -541,7 +541,7 @@ found", and the reason is not a subtitle bug at all.
 **Kodi runs the plugin source for a subtitle module belonging to an add-on that
 is also a video plugin.** The dialog calls
 
-    plugin://plugin.video.katan/?action=search&languages=English
+    plugin://plugin.video.pinky/?action=search&languages=English
 
 and Kodi resolves that to `main.py` — never to `subtitles.py`. So the declared
 `xbmc.subtitle.module` library has not executed once in this add-on's history,
@@ -651,7 +651,7 @@ That state has always been possible. It became easier to reach with the change
 above, which is the right trade but makes the dead end worth closing. Focus
 falls back to the top bar, and the hero says "אין מה להציג כרגע".
 
-Not "set up Katan", which is what I wrote first and had to correct: by the time
+Not "set up Pinky", which is what I wrote first and had to correct: by the time
 that line runs, `_require_setup` has already returned True, so there *is* a
 TMDB key and setup is not the problem. It would have sent you to a wizard with
 nothing to fix.
@@ -833,7 +833,7 @@ hidden group costs nothing to draw.
 could not draw. The silence was the actual defect; ten was only a number.
 
 Confirmed in Kodi by asking the window what it was showing rather than looking
-at it - `Window(13000).Property(katan.rowN.title)` for all sixteen slots:
+at it - `Window(13000).Property(pinky.rowN.title)` for all sixteen slots:
 
     0  סרטים חמים        3  VOD ישראלי         6  פופולרי השבוע
     1  סדרות חמות        4  סרטים ישראליים     7  סדרות במגמה השבוע
@@ -906,12 +906,12 @@ and never asked again.
 ## 04:45 - Back, confirmed in Kodi rather than in stubs
 
 Six presses of Back on the home screen: window 13000 every time, "back on the
-home screen, staying in Katan" six times in the log. Then into a title's
+home screen, staying in Pinky" six times in the log. Then into a title's
 details (window 13001) and Back once: returns to 13000. So the screen you
-cannot leave is only the home screen, and everything inside Katan still goes
+cannot leave is only the home screen, and everything inside Pinky still goes
 back - which was the design, now measured rather than asserted.
 
-`ui.stay_in_katan` still ships **off**. It is on in the test profile here.
+`ui.stay_in_pinky` still ships **off**. It is on in the test profile here.
 Turning it on by default would take over the Kodi of anyone who installs this
 from the repository, and that is their call rather than mine - it is one
 switch in Settings -> Interface.

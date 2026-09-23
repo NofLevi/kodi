@@ -9,8 +9,8 @@ def reset(profile_dir, addon_dir):
     SETTINGS.clear()
     INFO.clear()
     INFO.update({
-        "id": "plugin.video.katan",
-        "name": "Katan",
+        "id": "plugin.video.pinky",
+        "name": "Pinky",
         "version": "0.1.0",
         "path": addon_dir,
         "profile": profile_dir,
@@ -19,7 +19,7 @@ def reset(profile_dir, addon_dir):
 
 class Addon(object):
     def __init__(self, id=None):
-        self.id = id or INFO.get("id", "plugin.video.katan")
+        self.id = id or INFO.get("id", "plugin.video.pinky")
 
     def getAddonInfo(self, key):
         return INFO.get(key, "")

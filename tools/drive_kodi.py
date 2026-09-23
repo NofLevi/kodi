@@ -32,7 +32,7 @@ LOG = os.path.join(PORTABLE, "kodi.log")
 
 PORT = 8080
 ENDPOINT = "http://127.0.0.1:%d/jsonrpc" % PORT
-PLUGIN = "plugin://plugin.video.katan/"
+PLUGIN = "plugin://plugin.video.pinky/"
 
 
 def enable_webserver():
@@ -133,7 +133,7 @@ def katan_log_lines(since=0):
         return []
     with open(LOG, encoding="utf-8", errors="replace") as handle:
         lines = handle.readlines()
-    return [line.rstrip() for line in lines[since:] if "[Katan" in line]
+    return [line.rstrip() for line in lines[since:] if "[Pinky" in line]
 
 
 def log_length():
@@ -197,16 +197,16 @@ def main():
         print("\nrunning the device report")
         try:
             rpc("Addons.ExecuteAddon",
-                {"addonid": "plugin.video.katan",
+                {"addonid": "plugin.video.pinky",
                  "params": {"action": "diagnostics"}}, timeout=120)
             time.sleep(12)
         except Exception as error:
             print("  could not run it: %s" % str(error)[:120])
 
-        report = [line for line in katan_log_lines() if "[Katan]" in line]
+        report = [line for line in katan_log_lines() if "[Pinky]" in line]
         print("\nadd-on log lines: %d" % len(report))
         for line in report[-45:]:
-            print("  " + line.split("[Katan]", 1)[-1].strip())
+            print("  " + line.split("[Pinky]", 1)[-1].strip())
 
         errors = python_errors()
         print("\npython errors: %d" % len(errors))

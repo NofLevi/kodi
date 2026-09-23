@@ -7,7 +7,7 @@ holds both recall and false-positive rate to explicit limits.
 import random
 import time
 
-from katan.subs import srt, sync
+from pinky.subs import srt, sync
 
 
 def timeline(seed, count=180, offset=0.0, jitter=0.0):

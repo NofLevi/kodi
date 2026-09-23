@@ -1,7 +1,7 @@
 """The details screen: information, seasons, episodes and the actions."""
 import pytest
 
-from katan.ui import details_window
+from pinky.ui import details_window
 
 
 class FakeAction(object):
@@ -45,7 +45,7 @@ SHOW = {
 @pytest.fixture
 def window(monkeypatch):
     """A details window with TMDB replaced by a small fake series."""
-    from katan.meta import tmdb, trakt_state
+    from pinky.meta import tmdb, trakt_state
 
     seasons = [
         {"type": "season", "ids": {"tmdb": 1399}, "title": "Season 1",
@@ -80,24 +80,24 @@ def window(monkeypatch):
 
 def test_a_movie_shows_its_information(window):
     detail = window(MOVIE)
-    assert detail.getProperty("katan.detail.title") == "Dune: Part Two"
-    assert "Paul unites" in detail.getProperty("katan.detail.plot")
-    assert detail.getProperty("katan.detail.poster") == "p.jpg"
-    assert detail.getProperty("katan.detail.fanart") == "f.jpg"
+    assert detail.getProperty("pinky.detail.title") == "Dune: Part Two"
+    assert "Paul unites" in detail.getProperty("pinky.detail.plot")
+    assert detail.getProperty("pinky.detail.poster") == "p.jpg"
+    assert detail.getProperty("pinky.detail.fanart") == "f.jpg"
 
-    meta = detail.getProperty("katan.detail.meta")
+    meta = detail.getProperty("pinky.detail.meta")
     assert "2024" in meta and "8.2" in meta and "166 min" in meta
-    assert "Zendaya" in detail.getProperty("katan.detail.cast")
+    assert "Zendaya" in detail.getProperty("pinky.detail.cast")
 
 
 def test_a_movie_has_no_season_list(window):
     detail = window(MOVIE)
-    assert detail.getProperty("katan.detail.listheading") == ""
+    assert detail.getProperty("pinky.detail.listheading") == ""
 
 
 def test_a_show_lists_its_seasons(window):
     detail = window(SHOW)
-    assert detail.getProperty("katan.detail.listheading")
+    assert detail.getProperty("pinky.detail.listheading")
     assert len(detail.entries) == 2
     assert detail.entries[0]["type"] == "season"
 
@@ -153,7 +153,7 @@ def test_play_works_on_a_show_without_opening_a_season_first(window):
 
 def test_it_walks_on_to_the_next_season_when_one_is_finished(window,
                                                              monkeypatch):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     watched = [dict(e, playcount=1) for e in
                tmdb.episodes(1399, 1)]
     monkeypatch.setattr(tmdb, "episodes",
@@ -186,15 +186,15 @@ def test_playing_a_show_with_no_seasons_loaded_says_so(window):
 
 
 def test_the_trailer_button_is_hidden_without_one(window):
-    assert window(MOVIE).getProperty("katan.detail.trailer")
+    assert window(MOVIE).getProperty("pinky.detail.trailer")
     plain = dict(MOVIE, extra={})
-    assert window(plain).getProperty("katan.detail.trailer") == ""
+    assert window(plain).getProperty("pinky.detail.trailer") == ""
 
 
 def test_properties_are_cleared_on_close(window):
     detail = window(MOVIE)
     detail.onAction(FakeAction(details_window.ACTION_NAV_BACK))
-    assert detail.getProperty("katan.detail.title") == ""
+    assert detail.getProperty("pinky.detail.title") == ""
 
 
 def test_opening_details_for_nothing_is_safe():
@@ -209,7 +209,7 @@ def test_opening_details_for_nothing_is_safe():
 def test_a_season_with_one_episode_reads_as_one(window):
     """Hebrew takes the singular after one. "1 פרקים" is the plural, and Silo
     has exactly such a season."""
-    from katan import kodi
+    from pinky import kodi
 
     one = details_window._row_subtitle(
         {"type": "season", "season": 4, "extra": {"episode_count": 1}})
@@ -228,7 +228,7 @@ def test_a_season_with_no_count_says_nothing(window):
 
 def test_an_episode_runtime_is_localised(window):
     """The last "min" left in a window that is otherwise entirely Hebrew."""
-    from katan import kodi
+    from pinky import kodi
 
     line = details_window._row_subtitle(
         {"type": "episode", "premiered": "2023-05-04", "duration": 62 * 60})
@@ -275,7 +275,7 @@ def test_the_button_acts_on_the_highlighted_episode(window, monkeypatch):
     detail.getControl(details_window.LIST_CONTENT).position = 2
     detail._update_action_label()
 
-    label = detail.getProperty("katan.detail.sourcelabel")
+    label = detail.getProperty("pinky.detail.sourcelabel")
     assert "1x03" in label, "the button has to name the episode: %r" % label
 
     calls = _picker_calls(monkeypatch)
@@ -290,8 +290,8 @@ def test_the_button_acts_on_the_highlighted_episode(window, monkeypatch):
 def test_the_label_is_the_plain_one_while_seasons_are_showing(window):
     """There is no episode to name yet, and naming one would be a guess."""
     detail = window(SHOW)
-    assert detail.getProperty("katan.detail.sourcelabel")
-    assert "x" not in detail.getProperty("katan.detail.sourcelabel").split()[-1]
+    assert detail.getProperty("pinky.detail.sourcelabel")
+    assert "x" not in detail.getProperty("pinky.detail.sourcelabel").split()[-1]
 
 
 def test_the_label_follows_the_cursor(window):
@@ -300,7 +300,7 @@ def test_the_label_follows_the_cursor(window):
     for position in (0, 1, 2):
         detail.getControl(details_window.LIST_CONTENT).position = position
         detail.onAction(FakeAction(4))          # move down
-        seen.append(detail.getProperty("katan.detail.sourcelabel"))
+        seen.append(detail.getProperty("pinky.detail.sourcelabel"))
     assert len({s for s in seen}) == 3, "every episode gets its own label: %s" % seen
 
 

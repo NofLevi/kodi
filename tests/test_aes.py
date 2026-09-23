@@ -11,7 +11,7 @@ import binascii
 
 import pytest
 
-from katan.utils import aes
+from pinky.utils import aes
 
 
 def hexb(text):

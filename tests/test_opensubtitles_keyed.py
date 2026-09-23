@@ -8,7 +8,7 @@ def _meta():
 
 
 def _search(monkeypatch, settings_module, attributes, video_hash="hash", size=1234):
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     monkeypatch.setattr(
         opensubtitles.http, "get_json",
@@ -47,7 +47,7 @@ def test_explicit_malformed_disc_count_is_rejected(monkeypatch, settings_module,
 
 def test_oversized_disc_count_skips_only_bad_entry(monkeypatch,
                                                      settings_module):
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     huge = "9" * 5000
     monkeypatch.setattr(opensubtitles.http, "get_json", lambda *args, **kwargs: {
@@ -89,7 +89,7 @@ def test_missing_file_id_is_not_an_undownloadable_candidate(monkeypatch,
 ])
 def test_malformed_download_count_does_not_discard_valid_results(
         monkeypatch, settings_module, bad_count):
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     monkeypatch.setattr(opensubtitles.http, "get_json", lambda *args, **kwargs: {
         "data": [
@@ -104,8 +104,8 @@ def test_malformed_download_count_does_not_discard_valid_results(
 
 def test_malformed_language_is_rejected_before_matching(monkeypatch,
                                                          settings_module):
-    from katan.subs import matcher
-    from katan.subs.providers import opensubtitles
+    from pinky.subs import matcher
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     monkeypatch.setattr(opensubtitles.http, "get_json", lambda *args, **kwargs: {
         "data": [
@@ -122,8 +122,8 @@ def test_malformed_language_is_rejected_before_matching(monkeypatch,
 @pytest.mark.parametrize("bad_release", [["release"], {"name": "release"}, 7, True])
 def test_malformed_release_is_safe_for_consensus(monkeypatch, settings_module,
                                                   bad_release):
-    from katan.subs import consensus
-    from katan.subs.providers import opensubtitles
+    from pinky.subs import consensus
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     monkeypatch.setattr(opensubtitles.http, "get_json", lambda *args, **kwargs: {
         "data": [
@@ -141,7 +141,7 @@ def test_malformed_release_is_safe_for_consensus(monkeypatch, settings_module,
 
 def test_exact_size_is_sent_as_a_hash_query_constraint(monkeypatch,
                                                         settings_module):
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     captured = {}
 
@@ -161,7 +161,7 @@ def test_exact_size_is_sent_as_a_hash_query_constraint(monkeypatch,
 def test_invalid_size_is_ignored_without_losing_results(monkeypatch,
                                                          settings_module,
                                                          size):
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     captured = {}
 
@@ -180,7 +180,7 @@ def test_invalid_size_is_ignored_without_losing_results(monkeypatch,
 
 def test_download_rejects_truthy_non_object_response(monkeypatch,
                                                       settings_module):
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     monkeypatch.setattr(opensubtitles, "configured", lambda: True)
     monkeypatch.setattr(opensubtitles.http, "post_json",
@@ -190,7 +190,7 @@ def test_download_rejects_truthy_non_object_response(monkeypatch,
 
 def test_malformed_remaining_does_not_block_valid_download(monkeypatch,
                                                            settings_module):
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     monkeypatch.setattr(opensubtitles, "configured", lambda: True)
     monkeypatch.setattr(opensubtitles.http, "post_json", lambda *args, **kwargs: {
@@ -204,7 +204,7 @@ def test_malformed_remaining_does_not_block_valid_download(monkeypatch,
 
 @pytest.mark.parametrize("bad_link", [7, True, [], {}, "", "   ", "file:///tmp/x"])
 def test_download_rejects_non_http_link(monkeypatch, settings_module, bad_link):
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     monkeypatch.setattr(opensubtitles, "configured", lambda: True)
     monkeypatch.setattr(opensubtitles.http, "post_json",
@@ -219,7 +219,7 @@ def test_download_rejects_non_http_link(monkeypatch, settings_module, bad_link):
 def test_keyed_zip_selects_candidate_language(monkeypatch, settings_module):
     import io
     import zipfile
-    from katan.subs.providers import opensubtitles
+    from pinky.subs.providers import opensubtitles
     settings_module.set("subs.opensubtitles.apikey", "test-key")
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, "w") as bundle:

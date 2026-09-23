@@ -1,9 +1,9 @@
-# Working on Katan
+# Working on Pinky
 
 Short, source-only context for anyone — person or agent — changing this code.
 `CLAUDE.md` explains how the add-on fits together and why; this is the set of
 rules that are easy to break without noticing. It is tracked in Git and must
-never reach a device: it is not under `plugin.video.katan/`, so `build.py`
+never reach a device: it is not under `plugin.video.pinky/`, so `build.py`
 cannot package it, and `test_packaging.py` holds both halves.
 
 ## The environment, not the language

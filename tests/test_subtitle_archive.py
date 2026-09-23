@@ -5,8 +5,8 @@ import zipfile
 
 import pytest
 
-from katan import urlsession
-from katan.subs.providers import bsplayer, common, opensubtitles_rest, wizdom
+from pinky import urlsession
+from pinky.subs.providers import bsplayer, common, opensubtitles_rest, wizdom
 
 
 def test_archive_language_matching_uses_tokens_not_substrings():

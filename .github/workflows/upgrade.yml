@@ -3,7 +3,7 @@ name: upgrade
 # Its own pipeline, because it asks its own question: can a box that has been
 # sitting on an old release get to the current one?
 #
-# `tests/data/baseline-plugin.video.katan.zip` is the real 0.0.1 tree, taken
+# `tests/data/baseline-plugin.video.pinky.zip` is the real 0.0.1 tree, taken
 # with `git archive` from the commit that released it and never regenerated.
 # It is unpacked as an installed add-on, with keys and a subtitle in the
 # profile beside it, and then the flow a viewer runs - check, download,

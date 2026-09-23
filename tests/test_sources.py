@@ -1,7 +1,7 @@
 """The source pipeline: merging duplicates, filtering, and ranking."""
 import pytest
 
-from katan.sources import model, scoring
+from pinky.sources import model, scoring
 
 
 def make(title, **kwargs):
@@ -157,7 +157,7 @@ def test_every_rejection_reason_has_a_label():
     import inspect
     import re
 
-    from katan.ui import sources_window
+    from pinky.ui import sources_window
 
     reasons = set(re.findall(r'return "([^"]+)"',
                              inspect.getsource(scoring.rejection_reason)))
@@ -561,8 +561,8 @@ def test_a_site_stamp_does_not_make_a_second_row():
 # --------------------------------------------------------------------------
 
 def _scored(title, **extra):
-    from katan.sources import scoring
-    from katan.utils import release
+    from pinky.sources import scoring
+    from pinky.utils import release
 
     parsed = release.parse(title)
     source = {"title": title, "resolution": parsed["resolution"],
@@ -594,7 +594,7 @@ def test_a_release_claiming_nothing_is_not_penalised(settings_module):
     Reading it as "not English" would push the ordinary case below everything
     and invert the whole ranking.
     """
-    from katan.sources import scoring
+    from pinky.sources import scoring
 
     settings_module.set("subs.languages", "he,en")
     plain = {"title": "Silo.S01E01.1080p.WEB.H264-CAKES", "languages": [],
@@ -618,7 +618,7 @@ def test_a_release_claiming_nothing_is_not_penalised(settings_module):
 ])
 def test_which_language_claims_count_as_wrong(settings_module, languages,
                                               penalised):
-    from katan.sources import scoring
+    from pinky.sources import scoring
 
     settings_module.set("subs.languages", "he,en")
     source = {"title": "x", "languages": languages}
@@ -627,7 +627,7 @@ def test_which_language_claims_count_as_wrong(settings_module, languages,
 
 def test_the_language_list_is_the_viewers_own(settings_module):
     """Somebody who reads Spanish should not have Spanish ranked down."""
-    from katan.sources import scoring
+    from pinky.sources import scoring
 
     settings_module.set("subs.languages", "es")
     source = {"title": "x", "languages": ["es"]}
@@ -639,10 +639,10 @@ def test_the_language_list_is_the_viewers_own(settings_module):
 # --------------------------------------------------------------------------
 
 def _score_for(title, original, languages="he,en"):
-    from katan.sources import scoring
-    from katan.utils import release
+    from pinky.sources import scoring
+    from pinky.utils import release
 
-    import katan.settings as settings_module
+    import pinky.settings as settings_module
     settings_module.set("subs.languages", languages)
     parsed = release.parse(title)
     source = {"title": title, "quality": parsed["resolution"],
@@ -695,7 +695,7 @@ def test_an_english_show_is_untouched_by_any_of_this(settings_module):
 
 def test_the_original_language_reaches_the_item():
     """It comes from TMDB and nothing carried it before."""
-    from katan.meta import items
+    from pinky.meta import items
 
     movie = items.from_tmdb_movie({"id": 1, "title": "x",
                                    "original_language": "tr"})
@@ -707,7 +707,7 @@ def test_a_series_in_its_own_language_is_not_foreign_for_an_episode():
     """The ranking reads the series' language from the meta, because an
     episode's item has none; a Turkish release of a Turkish series must not
     take the wrong-language penalty."""
-    from katan.sources import scoring
+    from pinky.sources import scoring
     turkish = {"title": "Show.S01E03.1080p.WEB-DL.TURKISH-GRP", "hash": "t" * 40,
                "quality": "1080p", "languages": ["tr"], "cached": True,
                "size": 2 * 1024 ** 3, "seeders": 10, "provider": "torrentio"}

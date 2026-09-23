@@ -8,7 +8,7 @@ dual-audio file played whichever track Kodi's default landed on.
 """
 import pytest
 
-from katan.sources import scoring
+from pinky.sources import scoring
 
 
 # --------------------------------------------------------------------------
@@ -17,7 +17,7 @@ from katan.sources import scoring
 
 
 def test_an_israeli_title_gets_no_automatic_subtitle(monkeypatch, settings_module):
-    from katan.subs import auto
+    from pinky.subs import auto
 
     settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en"})
     called = []
@@ -30,7 +30,7 @@ def test_an_israeli_title_gets_no_automatic_subtitle(monkeypatch, settings_modul
 
 
 def test_a_foreign_title_still_gets_one(monkeypatch, settings_module):
-    from katan.subs import auto
+    from pinky.subs import auto
 
     settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en",
                               "subs.embedded_first": "false"})
@@ -42,7 +42,7 @@ def test_a_foreign_title_still_gets_one(monkeypatch, settings_module):
 
 
 def test_the_picker_asks_no_subtitle_question_for_a_hebrew_title(monkeypatch):
-    from katan.subs import outlook
+    from pinky.subs import outlook
 
     def must_not_search(*args, **kwargs):
         raise AssertionError("searched for subtitles for a Hebrew title")
@@ -55,9 +55,9 @@ def test_the_picker_asks_no_subtitle_question_for_a_hebrew_title(monkeypatch):
 
 
 def test_the_picker_says_hebrew_audio_rather_than_no_hebrew_found():
-    from katan import kodi
-    from katan.subs import outlook
-    from katan.ui import sources_window
+    from pinky import kodi
+    from pinky.subs import outlook
+    from pinky.ui import sources_window
 
     line = sources_window._subtitle_badge({"subs_kind": outlook.NATIVE})
     assert line == kodi.localize(32537)
@@ -70,8 +70,8 @@ def test_the_picker_says_hebrew_audio_rather_than_no_hebrew_found():
 
 
 def test_the_series_tab_has_a_turkish_spanish_and_italian_drama_row(monkeypatch):
-    from katan import catalog
-    from katan.meta import tmdb
+    from pinky import catalog
+    from pinky.meta import tmdb
 
     asked = {}
     monkeypatch.setattr(tmdb, "discover",
@@ -91,11 +91,11 @@ def test_the_series_tab_has_a_turkish_spanish_and_italian_drama_row(monkeypatch)
 
 
 def _source(title, quality="1080p", size=2, **extra):
-    from katan.sources import model
+    from pinky.sources import model
     entry = model.new_source(title=title, provider="torrentio",
                              info_hash=(title * 3)[:40], size=size * 1024 ** 3,
                              seeders=20)
-    from katan.utils import release
+    from pinky.utils import release
     parsed = release.parse(title)
     entry.update(cached=True, quality=quality, languages=parsed["languages"],
                  dub=parsed["dub"])
@@ -169,14 +169,14 @@ JAPANESE_ENGLISH = [{"index": 0, "language": "eng", "name": "English"},
 @pytest.fixture
 def monitor(settings_module):
     import xbmc
-    from katan import player
-    watcher = player.KatanPlayer()
+    from pinky import player
+    watcher = player.PinkyPlayer()
     yield watcher
     xbmc.JSONRPC_RESULTS.pop("Player.GetProperties", None)
 
 
 def test_the_original_audio_is_chosen_on_a_dual_audio_file(monitor):
-    from katan.subs import embedded
+    from pinky.subs import embedded
     _tracks(JAPANESE_ENGLISH, current=0)
     monitor.meta = {"original_language": "ja"}
     monitor._choose_audio_track(embedded)
@@ -184,7 +184,7 @@ def test_the_original_audio_is_chosen_on_a_dual_audio_file(monitor):
 
 
 def test_nothing_is_switched_when_the_original_is_already_playing(monitor):
-    from katan.subs import embedded
+    from pinky.subs import embedded
     _tracks(JAPANESE_ENGLISH, current=1)
     monitor.meta = {"original_language": "ja"}
     monitor._choose_audio_track(embedded)
@@ -192,7 +192,7 @@ def test_nothing_is_switched_when_the_original_is_already_playing(monitor):
 
 
 def test_nothing_is_switched_when_the_original_is_not_in_the_file(monitor):
-    from katan.subs import embedded
+    from pinky.subs import embedded
     _tracks(JAPANESE_ENGLISH, current=0)
     monitor.meta = {"original_language": "ko"}
     monitor._choose_audio_track(embedded)
@@ -200,7 +200,7 @@ def test_nothing_is_switched_when_the_original_is_not_in_the_file(monitor):
 
 
 def test_kids_mode_chooses_hebrew_audio(monitor, settings_module):
-    from katan.subs import embedded
+    from pinky.subs import embedded
     settings_module.set("kids.enabled", "true")
     _tracks(JAPANESE_ENGLISH + [{"index": 2, "language": "heb", "name": "Hebrew"}],
             current=1)
@@ -216,7 +216,7 @@ def test_kids_mode_chooses_hebrew_audio(monitor, settings_module):
     ("A.Film.2020.1080p.MULTI.SUBS.WEB-DL-GRP", ""),
 ])
 def test_multi_audio_is_as_good_as_dual_and_multi_subs_is_not_audio(title, dub):
-    from katan.utils import release
+    from pinky.utils import release
     assert release.parse(title)["dub"] == dub
 
 

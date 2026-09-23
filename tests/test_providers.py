@@ -6,7 +6,7 @@ add-on knows about a torrent starts as one of these dictionaries. They come
 from other people's servers, and the tests below are mostly about what happens
 when one of them is not shaped the way the last one was.
 """
-from katan.sources.providers import stremio
+from pinky.sources.providers import stremio
 
 HASH_A = "a" * 40
 HASH_B = "b" * 40

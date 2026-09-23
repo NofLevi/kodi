@@ -8,9 +8,9 @@ nothing.
 """
 import pytest
 
-from katan import http, settings
-from katan.meta import seadex
-from katan.sources import model, scoring
+from pinky import http, settings
+from pinky.meta import seadex
+from pinky.sources import model, scoring
 
 GOOD = "a" * 40
 ALSO_GOOD = "b" * 40

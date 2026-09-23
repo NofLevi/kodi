@@ -15,9 +15,9 @@ import json
 
 import pytest
 
-from katan import http, settings
-from katan.subs import auto
-from katan.subs.providers import ktuvit
+from pinky import http, settings
+from pinky.subs import auto
+from pinky.subs.providers import ktuvit
 
 EMAIL = "someone@example.com"
 PASSWORD = "hunter2"

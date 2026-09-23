@@ -8,13 +8,13 @@ import pytest
 
 import xbmcgui
 import xbmcplugin
-from katan import router, settings
+from pinky import router, settings
 
 
 @pytest.fixture(autouse=True)
 def offline(monkeypatch, settings_module):
     """No network, no windows, and the plain directory UI."""
-    from katan import http
+    from pinky import http
 
     monkeypatch.setattr(http, "request", lambda *a, **k: None)
     monkeypatch.setattr(http, "run_parallel", lambda tasks, **k: {})
@@ -32,7 +32,7 @@ def dispatch(action, **params):
     query = "&".join(["action=%s" % action] +
                      ["%s=%s" % (k, v) for k, v in params.items()])
     xbmcplugin.reset()
-    router.dispatch(["plugin://plugin.video.katan/", "1", "?" + query])
+    router.dispatch(["plugin://plugin.video.pinky/", "1", "?" + query])
 
 
 NAVIGATION_ROUTES = [
@@ -60,7 +60,7 @@ def test_navigation_routes_complete_without_error(action, params):
 def test_a_row_listing_offers_the_next_page(monkeypatch):
     """A Kodi directory is a fixed list with no scroll event to hang a fetch
     off, so the plain listing pages the way Kodi's own skins expect."""
-    from katan import catalog
+    from pinky import catalog
 
     monkeypatch.setattr(catalog, "load",
                         lambda row_id, page=1, **kw: [
@@ -80,7 +80,7 @@ def test_a_row_that_cannot_page_is_not_given_a_next_page(monkeypatch):
     reach the rest. They page now, because paging a list already in memory
     costs a slice.
     """
-    from katan import catalog
+    from pinky import catalog
 
     monkeypatch.setattr(catalog, "load",
                         lambda row_id, page=1, **kw: [
@@ -93,7 +93,7 @@ def test_a_row_that_cannot_page_is_not_given_a_next_page(monkeypatch):
 
 def test_the_israeli_rows_can_be_scrolled_past_their_first_page():
     """Forty-six channels and eight hundred Kan programmes are not twelve."""
-    from katan import catalog
+    from pinky import catalog
 
     for row_id in ("israel_live", "israel_vod", "israel_radio"):
         assert catalog.has_more(row_id), \
@@ -102,7 +102,7 @@ def test_the_israeli_rows_can_be_scrolled_past_their_first_page():
 
 def test_an_empty_page_ends_rather_than_offering_another(monkeypatch):
     """Past the last page TMDB answers with an empty list, not an error."""
-    from katan import catalog
+    from pinky import catalog
 
     monkeypatch.setattr(catalog, "load", lambda row_id, page=1, **kw: [])
     dispatch("row", id="trending_movies", page="9")
@@ -112,7 +112,7 @@ def test_an_empty_page_ends_rather_than_offering_another(monkeypatch):
 
 def test_a_nonsense_page_number_is_treated_as_the_first(monkeypatch):
     """A url is something a viewer can bookmark, edit and get wrong."""
-    from katan import catalog
+    from pinky import catalog
 
     seen = []
     monkeypatch.setattr(catalog, "load",
@@ -136,7 +136,7 @@ def test_home_does_not_offer_a_row_it_knows_is_empty():
     offering them, so a Trakt chart with nobody signed in, or the anime row
     while AniList refuses requests, was an entry that led nowhere.
     """
-    from katan import cache, catalog
+    from pinky import cache, catalog
 
     row_id = catalog.enabled_rows()[0]["id"]
     cache.set(catalog.cache_key(row_id), [], 600)
@@ -149,7 +149,7 @@ def test_home_does_not_offer_a_row_it_knows_is_empty():
 def test_a_row_that_has_never_been_warmed_is_still_offered():
     """Cold is not empty. Collapsing the two would hide every row on a fresh
     install, before anything has had a chance to load."""
-    from katan import cache, catalog
+    from pinky import cache, catalog
 
     cache.delete_prefix("row|")
     dispatch("home")
@@ -232,7 +232,7 @@ def test_kodis_subtitle_search_does_not_open_the_search_window():
 
     Kodi runs the plugin source for a subtitle module belonging to an add-on
     that is also a video plugin: the dialog calls
-    plugin://plugin.video.katan/?action=search&languages=English, and Kodi
+    plugin://plugin.video.pinky/?action=search&languages=English, and Kodi
     resolves that to main.py, never to subtitles.py. So action=search landed
     in the video search-window route, which tried to open a window over a
     modal dialog and failed, and the chooser said "no subtitles found" for
@@ -262,7 +262,7 @@ def test_nothing_else_is_a_subtitle_request():
 
 
 def test_a_subtitle_search_reaches_the_subtitle_service(monkeypatch):
-    from katan.subs import service
+    from pinky.subs import service
 
     seen = []
     monkeypatch.setattr(service, "dispatch", lambda argv: seen.append(argv))
@@ -278,12 +278,12 @@ def test_the_israeli_sections_are_listed_once_each():
     horizontal rows of artwork and the sections are not drawn at all, so the
     duplication only ever showed here.
     """
-    from katan import kodi as katan_kodi
+    from pinky import kodi as pinky_kodi
 
     dispatch("home")
     labels = [item.getLabel() for _url, item, _folder in xbmcplugin.ITEMS]
     for string_id in (32217, 32218):
-        heading = katan_kodi.localize(string_id)
+        heading = pinky_kodi.localize(string_id)
         assert labels.count(heading) == 1, "%r appears %d times" % (
             heading, labels.count(heading))
 
@@ -300,10 +300,10 @@ def test_the_sections_still_point_at_the_section_routes():
 def test_a_fresh_install_still_offers_what_needs_no_key(settings_module):
     """Israeli live TV and the on-demand catalogue need nothing at all.
 
-    A fresh install showed exactly one line - "set up Katan" - with
+    A fresh install showed exactly one line - "set up Pinky" - with
     forty-three working channels behind a gate for a key they do not use.
     """
-    from katan import kodi as katan_kodi
+    from pinky import kodi as pinky_kodi
 
     settings_module.set("tmdb.apikey", "")
     dispatch("home")
@@ -314,7 +314,7 @@ def test_a_fresh_install_still_offers_what_needs_no_key(settings_module):
     assert any("action=vod" in u for u in urls)
     assert any("action=tools" in u for u in urls)
     labels = [item.getLabel() for _url, item, _folder in xbmcplugin.ITEMS]
-    assert labels[0] == katan_kodi.localize(32256)
+    assert labels[0] == pinky_kodi.localize(32256)
 
 
 def test_a_fresh_install_does_not_offer_rows_that_need_a_key(settings_module):
@@ -331,12 +331,12 @@ def test_the_window_opens_even_without_a_tmdb_key(monkeypatch,
     none - so the window has content and a file list is the wrong thing to
     show somebody opening the add-on for the first time."""
     import xbmcplugin
-    from katan.ui import handlers
+    from pinky.ui import handlers
 
     settings_module.set_many({"ui.window_home": "true", "tmdb.apikey": ""})
 
     opened = []
-    monkeypatch.setattr("katan.ui.home_window.open_home",
+    monkeypatch.setattr("pinky.ui.home_window.open_home",
                         lambda: opened.append(True))
 
     xbmcplugin.reset()
@@ -348,14 +348,14 @@ def test_the_plain_listing_is_used_when_no_row_can_draw(monkeypatch,
                                                         settings_module):
     """The one case the fallback is for."""
     import xbmcplugin
-    from katan import catalog
-    from katan.ui import handlers
+    from pinky import catalog
+    from pinky.ui import handlers
 
     settings_module.set_many({"ui.window_home": "true", "tmdb.apikey": ""})
     monkeypatch.setattr(catalog, "enabled_rows", lambda *a, **k: [])
 
     opened = []
-    monkeypatch.setattr("katan.ui.home_window.open_home",
+    monkeypatch.setattr("pinky.ui.home_window.open_home",
                         lambda: opened.append(True))
 
     xbmcplugin.reset()
@@ -375,14 +375,14 @@ def test_the_window_is_never_opened_inside_a_directory_call(monkeypatch,
     window reopens. That loop left Kodi stuck.
     """
     import xbmcplugin
-    from katan import kodi
-    from katan.ui import handlers
+    from pinky import kodi
+    from pinky.ui import handlers
 
     settings_module.set_many({"ui.window_home": "true", "tmdb.apikey": "k"})
 
     opened = []
     ran = []
-    monkeypatch.setattr("katan.ui.home_window.open_home",
+    monkeypatch.setattr("pinky.ui.home_window.open_home",
                         lambda: opened.append(True))
     monkeypatch.setattr(kodi, "run_builtin", lambda command: ran.append(command))
 
@@ -400,14 +400,14 @@ def test_a_runplugin_invocation_opens_the_window_directly(monkeypatch,
                                                           settings_module):
     """The second invocation has no handle, so there is nothing to close."""
     import xbmcplugin
-    from katan import kodi
-    from katan.ui import handlers
+    from pinky import kodi
+    from pinky.ui import handlers
 
     settings_module.set_many({"ui.window_home": "true", "tmdb.apikey": "k"})
 
     opened = []
     ran = []
-    monkeypatch.setattr("katan.ui.home_window.open_home",
+    monkeypatch.setattr("pinky.ui.home_window.open_home",
                         lambda: opened.append(True))
     monkeypatch.setattr(kodi, "run_builtin", lambda command: ran.append(command))
 
@@ -431,7 +431,7 @@ def test_a_runplugin_invocation_opens_the_window_directly(monkeypatch,
 
 
 def test_the_context_menu_asks_for_sources_by_the_shows_id():
-    from katan.ui import listing
+    from pinky.ui import listing
 
     episode = {
         "type": "episode", "title": "Freedom Day", "season": 1, "episode": 1,
@@ -449,7 +449,7 @@ def test_the_context_menu_asks_for_sources_by_the_shows_id():
 
 
 def test_a_film_still_uses_its_own_id():
-    from katan.ui import listing
+    from pinky.ui import listing
 
     film = {"type": "movie", "title": "Fight Club", "ids": {"tmdb": 550}}
     sources = [url for label, url in listing.context_menu(film)
@@ -459,7 +459,7 @@ def test_a_film_still_uses_its_own_id():
 
 def test_an_episode_with_no_show_id_falls_back_rather_than_vanishing():
     """Rows built somewhere other than tmdb.episodes carry no tmdb_show."""
-    from katan.ui import listing
+    from pinky.ui import listing
 
     episode = {"type": "episode", "season": 2, "episode": 3,
                "ids": {"tmdb": 4242}, "extra": {}}
@@ -483,10 +483,10 @@ def test_accounts_shows_something_when_run_without_a_handle(monkeypatch,
     was that the same screen worked when reached as a directory.
     """
     import xbmcplugin
-    from katan import kodi
-    from katan.ui import handlers
+    from pinky import kodi
+    from pinky.ui import handlers
 
-    monkeypatch.setattr("katan.debrid.registry.account_summary", lambda: [])
+    monkeypatch.setattr("pinky.debrid.registry.account_summary", lambda: [])
 
     shown = {}
     monkeypatch.setattr(kodi, "select",
@@ -507,10 +507,10 @@ def test_accounts_is_still_a_directory_when_it_has_one(monkeypatch,
                                                        settings_module):
     """The directory listing route still works the way it always did."""
     import xbmcplugin
-    from katan import kodi
-    from katan.ui import handlers
+    from pinky import kodi
+    from pinky.ui import handlers
 
-    monkeypatch.setattr("katan.debrid.registry.account_summary", lambda: [])
+    monkeypatch.setattr("pinky.debrid.registry.account_summary", lambda: [])
     monkeypatch.setattr(kodi, "select",
                         lambda *a, **k: pytest.fail("asked instead of listing"))
 

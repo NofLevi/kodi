@@ -47,7 +47,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 sys.path.insert(0, os.path.join(ROOT, "tests", "stubs"))
-sys.path.insert(0, os.path.join(ROOT, "plugin.video.katan", "resources", "lib"))
+sys.path.insert(0, os.path.join(ROOT, "plugin.video.pinky", "resources", "lib"))
 
 # The sampler, the resume file format and the isolated cache are all worth
 # having once. This tool asks a different question of the same nineteen strata.
@@ -71,9 +71,9 @@ def say(text=""):
 
 def examine(entry, use_debrid):
     """Everything one title can tell us about its subtitles."""
-    from katan import play, settings
-    from katan.sources import aggregator, scoring
-    from katan.subs import auto, hasher, matcher, srt, sync
+    from pinky import play, settings
+    from pinky.sources import aggregator, scoring
+    from pinky.subs import auto, hasher, matcher, srt, sync
 
     started = time.time()
     record = dict(entry)
@@ -101,7 +101,7 @@ def examine(entry, use_debrid):
     # What a viewer would actually be given, because the name score is measured
     # against that release and no other.
     try:
-        from katan.sources import model
+        from pinky.sources import model
 
         providers = aggregator._enabled_providers(meta)
         raw = aggregator._run_providers(providers, meta, quiet=True)
@@ -230,7 +230,7 @@ def _stream_url(top, sources):
     somebody's account, and an uncached source would not answer in time
     anyway.
     """
-    from katan import play
+    from pinky import play
 
     for source in [top] + list(sources[1:6]):
         if not source.get("cached"):
@@ -256,7 +256,7 @@ def _hash_matched(candidates, video_hash):
 
 def _peek(candidate):
     """The first bytes of a download that would not parse, for diagnosis."""
-    from katan.subs import auto
+    from pinky.subs import auto
     try:
         module = auto._modules().get(candidate.get("provider"))
         data = module.download(candidate) if module else b""
@@ -269,7 +269,7 @@ def _peek(candidate):
 
 def _cues(candidate):
     """Download and parse one candidate. None when it will not open."""
-    from katan.subs import auto
+    from pinky.subs import auto
 
     try:
         return auto.download_candidate(candidate) or None

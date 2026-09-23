@@ -6,7 +6,7 @@ Asked for episode 1 of the 2001 Hikaru no Go anime, Torrentio answered with
 the anime's own IMDb address, and it ranked third. The year right after the
 title is the release saying which production it is.
 """
-from katan.sources import model, scoring
+from pinky.sources import model, scoring
 
 REASON = "another production of the same name"
 

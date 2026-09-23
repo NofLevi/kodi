@@ -7,8 +7,8 @@ without going looking for a settings page.
 """
 import pytest
 
-from katan import kodi, profiles, settings
-from katan.ui import wizard
+from pinky import kodi, profiles, settings
+from pinky.ui import wizard
 
 
 @pytest.fixture

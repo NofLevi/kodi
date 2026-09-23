@@ -9,8 +9,8 @@ shapes. What is verified is this add-on's behaviour, not MDBList's.
 """
 import pytest
 
-from katan import http, settings
-from katan.meta import items, mdblist
+from pinky import http, settings
+from pinky.meta import items, mdblist
 
 KEY = "test-key-not-a-real-one"
 
@@ -60,7 +60,7 @@ def api(monkeypatch, keyed):
         return items.new_item("movie", ids={"imdb": imdb_id, "tmdb": 1},
                               title="Resolved %s" % imdb_id)
 
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     monkeypatch.setattr(tmdb, "find_by_imdb", fake_find)
 
     return {"calls": calls, "state": state, "resolved": resolved}
@@ -86,7 +86,7 @@ def test_the_key_is_sent_as_a_parameter(api):
 
 def test_the_key_is_not_part_of_the_cache_key(api):
     """The cache is a file on disk; a credential does not belong in its keys."""
-    from katan import cache
+    from pinky import cache
     mdblist.my_lists()
     assert KEY not in cache.make_key("mdblist", "/lists/user")
 

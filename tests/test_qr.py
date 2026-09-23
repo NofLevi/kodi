@@ -14,7 +14,7 @@ every step the encoder did, and compares it with what went in.
 """
 import pytest
 
-from katan import qr
+from pinky import qr
 
 
 # --------------------------------------------------------------------------
@@ -242,7 +242,7 @@ def _read_back(matrix, level="M"):
     "https://www.premiumize.me/device?code=ABCD-1234",
     "https://alldebrid.com/pin/?pin=XYZ99",
     "K" * 100,
-    "https://torbox.app/settings/api?ref=katan&code=123456",
+    "https://torbox.app/settings/api?ref=pinky&code=123456",
 ])
 def test_a_symbol_reads_back_as_what_went_in(text):
     """End to end: encode, then take the symbol apart the way a scanner

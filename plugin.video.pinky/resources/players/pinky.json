@@ -1,0 +1,10 @@
+{
+    "name": "Pinky",
+    "plugin": "plugin.video.pinky",
+    "priority": 100,
+    "is_resolvable": "true",
+    "play_movie": "plugin://plugin.video.pinky/?action=movie&tmdb={tmdb}&imdb={imdb}",
+    "play_episode": "plugin://plugin.video.pinky/?action=episode&tmdb={tmdb}&season={season}&episode={episode}",
+    "search_movie": "plugin://plugin.video.pinky/?action=sources&type=movie&tmdb={tmdb}&imdb={imdb}",
+    "search_episode": "plugin://plugin.video.pinky/?action=sources&type=episode&tmdb={tmdb}&season={season}&episode={episode}"
+}

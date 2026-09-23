@@ -3,7 +3,7 @@ import random
 
 import pytest
 
-from katan.subs import srt, sync
+from pinky.subs import srt, sync
 
 
 def make_cues(count=400, seed=1, start=12.0):

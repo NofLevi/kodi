@@ -13,8 +13,8 @@ silent total failure:
 """
 import pytest
 
-from katan import http, settings
-from katan.debrid import registry, torbox
+from pinky import http, settings
+from pinky.debrid import registry, torbox
 
 KEY = "not-a-real-key-0000-0000-000000000000"
 BIG_BUCK = "dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c"
@@ -383,7 +383,7 @@ DEVICE_START = {
         "device_code": "44134df0d789de14ddaf1dbc1c1f3a7e",
         "interval": 5,
         "expires_at": "2026-09-08T11:10:06Z",
-        "verification_url": "https://torbox.app/oauth/device?app=Katan",
+        "verification_url": "https://torbox.app/oauth/device?app=Pinky",
         "friendly_verification_url": "https://tor.box/link",
         "code": "540608",
     },
@@ -430,7 +430,7 @@ def _device(monkeypatch, answers, start=DEVICE_START):
                 return True
         return False
 
-    from katan.ui import signin
+    from pinky.ui import signin
     monkeypatch.setattr(signin, "run_device", run_device)
     return seen
 
@@ -440,7 +440,7 @@ def test_the_device_code_and_its_page_reach_the_screen(monkeypatch, settings_mod
     torbox.TorBox().authorize("scan")
 
     assert seen["code"] == "540608"
-    assert seen["url"] == "https://torbox.app/oauth/device?app=Katan"
+    assert seen["url"] == "https://torbox.app/oauth/device?app=Pinky"
     assert seen["interval"] == 5
 
 

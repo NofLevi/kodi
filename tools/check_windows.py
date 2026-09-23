@@ -47,7 +47,7 @@ WINDOW_ERRORS = ("Unable to load window", "Failed to load", "error loading",
 def set_addon_setting(key, value):
     """Write an add-on setting the way Kodi stores it."""
     path = os.path.join(PORTABLE, "userdata", "addon_data",
-                        "plugin.video.katan", "settings.xml")
+                        "plugin.video.pinky", "settings.xml")
     if not os.path.isdir(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
 
@@ -151,7 +151,7 @@ def open_home():
     """
     rpc("GUI.ActivateWindow",
         {"window": "videos",
-         "parameters": ["plugin://plugin.video.katan/"]}, timeout=30)
+         "parameters": ["plugin://plugin.video.pinky/"]}, timeout=30)
 
 
 def main():
@@ -189,11 +189,11 @@ def main():
         print("  screenshot: %s" % (path or "failed: %s" % error))
 
         problems = window_problems(log_since(mark))
-        katan = [l.strip() for l in log_since(mark) if "[Katan]" in l]
+        katan = [l.strip() for l in log_since(mark) if "[Pinky]" in l]
 
         print("\nadd-on log while the window was open:")
         for line in katan[-12:]:
-            print("  " + line.split("[Katan]", 1)[-1].strip())
+            print("  " + line.split("[Pinky]", 1)[-1].strip())
 
         print("\nwindow loading problems: %d" % len(problems))
         for line in problems[:12]:

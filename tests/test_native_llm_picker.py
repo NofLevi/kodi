@@ -8,9 +8,9 @@ looking for Hebrew, a NATIVE row uses Hebrew and never turns into AI.
 """
 import pytest
 
-from katan import kodi, play
-from katan.subs import auto, outlook
-from katan.ui import sources_window
+from pinky import kodi, play
+from pinky.subs import auto, outlook
+from pinky.ui import sources_window
 
 META = {"type": "movie", "title": "A Film", "year": 2020,
         "ids": {"imdb": "tt1", "tmdb": 1}, "original_language": "en"}
@@ -158,7 +158,7 @@ def test_an_llm_row_translates_without_looking_for_hebrew(monkeypatch, settings_
 def test_a_native_row_never_turns_into_ai(monkeypatch, settings_module):
     """Otherwise a NATIVE choice that fell back to a translation would be
     counted on the wrong side of the comparison."""
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     settings_module.set_many({"subs.languages": "he,en", "subs.threshold": "70"})
     monkeypatch.setattr(translator, "available", lambda: True)
     monkeypatch.setattr(auto, "video_hash_later", lambda meta: (lambda: ""))
@@ -189,7 +189,7 @@ def test_an_english_row_plays_english_and_never_translates(monkeypatch, settings
 
 
 def test_the_player_offers_ai_into_hebrew_first_and_english_second(settings_module):
-    from katan.subs import service
+    from pinky.subs import service
     settings_module.set("subs.languages", "he,en")
     assert service.ai_targets() == ["he", "en"]
 

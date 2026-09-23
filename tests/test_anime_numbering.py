@@ -18,7 +18,7 @@ unplayable:
 """
 import pytest
 
-from katan.utils import release
+from pinky.utils import release
 
 
 # --------------------------------------------------------------------------
@@ -143,7 +143,7 @@ def test_a_stated_season_has_to_agree_with_a_bare_number():
 
 
 def test_the_absolute_number_counts_every_earlier_season(monkeypatch):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
         "seasons": [{"season_number": 0, "episode_count": 9},
                     {"season_number": 1, "episode_count": 100},
@@ -153,7 +153,7 @@ def test_the_absolute_number_counts_every_earlier_season(monkeypatch):
 
 
 def test_specials_are_not_part_of_the_count(monkeypatch):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
         "seasons": [{"season_number": 0, "episode_count": 50},
                     {"season_number": 1, "episode_count": 12}]})
@@ -162,7 +162,7 @@ def test_specials_are_not_part_of_the_count(monkeypatch):
 
 def test_a_first_season_needs_no_arithmetic(monkeypatch):
     """And must not pay for a lookup to be told so."""
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     def explode(*args, **kwargs):
         raise AssertionError("asked TMDB for a first-season episode")
@@ -178,8 +178,8 @@ def test_a_first_season_needs_no_arithmetic(monkeypatch):
 
 @pytest.fixture
 def anime_meta(monkeypatch):
-    from katan import play
-    from katan.meta import tmdb
+    from pinky import play
+    from pinky.meta import tmdb
 
     monkeypatch.setattr(tmdb, "show", lambda tmdb_id: {
         "ids": {"tmdb": tmdb_id, "imdb": "tt1224144"},
@@ -195,19 +195,19 @@ def anime_meta(monkeypatch):
 
 
 def test_anime_is_searched_by_its_english_name(anime_meta):
-    from katan.sources.providers import nyaa
+    from pinky.sources.providers import nyaa
     assert nyaa._query_for(anime_meta) == "REBORN! 203"
 
 
 def test_both_anime_providers_agree_on_the_query(anime_meta):
-    from katan.sources.providers import animetosho, nyaa
+    from pinky.sources.providers import animetosho, nyaa
     assert nyaa._query_for(anime_meta) == animetosho._query_for(anime_meta)
 
 
 def test_nothing_is_looked_up_for_a_film_that_is_not_anime(monkeypatch):
     """The two extra calls are for anime, and anime is most of nothing."""
-    from katan import play
-    from katan.meta import tmdb
+    from pinky import play
+    from pinky.meta import tmdb
 
     monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
         "ids": {"tmdb": tmdb_id}, "title": "The Matrix", "year": 1999,
@@ -246,7 +246,7 @@ def feed(*names):
 def test_nyaa_refuses_the_episode_it_was_not_asked_for():
     """Asking for episode 14 returned forty-five results for episode 149,
     because Nyaa matches the number as text."""
-    from katan.sources.providers import nyaa
+    from pinky.sources.providers import nyaa
     meta = {"type": "episode", "season": 8, "episode": 14, "absolute": 203}
 
     got = nyaa._parse_rss(feed(
@@ -257,7 +257,7 @@ def test_nyaa_refuses_the_episode_it_was_not_asked_for():
 
 
 def test_nyaa_keeps_a_batch_that_covers_the_episode():
-    from katan.sources.providers import nyaa
+    from pinky.sources.providers import nyaa
     meta = {"type": "episode", "season": 8, "episode": 14, "absolute": 203}
     got = nyaa._parse_rss(feed("[SG]_Hitman_Reborn_[132-203]"), meta)
     assert len(got) == 1
@@ -267,14 +267,14 @@ def test_nyaa_keeps_a_name_that_says_nothing_about_episodes():
     """Batches are routinely named "Complete Series" with the numbers only in
     the file list, and the debrid layer picks the right file out of a pack.
     An unnumbered name is an unknown, not a wrong answer."""
-    from katan.sources.providers import nyaa
+    from pinky.sources.providers import nyaa
     meta = {"type": "episode", "season": 8, "episode": 14, "absolute": 203}
     got = nyaa._parse_rss(feed("Katekyo Hitman Reborn Complete Series"), meta)
     assert len(got) == 1
 
 
 def test_nyaa_leaves_films_alone():
-    from katan.sources.providers import nyaa
+    from pinky.sources.providers import nyaa
     got = nyaa._parse_rss(feed("Some Anime Movie 1080p"), {"type": "movie"})
     assert len(got) == 1
 
@@ -288,7 +288,7 @@ def test_the_right_file_is_picked_out_of_a_fansub_batch():
     """The batch is often the only thing seeded, and its files are numbered
     absolutely - so without the absolute number the right file is sitting in
     the pack and nothing matches it, and the episode refuses to play."""
-    from katan.debrid import base
+    from pinky.debrid import base
 
     files = [{"name": "Reborn! - 202.mkv", "size": 400 * 1024 ** 2},
              {"name": "Reborn! - 203.mkv", "size": 400 * 1024 ** 2},
@@ -300,7 +300,7 @@ def test_the_right_file_is_picked_out_of_a_fansub_batch():
 
 
 def test_a_pack_without_the_episode_still_refuses():
-    from katan.debrid import base
+    from pinky.debrid import base
     files = [{"name": "Reborn! - 100.mkv", "size": 400 * 1024 ** 2},
              {"name": "Reborn! - 101.mkv", "size": 400 * 1024 ** 2}]
     assert base.DebridService().pick_file(
@@ -373,7 +373,7 @@ BLEACH_COURS = {"data": [
 
 @pytest.fixture
 def bleach_cours(monkeypatch):
-    from katan.meta import kitsu
+    from pinky.meta import kitsu
     monkeypatch.setattr(kitsu, "_get", lambda path, params=None, **kw: BLEACH_COURS)
     return kitsu
 
@@ -468,7 +468,7 @@ KONOSUBA_NAMES = ["Kono Subarashii Sekai ni Shukufuku wo!", ""]
 
 @pytest.fixture
 def konosuba(monkeypatch):
-    from katan.meta import kitsu
+    from pinky.meta import kitsu
     monkeypatch.setattr(kitsu, "_get", lambda path, params=None, **kw: KONOSUBA)
     return kitsu
 

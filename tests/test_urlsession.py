@@ -6,7 +6,7 @@ subset of requests the add-on relies on.
 import json
 
 
-from katan import urlsession
+from pinky import urlsession
 
 
 def test_cross_origin_redirect_strips_credentials():
@@ -136,7 +136,7 @@ def test_a_certificate_bundle_is_found():
 
 
 def test_the_http_layer_reports_which_backend_it_uses():
-    from katan import http
+    from pinky import http
     assert http.backend() in ("requests", "standard library")
 
 
@@ -147,7 +147,7 @@ def test_a_lowercase_content_encoding_is_still_decompressed():
     requests reported that the service did not answer."""
     import gzip
     import json
-    from katan import urlsession
+    from pinky import urlsession
 
     body = gzip.compress(json.dumps([{"SubFileName": "Hikaru No Go 05.srt"}]).encode())
     response = urlsession.Response("https://example.invalid", 200,

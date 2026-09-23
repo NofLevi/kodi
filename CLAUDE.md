@@ -1,11 +1,11 @@
-# Katan
+# Pinky
 
 A lightweight Netflix-style Kodi 21 add-on, built for weak hardware
 (BYINTEK LOVE U4 projector, Mi Box), with Hebrew and English throughout.
 
 ## Layout
 
-    plugin.video.katan/       the add-on (three Kodi extension points, one codebase)
+    plugin.video.pinky/       the add-on (three Kodi extension points, one codebase)
       main.py                 plugin entry
       service.py              background service
       subtitles.py            subtitle dialog provider
@@ -15,8 +15,8 @@ A lightweight Netflix-style Kodi 21 add-on, built for weak hardware
         language/             en_GB and he_IL strings
         players/              the TMDb Helper player file
         skins/default/1080i/  the custom windows
-        lib/katan/            all the Python
-    repository.katan/         so devices auto-update
+        lib/pinky/            all the Python
+    repository.pinky/         so devices auto-update
     tools/build.py            builds the zips and the repository index
     tests/                    pytest suite with Kodi stubs
 
@@ -584,7 +584,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_extractors_israeli.py` | 23 | Now 14, Sport 1 and 891FM, plus the check that every broadcaster in the catalogue has an extractor behind it. |
 | `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
 | `test_kids.py` | 39 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. |
-| `test_windows.py` | 55 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Katan window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
+| `test_windows.py` | 55 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Pinky window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
 | `test_details_window.py` | 20 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. |
 | `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
 | `test_play.py` | 33 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. |
@@ -675,7 +675,7 @@ a changelog nobody reads.
 Kodi fetches a repository anonymously, so wherever it lives has to be
 publicly readable. `NofLevi/kodi` is public, and releases are published to
 **GitHub Pages at `noflevi.github.io/kodi`**, with `repo/` uploaded as the site
-root so the URLs baked into `repository.katan` need no path juggling.
+root so the URLs baked into `repository.pinky` need no path juggling.
 
 **Why GitHub and not Cloudflare, which is where this used to be.** Cloudflare
 Pages never answered a ranged read: every `Range` request came back 200 with
@@ -703,8 +703,8 @@ never pushed. Nothing in CI could catch it either, because `e2e.yml` runs
 `build.py` and overwrites `repo/` in the checkout before anything looks at it.
 Building at publish time removes the class rather than guarding it.
 
-**The hostname is baked into every installed copy of `repository.katan`** -
-three URLs in `repository.katan/addon.xml`, and the updater's in `updater.py`.
+**The hostname is baked into every installed copy of `repository.pinky`** -
+three URLs in `repository.pinky/addon.xml`, and the updater's in `updater.py`.
 Moving host means republishing the repository add-on at the *old* address
 first, version bumped and pointing at the new one, or every existing device is
 stranded.
@@ -712,11 +712,11 @@ stranded.
 A custom domain in front of Pages is the real cure for that lock-in, because
 then the name devices hold is one we own and the host behind it can be
 replaced invisibly. It is worth buying the day boxes other than our own have
-Katan installed.
+Pinky installed.
 
 ### On a device
 
-Install `repository.katan` once from a zip, then Katan from within it; after
+Install `repository.pinky` once from a zip, then Pinky from within it; after
 that Kodi updates itself. `tools/deploy_android.py` pushes the zips over adb,
 which saves driving a file manager with a remote.
 
@@ -726,10 +726,10 @@ never be inside our zip, and for a long time the answer was a paragraph asking
 people to go and install it. It was declared `optional="true"`, which is
 precisely the instruction *not* to fetch it, so every box arrived with a live
 TV section that silently played nothing. As a plain import Kodi resolves it
-from its own repository before installing Katan, on whatever platform it is.
+from its own repository before installing Pinky, on whatever platform it is.
 
 The cost, stated because it is real: an unresolvable dependency makes Kodi
-refuse to install Katan at all, where before it installed and only the live
+refuse to install Pinky at all, where before it installed and only the live
 channels were dead. `kodi.has_adaptive` and the guard in `listing.py` stay for
 that reason - a box that got past the check without it should still say so
 rather than play nothing.
@@ -770,7 +770,7 @@ device flow it did not have, an anime episode addressed at a season number
 nobody indexes.
 
 One check is not like the others, and it has a pipeline to itself.
-**`tests/data/baseline-plugin.video.katan.zip` is the real 0.0.1 tree**, taken
+**`tests/data/baseline-plugin.video.pinky.zip` is the real 0.0.1 tree**, taken
 with `git archive` from the commit that released it, and it is **never
 regenerated**. `an old install upgrades to what is published` unpacks it as an
 installed add-on, puts keys and a subtitle in the profile beside it, and then
@@ -976,7 +976,7 @@ the real thing and photographs it.
 
 That check found four defects nothing else could: `$LOCALIZE` does not resolve
 add-on strings inside a Python add-on's own window (it needs
-`$ADDON[plugin.video.katan 32254]`), the row list was 90px too short so the
+`$ADDON[plugin.video.pinky 32254]`), the row list was 90px too short so the
 second row was clipped, the hero stayed blank until the user moved because it
 waited for a focus event, and a channel logo was being stretched across the
 whole backdrop.
@@ -1105,13 +1105,13 @@ a directory call.** Both orderings fail, differently:
   lives. Kodi sits behind a busy dialog the whole time, which the add-on then
   has to keep closing, and the plugin call is logged as `action home took
   1301141 ms` - twenty-one minutes. Press Exit and the stale directory
-  completes, Kodi navigates, "stay in Katan" reopens it, and Kodi deadlocks
+  completes, Kodi navigates, "stay in Pinky" reopens it, and Kodi deadlocks
   during its own shutdown. Eight plugin invocations and a stuck process.
 
 The window is therefore not opened from a directory call at all. The directory
 is ended at once and `RunPlugin` asks Kodi to run the plugin again with no
 directory attached; `handle` is -1 in that second invocation, which is how the
-two are told apart. Start-up and "stay in Katan" call `RunPlugin` directly for
+two are told apart. Start-up and "stay in Pinky" call `RunPlugin` directly for
 the same reason, rather than `ActivateWindow(Videos,...)` - the window is not a
 directory, and routing through the video browser left an empty plugin folder in
 the back stack. Measured after: one invocation, no busy dialog, and Quit exits
@@ -1252,7 +1252,7 @@ somebody makes.
 
 A note on when a default actually applies, measured rather than assumed. Kodi
 does **not** write a settings file until something is changed: a fresh install
-has no `userdata/addon_data/plugin.video.katan/settings.xml` at all, and
+has no `userdata/addon_data/plugin.video.pinky/settings.xml` at all, and
 `settings.DEFAULTS` is what the add-on runs on. Once a value has been written,
 that file wins. So changing a default here reaches a new install immediately
 and an existing one not at all — Tools → Performance profile applies the lean

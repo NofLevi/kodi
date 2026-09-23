@@ -5,13 +5,13 @@ import json
 import pytest
 
 import xbmc
-from katan import upnext
+from pinky import upnext
 
 
 @pytest.fixture
 def fake_show(monkeypatch):
     """A show with three episodes in season 1 and two in season 2."""
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     seasons = {
         1: [{"episode": n, "title": "S1E%d" % n, "plot": "p",
@@ -74,7 +74,7 @@ def test_notify_is_a_no_op_for_movies(fake_show):
 
 @pytest.fixture
 def without_upnext(monkeypatch):
-    from katan import kodi
+    from pinky import kodi
     monkeypatch.setattr(kodi, "has_addon", lambda addon_id: False)
 
 
@@ -85,7 +85,7 @@ def test_nothing_is_worked_out_when_up_next_is_not_installed(fake_show,
     this season, then the next one - and without Up Next there is nothing to
     draw the card. Two round trips per episode for a signal with no listener.
     """
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     asked = []
     monkeypatch.setattr(tmdb, "episodes",
@@ -98,7 +98,7 @@ def test_nothing_is_worked_out_when_up_next_is_not_installed(fake_show,
 
 
 def test_the_signal_is_sent_when_up_next_is_installed(fake_show, monkeypatch):
-    from katan import kodi
+    from pinky import kodi
 
     monkeypatch.setattr(kodi, "has_addon",
                         lambda addon_id: addon_id == "service.upnext")
@@ -108,7 +108,7 @@ def test_the_signal_is_sent_when_up_next_is_installed(fake_show, monkeypatch):
 
 
 def test_installed_asks_about_the_right_addon(monkeypatch):
-    from katan import kodi
+    from pinky import kodi
 
     asked = []
     monkeypatch.setattr(kodi, "has_addon",

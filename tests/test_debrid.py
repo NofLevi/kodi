@@ -1,7 +1,7 @@
 """File picking is where a season pack becomes the right episode."""
 import pytest
 
-from katan.debrid import base
+from pinky.debrid import base
 
 
 @pytest.fixture

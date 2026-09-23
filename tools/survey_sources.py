@@ -47,14 +47,14 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-ADDON = os.path.join(ROOT, "plugin.video.katan")
+ADDON = os.path.join(ROOT, "plugin.video.pinky")
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 sys.path.insert(0, os.path.join(ROOT, "tests", "stubs"))
 sys.path.insert(0, os.path.join(ADDON, "resources", "lib"))
 
 OUT = os.path.join(ROOT, "survey.jsonl")
 PROFILE = os.path.join(ROOT, ".kodi-test", "portable_data", "userdata",
-                       "addon_data", "plugin.video.katan", "settings.xml")
+                       "addon_data", "plugin.video.pinky", "settings.xml")
 WORK = os.path.join(ROOT, ".survey")
 
 _print_lock = threading.Lock()
@@ -77,7 +77,7 @@ def boot(use_debrid=False):
     import xml.etree.ElementTree as ET
 
     import xbmcaddon  # noqa: F401  - registers the stub
-    from katan import kodi, settings
+    from pinky import kodi, settings
 
     if not os.path.isdir(WORK):
         os.makedirs(WORK)
@@ -97,7 +97,7 @@ def boot(use_debrid=False):
         settings.set("cached_only", "false")
         settings.set("sources.cached_only", "false")
 
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     if not tmdb.has_key():
         raise SystemExit("the test profile has no TMDB key")
     return settings
@@ -172,7 +172,7 @@ FOREIGN_LANGUAGES = ("tr", "es", "ko", "hi", "fr", "pt", "de", "it", "pl", "th")
 
 def _foreign_episodes(wanted):
     """One episode each from shows made outside the English-speaking world."""
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     picked = []
     per_language = max(1, (wanted // len(FOREIGN_LANGUAGES)) + 1)
@@ -217,7 +217,7 @@ def _pages(fetch, wanted, per_page=20):
 
 
 def _films_from(listing, wanted):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     calls = {
         "trending": lambda page: tmdb.trending("movie", "week", page),
         "popular": lambda page: tmdb.popular("movie", page),
@@ -229,7 +229,7 @@ def _films_from(listing, wanted):
 
 
 def _films_by_decade(first_year, wanted):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     def fetch(page):
         return tmdb.discover(
@@ -246,7 +246,7 @@ def _long_tail_films(wanted):
     This is where "no sources at all" should live if it lives anywhere, and
     it is the honest test of whether the add-on degrades or simply fails.
     """
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     def fetch(page):
         return tmdb.discover("movie", page=200 + page,
@@ -256,14 +256,14 @@ def _long_tail_films(wanted):
 
 
 def _israeli_films(wanted):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     return [_film(row) for row in
             _pages(lambda page: tmdb.by_original_language("he", "movie", page),
                    wanted)]
 
 
 def _anime_films(wanted):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     def fetch(page):
         return tmdb.discover("movie", page=page,
@@ -280,7 +280,7 @@ def _film(row):
 
 
 def _shows_from(listing, wanted):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     calls = {
         "popular": lambda page: tmdb.popular("tv", page),
         "top_rated": lambda page: tmdb.top_rated("tv", page),
@@ -304,7 +304,7 @@ def _episodes_from(listing, wanted, which):
 
 
 def _anime_episodes(wanted):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     def fetch(page):
         return tmdb.discover("tv", page=page,
@@ -324,7 +324,7 @@ def _anime_episodes(wanted):
 
 
 def _israeli_episodes(wanted):
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     shows = _pages(lambda page: tmdb.by_original_language("he", "tv", page),
                    wanted * 2)
     picked = []
@@ -345,7 +345,7 @@ def _pick_episode(show_row, which):
     ago, which the aggregators may not have indexed yet and for which no
     subtitle can exist. "special" is season zero, which most code forgets.
     """
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     ids = show_row.get("ids") or {}
     tmdb_id = str(ids.get("tmdb") or "")
@@ -449,9 +449,9 @@ def _is_latin(text):
 
 def examine(entry):
     """Everything one title can tell us, as a flat record."""
-    from katan import play
-    from katan.sources import aggregator, model, scoring
-    from katan.subs import outlook
+    from pinky import play
+    from pinky.sources import aggregator, model, scoring
+    from pinky.subs import outlook
 
     started = time.time()
     record = dict(entry)

@@ -26,7 +26,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # those was a Cloudflare deployment that published nothing new, and a zip
 # could be rebuilt from uncommitted source without anybody noticing.
 OUTPUT = os.path.join(ROOT, "repo")
-ADDONS = ["plugin.video.katan", "repository.katan"]
+ADDONS = ["plugin.video.pinky", "repository.pinky"]
 
 # One timestamp for every member, so the zip is a function of the source and
 # nothing else. A zip normally records each file's mtime, which means two
@@ -132,7 +132,7 @@ MISSING = """<!doctype html>
 <html><head><meta charset="utf-8"><title>Not found</title></head>
 <body>
 <h1>Not found</h1>
-<p>No such file in the Katan repository.</p>
+<p>No such file in the Pinky repository.</p>
 <p><a href="/">back to the top</a></p>
 </body></html>
 """
@@ -187,7 +187,7 @@ def write_listings():
             rows.append('<a href="%s%s">%s%s</a><br>' % (name, suffix,
                                                          name, suffix))
         here = os.path.relpath(folder, OUTPUT).replace("\\", "/")
-        title = "Katan repository" + ("" if here == "." else " - " + here)
+        title = "Pinky repository" + ("" if here == "." else " - " + here)
         page = PAGE % {"title": title, "rows": "\n".join(rows)}
         path = os.path.join(folder, "index.html")
         with io.open(path, "w", encoding="utf-8", newline="\n") as handle:

@@ -25,7 +25,7 @@ HEBREW_WORD = u"\u05e2\u05d1\u05e8\u05d9\u05ea"                        # "Hebrew
 @pytest.mark.parametrize("encoding", ["utf-8", "cp1255", "iso-8859-8"])
 def test_hebrew_subtitles_decode_from_the_encodings_they_arrive_in(encoding):
     """Hebrew subtitle files in the wild are cp1255 as often as UTF-8."""
-    from katan.subs import srt
+    from pinky.subs import srt
 
     text = u"1\n00:00:01,000 --> 00:00:03,000\n%s\n\n" % HEBREW_WORD
     decoded = srt.decode(text.encode(encoding))
@@ -34,7 +34,7 @@ def test_hebrew_subtitles_decode_from_the_encodings_they_arrive_in(encoding):
 
 def test_a_utf8_byte_order_mark_does_not_become_part_of_the_first_cue():
     """Windows subtitle editors write one, and it lands in the first line."""
-    from katan.subs import srt
+    from pinky.subs import srt
 
     text = u"\ufeff1\n00:00:01,000 --> 00:00:03,000\n%s\n\n" % HEBREW_WORD
     cues = srt.parse(srt.decode(text.encode("utf-8")))
@@ -45,7 +45,7 @@ def test_a_utf8_byte_order_mark_does_not_become_part_of_the_first_cue():
 
 @pytest.mark.parametrize("encoding", ["utf-16", "utf-32"])
 def test_unicode_bom_subtitles_decode_before_legacy_encodings(encoding):
-    from katan.subs import srt
+    from pinky.subs import srt
 
     text = u"1\n00:00:01,000 --> 00:00:03,000\n%s\n\n" % HEBREW_WORD
     cues = srt.parse(srt.decode(text.encode(encoding)))
@@ -54,7 +54,7 @@ def test_unicode_bom_subtitles_decode_before_legacy_encodings(encoding):
 
 
 def test_subtitle_write_is_atomic_when_replacement_fails(tmp_path, monkeypatch):
-    from katan.subs import srt
+    from pinky.subs import srt
 
     path = str(tmp_path / "subtitle.srt")
     original = [srt.Cue(1, 0, 1, "original")]
@@ -68,7 +68,7 @@ def test_subtitle_write_is_atomic_when_replacement_fails(tmp_path, monkeypatch):
 
 
 def test_srt_dialogue_text_does_not_trigger_ssa_parser():
-    from katan.subs import srt
+    from pinky.subs import srt
     raw = ("1\n00:00:01,000 --> 00:00:02,000\nDialogue: hello\n\n"
            "2\n00:00:03,000 --> 00:00:04,000\nworld\n")
     cues = srt.parse(raw)
@@ -76,7 +76,7 @@ def test_srt_dialogue_text_does_not_trigger_ssa_parser():
 
 
 def test_expected_language_guides_legacy_single_byte_decoding():
-    from katan.subs import srt
+    from pinky.subs import srt
     russian = ("1\n00:00:01,000 --> 00:00:02,000\nПривет мир\n").encode("cp1251")
     french = ("1\n00:00:01,000 --> 00:00:02,000\nfrançais déjà\n").encode("cp1252")
     assert "Привет" in srt.decode(russian, "ru")
@@ -84,7 +84,7 @@ def test_expected_language_guides_legacy_single_byte_decoding():
 
 
 def test_presentation_form_letters_are_normalized_not_deleted():
-    from katan.subs import srt
+    from pinky.subs import srt
     arabic = srt.clean([srt.Cue(1, 0, 1, "ﻣﺮﺣﺒﺎ")])
     hebrew = srt.clean([srt.Cue(1, 0, 1, "שָׁלוֹם")])
     assert arabic and arabic[0].text == "مرحبا"
@@ -92,7 +92,7 @@ def test_presentation_form_letters_are_normalized_not_deleted():
 
 
 def test_hebrew_is_recognised_as_hebrew():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     hebrew = [srt.Cue(1, 0.0, 2.0, HEBREW_TITLE)]
     english = [srt.Cue(1, 0.0, 2.0, "Just some English dialogue here")]
@@ -103,7 +103,7 @@ def test_hebrew_is_recognised_as_hebrew():
 def test_a_mostly_english_file_labelled_hebrew_is_not_mistaken_for_it():
     """Providers mislabel, and showing English to somebody who asked for
     Hebrew is the complaint this whole pipeline exists to avoid."""
-    from katan.subs import srt
+    from pinky.subs import srt
 
     cues = [srt.Cue(n, n, n + 1, "English line number %d" % n) for n in range(30)]
     cues.append(srt.Cue(99, 99, 100, HEBREW_WORD))
@@ -117,7 +117,7 @@ def test_a_mostly_english_file_labelled_hebrew_is_not_mistaken_for_it():
 
 def test_a_hebrew_substring_finds_the_programme(settings_module):
     """Somebody types three letters from the middle of a Hebrew title."""
-    from katan.vod import library
+    from pinky.vod import library
 
     library.refresh()
     everything = library.load()
@@ -131,7 +131,7 @@ def test_a_hebrew_substring_finds_the_programme(settings_module):
 
 
 def test_hebrew_search_is_not_confused_by_surrounding_whitespace():
-    from katan.vod import library
+    from pinky.vod import library
 
     library.refresh()
     title = next(e["n"] for e in library.load() if len(e.get("n", "")) > 5)
@@ -140,16 +140,16 @@ def test_hebrew_search_is_not_confused_by_surrounding_whitespace():
 
 def test_a_single_hebrew_letter_is_too_short_to_search():
     """Otherwise the first keystroke returns most of the catalogue."""
-    from katan.vod import library
+    from pinky.vod import library
     assert library.search(ALEF) == []
 
 
 def test_the_suggestion_index_matches_hebrew(settings_module, monkeypatch):
-    from katan.search import unified
+    from pinky.search import unified
 
     unified.invalidate_index()
     title = None
-    from katan.vod import library
+    from pinky.vod import library
     library.refresh()
     for entry in library.load():
         if len(entry.get("n", "")) > 6:
@@ -171,8 +171,8 @@ def test_the_israeli_catalogue_is_listed_before_tmdb(settings_module,
     first result is the one that cannot play, which reads to anybody using it
     as "the search did not find it".
     """
-    from katan.search import unified
-    from katan.vod import library
+    from pinky.search import unified
+    from pinky.vod import library
 
     library.refresh()
     entry = next(e for e in library.load() if len(e.get("n", "")) > 6)
@@ -193,8 +193,8 @@ def test_the_israeli_catalogue_is_listed_before_tmdb(settings_module,
 def test_a_hebrew_suggestion_offers_the_israeli_entry_first(settings_module,
                                                             monkeypatch):
     """The same order, while the viewer is still typing."""
-    from katan.search import unified
-    from katan.vod import library
+    from pinky.search import unified
+    from pinky.vod import library
 
     library.refresh()
     unified.invalidate_index()
@@ -214,7 +214,7 @@ def test_a_hebrew_suggestion_offers_the_israeli_entry_first(settings_module,
 def test_a_hebrew_title_beside_a_latin_release_group_still_parses():
     """The group is the strongest subtitle-matching signal there is, and it
     sits at the end of a name whose front half is Hebrew."""
-    from katan.utils import release
+    from pinky.utils import release
 
     name = u"%s.2024.1080p.WEB-DL.H264-FLUX" % HEBREW_TITLE
     parsed = release.parse(name)
@@ -224,7 +224,7 @@ def test_a_hebrew_title_beside_a_latin_release_group_still_parses():
 
 
 def test_the_hebrew_language_hint_is_found_in_either_script():
-    from katan.utils import release
+    from pinky.utils import release
 
     assert "he" in release.parse("Movie.2024.1080p.WEB-DL.HebSub-X")["languages"]
     assert "he" in release.parse(u"Movie 2024 1080p %s" % HEBREW_WORD)["languages"]
@@ -232,7 +232,7 @@ def test_the_hebrew_language_hint_is_found_in_either_script():
 
 
 def test_a_wholly_hebrew_name_does_not_crash_the_parser():
-    from katan.utils import release
+    from pinky.utils import release
 
     parsed = release.parse(u"%s %s" % (HEBREW_TITLE, HEBREW_WORD))
     assert parsed["resolution"] in ("unknown", "sd", "480p", "720p",
@@ -240,7 +240,7 @@ def test_a_wholly_hebrew_name_does_not_crash_the_parser():
 
 
 def test_an_episode_number_is_read_out_of_a_hebrew_name():
-    from katan.utils import release
+    from pinky.utils import release
 
     parsed = release.parse(u"%s S02E07 1080p WEB-DL" % HEBREW_TITLE)
     assert (parsed["season"], parsed["episode"]) == (2, 7)
@@ -255,7 +255,7 @@ def test_a_subtitle_filename_never_carries_hebrew_onto_the_filesystem():
     """Android storage and Kodi's own path handling both have opinions about
     non-ASCII filenames, and a subtitle that cannot be written is a subtitle
     that never appears. The name is built from ids, not from the title."""
-    from katan.subs import auto
+    from pinky.subs import auto
 
     meta = {"type": "movie", "ids": {}, "title": HEBREW_TITLE}
     name = auto.name_for(meta, "he")
@@ -265,7 +265,7 @@ def test_a_subtitle_filename_never_carries_hebrew_onto_the_filesystem():
 
 def test_a_hebrew_titled_subtitle_can_actually_be_written_and_read(
         settings_module):
-    from katan.subs import auto, srt
+    from pinky.subs import auto, srt
 
     cues = [srt.Cue(1, 0.0, 2.0, HEBREW_TITLE),
             srt.Cue(2, 3.0, 5.0, HEBREW_WORD)]
@@ -281,7 +281,7 @@ def test_a_hebrew_titled_subtitle_can_actually_be_written_and_read(
 
 def test_two_hebrew_titles_do_not_collide_on_disk(settings_module):
     """Stripping to ASCII must not turn every Hebrew title into one filename."""
-    from katan.subs import auto
+    from pinky.subs import auto
 
     first = auto.name_for({"type": "movie", "ids": {"tmdb": 11},
                            "title": HEBREW_TITLE}, "he")
@@ -299,7 +299,7 @@ def test_a_hebrew_label_is_not_reversed_or_mangled_by_the_builders():
     """Kodi renders RTL itself. Anything that reorders the string here would
     render backwards on screen, which no test that only counts characters
     would notice."""
-    from katan.meta import items
+    from pinky.meta import items
 
     item = items.new_item("movie", title=HEBREW_TITLE, year=2024)
     label = items.label(item)
@@ -308,7 +308,7 @@ def test_a_hebrew_label_is_not_reversed_or_mangled_by_the_builders():
 
 
 def test_a_hebrew_episode_label_keeps_its_numbering():
-    from katan.meta import items
+    from pinky.meta import items
 
     item = items.new_item("episode", title=HEBREW_WORD, season=2, episode=7)
     label = items.label(item)
@@ -318,8 +318,8 @@ def test_a_hebrew_episode_label_keeps_its_numbering():
 
 def test_a_hebrew_title_survives_the_cache_round_trip(settings_module):
     """The cache stores JSON, and a bad ensure_ascii would silently mangle it."""
-    from katan import cache
-    from katan.meta import items
+    from pinky import cache
+    from pinky.meta import items
 
     item = items.new_item("movie", title=HEBREW_TITLE, plot=HEBREW_WORD)
     cache.set("hebrew-item", [item], 60)
@@ -329,7 +329,7 @@ def test_a_hebrew_title_survives_the_cache_round_trip(settings_module):
 
 
 def test_a_hebrew_search_term_makes_a_usable_cache_key():
-    from katan import cache
+    from pinky import cache
 
     key = cache.make_key("search", HEBREW_TITLE)
     assert key
@@ -360,14 +360,14 @@ def test_the_script_a_subtitle_is_written_in(text, expected):
     from Italian - but it tells Hebrew from Arabic from English, which is the
     mistake that actually happens.
     """
-    from katan.subs import srt
+    from pinky.subs import srt
 
     cues = [srt.Cue(1, 0.0, 2.0, text)]
     assert srt.detect_script(cues) == expected
 
 
 def test_supported_latin_languages_reject_a_hebrew_script():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     hebrew = [srt.Cue(1, 0.0, 2.0, u"\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd")]
     assert not srt.script_matches(hebrew, "nl")
@@ -375,7 +375,7 @@ def test_supported_latin_languages_reject_a_hebrew_script():
 
 
 def test_serbian_accepts_both_latin_and_cyrillic_scripts():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     latin = [srt.Cue(1, 0.0, 2.0, "Zdravo svete")]
     cyrillic = [srt.Cue(1, 0.0, 2.0, u"\u0417\u0434\u0440\u0430\u0432\u043e \u0441\u0432\u0435\u0442\u0435")]
@@ -384,7 +384,7 @@ def test_serbian_accepts_both_latin_and_cyrillic_scripts():
 
 
 def test_srt_without_blank_lines_keeps_adjacent_cues_separate():
-    from katan.subs import srt
+    from pinky.subs import srt
     text = (
         "1\n00:00:01,000 --> 00:00:02,000\nFirst\n"
         "2\n00:00:03,000 --> 00:00:04,000\nSecond\n"
@@ -394,7 +394,7 @@ def test_srt_without_blank_lines_keeps_adjacent_cues_separate():
 
 
 def test_timestamp_like_dialogue_does_not_split_a_cue():
-    from katan.subs import srt
+    from pinky.subs import srt
     text = (
         "1\n00:00:01,000 --> 00:00:04,000\n"
         "At 00:00:02,000 --> 00:00:03,000 she waved\n\n")
@@ -402,7 +402,7 @@ def test_timestamp_like_dialogue_does_not_split_a_cue():
 
 
 def test_timestamp_range_with_dialogue_suffix_is_not_a_boundary():
-    from katan.subs import srt
+    from pinky.subs import srt
     text = (
         "00:00:01,000 --> 00:00:04,000\nFirst\n"
         "00:01.000 --> 00:02.000 align:bogus\n"
@@ -414,7 +414,7 @@ def test_timestamp_range_with_dialogue_suffix_is_not_a_boundary():
 
 
 def test_malformed_or_reversed_timing_is_rejected():
-    from katan.subs import srt
+    from pinky.subs import srt
     for timing in (
             "00:99.000 --> 00:00.000",
             "00:00:60.000 --> 00:01:00.000",
@@ -423,7 +423,7 @@ def test_malformed_or_reversed_timing_is_rejected():
 
 
 def test_webvtt_minute_timestamps_and_settings_are_parsed():
-    from katan.subs import srt
+    from pinky.subs import srt
     text = (
         "WEBVTT\n\nintro\n"
         "00:01.000 --> 00:03.000 position:10% align:start\nHello\n\n")
@@ -434,7 +434,7 @@ def test_webvtt_minute_timestamps_and_settings_are_parsed():
 
 
 def test_malformed_ssa_timing_is_rejected_without_raising():
-    from katan.subs import srt
+    from pinky.subs import srt
     timings = [
         ("0:99:00.00", "1:00:00.00"),
         ("0:00:60.00", "0:01:01.00"),
@@ -448,7 +448,7 @@ def test_malformed_ssa_timing_is_rejected_without_raising():
 
 
 def test_decimal_webvtt_line_number_is_not_a_cue_boundary():
-    from katan.subs import srt
+    from pinky.subs import srt
     text = ("00:00:01.000 --> 00:00:04.000\nFirst\n"
             "00:01.000 --> 00:02.000 line:1.5\n\n")
     cues = srt.parse(text)
@@ -457,7 +457,7 @@ def test_decimal_webvtt_line_number_is_not_a_cue_boundary():
 
 
 def test_excessive_cue_count_is_rejected():
-    from katan.subs import srt
+    from pinky.subs import srt
     text = "".join(
         "%d\n00:00:01,000 --> 00:00:02,000\nx\n\n" % index
         for index in range(1, 20002))
@@ -465,7 +465,7 @@ def test_excessive_cue_count_is_rejected():
 
 
 def test_cue_limit_applies_to_every_supported_parser(monkeypatch):
-    from katan.subs import srt
+    from pinky.subs import srt
     monkeypatch.setattr(srt, "MAX_CUES", 2)
     standard = "".join(
         "%d\n00:00:0%d,000 --> 00:00:0%d,500\nx\n\n" % (i, i, i)
@@ -482,7 +482,7 @@ def test_cue_limit_applies_to_every_supported_parser(monkeypatch):
 
 def test_looks_hebrew_is_the_same_answer(monkeypatch):
     """One implementation, so the two cannot drift apart."""
-    from katan.subs import srt
+    from pinky.subs import srt
 
     hebrew = [srt.Cue(1, 0.0, 2.0, u"\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd")]
     arabic = [srt.Cue(1, 0.0, 2.0, u"\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645")]
@@ -492,7 +492,7 @@ def test_looks_hebrew_is_the_same_answer(monkeypatch):
 
 
 def test_an_empty_subtitle_is_not_a_language():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     assert srt.detect_script([]) == ""
     assert srt.looks_hebrew([]) is False
@@ -507,7 +507,7 @@ def test_an_empty_subtitle_is_not_a_language():
 
 def test_microdvd_frames_are_converted_to_cues():
     """The real survey's only parse failure used this tiny legacy format."""
-    from katan.subs import srt
+    from pinky.subs import srt
 
     text = ("{1}{1}23.976\n"
             "{24}{72}{y:i}First line|Second line\n"
@@ -521,20 +521,20 @@ def test_microdvd_frames_are_converted_to_cues():
 
 
 def test_microdvd_without_a_valid_framerate_is_rejected():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     assert srt.parse("{10}{20}No framerate declaration\n") == []
 
 
 def test_microdvd_unbounded_frame_numbers_do_not_crash():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     damaged = "{1}{1}25\n{%s}{%s}boom\n" % ("9" * 5000, "9" * 5000)
     assert srt.parse(damaged) == []
 
 
 def test_srt_text_that_looks_like_an_fps_declaration_stays_srt():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     text = ("1\n00:00:01,000 --> 00:00:02,000\n"
             "{25}{25}25\n\n")
@@ -573,7 +573,7 @@ def test_substation_alpha_is_parsed():
     anime, which is the part of the catalogue that can least afford to lose a
     provider.
     """
-    from katan.subs import srt
+    from pinky.subs import srt
 
     cues = srt.parse(SSA)
     assert len(cues) == 3, [c.text for c in cues]
@@ -585,7 +585,7 @@ def test_substation_alpha_is_parsed():
 
 
 def test_ssa_text_is_cleaned_up():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     cues = srt.parse(SSA)
     # A hard break is a literal backslash-N in the file, not an escape.
@@ -597,14 +597,14 @@ def test_ssa_text_is_cleaned_up():
 
 
 def test_a_comment_line_is_not_a_cue():
-    from katan.subs import srt
+    from pinky.subs import srt
 
     assert all("not dialogue" not in c.text for c in srt.parse(SSA))
 
 
 def test_srt_still_parses_as_srt():
     """The detector must not claim ordinary files."""
-    from katan.subs import srt
+    from pinky.subs import srt
 
     text = "1\n00:00:01,000 --> 00:00:02,000\nhello\n\n"
     assert not srt._looks_like_ssa(text)
@@ -614,7 +614,7 @@ def test_srt_still_parses_as_srt():
 
 def test_the_column_order_is_read_not_assumed():
     """Some files carry extra columns; index 9 would then be a style name."""
-    from katan.subs import srt
+    from pinky.subs import srt
 
     odd = (u"[Events]\n"
            u"Format: Start, End, Text\n"

@@ -11,12 +11,12 @@ import pytest
 
 from conftest import LIB_DIR
 
-PACKAGE_ROOT = os.path.join(LIB_DIR, "katan")
+PACKAGE_ROOT = os.path.join(LIB_DIR, "pinky")
 
 
 def _module_names():
-    names = ["katan"]
-    for finder, name, is_package in pkgutil.walk_packages([PACKAGE_ROOT], "katan."):
+    names = ["pinky"]
+    for finder, name, is_package in pkgutil.walk_packages([PACKAGE_ROOT], "pinky."):
         names.append(name)
     return sorted(names)
 

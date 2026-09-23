@@ -1,4 +1,4 @@
-# Katan
+# Pinky
 
 A lightweight Netflix-style front end for **Kodi 21 (Omega)**, in Hebrew and
 English. Discovery from TMDB and Trakt, playback through Real-Debrid, TorBox,
@@ -16,20 +16,20 @@ The same install works on **every** platform, because the add-on is pure
 Python with `<platform>all</platform>` — no `.so`, no `.dll`, nothing compiled.
 Only the way you get the file onto the box differs.
 
-**Install the repository, not the add-on.** Installing `plugin.video.katan`
+**Install the repository, not the add-on.** Installing `plugin.video.pinky`
 directly works, but nothing will ever tell you there is a new version. The
 repository is 2 KB and is the whole difference between updating and
 reinstalling.
 
 | | |
 |---|---|
-| Current release | **Katan 0.0.1** - [releases page](https://github.com/NofLevi/kodi/releases/latest) |
-| Repository zip | <https://github.com/NofLevi/kodi/releases/latest/download/repository.katan-0.0.1.zip> |
+| Current release | **Pinky 0.0.1** - [releases page](https://github.com/NofLevi/kodi/releases/latest) |
+| Repository zip | <https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.1.zip> |
 | Add as a Kodi source | `https://noflevi.github.io/kodi/` |
 | Requires | Kodi 19 or newer; developed and tested on Kodi 21 |
 | Installs with it | `inputstream.adaptive`, from Kodi's own repository — the DASH live channels need it |
 
-Two add-ons, both at 0.0.1: **Katan** is what you watch with, and **Katan
+Two add-ons, both at 0.0.1: **Pinky** is what you watch with, and **Pinky
 Repository** is the two-kilobyte pointer that tells Kodi where to look for new
 versions of it. Install the repository and the other arrives on its own.
 
@@ -44,10 +44,10 @@ gives instead does not say so.
 
 ## Windows
 
-1. Download the [repository zip](https://github.com/NofLevi/kodi/releases/latest/download/repository.katan-0.0.1.zip).
+1. Download the [repository zip](https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.1.zip).
 2. Kodi → **Add-ons** → the box icon (top left) → **Install from zip file**.
 3. Point it at the file you downloaded, usually `C:\Users\<you>\Downloads`.
-4. **Install from repository → Katan Repository → Video add-ons → Katan → Install.**
+4. **Install from repository → Pinky Repository → Video add-ons → Pinky → Install.**
 
 Kodi's own file browser can also fetch it for you: **Install from zip file →
 Add network location…** is fiddlier than downloading first, so download first.
@@ -61,11 +61,11 @@ Three ways, easiest first.
 easiest route on a television and the one to use:
 
 > **Settings → File manager → Add source → &lt;None&gt; →**
-> type `https://noflevi.github.io/kodi/` **→ name it `Katan` → OK**
+> type `https://noflevi.github.io/kodi/` **→ name it `Pinky` → OK**
 
 then
 
-> **Add-ons → Install from zip file → Katan → zips → repository.katan →**
+> **Add-ons → Install from zip file → Pinky → zips → repository.pinky →**
 > the `.zip`
 
 One address typed once, and Kodi fetches everything itself. This works
@@ -94,8 +94,8 @@ gives no way to automate:
 ### Nothing extra on Android
 
 The Israeli live channels are DASH streams and need **InputStream Adaptive**.
-It is a binary add-on, so it cannot ship inside Katan's zip - but it does not
-have to. Kodi installs it for you, because Katan declares it as a requirement
+It is a binary add-on, so it cannot ship inside Pinky's zip - but it does not
+have to. Kodi installs it for you, because Pinky declares it as a requirement
 and Kodi resolves requirements from its own repository before installing
 anything that has them.
 
@@ -118,7 +118,7 @@ On LibreELEC, over SSH:
 
 ```
 cd /storage/downloads
-wget https://github.com/NofLevi/kodi/releases/latest/download/repository.katan-0.0.1.zip
+wget https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.1.zip
 ```
 
 then install it from that path in step 3.
@@ -151,7 +151,7 @@ expert level are the only way in for those two.
 
 ### Updating
 
-Kodi checks the repository on its own, and Katan checks too — it reads
+Kodi checks the repository on its own, and Pinky checks too — it reads
 [the latest release](https://github.com/NofLevi/kodi/releases/latest) directly,
 so it can offer an update even when it was installed from a zip and there is no
 repository to ask. To check now:

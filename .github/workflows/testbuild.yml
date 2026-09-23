@@ -91,7 +91,7 @@ jobs:
           cd .publish
           git init -q -b test-channel
           git add -A
-          git commit -q -m "Katan $VERSION - test channel, from $REF at $GITHUB_SHA"
+          git commit -q -m "Pinky $VERSION - test channel, from $REF at $GITHUB_SHA"
           git push -q --force \
             "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" \
             test-channel
@@ -115,10 +115,10 @@ jobs:
               time.sleep(10)
               try:
                   request = urllib.request.Request(
-                      INDEX, headers={"User-Agent": "katan-testbuild"})
+                      INDEX, headers={"User-Agent": "pinky-testbuild"})
                   body = urllib.request.urlopen(request, timeout=20).read()
                   node = ET.fromstring(body).find(
-                      "./addon[@id='plugin.video.katan']")
+                      "./addon[@id='plugin.video.pinky']")
                   seen = node.get("version") if node is not None else "no addon"
               except Exception as error:
                   seen = "%s: %s" % (type(error).__name__, error)
@@ -130,13 +130,13 @@ jobs:
               sys.exit("the test channel never served %s (last saw %s)"
                        % (want, seen))
 
-          name = "plugin.video.katan-%s.zip" % want
-          local = os.path.join("repo", "zips", "plugin.video.katan", name)
+          name = "plugin.video.pinky-%s.zip" % want
+          local = os.path.join("repo", "zips", "plugin.video.pinky", name)
           mine = hashlib.md5(open(local, "rb").read()).hexdigest()
           request = urllib.request.Request(
-              "https://raw.githubusercontent.com/NofLevi/kodi/test-channel/zips/plugin.video.katan/"
+              "https://raw.githubusercontent.com/NofLevi/kodi/test-channel/zips/plugin.video.pinky/"
               + urllib.parse.quote(name),
-              headers={"User-Agent": "katan-testbuild"})
+              headers={"User-Agent": "pinky-testbuild"})
           published = urllib.request.urlopen(request, timeout=60).read()
           if hashlib.md5(published).hexdigest() != mine:
               sys.exit("%s is not the zip this run built" % name)

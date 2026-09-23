@@ -19,7 +19,7 @@ INSTALLER_URL = ("https://mirrors.kodi.tv/releases/windows/win64/"
 INSTALLER = os.path.join(KODI_DIR, "kodi-installer.exe")
 EXE = os.path.join(KODI_DIR, "kodi.exe")
 
-ADDONS = ["plugin.video.katan", "repository.katan"]
+ADDONS = ["plugin.video.pinky", "repository.pinky"]
 
 
 def download():

@@ -8,8 +8,8 @@ that a paid one does not.
 """
 import pytest
 
-from katan import http
-from katan.subs.ai import openai_compat, openrouter, translator
+from pinky import http
+from pinky.subs.ai import openai_compat, openrouter, translator
 
 
 class Reply(object):
@@ -56,7 +56,7 @@ def test_it_talks_to_openrouter_and_says_who_it_is(posted, settings_module):
     call = posted[0]
     assert call["url"] == "https://openrouter.ai/api/v1/chat/completions"
     assert call["headers"]["Authorization"] == "Bearer sk-or-v1-x"
-    assert call["headers"]["X-Title"] == "Katan"
+    assert call["headers"]["X-Title"] == "Pinky"
     assert call["body"]["model"] == "some/model:free"
 
 

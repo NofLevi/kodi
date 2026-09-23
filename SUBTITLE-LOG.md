@@ -85,7 +85,7 @@ repository.
 
 | | |
 |---|---|
-| Stable channel | **noflevi.github.io/kodi** — GitHub Pages, what `repository.katan` points every device at |
+| Stable channel | **noflevi.github.io/kodi** — GitHub Pages, what `repository.pinky` points every device at |
 | In-add-on update check | `github.com/NofLevi/kodi/releases/latest/download/addons.xml` |
 | Test channel | **raw.githubusercontent.com/NofLevi/kodi/test-channel** — the `test-channel` branch; `update.channel = test`, expert settings |
 | GitHub release | the zips themselves, per tag |
@@ -104,8 +104,8 @@ The Pages site and the test channel are deliberately separate. A Pages
 deployment replaces the whole site, so one shared site would have the two
 channels deleting each other every time either published.
 
-**The hostname is baked into every installed copy of `repository.katan`** -
-three URLs in `repository.katan/addon.xml`, and the updater's in `updater.py`.
+**The hostname is baked into every installed copy of `repository.pinky`** -
+three URLs in `repository.pinky/addon.xml`, and the updater's in `updater.py`.
 Moving host again strands every device unless the repository add-on is first
 republished, version bumped, at the *old* address pointing at the new one.
 

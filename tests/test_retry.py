@@ -12,8 +12,8 @@ import pytest
 import xbmc
 import xbmcgui
 
-from katan import kodi, play, player
-from katan.meta import tmdb
+from pinky import kodi, play, player
+from pinky.meta import tmdb
 
 
 def source(title, info_hash, cached_by="torbox", **extra):
@@ -51,7 +51,7 @@ def handoff():
 
 
 def test_the_next_sources_travel_with_the_handoff(film, monkeypatch):
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
 
     sources = [source("Best", "a" * 40), source("Second", "b" * 40),
                source("Direct", "c" * 40,
@@ -72,7 +72,7 @@ def test_the_next_sources_travel_with_the_handoff(film, monkeypatch):
 def test_the_handoff_carries_no_link_and_no_secret(film, monkeypatch):
     """The hand-off is a window property any add-on on the box can read, so
     it holds hashes and file identities - never a stream address."""
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
 
     sources = [source("Best", "a" * 40), source("Second", "b" * 40),
                source("Direct", "c" * 40,
@@ -90,7 +90,7 @@ def test_the_handoff_carries_no_link_and_no_secret(film, monkeypatch):
 
 def test_a_source_the_viewer_chose_carries_no_fallbacks(film, monkeypatch):
     """They asked for that release; playing another is worse than saying no."""
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
 
     sources = [source("Best", "a" * 40), source("Second", "b" * 40)]
     monkeypatch.setattr(aggregator, "find", lambda meta, **kw: sources)
@@ -151,7 +151,7 @@ def failed_open(fallbacks, retry=0, age=0.0):
         stored["_handoff_time"] -= age
         kodi.set_property(player.PLAYING_KEY, json.dumps(stored))
     del xbmc.Player.PLAYED[:]
-    return player.KatanPlayer()
+    return player.PinkyPlayer()
 
 
 def _two_left():
@@ -185,7 +185,7 @@ def test_a_stale_handoff_is_not_ours_to_act_on(film, monkeypatch, run_now):
 
 
 def test_it_gives_up_after_two_fallbacks(film, monkeypatch, run_now):
-    monitor = failed_open(_two_left(), retry=player.KatanPlayer.MAX_RETRIES)
+    monitor = failed_open(_two_left(), retry=player.PinkyPlayer.MAX_RETRIES)
     monkeypatch.setattr(play, "_resolve",
                         lambda s: "https://cdn.example/second")
     monitor.onPlayBackError()

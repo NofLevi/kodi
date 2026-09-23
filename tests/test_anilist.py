@@ -8,8 +8,8 @@ log line rather than a broken screen.
 """
 import pytest
 
-from katan import http
-from katan.meta import anilist
+from pinky import http
+from pinky.meta import anilist
 
 MEDIA = {
     "id": 21,

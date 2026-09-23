@@ -3,12 +3,12 @@
 
 def test_old_finish_cannot_clear_a_new_playback(monkeypatch):
     import threading
-    from katan import player
+    from pinky import player
     old = {"type": "movie", "title": "old", "ids": {"tmdb": 1}}
     new_url = "https://cdn.invalid/new"
     new = {"type": "movie", "title": "new", "ids": {"tmdb": 2},
            "stream_url": new_url}
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     monitor.meta = old
     entered, release = threading.Event(), threading.Event()
 
@@ -36,12 +36,12 @@ def test_old_finish_cannot_clear_a_new_playback(monkeypatch):
 
 
 def test_resumed_playback_scrobbles_measured_progress(monkeypatch):
-    from katan import player
-    from katan.meta import trakt
+    from pinky import player
+    from pinky.meta import trakt
     url = "https://cdn.invalid/video"
     player.set_now_playing({"type": "movie", "ids": {"tmdb": 1},
                             "stream_url": url})
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     monkeypatch.setattr(monitor, "getPlayingFile", lambda: url)
     monkeypatch.setattr(monitor, "getTime", lambda: 3600.0)
     monkeypatch.setattr(monitor, "getTotalTime", lambda: 7200.0)
@@ -56,13 +56,13 @@ def test_resumed_playback_scrobbles_measured_progress(monkeypatch):
     assert seen == [("start", 50.0)]
 
 
-def test_unrelated_playback_cannot_consume_a_stale_katan_handoff(monkeypatch):
-    from katan import player
+def test_unrelated_playback_cannot_consume_a_stale_pinky_handoff(monkeypatch):
+    from pinky import player
     stale = {"type": "movie", "title": "never-started", "ids": {"tmdb": 1},
              "stream_url": "https://cdn.invalid/private/SYNTH_PATH?sig=SYNTH_SIG"}
     player.set_now_playing(stale)
     assert "SYNTH_PATH" not in player.kodi.get_property(player.PLAYING_KEY)
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     monkeypatch.setattr(monitor, "getPlayingFile",
                         lambda: "https://other.invalid/video")
     monkeypatch.setattr(monitor, "_scrobble", lambda *args, **kwargs: None)
@@ -77,11 +77,11 @@ def test_unrelated_playback_cannot_consume_a_stale_katan_handoff(monkeypatch):
 def test_automatic_subtitles_are_scheduled_off_the_kodi_callback(
         monkeypatch, settings_module):
     import threading
-    from katan import player
-    from katan.subs import auto
+    from pinky import player
+    from pinky.subs import auto
 
     settings_module.set("subs.auto", "true")
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     monitor.meta = {"type": "movie", "ids": {"tmdb": 1}}
     called = []
     queued = []
@@ -109,11 +109,11 @@ def test_automatic_subtitles_are_scheduled_off_the_kodi_callback(
 def test_rapid_playback_changes_keep_one_subtitle_worker(
         monkeypatch, settings_module):
     import threading
-    from katan import player
-    from katan.subs import auto
+    from pinky import player
+    from pinky.subs import auto
 
     settings_module.set("subs.auto", "true")
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     queued = []
     called = []
 
@@ -148,10 +148,10 @@ def test_rapid_playback_changes_keep_one_subtitle_worker(
 
 def test_old_subtitle_worker_cannot_select_embedded_track_after_enumeration(
         monkeypatch, settings_module):
-    from katan import player
-    from katan.subs import auto, embedded
+    from pinky import player
+    from pinky.subs import auto, embedded
 
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     meta = {"type": "movie", "ids": {"tmdb": 1}}
     monitor.meta = meta
     monitor._subtitle_generation = 1
@@ -172,9 +172,9 @@ def test_old_subtitle_worker_cannot_select_embedded_track_after_enumeration(
 
 def test_playback_invalidation_waits_for_atomic_subtitle_write(monkeypatch):
     import threading
-    from katan import player
+    from pinky import player
 
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     meta = {"type": "movie", "ids": {"tmdb": 1}}
     monitor.meta = meta
     monitor._subtitle_generation = 1
@@ -216,11 +216,11 @@ def test_playback_invalidation_waits_for_atomic_subtitle_write(monkeypatch):
 
 def test_old_subtitle_worker_cannot_touch_a_new_playback(
         monkeypatch, settings_module):
-    from katan import player
-    from katan.subs import auto
+    from pinky import player
+    from pinky.subs import auto
 
     settings_module.set("subs.auto", "true")
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     old_meta = {"type": "movie", "ids": {"tmdb": 1}}
     monitor.meta = old_meta
     monitor._subtitle_generation = 1

@@ -9,7 +9,7 @@ kept when a new key does not work - are tested rather than watched.
 """
 import pytest
 
-from katan.ui import signin
+from pinky.ui import signin
 
 
 class FakeClient(object):
@@ -136,7 +136,7 @@ def _capture_window(monkeypatch):
                     break
         seen["polled"] = results
 
-    import katan.ui.auth_window as auth
+    import pinky.ui.auth_window as auth
     monkeypatch.setattr(auth, "open_auth", open_auth)
     return seen
 
@@ -245,7 +245,7 @@ def test_no_help_url_means_no_extra_screen(monkeypatch):
 
 def test_every_service_declares_only_methods_it_handles():
     """A method offered is a method `authorize` has to do something with."""
-    from katan.debrid import registry
+    from pinky.debrid import registry
 
     for name in registry.names():
         client = registry.get(name)
@@ -264,7 +264,7 @@ def test_a_service_with_a_typed_key_keeps_the_old_one_if_the_new_one_fails(
         monkeypatch, settings_module):
     """Mistyping a replacement key must not sign you out of a working
     account, which is what setting it before checking it did."""
-    from katan.debrid import torbox
+    from pinky.debrid import torbox
 
     settings_module.set("torbox.apikey", "the-good-key")
     client = torbox.TorBox()
@@ -277,7 +277,7 @@ def test_a_service_with_a_typed_key_keeps_the_old_one_if_the_new_one_fails(
 
 
 def test_signing_out_forgets_every_credential(settings_module):
-    from katan.debrid import torbox
+    from pinky.debrid import torbox
 
     settings_module.set("torbox.apikey", "a-key")
     client = torbox.TorBox()
@@ -289,7 +289,7 @@ def test_signing_out_forgets_every_credential(settings_module):
 
 def test_every_service_can_say_what_its_credentials_are():
     """Sign-out clears named settings rather than guessing at them."""
-    from katan.debrid import registry
+    from pinky.debrid import registry
 
     for name in registry.names():
         client = registry.get(name)
@@ -308,9 +308,9 @@ def test_every_service_can_say_what_its_credentials_are():
 
 def _connect_trakt(monkeypatch, choice, signed_in=True):
     """Press the one Trakt button, answering its chooser with `choice`."""
-    from katan import settings
-    from katan.meta import trakt
-    from katan.ui import handlers, wizard
+    from pinky import settings
+    from pinky.meta import trakt
+    from pinky.ui import handlers, wizard
 
     settings.set_many({"trakt.access_token": "token" if signed_in else "",
                        "trakt.refresh_token": "refresh",
@@ -341,7 +341,7 @@ def test_a_connected_trakt_can_be_signed_out_of(monkeypatch):
     Trakt had no sign-out anywhere in the interface, so a token that stopped
     working could only be cleared by editing the setting by hand.
     """
-    from katan import settings
+    from pinky import settings
 
     asked = _connect_trakt(monkeypatch, choice=1)
     assert "Trakt" in asked["labels"][1]
@@ -352,7 +352,7 @@ def test_a_connected_trakt_can_be_signed_out_of(monkeypatch):
 
 def test_signing_in_again_leaves_the_account_alone_until_it_succeeds(monkeypatch):
     """Choosing "connect" must not clear what is already working."""
-    from katan import settings
+    from pinky import settings
 
     asked = _connect_trakt(monkeypatch, choice=0)
     assert asked["signed_in_again"] is True
@@ -360,7 +360,7 @@ def test_signing_in_again_leaves_the_account_alone_until_it_succeeds(monkeypatch
 
 
 def test_cancelling_the_chooser_does_nothing_at_all(monkeypatch):
-    from katan import settings
+    from pinky import settings
 
     asked = _connect_trakt(monkeypatch, choice=-1)
     assert "signed_in_again" not in asked
@@ -381,8 +381,8 @@ def test_a_bundled_application_is_never_asked_for(monkeypatch):
     without a bundled one the flow opened a keyboard for two long strings
     before it ever showed the link.
     """
-    from katan import settings
-    from katan.meta import trakt
+    from pinky import settings
+    from pinky.meta import trakt
 
     settings.set_many({"trakt.client_id": "", "trakt.client_secret": ""})
     assert not trakt.configured()
@@ -412,8 +412,8 @@ def test_a_bundled_application_is_never_asked_for(monkeypatch):
 
 def test_every_account_offers_a_phone_sign_in():
     """Not one of them should be asking for a key on a remote."""
-    from katan.debrid import registry
-    from katan.meta import trakt
+    from pinky.debrid import registry
+    from pinky.meta import trakt
 
     for name in registry.names():
         client = registry.get(name)
@@ -431,7 +431,7 @@ def test_a_link_that_carries_the_code_is_preferred(monkeypatch, settings_module)
     authorises this box with nothing typed. `verification_url` is the same
     page with the work still to do, and it was the one being used.
     """
-    from katan.debrid import realdebrid
+    from pinky.debrid import realdebrid
 
     monkeypatch.setattr(realdebrid.http, "get_json", lambda url, **kw: {
         "device_code": "DEVICE", "user_code": "SZUEFDVN", "interval": 5,
@@ -454,7 +454,7 @@ def test_a_link_that_carries_the_code_is_preferred(monkeypatch, settings_module)
 
 def test_the_plain_link_is_used_when_there_is_no_direct_one(monkeypatch,
                                                             settings_module):
-    from katan.debrid import realdebrid
+    from pinky.debrid import realdebrid
 
     monkeypatch.setattr(realdebrid.http, "get_json", lambda url, **kw: {
         "device_code": "DEVICE", "user_code": "AB12",
@@ -503,7 +503,7 @@ class _Client(object):
 
 
 def test_the_options_are_shown_rather_than_decided(monkeypatch):
-    from katan.ui import wizard
+    from pinky.ui import wizard
 
     client = _Client(("scan", "key"))
     offered = {}
@@ -534,7 +534,7 @@ def test_the_easiest_way_in_says_so(monkeypatch):
 
 def test_any_of_them_can_be_taken(monkeypatch):
     """Marking the first must not make the others unreachable."""
-    from katan.ui import wizard
+    from pinky.ui import wizard
 
     client = _Client(("scan", "key"))
     monkeypatch.setattr(wizard.kodi, "select",
@@ -547,7 +547,7 @@ def test_any_of_them_can_be_taken(monkeypatch):
 
 
 def test_backing_out_of_the_question_signs_in_to_nothing(monkeypatch):
-    from katan.ui import wizard
+    from pinky.ui import wizard
 
     client = _Client(("scan", "key"))
     monkeypatch.setattr(wizard.kodi, "select", lambda *a, **k: -1)
@@ -562,7 +562,7 @@ def test_backing_out_of_the_question_signs_in_to_nothing(monkeypatch):
 
 def _offered(monkeypatch, client):
     """What the chooser puts on screen for one service, as method names."""
-    from katan.ui import signin
+    from pinky.ui import signin
 
     seen = {}
 
@@ -588,7 +588,7 @@ def test_every_debrid_service_offers_three_ways_in(monkeypatch, name):
     private API token on real-debrid.com/apitoken is a real second way in: it
     does not expire, and `token()` only refreshes when an expiry is stored.
     """
-    from katan.debrid import registry
+    from pinky.debrid import registry
 
     client = registry.get(name)
     assert client is not None, name
@@ -604,8 +604,8 @@ def test_trakt_offers_its_own_application_rather_than_a_key(monkeypatch):
     that path ends at `authorize_with_key`, which Trakt does not define, so
     offering it would be an entry that crashes rather than one that signs in.
     """
-    from katan.meta import trakt
-    from katan.ui import signin
+    from pinky.meta import trakt
+    from pinky.ui import signin
 
     labels = _offered(monkeypatch, trakt)
     assert labels and len(labels) == 2, labels

@@ -2,7 +2,7 @@
 import struct
 
 
-from katan.subs import hasher, matcher
+from pinky.subs import hasher, matcher
 
 
 TARGET = {
@@ -390,7 +390,7 @@ def test_a_good_match_actually_clears_the_default_threshold():
     """The point of the recalibration. Under the old scale nothing a Hebrew
     provider returned could ever be accepted, so every film fell through to
     "below threshold, used anyway" and every subtitle was shown as a guess."""
-    from katan import settings
+    from pinky import settings
     assert scored("The.Film.2024.1080p.BluRay.x264-OTHER") >= \
         settings.get_int("subs.threshold", 70)
 
@@ -432,7 +432,7 @@ def test_a_hash_match_for_a_different_episode_is_not_a_hundred():
     before the wrong-episode check ran, so the worst kind of mismatch scored
     the highest mark available and won.
     """
-    from katan.subs import matcher
+    from pinky.subs import matcher
 
     target = {"type": "episode", "season": 1, "episode": 1,
               "release": "Breaking.Bad.S01E01.1080p.WEB.x264-GRP"}
@@ -451,7 +451,7 @@ def test_a_hash_match_that_says_nothing_is_still_a_hundred():
     and treating a name that states no episode as disagreement would throw
     away most of the real hash matches there are.
     """
-    from katan.subs import matcher
+    from pinky.subs import matcher
 
     target = {"type": "episode", "season": 1, "episode": 1,
               "release": "Breaking.Bad.S01E01.1080p.WEB.x264-GRP"}
@@ -462,7 +462,7 @@ def test_a_hash_match_that_says_nothing_is_still_a_hundred():
 
 
 def test_a_film_hash_match_is_unaffected():
-    from katan.subs import matcher
+    from pinky.subs import matcher
 
     target = {"type": "movie", "release": "Fight.Club.1999.1080p.BluRay-GRP"}
     assert matcher.rate({"release": "anything at all", "hash_match": True},

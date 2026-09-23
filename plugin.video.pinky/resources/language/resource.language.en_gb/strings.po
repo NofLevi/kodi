@@ -1,0 +1,1734 @@
+# Kodi Media Center language file
+# Addon Name: Pinky
+# Addon id: plugin.video.pinky
+msgid ""
+msgstr ""
+"Project-Id-Version: Pinky
+"
+"MIME-Version: 1.0
+"
+"Content-Type: text/plain; charset=UTF-8
+"
+"Content-Transfer-Encoding: 8bit
+"
+"Language: en_GB
+"
+"Plural-Forms: nplurals=2; plural=(n != 1);
+"
+
+msgctxt "#32200"
+msgid "Continue watching"
+msgstr ""
+
+msgctxt "#32201"
+msgid "Trending movies"
+msgstr ""
+
+msgctxt "#32202"
+msgid "Trending shows"
+msgstr ""
+
+msgctxt "#32203"
+msgid "Popular this week"
+msgstr ""
+
+msgctxt "#32204"
+msgid "Popular shows this week"
+msgstr ""
+
+msgctxt "#32205"
+msgid "In cinemas now"
+msgstr ""
+
+msgctxt "#32206"
+msgid "Coming soon"
+msgstr ""
+
+msgctxt "#32207"
+msgid "New episodes today"
+msgstr ""
+
+msgctxt "#32208"
+msgid "Returning series"
+msgstr ""
+
+msgctxt "#32209"
+msgid "Most watched movies"
+msgstr ""
+
+msgctxt "#32210"
+msgid "Most watched shows"
+msgstr ""
+
+msgctxt "#32211"
+msgid "Most anticipated"
+msgstr ""
+
+msgctxt "#32212"
+msgid "Box office"
+msgstr ""
+
+msgctxt "#32213"
+msgid "New on Netflix"
+msgstr ""
+
+msgctxt "#32214"
+msgid "Israeli movies"
+msgstr ""
+
+msgctxt "#32215"
+msgid "Israeli series"
+msgstr ""
+
+msgctxt "#32216"
+msgid "Trending anime"
+msgstr ""
+
+msgctxt "#32217"
+msgid "Israeli live TV"
+msgstr ""
+
+msgctxt "#32218"
+msgid "Israeli VOD"
+msgstr ""
+
+msgctxt "#32219"
+msgid "Because you watched"
+msgstr ""
+
+msgctxt "#32220"
+msgid "Top rated movies"
+msgstr ""
+
+msgctxt "#32221"
+msgid "Your watchlist"
+msgstr ""
+
+msgctxt "#32250"
+msgid "Choose a source"
+msgstr ""
+
+msgctxt "#32251"
+msgid "Add to Trakt watchlist"
+msgstr ""
+
+msgctxt "#32252"
+msgid "Toggle watched"
+msgstr ""
+
+msgctxt "#32253"
+msgid "Play trailer"
+msgstr ""
+
+msgctxt "#32254"
+msgid "Search"
+msgstr ""
+
+msgctxt "#32255"
+msgid "Tools"
+msgstr ""
+
+msgctxt "#32256"
+msgid "Set up Pinky to get started"
+msgstr ""
+
+msgctxt "#32257"
+msgid "Nothing to show here yet"
+msgstr ""
+
+msgctxt "#32258"
+msgid "No results found"
+msgstr ""
+
+msgctxt "#32260"
+msgid "Setup wizard"
+msgstr ""
+
+msgctxt "#32261"
+msgid "Settings"
+msgstr ""
+
+msgctxt "#32262"
+msgid "Clear cache"
+msgstr ""
+
+msgctxt "#32263"
+msgid "Cache information"
+msgstr ""
+
+msgctxt "#32264"
+msgid "Rebuild home rows"
+msgstr ""
+
+msgctxt "#32265"
+msgid "Clear the whole cache?"
+msgstr ""
+
+msgctxt "#32266"
+msgid "Cache cleared"
+msgstr ""
+
+msgctxt "#32267"
+msgid "Entries"
+msgstr ""
+
+msgctxt "#32268"
+msgid "Size on disk"
+msgstr ""
+
+msgctxt "#32269"
+msgid "Expired"
+msgstr ""
+
+msgctxt "#32270"
+msgid "Refreshed %d rows"
+msgstr ""
+
+msgctxt "#32271"
+msgid "Added to your watchlist"
+msgstr ""
+
+msgctxt "#32272"
+msgid "Connect Trakt first"
+msgstr ""
+
+msgctxt "#32280"
+msgid "Could not load that title"
+msgstr ""
+
+msgctxt "#32281"
+msgid "Sources are not installed yet"
+msgstr ""
+
+msgctxt "#32282"
+msgid "Add a debrid account in settings"
+msgstr ""
+
+msgctxt "#32283"
+msgid "No playable sources found"
+msgstr ""
+
+msgctxt "#32284"
+msgid "That source would not open"
+msgstr ""
+
+msgctxt "#32285"
+msgid "Choose a source"
+msgstr ""
+
+msgctxt "#32290"
+msgid "Type to search"
+msgstr ""
+
+msgctxt "#32291"
+msgid "ABC / Hebrew / 123"
+msgstr ""
+
+msgctxt "#32292"
+msgid "Space"
+msgstr ""
+
+msgctxt "#32293"
+msgid "Delete"
+msgstr ""
+
+msgctxt "#32294"
+msgid "Clear"
+msgstr ""
+
+msgctxt "#32295"
+msgid "Search"
+msgstr ""
+
+msgctxt "#32296"
+msgid "Searching..."
+msgstr ""
+
+msgctxt "#32297"
+msgid "%d suggestions"
+msgstr ""
+
+msgctxt "#32298"
+msgid "Recent search"
+msgstr ""
+
+msgctxt "#32299"
+msgid "Recent searches"
+msgstr ""
+
+msgctxt "#32300"
+msgid "Movie"
+msgstr ""
+
+msgctxt "#32301"
+msgid "Series"
+msgstr ""
+
+msgctxt "#32302"
+msgid "Anime"
+msgstr ""
+
+msgctxt "#32310"
+msgid "TMDB"
+msgstr ""
+
+msgctxt "#32311"
+msgid "Debrid service"
+msgstr ""
+
+msgctxt "#32312"
+msgid "Trakt"
+msgstr ""
+
+msgctxt "#32313"
+msgid "AI translation"
+msgstr ""
+
+msgctxt "#32314"
+msgid "Finish"
+msgstr ""
+
+msgctxt "#32315"
+msgid "That step failed"
+msgstr ""
+
+msgctxt "#32316"
+msgid "Setup complete"
+msgstr ""
+
+msgctxt "#32317"
+msgid "Get a free API key at %s"
+msgstr ""
+
+msgctxt "#32318"
+msgid "Connected"
+msgstr ""
+
+msgctxt "#32319"
+msgid "That key did not work"
+msgstr ""
+
+msgctxt "#32320"
+msgid "That service is not available yet"
+msgstr ""
+
+msgctxt "#32321"
+msgid "%s connected"
+msgstr ""
+
+msgctxt "#32322"
+msgid "Authorisation failed"
+msgstr ""
+
+msgctxt "#32323"
+msgid "Create an application at %s and paste its keys"
+msgstr ""
+
+msgctxt "#32324"
+msgid "Open %s and enter the code %s"
+msgstr ""
+
+msgctxt "#32325"
+msgid "Signed in as %s"
+msgstr ""
+
+msgctxt "#32326"
+msgid "Get a free Gemini key at %s"
+msgstr ""
+
+msgctxt "#32330"
+msgid "Cached"
+msgstr ""
+
+msgctxt "#32331"
+msgid "Searching sources..."
+msgstr ""
+
+msgctxt "#32332"
+msgid "%d sources"
+msgstr ""
+
+msgctxt "#32333"
+msgid "Resolving..."
+msgstr ""
+
+msgctxt "#32334"
+msgid "Subtitle found: %s"
+msgstr ""
+
+msgctxt "#32335"
+msgid "Translating with AI..."
+msgstr ""
+
+msgctxt "#32336"
+msgid "No subtitles found"
+msgstr ""
+
+msgctxt "#32340"
+msgid "Search again"
+msgstr ""
+
+msgctxt "#32341"
+msgid "Show all sources"
+msgstr ""
+
+msgctxt "#32342"
+msgid "Show the best only"
+msgstr ""
+
+msgctxt "#32343"
+msgid "%d seeders"
+msgstr ""
+
+msgctxt "#32344"
+msgid "Hebrew"
+msgstr ""
+
+msgctxt "#32345"
+msgid "%d cached"
+msgstr ""
+
+msgctxt "#32346"
+msgid "Accounts"
+msgstr ""
+
+msgctxt "#32347"
+msgid "Not connected"
+msgstr ""
+
+msgctxt "#32348"
+msgid "Free plan"
+msgstr ""
+
+msgctxt "#32350"
+msgid "Embedded subtitle used"
+msgstr ""
+
+msgctxt "#32351"
+msgid "Subtitle synchronised"
+msgstr ""
+
+msgctxt "#32352"
+msgid "Subtitle timing left as is"
+msgstr ""
+
+msgctxt "#32353"
+msgid "Looking for subtitles..."
+msgstr ""
+
+msgctxt "#32360"
+msgid "Radio"
+msgstr ""
+
+msgctxt "#32361"
+msgid "No episodes were found"
+msgstr ""
+
+msgctxt "#32362"
+msgid "That channel would not open"
+msgstr ""
+
+msgctxt "#32363"
+msgid "Watch on YouTube"
+msgstr ""
+
+msgctxt "#32370"
+msgid "Device report"
+msgstr ""
+
+msgctxt "#32380"
+msgid "Low memory"
+msgstr ""
+
+msgctxt "#32381"
+msgid "Balanced"
+msgstr ""
+
+msgctxt "#32382"
+msgid "Powerful device"
+msgstr ""
+
+msgctxt "#32383"
+msgid "recommended: %s"
+msgstr ""
+
+msgctxt "#32384"
+msgid "Performance profile"
+msgstr ""
+
+msgctxt "#32385"
+msgid "%d settings changed"
+msgstr ""
+
+msgctxt "#32390"
+msgid "Play"
+msgstr ""
+
+msgctxt "#32391"
+msgid "Seasons"
+msgstr ""
+
+msgctxt "#32392"
+msgid "Season %s"
+msgstr ""
+
+msgctxt "#32393"
+msgid "Nothing left to watch"
+msgstr ""
+
+msgctxt "#32394"
+msgid "Cast:"
+msgstr ""
+
+msgctxt "#32395"
+msgid "%d episodes"
+msgstr ""
+
+msgctxt "#32396"
+msgid "Accounts"
+msgstr ""
+
+msgctxt "#32397"
+msgid "expires %s"
+msgstr ""
+
+msgctxt "#32400"
+msgid "embedded"
+msgstr ""
+
+msgctxt "#32401"
+msgid "estimate"
+msgstr ""
+
+msgctxt "#32402"
+msgid "embedded, forced only"
+msgstr ""
+
+
+msgctxt "#32222"
+msgid "Films for children"
+msgstr ""
+
+msgctxt "#32223"
+msgid "Shows for children"
+msgstr ""
+
+msgctxt "#32224"
+msgid "Cartoons"
+msgstr ""
+
+msgctxt "#32225"
+msgid "Israeli children's channels"
+msgstr ""
+
+msgctxt "#32226"
+msgid "Kids mode"
+msgstr ""
+
+msgctxt "#32227"
+msgid "PIN to leave kids mode"
+msgstr ""
+
+msgctxt "#32228"
+msgid "Set a PIN for kids mode"
+msgstr ""
+
+msgctxt "#32229"
+msgid "Kids mode is on"
+msgstr ""
+
+msgctxt "#32230"
+msgid "Kids mode is off"
+msgstr ""
+
+msgctxt "#32231"
+msgid "Wrong PIN"
+msgstr ""
+
+msgctxt "#32232"
+msgid "MDBList"
+msgstr ""
+
+msgctxt "#30000"
+msgid "Accounts"
+msgstr ""
+
+msgctxt "#30001"
+msgid "Keys and logins. Nothing here leaves your device."
+msgstr ""
+
+msgctxt "#30002"
+msgid "Metadata"
+msgstr ""
+
+msgctxt "#30003"
+msgid "TMDB API key"
+msgstr ""
+
+msgctxt "#30004"
+msgid "Region code"
+msgstr ""
+
+msgctxt "#30005"
+msgid "MDBList API key"
+msgstr ""
+
+msgctxt "#30006"
+msgid "Trakt"
+msgstr ""
+
+msgctxt "#30007"
+msgid "Trakt client id"
+msgstr ""
+
+msgctxt "#30008"
+msgid "Trakt client secret"
+msgstr ""
+
+msgctxt "#30009"
+msgid "Signed in as"
+msgstr ""
+
+msgctxt "#30010"
+msgid "Debrid"
+msgstr ""
+
+msgctxt "#30011"
+msgid "Real-Debrid token"
+msgstr ""
+
+msgctxt "#30012"
+msgid "Premiumize API key"
+msgstr ""
+
+msgctxt "#30013"
+msgid "TorBox API key"
+msgstr ""
+
+msgctxt "#30014"
+msgid "AllDebrid API key"
+msgstr ""
+
+msgctxt "#30015"
+msgid "Sources"
+msgstr ""
+
+msgctxt "#30016"
+msgid "Where stream links come from, and how many are searched."
+msgstr ""
+
+msgctxt "#30017"
+msgid "Providers"
+msgstr ""
+
+msgctxt "#30018"
+msgid "Torrentio"
+msgstr ""
+
+msgctxt "#30019"
+msgid "Comet"
+msgstr ""
+
+msgctxt "#30020"
+msgid "MediaFusion"
+msgstr ""
+
+msgctxt "#30021"
+msgid "Zilean (DMM hashlists)"
+msgstr ""
+
+msgctxt "#30022"
+msgid "Nyaa (anime)"
+msgstr ""
+
+msgctxt "#30023"
+msgid "AnimeTosho (anime)"
+msgstr ""
+
+msgctxt "#30024"
+msgid "Use CocoScrapers if installed"
+msgstr ""
+
+msgctxt "#30025"
+msgid "Filtering"
+msgstr ""
+
+msgctxt "#30026"
+msgid "Only show cached sources"
+msgstr ""
+
+msgctxt "#30027"
+msgid "Highest resolution"
+msgstr ""
+
+msgctxt "#30028"
+msgid "Lowest resolution"
+msgstr ""
+
+msgctxt "#30029"
+msgid "Largest file (GB)"
+msgstr ""
+
+msgctxt "#30030"
+msgid "Allow HEVC (H.265)"
+msgstr ""
+
+msgctxt "#30031"
+msgid "Allow AV1"
+msgstr ""
+
+msgctxt "#30032"
+msgid "Allow HDR and Dolby Vision"
+msgstr ""
+
+msgctxt "#30033"
+msgid "Prefer releases with Hebrew subtitles"
+msgstr ""
+
+msgctxt "#30034"
+msgid "Allow cam and screener releases"
+msgstr ""
+
+msgctxt "#30035"
+msgid "File size preference"
+msgstr ""
+
+msgctxt "#30036"
+msgid "Performance"
+msgstr ""
+
+msgctxt "#30037"
+msgid "The limits that keep the add-on light on weak hardware."
+msgstr ""
+
+msgctxt "#30038"
+msgid "Searching"
+msgstr ""
+
+msgctxt "#30039"
+msgid "Sources shown"
+msgstr ""
+
+msgctxt "#30040"
+msgid "Search deadline (seconds)"
+msgstr ""
+
+msgctxt "#30041"
+msgid "Parallel workers"
+msgstr ""
+
+msgctxt "#30042"
+msgid "Play the best source automatically"
+msgstr ""
+
+msgctxt "#30043"
+msgid "Prefetch the next episode"
+msgstr ""
+
+msgctxt "#30044"
+msgid "Remember which release group worked"
+msgstr ""
+
+msgctxt "#30045"
+msgid "Use SeaDex rankings for anime"
+msgstr ""
+
+msgctxt "#30046"
+msgid "SeaDex is a community list of which anime release is actually the best one. It needs no account and is only consulted for anime."
+msgstr ""
+
+msgctxt "#30047"
+msgid "Storage"
+msgstr ""
+
+msgctxt "#30048"
+msgid "Cache size limit (MB)"
+msgstr ""
+
+msgctxt "#30049"
+msgid "Subtitle files kept"
+msgstr ""
+
+msgctxt "#30050"
+msgid "Refresh home rows in the background"
+msgstr ""
+
+msgctxt "#30051"
+msgid "Verbose logging"
+msgstr ""
+
+msgctxt "#30052"
+msgid "Subtitles"
+msgstr ""
+
+msgctxt "#30053"
+msgid "Automatic Hebrew and English subtitles, with AI translation as a fallback."
+msgstr ""
+
+msgctxt "#30054"
+msgid "Matching"
+msgstr ""
+
+msgctxt "#30055"
+msgid "Choose subtitles automatically"
+msgstr ""
+
+msgctxt "#30056"
+msgid "Language order"
+msgstr ""
+
+msgctxt "#30057"
+msgid "Prefer subtitles already in the file"
+msgstr ""
+
+msgctxt "#30058"
+msgid "Match by file hash (most accurate)"
+msgstr ""
+
+msgctxt "#30059"
+msgid "Minimum match score"
+msgstr ""
+
+msgctxt "#30060"
+msgid "Wizdom (Hebrew)"
+msgstr ""
+
+msgctxt "#30061"
+msgid "OpenSubtitles"
+msgstr ""
+
+msgctxt "#30062"
+msgid "SubSource"
+msgstr ""
+
+msgctxt "#30063"
+msgid "Ktuvit"
+msgstr ""
+
+msgctxt "#30064"
+msgid "The largest Hebrew subtitle source. It is a members' site, so it needs the account below and returns nothing without one."
+msgstr ""
+
+msgctxt "#30065"
+msgid "Ktuvit email"
+msgstr ""
+
+msgctxt "#30066"
+msgid "Ktuvit password"
+msgstr ""
+
+msgctxt "#30067"
+msgid "OpenSubtitles API key"
+msgstr ""
+
+msgctxt "#30068"
+msgid "AI translation"
+msgstr ""
+
+msgctxt "#30069"
+msgid "Used only when no good Hebrew subtitle exists."
+msgstr ""
+
+msgctxt "#30070"
+msgid "Engine"
+msgstr ""
+
+msgctxt "#30071"
+msgid "Translate with AI when nothing is found"
+msgstr ""
+
+msgctxt "#30072"
+msgid "Gemini API key"
+msgstr ""
+
+msgctxt "#30073"
+msgid "Gemini model"
+msgstr ""
+
+msgctxt "#30074"
+msgid "OpenAI compatible URL"
+msgstr ""
+
+msgctxt "#30075"
+msgid "OpenAI compatible key"
+msgstr ""
+
+msgctxt "#30076"
+msgid "OpenAI compatible model"
+msgstr ""
+
+msgctxt "#30077"
+msgid "Lines per request"
+msgstr ""
+
+msgctxt "#30078"
+msgid "Israeli TV"
+msgstr ""
+
+msgctxt "#30079"
+msgid "Live channels and the on-demand catalogue, kept as separate sections."
+msgstr ""
+
+msgctxt "#30080"
+msgid "Live TV"
+msgstr ""
+
+msgctxt "#30081"
+msgid "Show radio stations"
+msgstr ""
+
+msgctxt "#30082"
+msgid "Channel list URL"
+msgstr ""
+
+msgctxt "#30083"
+msgid "On demand"
+msgstr ""
+
+msgctxt "#30084"
+msgid "Catalogue URL"
+msgstr ""
+
+msgctxt "#30085"
+msgid "Kids mode"
+msgstr ""
+
+msgctxt "#30086"
+msgid "Replaces the home screen with rows that are safe by construction."
+msgstr ""
+
+msgctxt "#30087"
+msgid "Replaces every home row with children's rows and blocks anything above the age limit. Switch it off again from the same menu."
+msgstr ""
+
+msgctxt "#30088"
+msgid "Age limit"
+msgstr ""
+
+msgctxt "#30089"
+msgid "PIN"
+msgstr ""
+
+msgctxt "#30090"
+msgid "Stored as a hash, not as the digits. Leave it empty for no PIN."
+msgstr ""
+
+msgctxt "#30091"
+msgid "Interface"
+msgstr ""
+
+msgctxt "#30092"
+msgid "How the add-on looks and which rows appear."
+msgstr ""
+
+msgctxt "#30093"
+msgid "Appearance"
+msgstr ""
+
+msgctxt "#30094"
+msgid "Use the Pinky home screen"
+msgstr ""
+
+msgctxt "#30095"
+msgid "Use the Pinky search screen"
+msgstr ""
+
+msgctxt "#30096"
+msgid "Language"
+msgstr ""
+
+msgctxt "#30097"
+msgid "Hide watched titles in discovery rows"
+msgstr ""
+
+msgctxt "#30098"
+msgid "Show episodes that have not aired"
+msgstr ""
+
+msgctxt "#30099"
+msgid "Up Next prompt between episodes"
+msgstr ""
+
+msgctxt "#30100"
+msgid "Home rows (leave empty for defaults)"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Two letter region, for example IL"
+msgstr ""
+
+msgctxt "#30102"
+msgid "Comma separated, for example he,en"
+msgstr ""
+
+msgctxt "#30103"
+msgid "Free key from Google AI Studio"
+msgstr ""
+
+msgctxt "#30104"
+msgid "Base URL, for example http://192.168.1.10:1234/v1"
+msgstr ""
+
+msgctxt "#30105"
+msgid "API key"
+msgstr ""
+
+msgctxt "#30106"
+msgid "Model name"
+msgstr ""
+
+msgctxt "#30107"
+msgid "Leave empty to use the bundled list"
+msgstr ""
+
+msgctxt "#30108"
+msgid "Leave empty to use the bundled catalogue"
+msgstr ""
+
+msgctxt "#30109"
+msgid "Comma separated row ids"
+msgstr ""
+
+msgctxt "#30110"
+msgid "Poster width"
+msgstr ""
+
+msgctxt "#30111"
+msgid "Items per row"
+msgstr ""
+
+msgctxt "#30112"
+msgid "Metadata cache (hours)"
+msgstr ""
+
+msgctxt "#30113"
+msgid "Show channels known to be broken"
+msgstr ""
+
+msgctxt "#30114"
+msgid "OpenSubtitles username"
+msgstr ""
+
+msgctxt "#30115"
+msgid "OpenSubtitles password"
+msgstr ""
+
+msgctxt "#30116"
+msgid "Torrentio address"
+msgstr ""
+
+msgctxt "#30117"
+msgid "Torrentio options"
+msgstr ""
+
+msgctxt "#30118"
+msgid "Comet address"
+msgstr ""
+
+msgctxt "#30119"
+msgid "Comet config"
+msgstr ""
+
+msgctxt "#30120"
+msgid "MediaFusion address"
+msgstr ""
+
+msgctxt "#30121"
+msgid "MediaFusion config"
+msgstr ""
+
+msgctxt "#30122"
+msgid "Zilean address"
+msgstr ""
+
+msgctxt "#30123"
+msgid "trakt.access_token"
+msgstr ""
+
+msgctxt "#30124"
+msgid "trakt.refresh_token"
+msgstr ""
+
+msgctxt "#30125"
+msgid "trakt.expires"
+msgstr ""
+
+msgctxt "#30126"
+msgid "realdebrid.client_id"
+msgstr ""
+
+msgctxt "#30127"
+msgid "realdebrid.client_secret"
+msgstr ""
+
+msgctxt "#30128"
+msgid "realdebrid.refresh"
+msgstr ""
+
+msgctxt "#30129"
+msgid "realdebrid.expires"
+msgstr ""
+
+msgctxt "#30130"
+msgid "premiumize.client_id"
+msgstr ""
+
+msgctxt "#30131"
+msgid "premiumize.token"
+msgstr ""
+
+msgctxt "#30132"
+msgid "device.profile"
+msgstr ""
+
+msgctxt "#30133"
+msgid "Stored automatically"
+msgstr ""
+
+msgctxt "#32233"
+msgid "This channel needs the InputStream Adaptive add-on"
+msgstr ""
+
+msgctxt "#32234"
+msgid "%d min"
+msgstr ""
+
+msgctxt "#32403"
+msgid "Pinky could not start. See the log."
+msgstr ""
+
+msgctxt "#32404"
+msgid "Something went wrong. See the log."
+msgstr ""
+
+msgctxt "#32405"
+msgid "only %d MB free"
+msgstr ""
+
+msgctxt "#32406"
+msgid "%d MB free on %d cores"
+msgstr ""
+
+msgctxt "#32407"
+msgid "a 4K display"
+msgstr ""
+
+msgctxt "#32408"
+msgid "an ordinary streaming device"
+msgstr ""
+
+msgctxt "#32409"
+msgid "%s, %d workers, %d providers, %s posters, %s MB cache"
+msgstr ""
+
+msgctxt "#30134"
+msgid "Richer artwork"
+msgstr ""
+
+msgctxt "#30135"
+msgid "Larger posters and fuller rows. Costs about four times the memory, which matters most on a device with 1 GB."
+msgstr ""
+
+msgctxt "#32410"
+msgid "Picture quality"
+msgstr ""
+
+msgctxt "#32411"
+msgid "Light  -  %s posters, %d per row, about %d MB"
+msgstr ""
+
+msgctxt "#32412"
+msgid "Richer  -  %s posters, %d per row, about %d MB"
+msgstr ""
+
+msgctxt "#32413"
+msgid "This device looks like: %s"
+msgstr ""
+
+msgctxt "#32414"
+msgid "Nothing to show right now"
+msgstr ""
+
+msgctxt "#32415"
+msgid "1 episode"
+msgstr ""
+
+msgctxt "#30136"
+msgid "Open Pinky when Kodi starts"
+msgstr ""
+
+msgctxt "#30137"
+msgid "Go straight in instead of stopping at the Kodi home screen. Back still leaves Pinky normally."
+msgstr ""
+
+msgctxt "#30138"
+msgid "Stay in Pinky"
+msgstr ""
+
+msgctxt "#30139"
+msgid "Back on the home screen does nothing instead of dropping out to Kodi. Back still works everywhere inside Pinky, and this settings screen is still reachable from the top bar."
+msgstr ""
+
+msgctxt "#32416"
+msgid "Next page"
+msgstr ""
+
+msgctxt "#32420"
+msgid "Home"
+msgstr ""
+
+msgctxt "#32421"
+msgid "Films"
+msgstr ""
+
+msgctxt "#32422"
+msgid "Series"
+msgstr ""
+
+msgctxt "#32423"
+msgid "Live TV"
+msgstr ""
+
+msgctxt "#32424"
+msgid "Top rated series"
+msgstr ""
+
+msgctxt "#32425"
+msgid "Radio"
+msgstr ""
+
+msgctxt "#32426"
+msgid "Action"
+msgstr ""
+
+msgctxt "#32427"
+msgid "Comedy"
+msgstr ""
+
+msgctxt "#32428"
+msgid "Drama"
+msgstr ""
+
+msgctxt "#32429"
+msgid "Thriller"
+msgstr ""
+
+msgctxt "#32430"
+msgid "Science fiction"
+msgstr ""
+
+msgctxt "#32431"
+msgid "Horror"
+msgstr ""
+
+msgctxt "#32432"
+msgid "Animation"
+msgstr ""
+
+msgctxt "#32433"
+msgid "Documentary"
+msgstr ""
+
+msgctxt "#32434"
+msgid "Drama series"
+msgstr ""
+
+msgctxt "#32435"
+msgid "Comedy series"
+msgstr ""
+
+msgctxt "#32436"
+msgid "Crime"
+msgstr ""
+
+msgctxt "#32437"
+msgid "Science fiction and fantasy"
+msgstr ""
+
+msgctxt "#32438"
+msgid "Documentary series"
+msgstr ""
+
+msgctxt "#32439"
+msgid "Reality"
+msgstr ""
+
+msgctxt "#32440"
+msgid "New releases"
+msgstr ""
+
+msgctxt "#32441"
+msgid "Popular"
+msgstr ""
+
+msgctxt "#32442"
+msgid "Classics"
+msgstr ""
+
+msgctxt "#32443"
+msgid "Hidden gems"
+msgstr ""
+
+msgctxt "#32444"
+msgid "Biggest hits"
+msgstr ""
+
+msgctxt "#32445"
+msgid "The nineties"
+msgstr ""
+
+msgctxt "#32446"
+msgid "The eighties"
+msgstr ""
+
+msgctxt "#32447"
+msgid "New series"
+msgstr ""
+
+msgctxt "#32448"
+msgid "Popular series"
+msgstr ""
+
+msgctxt "#32449"
+msgid "Classic series"
+msgstr ""
+
+msgctxt "#32450"
+msgid "Hidden gem series"
+msgstr ""
+
+msgctxt "#32460"
+msgid "Open a link on your phone, or scan a code"
+msgstr ""
+
+msgctxt "#32461"
+msgid "Open a link and type a code"
+msgstr ""
+
+msgctxt "#32462"
+msgid "Type a key with the remote"
+msgstr ""
+
+msgctxt "#32463"
+msgid "Scan this to open the page on your phone, then come back and type the key."
+msgstr ""
+
+msgctxt "#32464"
+msgid "Scan the code, or open the address and enter the code below."
+msgstr ""
+
+msgctxt "#32465"
+msgid "Close"
+msgstr ""
+
+msgctxt "#32466"
+msgid "Signed in"
+msgstr ""
+
+msgctxt "#32467"
+msgid "Not signed in"
+msgstr ""
+
+msgctxt "#32468"
+msgid "Connect an account"
+msgstr ""
+
+msgctxt "#32469"
+msgid "Sign out of %s"
+msgstr ""
+
+msgctxt "#30141"
+msgid "Connect Trakt (scan a code)"
+msgstr ""
+
+msgctxt "#30142"
+msgid "Connect a debrid service (scan a code)"
+msgstr ""
+
+msgctxt "#30143"
+msgid "Needs a configuration from the provider's own website. Without one it answers nothing, which is why it ships switched off."
+msgstr ""
+
+msgctxt "#30144"
+msgid "The public instance is not responding. Point this at a working one, or leave it off."
+msgstr ""
+
+msgctxt "#32470"
+msgid "of %d, %d hidden (%s)"
+msgstr ""
+
+msgctxt "#30145"
+msgid "Tools"
+msgstr ""
+
+msgctxt "#30146"
+msgid "Setup, accounts, kids mode and maintenance."
+msgstr ""
+
+msgctxt "#32471"
+msgid "Back to what's playing"
+msgstr ""
+
+msgctxt "#32472"
+msgid "Exit"
+msgstr ""
+
+msgctxt "#32473"
+msgid "Close Pinky and leave Kodi?"
+msgstr ""
+
+msgctxt "#32474"
+msgid "Hebrew inside"
+msgstr ""
+
+msgctxt "#32475"
+msgid "Subtitles %d%% estimate"
+msgstr ""
+
+msgctxt "#32476"
+msgid "No Hebrew found"
+msgstr ""
+
+msgctxt "#32477"
+msgid "Minimise, keep it running"
+msgstr ""
+
+msgctxt "#32478"
+msgid "Close Kodi completely"
+msgstr ""
+
+msgctxt "#32480"
+msgid "camera recordings"
+msgstr ""
+
+msgctxt "#32481"
+msgid "HEVC switched off"
+msgstr ""
+
+msgctxt "#32482"
+msgid "AV1 switched off"
+msgstr ""
+
+msgctxt "#32483"
+msgid "HDR switched off"
+msgstr ""
+
+msgctxt "#32484"
+msgid "above the resolution limit"
+msgstr ""
+
+msgctxt "#32485"
+msgid "below the resolution limit"
+msgstr ""
+
+msgctxt "#32486"
+msgid "over the size limit"
+msgstr ""
+
+msgctxt "#32487"
+msgid "too small for the quality claimed"
+msgstr ""
+
+msgctxt "#32488"
+msgid "implausibly large"
+msgstr ""
+
+msgctxt "#32489"
+msgid "not in the debrid cache"
+msgstr ""
+
+msgctxt "#32490"
+msgid "OpenSubtitles (subtitle accuracy)"
+msgstr ""
+
+msgctxt "#30147"
+msgid "Connect OpenSubtitles (scan a code)"
+msgstr ""
+
+msgctxt "#32491"
+msgid "Nothing is ready to stream. %d copies exist but none are on your debrid account yet - start one downloading?"
+msgstr ""
+
+msgctxt "#30148"
+msgid "TorrentsDB"
+msgstr ""
+
+msgctxt "#30149"
+msgid "TorrentsDB address"
+msgstr ""
+
+msgctxt "#32492"
+msgid "will translate from %s"
+msgstr ""
+
+msgctxt "#32493"
+msgid "will translate whatever it can find"
+msgstr ""
+
+msgctxt "#32494"
+msgid "AI translation"
+msgstr ""
+
+msgctxt "#32495"
+msgid "A translation is already running"
+msgstr ""
+
+msgctxt "#32496"
+msgid "Translating. It will appear as it is ready."
+msgstr ""
+
+msgctxt "#32497"
+msgid "needs an AI key - press to set one up"
+msgstr ""
+
+msgctxt "#32500"
+msgid "Pinky %s is up to date"
+msgstr ""
+
+msgctxt "#32501"
+msgid "Update from %s to %s?"
+msgstr ""
+
+msgctxt "#32502"
+msgid "Downloading the update..."
+msgstr ""
+
+msgctxt "#32503"
+msgid "The update could not be installed"
+msgstr ""
+
+msgctxt "#32504"
+msgid "Installing..."
+msgstr ""
+
+msgctxt "#32505"
+msgid "Updated to %s. Restart Kodi now?"
+msgstr ""
+
+msgctxt "#32506"
+msgid "Check for updates"
+msgstr ""
+
+msgctxt "#30300"
+msgid "Check for updates on start"
+msgstr ""
+
+msgctxt "#30301"
+msgid "At most once a week, in the background"
+msgstr ""
+
+msgctxt "#30302"
+msgid "Update index URL"
+msgstr ""
+
+msgctxt "#30303"
+msgid "Leave empty to use the built-in address"
+msgstr ""
+
+msgctxt "#30310"
+msgid "Real-Debrid"
+msgstr ""
+
+msgctxt "#30311"
+msgid "Premiumize"
+msgstr ""
+
+msgctxt "#30312"
+msgid "TorBox"
+msgstr ""
+
+msgctxt "#30313"
+msgid "AllDebrid"
+msgstr ""
+
+msgctxt "#30314"
+msgid "Pick a service, then how to sign in"
+msgstr ""
+
+msgctxt "#32510"
+msgid "Send"
+msgstr ""
+
+msgctxt "#32511"
+msgid "Paste the key here and press Send. This page is only on your local network."
+msgstr ""
+
+msgctxt "#32512"
+msgid "Done - you can close this"
+msgstr ""
+
+msgctxt "#32513"
+msgid "Send a key from your phone"
+msgstr ""
+
+msgctxt "#32514"
+msgid "Open this on your phone and paste the key"
+msgstr ""
+
+msgctxt "#32515"
+msgid "recommended"
+msgstr ""
+
+msgctxt "#30315"
+msgid "Check for updates now"
+msgstr ""
+
+msgctxt "#32516"
+msgid "Maintenance"
+msgstr ""
+
+msgctxt "#32517"
+msgid "Turn kids mode on"
+msgstr ""
+
+msgctxt "#32518"
+msgid "Turn kids mode off"
+msgstr ""
+
+msgctxt "#32519"
+msgid "%d episodes"
+msgstr ""
+
+msgctxt "#30316"
+msgid "Update channel"
+msgstr ""
+
+msgctxt "#30317"
+msgid "Stable installs the last release. Test installs the latest build of the development branch, which may be broken - switch back to stable to return to the released version."
+msgstr ""
+
+msgctxt "#32520"
+msgid "Use my own Trakt application"
+msgstr ""
+
+msgctxt "#30318"
+msgid "OpenSubtitles (no account needed)"
+msgstr ""
+
+msgctxt "#30319"
+msgid "BSPlayer (matches the file exactly)"
+msgstr ""
+
+msgctxt "#32521"
+msgid "Audio tracks: %s"
+msgstr ""
+
+msgctxt "#30320"
+msgid "Compare subtitles before choosing one"
+msgstr ""
+
+msgctxt "#32522"
+msgid "Speak from your phone"
+msgstr ""
+
+msgctxt "#32523"
+msgid "Search by voice"
+msgstr ""
+
+msgctxt "#32524"
+msgid "Open this on your phone and use its microphone key"
+msgstr ""
+
+msgctxt "#32525"
+msgid "Remove from Trakt watchlist"
+msgstr ""
+
+msgctxt "#32526"
+msgid "Removed from your watchlist"
+msgstr ""
+
+msgctxt "#32527"
+msgid "Dolby Vision without an HDR10 fallback"
+msgstr ""
+
+msgctxt "#30150"
+msgid "Allow Dolby Vision without an HDR10 fallback"
+msgstr ""
+
+msgctxt "#32528"
+msgid "That source would not open - trying the next one"
+msgstr ""
+
+msgctxt "#30151"
+msgid "Find where the intro and credits are"
+msgstr ""
+
+msgctxt "#30152"
+msgid "Skip the intro automatically"
+msgstr ""
+
+msgctxt "#32529"
+msgid "Skipped the intro"
+msgstr ""
+
+msgctxt "#32530"
+msgid "Skip intro"
+msgstr ""
+
+msgctxt "#32531"
+msgid "Up next"
+msgstr ""
+
+msgctxt "#32532"
+msgid "Play now"
+msgstr ""
+
+msgctxt "#32533"
+msgid "Next episode in %d"
+msgstr ""
+
+msgctxt "#32534"
+msgid "Another production of the same name"
+msgstr ""
+
+msgctxt "#32535"
+msgid "AI subtitles %d%% estimate"
+msgstr ""
+
+msgctxt "#32536"
+msgid "Turkish, Spanish & Italian dramas"
+msgstr ""
+
+msgctxt "#32537"
+msgid "Hebrew audio"
+msgstr ""
+
+msgctxt "#30321"
+msgid "OpenRouter API key"
+msgstr ""
+
+msgctxt "#30322"
+msgid "OpenRouter model"
+msgstr ""
+
+msgctxt "#32538"
+msgid "Open an account at %s and paste a key. Some models are free."
+msgstr ""
+
+msgctxt "#32539"
+msgid "NATIVE"
+msgstr ""
+
+msgctxt "#32540"
+msgid "LLM"
+msgstr ""
+
+msgctxt "#32541"
+msgid "Hebrew subtitle, %d%% fit"
+msgstr ""
+
+msgctxt "#32542"
+msgid "translated from %s, %d%% fit"
+msgstr ""
+
+msgctxt "#32543"
+msgid "ENGLISH"
+msgstr ""
+
+msgctxt "#32544"
+msgid "English subtitle, %d%% fit"
+msgstr ""
+
+msgctxt "#30323"
+msgid "Connect Ktuvit (free account)"
+msgstr ""

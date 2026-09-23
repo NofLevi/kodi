@@ -98,9 +98,9 @@ def _key(row):
 
 
 def examine(entry):
-    from katan import play
-    from katan.sources import aggregator
-    from katan.subs import outlook
+    from pinky import play
+    from pinky.sources import aggregator
+    from pinky.subs import outlook
 
     started = time.time()
     record = {"kind": entry["kind"], "tmdb": entry["tmdb"],
@@ -133,7 +133,7 @@ def examine(entry):
 
 def run(count, path):
     base.boot(use_debrid=False)
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     base.say("translation engine configured: %s (none is called)" % translator.available())
     sample = build_sample(count)
     done = set()

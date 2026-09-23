@@ -6,7 +6,7 @@ are filled, the hero updates, and typing produces suggestions.
 """
 import pytest
 
-from katan.ui import home_window, search_window
+from pinky.ui import home_window, search_window
 
 
 class FakeAction(object):
@@ -47,7 +47,7 @@ class Kodi21Action(object):
 
 
 def make_items(count, prefix="Title"):
-    from katan.meta import items
+    from pinky.meta import items
     offset = sum((index + 1) * ord(char) for index, char in enumerate(prefix)) * 100
     return [items.new_item("movie", ids={"tmdb": offset + index + 1},
                            title="%s %d" % (prefix, index),
@@ -65,14 +65,14 @@ def make_items(count, prefix="Title"):
 @pytest.fixture
 def configured(monkeypatch):
     """A TMDB key, which the home window now requires before it builds itself."""
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
     monkeypatch.setattr(tmdb, "has_key", lambda: True)
 
 
 @pytest.fixture
 def home(monkeypatch, configured):
-    from katan import catalog
-    from katan.meta import trakt_state
+    from pinky import catalog
+    from pinky.meta import trakt_state
 
     rows = [{"id": "row%d" % n, "title_id": 32201, "loader": lambda: [],
              "ttl": 60, "needs": [], "default": True} for n in range(4)]
@@ -94,8 +94,8 @@ def test_the_real_flow_fills_the_rows(monkeypatch, configured):
     early, onInit's "have I run already" guard was reading self.rows and
     returned at once: the window drew its headings above completely empty rows.
     """
-    from katan import catalog
-    from katan.meta import trakt_state
+    from pinky import catalog
+    from pinky.meta import trakt_state
 
     rows = [{"id": "row%d" % n, "title_id": 32201, "loader": lambda: [],
              "ttl": 60, "needs": [], "default": True} for n in range(3)]
@@ -110,7 +110,7 @@ def test_the_real_flow_fills_the_rows(monkeypatch, configured):
 
     assert window.data, "prepare() must not stop onInit from filling the rows"
     assert window.getControl(home_window.LIST_BASE).size() == 5
-    assert window.getProperty("katan.hero.title"), "the hero should be seeded"
+    assert window.getProperty("pinky.hero.title"), "the hero should be seeded"
 
 
 def test_onInit_still_only_runs_once(home):
@@ -122,7 +122,7 @@ def test_onInit_still_only_runs_once(home):
 
 def test_home_fills_its_rows_and_sets_headings(home):
     assert len(home.rows) == 4
-    assert home.getProperty("katan.row0.title") == "Row row0"
+    assert home.getProperty("pinky.row0.title") == "Row row0"
     first = home.getControl(home_window.LIST_BASE)
     assert first.size() == 5
 
@@ -132,17 +132,17 @@ def test_home_only_preloads_the_rows_near_the_top(home):
     assert len(home.filled) <= home_window.PRELOAD_ROWS + 1
 
 
-def test_opening_the_addon_goes_straight_to_the_katan_window(monkeypatch,
+def test_opening_the_addon_goes_straight_to_the_pinky_window(monkeypatch,
                                                              settings_module):
-    """Entering the add-on should land in the Katan GUI, not a Kodi file list."""
-    from katan.meta import tmdb
-    from katan.ui import handlers
+    """Entering the add-on should land in the Pinky GUI, not a Kodi file list."""
+    from pinky.meta import tmdb
+    from pinky.ui import handlers
 
     settings_module.set("ui.window_home", "true")
     monkeypatch.setattr(tmdb, "has_key", lambda: True)
 
     opened = []
-    import katan.ui.home_window as hw
+    import pinky.ui.home_window as hw
     monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
 
     handlers.home({})
@@ -160,14 +160,14 @@ def test_it_lists_instead_of_flashing_an_empty_window(monkeypatch,
     window had content waiting. What actually decides is whether any row can
     draw at all.
     """
-    from katan import catalog
-    from katan.ui import handlers
+    from pinky import catalog
+    from pinky.ui import handlers
 
     settings_module.set("ui.window_home", "true")
     monkeypatch.setattr(catalog, "enabled_rows", lambda *a, **k: [])
 
     opened = []
-    import katan.ui.home_window as hw
+    import pinky.ui.home_window as hw
     monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
 
     handlers.home({})
@@ -176,14 +176,14 @@ def test_it_lists_instead_of_flashing_an_empty_window(monkeypatch,
 
 def test_a_fresh_install_still_gets_the_window(monkeypatch, settings_module):
     """No key configured, but the Israeli and anime rows need none."""
-    from katan.meta import tmdb
-    from katan.ui import handlers
+    from pinky.meta import tmdb
+    from pinky.ui import handlers
 
     settings_module.set("ui.window_home", "true")
     monkeypatch.setattr(tmdb, "has_key", lambda: False)
 
     opened = []
-    import katan.ui.home_window as hw
+    import pinky.ui.home_window as hw
     monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
 
     handlers.home({})
@@ -192,8 +192,8 @@ def test_a_fresh_install_still_gets_the_window(monkeypatch, settings_module):
 
 def test_finishing_setup_opens_the_window(monkeypatch, settings_module):
     """Setup is not the destination; finishing it should show the GUI."""
-    from katan import catalog
-    from katan.ui import wizard
+    from pinky import catalog
+    from pinky.ui import wizard
 
     settings_module.set("tmdb.apikey", "a-key")
     settings_module.set("ui.window_home", "true")
@@ -201,7 +201,7 @@ def test_finishing_setup_opens_the_window(monkeypatch, settings_module):
     monkeypatch.setattr(catalog, "warm", lambda *a, **kw: 0)
 
     opened = []
-    import katan.ui.home_window as hw
+    import pinky.ui.home_window as hw
     monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
 
     wizard._finish()
@@ -211,15 +211,15 @@ def test_finishing_setup_opens_the_window(monkeypatch, settings_module):
 def test_abandoning_setup_does_not_loop_back_into_the_window(monkeypatch,
                                                             settings_module):
     """No key means no window, or declining setup would reopen it forever."""
-    from katan import catalog
-    from katan.ui import wizard
+    from pinky import catalog
+    from pinky.ui import wizard
 
     settings_module.set("tmdb.apikey", "")
     monkeypatch.setattr(catalog, "invalidate", lambda *a, **kw: None)
     monkeypatch.setattr(catalog, "warm", lambda *a, **kw: 0)
 
     opened = []
-    import katan.ui.home_window as hw
+    import pinky.ui.home_window as hw
     monkeypatch.setattr(hw, "open_home", lambda: opened.append(True))
 
     wizard._finish()
@@ -236,8 +236,8 @@ def test_home_draws_the_rows_that_need_no_key(monkeypatch):
     back is exactly what can be drawn - and closing over a modal yes/no meant
     a fresh install never once saw the home screen.
     """
-    from katan import kodi
-    from katan.meta import tmdb
+    from pinky import kodi
+    from pinky.meta import tmdb
 
     monkeypatch.setattr(tmdb, "has_key", lambda: False)
     asked = []
@@ -255,7 +255,7 @@ def test_home_draws_the_rows_that_need_no_key(monkeypatch):
 
 def test_home_still_closes_when_there_is_genuinely_nothing(monkeypatch):
     """The honest version of the guard that was removed."""
-    from katan import catalog
+    from pinky import catalog
 
     monkeypatch.setattr(catalog, "enabled_rows", lambda *a, **k: [])
 
@@ -271,8 +271,8 @@ def test_home_preloads_past_rows_that_come_back_empty(monkeypatch, configured):
     they sit above the Israeli rows in the default order. Filling the first
     three slots regardless left a blank screen with content further down.
     """
-    from katan import catalog
-    from katan.meta import trakt_state
+    from pinky import catalog
+    from pinky.meta import trakt_state
 
     rows = [{"id": "row%d" % n, "title_id": 32201, "loader": lambda: [],
              "ttl": 60, "needs": [], "default": True} for n in range(6)]
@@ -289,23 +289,23 @@ def test_home_preloads_past_rows_that_come_back_empty(monkeypatch, configured):
 
     assert window.data.get(3), "the first row with content must be filled"
     assert len([i for i in window.data.values() if i]) >= 1
-    assert window.getProperty("katan.hero.title"), \
+    assert window.getProperty("pinky.hero.title"), \
         "the hero should come from the first row that actually has something"
 
 
 def test_home_updates_the_hero_from_the_focused_item(home):
     home.setFocusId(home_window.LIST_BASE)
     home.onAction(FakeAction(home_window.ACTION_MOVE_RIGHT))
-    assert home.getProperty("katan.hero.title") == "row0 0"
-    assert home.getProperty("katan.hero.fanart") == "f.jpg"
-    assert "2020" in home.getProperty("katan.hero.meta")
+    assert home.getProperty("pinky.hero.title") == "row0 0"
+    assert home.getProperty("pinky.hero.fanart") == "f.jpg"
+    assert "2020" in home.getProperty("pinky.hero.meta")
 
 
 def test_the_hero_backdrop_is_left_empty_without_a_real_fanart(home):
     """A poster or a channel logo stretched to 16:9 looks broken."""
     home._show_hero({"title": "A channel", "art": {"poster": "logo.png"}})
-    assert home.getProperty("katan.hero.fanart") == ""
-    assert home.getProperty("katan.hero.title") == "A channel"
+    assert home.getProperty("pinky.hero.fanart") == ""
+    assert home.getProperty("pinky.hero.title") == "A channel"
 
 
 def test_home_fills_further_rows_as_focus_moves(home):
@@ -316,8 +316,8 @@ def test_home_fills_further_rows_as_focus_moves(home):
 
 
 def test_an_empty_row_hides_itself(monkeypatch):
-    from katan import catalog
-    from katan.meta import trakt_state
+    from pinky import catalog
+    from pinky.meta import trakt_state
 
     rows = [{"id": "empty", "title_id": 32201, "loader": lambda: [],
              "ttl": 60, "needs": [], "default": True}]
@@ -331,20 +331,20 @@ def test_an_empty_row_hides_itself(monkeypatch):
 
     window = home_window.HomeWindow()
     window.onInit()
-    assert window.getProperty("katan.row0.title") == "", "an empty row should hide"
+    assert window.getProperty("pinky.row0.title") == "", "an empty row should hide"
 
 
 def test_back_does_not_close_the_home_window(home, settings_module):
     """Escape used to drop the viewer into the Kodi interface this replaces.
 
     The home screen is the one place back has nowhere good to go. It still
-    works everywhere inside Katan - out of a film, out of the picker, out of
+    works everywhere inside Pinky - out of a film, out of the picker, out of
     a season - because those are places you can be finished with.
     """
     home.onAction(FakeAction(home_window.ACTION_NAV_BACK))
     assert home.closed is False
 
-    settings_module.set("ui.stay_in_katan", "false")
+    settings_module.set("ui.stay_in_pinky", "false")
     home.onAction(FakeAction(home_window.ACTION_NAV_BACK))
     assert home.closed is True
 
@@ -356,7 +356,7 @@ def test_back_does_not_close_the_home_window(home, settings_module):
 
 @pytest.fixture
 def search(monkeypatch):
-    from katan.search import unified
+    from pinky.search import unified
 
     monkeypatch.setattr(unified, "recent", lambda: ["dune", "severance"])
     monkeypatch.setattr(unified, "remember", lambda q: None)
@@ -375,18 +375,18 @@ def test_search_starts_with_recent_queries(search):
 
 
 def test_the_key_grid_is_labelled_for_the_current_charset(search):
-    assert search.getProperty("katan.key0") == "a"
+    assert search.getProperty("pinky.key0") == "a"
     search.onClick(search_window.BUTTON_CHARSET)
-    assert search.getProperty("katan.key0") == "0", "expected digits"
+    assert search.getProperty("pinky.key0") == "0", "expected digits"
     search.onClick(search_window.BUTTON_CHARSET)
-    assert search.getProperty("katan.key0") == u"א", "expected Hebrew alef"
+    assert search.getProperty("pinky.key0") == u"א", "expected Hebrew alef"
 
 
 def test_pressing_a_key_appends_to_the_query(search):
     search.onClick(search_window.KEY_BASE)
     search.onClick(search_window.KEY_BASE + 1)
     assert search.text == "ab"
-    assert search.getProperty("katan.search.text") == "ab"
+    assert search.getProperty("pinky.search.text") == "ab"
 
 
 def _type_into_field(search, text, action_id=0):
@@ -411,7 +411,7 @@ def test_a_physical_keyboard_types_into_the_field(search):
     _type_into_field(search, "d")
     _type_into_field(search, "du")
     assert search.text == "du"
-    assert search.getProperty("katan.search.text") == "du"
+    assert search.getProperty("pinky.search.text") == "du"
 
 
 def test_backspace_in_the_field_deletes_one_character_not_two(search):
@@ -471,7 +471,7 @@ def test_every_charset_fills_the_key_grid(search):
             "charset %d has %d keys, not %d" % (index, len(charset),
                                                 search_window.KEY_COUNT)
     for index in range(search_window.KEY_COUNT):
-        assert search.getProperty("katan.key%d" % index), \
+        assert search.getProperty("pinky.key%d" % index), \
             "key %d has no character, so it cannot take focus" % index
 
 
@@ -538,7 +538,7 @@ def test_a_hebrew_interface_opens_on_the_hebrew_keyboard(settings_module):
     Opening on the Latin keyboard meant every one of those searches began
     with a trip to the charset button.
     """
-    from katan.ui import search_window
+    from pinky.ui import search_window
 
     settings_module.set("ui.language", "he")
     assert search_window.initial_charset() == search_window.HEBREW
@@ -546,7 +546,7 @@ def test_a_hebrew_interface_opens_on_the_hebrew_keyboard(settings_module):
 
 
 def test_an_english_interface_opens_on_the_latin_keyboard(settings_module):
-    from katan.ui import search_window
+    from pinky.ui import search_window
 
     settings_module.set("ui.language", "en")
     assert search_window.initial_charset() == search_window.LATIN
@@ -555,15 +555,15 @@ def test_an_english_interface_opens_on_the_latin_keyboard(settings_module):
 
 def test_the_charset_button_still_names_where_it_goes_next(settings_module):
     """It names the set it will move to, not the one you are on."""
-    from katan.ui import search_window
+    from pinky.ui import search_window
 
     settings_module.set("ui.language", "he")
     window = search_window.SearchWindow()
     window.prepare()
-    assert window.getProperty("katan.search.charset") == "ABC"
+    assert window.getProperty("pinky.search.charset") == "ABC"
 
     window.onClick(search_window.BUTTON_CHARSET)
-    assert window.getProperty("katan.search.charset") == "123"
+    assert window.getProperty("pinky.search.charset") == "123"
 
 
 def test_english_is_one_press_away_from_hebrew(settings_module):
@@ -571,7 +571,7 @@ def test_english_is_one_press_away_from_hebrew(settings_module):
     the one this opens on - offered the number pad as its next set and
     reached English only on the second press. Somebody looking for English
     pressed once, got digits, and reasonably concluded there was none."""
-    from katan.ui import search_window
+    from pinky.ui import search_window
 
     settings_module.set("ui.language", "he")
     window = search_window.SearchWindow()
@@ -581,11 +581,11 @@ def test_english_is_one_press_away_from_hebrew(settings_module):
     window.onClick(search_window.BUTTON_CHARSET)
 
     assert window.charset == search_window.LATIN
-    assert window.getProperty("katan.key0") == "a"
+    assert window.getProperty("pinky.key0") == "a"
 
 
 def test_the_switch_moves_between_the_alphabets_before_the_digits():
-    from katan.ui import search_window
+    from pinky.ui import search_window
 
     order = [search_window.CHARSET_NAMES[i]
              for i in (search_window.HEBREW, search_window.LATIN,
@@ -596,7 +596,7 @@ def test_the_switch_moves_between_the_alphabets_before_the_digits():
 def test_every_charset_fills_the_grid(settings_module):
     """A key with no character used to be hidden, and a hidden control cannot
     take focus, which left the grid with nothing focused at all."""
-    from katan.ui import search_window
+    from pinky.ui import search_window
 
     for charset in search_window.CHARSETS:
         assert len(charset) == search_window.KEY_COUNT
@@ -611,9 +611,9 @@ def test_a_home_with_nothing_in_it_is_still_navigable(monkeypatch,
     stay reachable. This became easier to reach once an empty row started
     being remembered as empty.
     """
-    from katan import catalog
-    from katan.meta import tmdb
-    from katan.ui import home_window
+    from pinky import catalog
+    from pinky.meta import tmdb
+    from pinky.ui import home_window
 
     monkeypatch.setattr(tmdb, "has_key", lambda: True)
     monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: [])
@@ -626,7 +626,7 @@ def test_a_home_with_nothing_in_it_is_still_navigable(monkeypatch,
     window.onInit()
 
     assert window.getFocusId() == home_window.BUTTON_SEARCH
-    assert window.getProperty("katan.hero.title"), \
+    assert window.getProperty("pinky.hero.title"), \
         "and it should say something rather than sit blank"
 
 
@@ -645,9 +645,9 @@ class MoveAction(object):
 
 def _home_with_rows(monkeypatch, filled):
     """A home window whose slots hold exactly the rows named in `filled`."""
-    from katan import catalog
-    from katan.meta import tmdb
-    from katan.ui import home_window
+    from pinky import catalog
+    from pinky.meta import tmdb
+    from pinky.ui import home_window
 
     monkeypatch.setattr(tmdb, "has_key", lambda: True)
     window = home_window.HomeWindow()
@@ -662,7 +662,7 @@ def test_down_moves_to_the_next_row(monkeypatch):
     """It did not. Six presses and focus never left the first row, so the
     main screen showed one row and everything below it was visible and
     unreachable with a remote."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     window = _home_with_rows(monkeypatch, [0, 1, 2])
     window.setFocusId(home_window.LIST_BASE)
@@ -674,7 +674,7 @@ def test_down_moves_to_the_next_row(monkeypatch):
 
 
 def test_up_moves_back_and_then_to_the_top_bar(monkeypatch):
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     window = _home_with_rows(monkeypatch, [0, 1])
     window.setFocusId(home_window.LIST_BASE + 1)
@@ -688,7 +688,7 @@ def test_up_moves_back_and_then_to_the_top_bar(monkeypatch):
 def test_an_empty_row_is_stepped_over(monkeypatch):
     """A row that came back empty has had its heading cleared and is hidden,
     so focusing it would land on a control that is not there."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     window = _home_with_rows(monkeypatch, [0, 3])
     window.setFocusId(home_window.LIST_BASE)
@@ -698,7 +698,7 @@ def test_an_empty_row_is_stepped_over(monkeypatch):
 
 
 def test_down_past_the_last_row_stays_put(monkeypatch):
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     window = _home_with_rows(monkeypatch, [0, 1])
     window.setFocusId(home_window.LIST_BASE + 1)
@@ -707,7 +707,7 @@ def test_down_past_the_last_row_stays_put(monkeypatch):
 
 
 def test_down_from_the_top_bar_goes_into_the_content(monkeypatch):
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     window = _home_with_rows(monkeypatch, [2])
     window.setFocusId(home_window.BUTTON_SEARCH)
@@ -726,9 +726,9 @@ def _scrollable_home(monkeypatch, pages, paged=True):
     `pages` maps a page number to the items that page returns, so a test can
     say what the second page holds, or that there is not one.
     """
-    from katan import catalog
-    from katan.meta import tmdb, trakt_state
-    from katan.ui import home_window
+    from pinky import catalog
+    from pinky.meta import tmdb, trakt_state
+    from pinky.ui import home_window
 
     monkeypatch.setattr(tmdb, "has_key", lambda: True)
     monkeypatch.setattr(catalog, "has_more", lambda row_id: paged)
@@ -751,7 +751,7 @@ def _scrollable_home(monkeypatch, pages, paged=True):
 def test_a_row_grows_when_the_selection_nears_its_end(monkeypatch):
     """Scrolling right used to run into a wall after one page, with nothing
     to say there was more, so the catalogue looked far smaller than it is."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
     window = _scrollable_home(monkeypatch, pages)
@@ -776,7 +776,7 @@ def test_a_page_is_never_added_from_the_worker_thread(monkeypatch):
     append moved the selection from item 56 to item 0 - scrolling right faster
     than the page loaded threw you back to the start of the row.
     """
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
     window = _scrollable_home(monkeypatch, pages)
@@ -802,7 +802,7 @@ def test_the_cursor_does_not_move_when_a_row_grows(monkeypatch):
     the way the real one was measured to: the append drops the selection back
     to the start. `_absorb` has to put it back.
     """
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
     window = _scrollable_home(monkeypatch, pages)
@@ -836,7 +836,7 @@ def test_the_cursor_is_put_back_without_asking_whether_it_moved(monkeypatch):
     never ran - the first version of this fix looked right, passed its tests
     against a synchronous stub, and did nothing at all in a real Kodi.
     """
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
     window = _scrollable_home(monkeypatch, pages)
@@ -861,7 +861,7 @@ def test_a_resting_mouse_pointer_does_not_page_through_the_catalogue(
     moves the selection on hover. A pointer left near the end of a row fetched
     page after page on its own - 94 items in a row nobody had touched, during
     start-up, with no input at all."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
     window = _scrollable_home(monkeypatch, pages)
@@ -880,7 +880,7 @@ def test_a_resting_mouse_pointer_does_not_page_through_the_catalogue(
 
 def test_a_keypress_absorbs_a_page_that_arrived(monkeypatch):
     """The GUI thread only exists between callbacks, so a page waits for one."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     pages = {1: make_items(20, "one"), 2: make_items(20, "two")}
     window = _scrollable_home(monkeypatch, pages)
@@ -919,13 +919,13 @@ def test_a_row_that_cannot_page_never_asks(monkeypatch):
 def test_a_row_that_runs_out_stops_being_asked(monkeypatch):
     """TMDB answers past the last page with an empty list rather than an
     error, so an exhausted row would otherwise be re-fetched on every press."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     calls = []
     pages = {1: make_items(20, "one")}
     window = _scrollable_home(monkeypatch, pages)
 
-    from katan import catalog
+    from pinky import catalog
     monkeypatch.setattr(catalog, "load",
                         lambda row_id, page=1, **kw: calls.append(page) or [])
 
@@ -944,7 +944,7 @@ def test_a_row_that_runs_out_stops_being_asked(monkeypatch):
 def test_a_page_that_repeats_what_we_have_is_not_appended(monkeypatch):
     """A trending list reshuffles between requests and hands back items the
     row already holds. Appending those would grow the row with duplicates."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     first = make_items(20, "one")
     window = _scrollable_home(monkeypatch, {1: first, 2: list(first)})
@@ -965,7 +965,7 @@ def test_one_repeated_page_does_not_end_the_row(monkeypatch):
     one duplicate page killed scrolling on the row most likely to be
     scrolled. It steps over the page and carries on.
     """
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     first = make_items(20, "one")
     window = _scrollable_home(monkeypatch, {1: first, 2: list(first),
@@ -987,7 +987,7 @@ def test_one_repeated_page_does_not_end_the_row(monkeypatch):
 
 def test_a_row_that_keeps_repeating_is_eventually_finished(monkeypatch):
     """A list that has genuinely run out should stop being asked."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     first = make_items(20, "one")
     pages = {n: list(first) for n in range(1, 12)}
@@ -1006,7 +1006,7 @@ def test_a_row_that_keeps_repeating_is_eventually_finished(monkeypatch):
 def test_a_row_stops_growing_at_the_ceiling(monkeypatch):
     """"Infinite" on a device with a gigabyte of RAM ends in a killed
     process, so the row has a ceiling."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
     window = _scrollable_home(monkeypatch, {1: make_items(20, "one")})
     window.data[0] = make_items(home_window.MAX_ITEMS, "many")
@@ -1017,8 +1017,8 @@ def test_a_row_stops_growing_at_the_ceiling(monkeypatch):
 
 def test_a_row_that_fails_to_grow_still_works(monkeypatch):
     """One page that will not load is not a reason to break the row."""
-    from katan import catalog
-    from katan.ui import home_window
+    from pinky import catalog
+    from pinky.ui import home_window
 
     window = _scrollable_home(monkeypatch, {1: make_items(20, "one")})
 
@@ -1058,7 +1058,7 @@ def _settle():
     while time.time() < deadline:
         workers = [t for t in threading.enumerate()
                    if t is not threading.current_thread() and t.is_alive()
-                   and t.name == "katan-home-worker"]
+                   and t.name == "pinky-home-worker"]
         if not workers:
             return
         for worker in workers:
@@ -1073,11 +1073,11 @@ def _settle():
 
 class BackAction(object):
     def getId(self):
-        from katan.ui import home_window
+        from pinky.ui import home_window
         return home_window.ACTION_NAV_BACK
 
 
-def test_back_stays_in_katan_by_default(monkeypatch, settings_module):
+def test_back_stays_in_pinky_by_default(monkeypatch, settings_module):
     """Because backing out of the home screen has nowhere good to go.
 
     This add-on is the interface on the box it was written for, so the thing
@@ -1086,16 +1086,16 @@ def test_back_stays_in_katan_by_default(monkeypatch, settings_module):
     """
 
     window = _home_with_rows(monkeypatch, [0])
-    assert settings_module.get_bool("ui.stay_in_katan") is True
+    assert settings_module.get_bool("ui.stay_in_pinky") is True
     window.onAction(BackAction())
     assert window.closed is False
 
 
 def test_old_home_page_cannot_land_after_section_switch(monkeypatch):
     import threading
-    from katan import catalog
-    from katan.meta import trakt_state
-    from katan.ui import home_window
+    from pinky import catalog
+    from pinky.meta import trakt_state
+    from pinky.ui import home_window
     old_item = {"type": "movie", "title": "OLD", "ids": {}, "art": {}}
     new_item = {"type": "movie", "title": "NEW", "ids": {}, "art": {}}
     rows = {"movies": [{"id": "old", "title_id": 0}],
@@ -1134,8 +1134,8 @@ def test_old_home_page_cannot_land_after_section_switch(monkeypatch):
 def test_clearing_short_query_invalidates_inflight_suggestions(monkeypatch):
     import threading
     import time
-    from katan.search import unified
-    from katan.ui import search_window
+    from pinky.search import unified
+    from pinky.ui import search_window
     entered, release = threading.Event(), threading.Event()
     monkeypatch.setattr(search_window.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(unified, "recent", lambda: ["recent"])
@@ -1159,7 +1159,7 @@ def test_clearing_short_query_invalidates_inflight_suggestions(monkeypatch):
 def test_back_still_leaves_when_the_switch_is_off(monkeypatch, settings_module):
     """A door with no handle on the inside is worse than the problem it solves."""
 
-    settings_module.set("ui.stay_in_katan", "false")
+    settings_module.set("ui.stay_in_pinky", "false")
     window = _home_with_rows(monkeypatch, [0])
     window.onAction(BackAction())
     assert window.closed is True
@@ -1169,7 +1169,7 @@ def test_back_stays_put_when_asked(monkeypatch, settings_module):
     """On a box that exists to run this add-on, backing out of the home screen
     lands on the Kodi interface this add-on replaces."""
 
-    settings_module.set("ui.stay_in_katan", "true")
+    settings_module.set("ui.stay_in_pinky", "true")
     window = _home_with_rows(monkeypatch, [0])
     window.onAction(BackAction())
     window.onAction(BackAction())
@@ -1178,12 +1178,12 @@ def test_back_stays_put_when_asked(monkeypatch, settings_module):
 
 def test_staying_put_does_not_break_the_rest_of_the_window(monkeypatch,
                                                             settings_module):
-    """Only the home screen holds on. Everything inside Katan still goes back,
+    """Only the home screen holds on. Everything inside Pinky still goes back,
     and the rest of the window still works - including the way out, which is
     the settings entry at the bottom of the rail."""
-    from katan.ui import home_window
+    from pinky.ui import home_window
 
-    settings_module.set("ui.stay_in_katan", "true")
+    settings_module.set("ui.stay_in_pinky", "true")
     window = _home_with_rows(monkeypatch, [0, 1])
     window.setFocusId(home_window.LIST_BASE)
 
@@ -1198,7 +1198,7 @@ def test_staying_put_does_not_break_the_rest_of_the_window(monkeypatch,
     # opens Tools, and the settings dialog holding the switch is one of its
     # entries. A door with no handle on the inside would be worse than the
     # problem staying put solves, so the handle is what is checked here.
-    from katan.ui import handlers
+    from pinky.ui import handlers
 
     # By what it is, not where it sits: picking index 2 broke the moment an
     # entry above it was removed, and picked the kids toggle instead.
@@ -1224,7 +1224,7 @@ def test_the_rail_button_reaches_everything_tools_offers(monkeypatch,
     for an update were reachable only from the plain directory listing - which
     the dashboard never shows. They were, in effect, not there.
     """
-    from katan.ui import handlers
+    from pinky.ui import handlers
 
     window = _home_with_rows(monkeypatch, [0])
     offered = {}
@@ -1259,7 +1259,7 @@ def test_the_rail_button_reaches_everything_tools_offers(monkeypatch,
 def test_a_group_opens_another_list_rather_than_a_directory(monkeypatch,
                                                             settings_module):
     """Opening the directory would navigate out of the window."""
-    from katan.ui import handlers
+    from pinky.ui import handlers
 
     window = _home_with_rows(monkeypatch, [0])
     seen = []
@@ -1314,7 +1314,7 @@ def test_the_search_button_still_submits(search):
 def test_a_bundled_tmdb_key_is_used_when_the_setting_is_empty(monkeypatch,
                                                               settings_module):
     """Shipping a key is what makes a fresh install show the Films tab."""
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     settings_module.set("tmdb.apikey", "")
     monkeypatch.setattr(tmdb, "BUNDLED_KEY", "shipped-key")
@@ -1324,7 +1324,7 @@ def test_a_bundled_tmdb_key_is_used_when_the_setting_is_empty(monkeypatch,
 
 def test_the_setting_beats_the_bundled_key(monkeypatch, settings_module):
     """Anyone who wants their own quota just enters theirs."""
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     monkeypatch.setattr(tmdb, "BUNDLED_KEY", "shipped-key")
     settings_module.set("tmdb.apikey", "my-own-key")
@@ -1335,22 +1335,22 @@ def test_an_empty_tab_clears_the_hero_it_inherited(monkeypatch):
     """Setting only the title left the previous tab's plot and backdrop, so an
     empty Films tab read "Nothing to show right now" over another show's
     synopsis - which looks like a bug in the thing that is working."""
-    from katan import catalog
+    from pinky import catalog
 
     window = home_window.HomeWindow()
     window._show_hero({"title": "Attack on Titan", "plot": "Centuries ago...",
                        "year": 2013, "rating": 8.4,
                        "art": {"fanart": "aot.jpg"}})
-    assert window.getProperty("katan.hero.plot")
+    assert window.getProperty("pinky.hero.plot")
 
     monkeypatch.setattr(catalog, "enabled_rows", lambda *a, **k: [])
     window.rows = []
     window._focus_first_row()
 
-    assert window.getProperty("katan.hero.title")
-    assert window.getProperty("katan.hero.plot") == ""
-    assert window.getProperty("katan.hero.meta") == ""
-    assert window.getProperty("katan.hero.fanart") == ""
+    assert window.getProperty("pinky.hero.title")
+    assert window.getProperty("pinky.hero.plot") == ""
+    assert window.getProperty("pinky.hero.meta") == ""
+    assert window.getProperty("pinky.hero.fanart") == ""
 
 
 def test_the_shipped_key_actually_reaches_the_catalog(monkeypatch):
@@ -1359,8 +1359,8 @@ def test_the_shipped_key_actually_reaches_the_catalog(monkeypatch):
     The suite blanks BUNDLED_KEY so it can still test the no-key path, so this
     is the one place that puts it back and checks it does what it is for.
     """
-    from katan import catalog
-    from katan.meta import tmdb
+    from pinky import catalog
+    from pinky.meta import tmdb
 
     monkeypatch.setattr(tmdb, "BUNDLED_KEY", "a-shipped-key")
     assert tmdb.has_key(), "the bundled key should apply with nothing configured"
@@ -1377,15 +1377,15 @@ def test_the_home_screen_says_which_version_it_is(monkeypatch, settings_module):
     which is where this window sets every property - a control Kodi has not
     yet decided is visible cannot be addressed.
     """
-    from katan import catalog
-    from katan.meta import tmdb
+    from pinky import catalog
+    from pinky.meta import tmdb
 
     monkeypatch.setattr(tmdb, "has_key", lambda: True)
     monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: [])
     window = home_window.HomeWindow()
     window.prepare()
 
-    shown = window.getProperty("katan.version")
+    shown = window.getProperty("pinky.version")
     assert shown, "the version has to be on screen"
     assert home_window.kodi.addon_version() in shown
 
@@ -1411,8 +1411,8 @@ def test_every_key_on_the_search_keyboard_can_be_reached():
 
     from conftest import ROOT
 
-    skin = os.path.join(ROOT, "plugin.video.katan", "resources", "skins",
-                        "default", "1080i", "katan-search.xml")
+    skin = os.path.join(ROOT, "plugin.video.pinky", "resources", "skins",
+                        "default", "1080i", "pinky-search.xml")
     root = ET.parse(skin).getroot()
 
     buttons = {}

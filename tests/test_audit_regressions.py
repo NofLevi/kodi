@@ -12,7 +12,7 @@ def _auth(settings):
 
 
 def test_cached_dedupe_keeps_one_resolvable_torrent_identity():
-    from katan.sources import model
+    from pinky.sources import model
     first = model.from_release_name(
         "Film.2024.1080p.WEB.x264-GRP.mkv", "one", size=2 * 1024 ** 3,
         info_hash="a" * 40)
@@ -27,8 +27,8 @@ def test_cached_dedupe_keeps_one_resolvable_torrent_identity():
 
 
 def test_unknown_debrid_cache_answer_does_not_erase_indexer_evidence(monkeypatch):
-    from katan.debrid import registry
-    from katan.sources import aggregator
+    from pinky.debrid import registry
+    from pinky.sources import aggregator
     answer = registry.CacheMap()
     monkeypatch.setattr(registry, "cached_map", lambda hashes: answer)
     source = {"hash": "c" * 40, "cached": True, "cached_by": "realdebrid"}
@@ -37,13 +37,13 @@ def test_unknown_debrid_cache_answer_does_not_erase_indexer_evidence(monkeypatch
 
 
 def test_direct_provider_url_does_not_require_debrid():
-    from katan import play
+    from pinky import play
     url = "https://media.example.invalid/video"
     assert play._resolve({"url": url}) == url
 
 
 def test_file_picker_honours_hint_and_skips_bad_irrelevant_rows():
-    from katan.debrid import base
+    from pinky.debrid import base
     files = [
         {"name": "readme.txt", "size": "unknown"},
         {"name": "Wanted.Movie.mkv", "size": 10 ** 9, "id": 10},
@@ -55,7 +55,7 @@ def test_file_picker_honours_hint_and_skips_bad_irrelevant_rows():
 
 
 def test_biggest_setting_really_prefers_biggest(settings_module):
-    from katan.sources import model, scoring
+    from pinky.sources import model, scoring
     settings_module.set_many({
         "sources.size_preference": "biggest", "sources.cached_only": "false",
         "sources.max_size_gb": "80", "sources.min_resolution": "720p",
@@ -71,7 +71,7 @@ def test_biggest_setting_really_prefers_biggest(settings_module):
 
 
 def test_no_id_source_cache_includes_movie_year():
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
     one = aggregator.cache_key({"type": "movie", "title": "Collision",
                                 "year": 1990, "ids": {}})
     two = aggregator.cache_key({"type": "movie", "title": "Collision",
@@ -80,7 +80,7 @@ def test_no_id_source_cache_includes_movie_year():
 
 
 def test_malformed_animetosho_row_does_not_hide_valid_rows(monkeypatch):
-    from katan.sources.providers import animetosho
+    from pinky.sources.providers import animetosho
     payload = [None, {"title": "Show - 01 [1080p].mkv",
                       "info_hash": "f" * 40, "total_size": 10 ** 9,
                       "seeders": 5}]
@@ -90,7 +90,7 @@ def test_malformed_animetosho_row_does_not_hide_valid_rows(monkeypatch):
 
 
 def test_failed_trakt_pull_keeps_activity_dirty(monkeypatch, settings_module):
-    from katan.meta import trakt
+    from pinky.meta import trakt
     _auth(settings_module)
     activity = {"movies": {"watched_at": "2026-01-01T00:00:00Z"}}
     monkeypatch.setattr(trakt, "last_activities", lambda: activity)
@@ -102,8 +102,8 @@ def test_failed_trakt_pull_keeps_activity_dirty(monkeypatch, settings_module):
 
 def test_trakt_sync_paginates_and_requests_episode_progress(
         monkeypatch, settings_module):
-    from katan import cache
-    from katan.meta import trakt, trakt_state
+    from pinky import cache
+    from pinky.meta import trakt, trakt_state
     _auth(settings_module)
     calls = []
 
@@ -126,45 +126,45 @@ def test_trakt_sync_paginates_and_requests_episode_progress(
 
 def _update_zip(path, extra=(), compress=zipfile.ZIP_STORED):
     with zipfile.ZipFile(str(path), "w", compress) as archive:
-        archive.writestr("plugin.video.katan/addon.xml",
-                         '<addon id="plugin.video.katan" version="1.2.3"/>')
-        archive.writestr("plugin.video.katan/main.py", "pass\n")
+        archive.writestr("plugin.video.pinky/addon.xml",
+                         '<addon id="plugin.video.pinky" version="1.2.3"/>')
+        archive.writestr("plugin.video.pinky/main.py", "pass\n")
         for name, data in extra:
             archive.writestr(name, data)
     return str(path)
 
 
 def test_update_rejects_duplicate_canonical_manifest(tmp_path):
-    from katan import updater
+    from pinky import updater
     path = _update_zip(tmp_path / "duplicate.zip", [
-        ("plugin.video.katan/./addon.xml",
+        ("plugin.video.pinky/./addon.xml",
          '<addon id="synthetic.wrong" version="9"/>')])
     assert updater._is_sane_zip(path, expected_version="1.2.3") is False
 
 
 def test_update_rejects_archive_bomb_and_incomplete_release(tmp_path):
-    from katan import updater
+    from pinky import updater
     bomb = _update_zip(tmp_path / "bomb.zip", [
-        ("plugin.video.katan/large.bin", b"A" * (33 * 1024 * 1024))],
+        ("plugin.video.pinky/large.bin", b"A" * (33 * 1024 * 1024))],
         zipfile.ZIP_DEFLATED)
     assert updater._is_sane_zip(bomb, expected_version="1.2.3") is False
     incomplete = tmp_path / "incomplete.zip"
     with zipfile.ZipFile(str(incomplete), "w") as archive:
-        archive.writestr("plugin.video.katan/addon.xml",
-                         '<addon id="plugin.video.katan" version="1.2.3"/>')
+        archive.writestr("plugin.video.pinky/addon.xml",
+                         '<addon id="plugin.video.pinky" version="1.2.3"/>')
     assert updater._is_sane_zip(str(incomplete)) is False
 
 
 def test_malformed_versions_are_not_accepted_by_prefix():
-    from katan import updater
+    from pinky import updater
     assert updater.parse_version("1.2.3trailing") == (0, 0, 0)
     assert updater.parse_version("9" * 5000) == (0, 0, 0)
 
 
 def test_secret_bearing_cache_values_stay_out_of_sqlite(monkeypatch):
-    from katan import cache
-    from katan.sources import aggregator
-    from katan.vod import entitlement, kaltura
+    from pinky import cache
+    from pinky.sources import aggregator
+    from pinky.vod import entitlement, kaltura
 
     signed = "https://cdn.invalid/SYNTH_PATH?sig=SYNTH_SIGNED_VALUE"
     ticket = "hdnea=SYNTH_PERSISTED_TICKET"
@@ -184,7 +184,7 @@ def test_secret_bearing_cache_values_stay_out_of_sqlite(monkeypatch):
 
 
 def test_retry_closes_stream_before_next_attempt(monkeypatch):
-    from katan import http
+    from pinky import http
 
     class Response:
         headers = {}

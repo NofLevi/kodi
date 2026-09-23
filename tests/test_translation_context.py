@@ -8,7 +8,7 @@ marks gender, recovers most of what would otherwise be guesswork.
 """
 import pytest
 
-from katan.subs.ai import context
+from pinky.subs.ai import context
 
 
 MOVIE = {
@@ -99,7 +99,7 @@ def test_translation_candidate_dedupe_is_provider_and_language_scoped():
 
 
 def test_the_prompt_carries_the_cast_when_there_is_one(monkeypatch):
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
 
     sent = []
 
@@ -111,7 +111,7 @@ def test_the_prompt_carries_the_cast_when_there_is_one(monkeypatch):
             return json.dumps({k: "HE" for k in payload})
 
     monkeypatch.setattr(translator, "engine", lambda: Engine())
-    from katan.subs import srt
+    from pinky.subs import srt
     cues = [srt.Cue(1, 0.0, 2.0, "I am tired")]
 
     translator.translate(cues, "he", meta=MOVIE)
@@ -121,7 +121,7 @@ def test_the_prompt_carries_the_cast_when_there_is_one(monkeypatch):
 
 
 def test_the_prompt_omits_the_cast_block_when_there_is_none(monkeypatch):
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
 
     sent = []
 
@@ -133,7 +133,7 @@ def test_the_prompt_omits_the_cast_block_when_there_is_none(monkeypatch):
             return json.dumps({k: "HE" for k in payload})
 
     monkeypatch.setattr(translator, "engine", lambda: Engine())
-    from katan.subs import srt
+    from pinky.subs import srt
     translator.translate([srt.Cue(1, 0.0, 2.0, "hello")], "he", meta=None)
     assert "The people in this scene" not in sent[0]
 

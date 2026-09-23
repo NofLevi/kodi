@@ -21,7 +21,7 @@ from concurrent import futures
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tests", "stubs"))
-sys.path.insert(0, os.path.join(ROOT, "plugin.video.katan", "resources", "lib"))
+sys.path.insert(0, os.path.join(ROOT, "plugin.video.pinky", "resources", "lib"))
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -33,9 +33,9 @@ import xbmcaddon  # noqa: E402
 PROFILE = os.path.join(ROOT, ".kodi-test", "probe-profile")
 if not os.path.isdir(PROFILE):
     os.makedirs(PROFILE)
-xbmcaddon.reset(PROFILE, os.path.join(ROOT, "plugin.video.katan"))
+xbmcaddon.reset(PROFILE, os.path.join(ROOT, "plugin.video.pinky"))
 
-from katan.vod import channels  # noqa: E402
+from pinky.vod import channels  # noqa: E402
 
 TIMEOUT = 12
 WORKERS = 8
@@ -101,7 +101,7 @@ def _stream_kind(url, body):
 
 def update_data(results):
     """Record what worked into the bundled channel list."""
-    path = os.path.join(ROOT, "plugin.video.katan", "resources", "data",
+    path = os.path.join(ROOT, "plugin.video.pinky", "resources", "data",
                         "channels.json")
     with open(path, encoding="utf-8") as handle:
         table = json.load(handle)

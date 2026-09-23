@@ -7,7 +7,7 @@ to swap the row set, and both halves have to hold.
 """
 import pytest
 
-from katan import catalog, kids, settings
+from pinky import catalog, kids, settings
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def kids_on(settings_module):
 
 
 def item(title, genres=(), mpaa="", adult=False):
-    from katan.meta import items
+    from pinky.meta import items
     return items.new_item("movie", title=title, genres=list(genres),
                           mpaa=mpaa, extra={"adult": adult})
 
@@ -131,7 +131,7 @@ def test_peek_still_says_none_when_a_row_was_never_warmed(settings_module):
 
 
 def test_peek_returns_a_list_once_the_row_is_warmed(kids_on):
-    from katan import cache
+    from pinky import cache
     cache.set(catalog.cache_key("trending_movies"),
               [item("Nice", genres=["Family"])], 3600)
     assert catalog.peek("trending_movies") != []
@@ -140,7 +140,7 @@ def test_peek_returns_a_list_once_the_row_is_warmed(kids_on):
 
 def test_a_row_warmed_before_kids_mode_is_still_filtered(kids_on):
     """Turning the mode on must not be defeated by a warm cache."""
-    from katan import cache
+    from pinky import cache
     cache.set(catalog.cache_key("trending_movies"),
               [item("Nasty", genres=["Horror"]), item("Nice", genres=["Family"])],
               3600)
@@ -208,7 +208,7 @@ def test_kids_mode_is_off_by_default():
 
 def test_the_israeli_row_takes_the_broadcasters_own_childrens_section():
     """Kan curates a children's podcast section. That is the signal used."""
-    from katan import catalog
+    from pinky import catalog
 
     found = catalog._kids_israel()
     assert found, "the row should not be empty"
@@ -223,7 +223,7 @@ def test_a_programme_about_children_is_not_a_programme_for_children():
     "הילדים האבודים" into a row for small children - three adult programmes
     that happen to be about children.
     """
-    from katan import catalog
+    from pinky import catalog
 
     titles = [item["title"] for item in catalog._kids_israel()]
     for adult in (u"לא לפני הילדים", u"הילדים האבודים",
@@ -235,7 +235,7 @@ def test_a_three_letter_substring_is_not_a_word():
     """"הופ" for the Hop! channel also matched "הופעה" (performance) and
     "הופקר" (abandoned), which is how a documentary about 7 October reached a
     row for small children."""
-    from katan import catalog
+    from pinky import catalog
 
     assert u"הופ" not in catalog.KIDS_CATEGORY_WORDS
     assert u"הופ" not in catalog.KIDS_CHANNEL_WORDS
@@ -244,7 +244,7 @@ def test_a_three_letter_substring_is_not_a_word():
 
 
 def test_the_row_stays_within_its_limit():
-    from katan import catalog
+    from pinky import catalog
 
     assert len(catalog._kids_israel()) <= catalog.ROW_LIMIT
 
@@ -261,7 +261,7 @@ def test_an_empty_row_is_remembered_as_empty_not_as_unknown(monkeypatch):
     home listing kept offering a row that opens an empty screen - the anime
     row, for as long as AniList has been refusing requests.
     """
-    from katan import catalog
+    from pinky import catalog
 
     row_id = catalog.enabled_row_ids()[0]
     monkeypatch.setitem(catalog.by_id(row_id), "loader", lambda page: [])
@@ -279,7 +279,7 @@ def test_an_empty_row_is_forgotten_again_quickly(monkeypatch):
     five minutes, so remembering "nothing here" for ten would have made it
     slower to notice an empty row than a full one.
     """
-    from katan import cache, catalog
+    from pinky import cache, catalog
 
     assert catalog.TTL_EMPTY <= 15 * 60
 
@@ -305,7 +305,7 @@ def test_the_service_does_not_refetch_rows_that_are_still_fresh(monkeypatch):
     stale. On a device with a few hundred megabytes for Kodi that is a burst
     worth not having.
     """
-    from katan import background, catalog
+    from pinky import background, catalog
 
     calls = []
     monkeypatch.setattr(catalog, "warm",
@@ -320,7 +320,7 @@ def test_the_service_does_not_refetch_rows_that_are_still_fresh(monkeypatch):
 
 def test_a_settings_change_still_refills_everything(monkeypatch):
     """invalidate() empties the cache, so the unforced warm refills it."""
-    from katan import background, catalog
+    from pinky import background, catalog
 
     cleared = []
     monkeypatch.setattr(catalog, "invalidate",
@@ -334,13 +334,13 @@ def test_a_settings_change_still_refills_everything(monkeypatch):
 
 
 # --------------------------------------------------------------------------
-# opening Katan when Kodi starts
+# opening Pinky when Kodi starts
 # --------------------------------------------------------------------------
 
 
 def _kiosk(monkeypatch, settings_module, on_kodi_home=True, playing=False,
            player_on_screen=False, modal=False):
-    """A service with "stay in Katan" on and Kodi's state under control.
+    """A service with "stay in Pinky" on and Kodi's state under control.
 
     `playing` and `player_on_screen` are separate on purpose: audio can carry
     on behind Kodi's home screen, and conflating the two is what stopped this
@@ -348,9 +348,9 @@ def _kiosk(monkeypatch, settings_module, on_kodi_home=True, playing=False,
     whatever window is underneath - Kodi's home stays "active" beneath it.
     """
     import xbmc
-    from katan import background, kodi
+    from pinky import background, kodi
 
-    settings_module.set("ui.stay_in_katan", "true")
+    settings_module.set("ui.stay_in_pinky", "true")
     windows = {
         "Window.IsActive(home)": on_kodi_home,
         "Window.IsActive(fullscreenvideo)": player_on_screen,
@@ -370,7 +370,7 @@ def test_a_dialog_over_kodis_home_is_not_somebody_leaving(monkeypatch,
                                                          settings_module):
     """Kodi reports home as active under a dialog drawn over it.
 
-    So this relaunched Katan, Kodi refused to open it over the modal, home
+    So this relaunched Pinky, Kodi refused to open it over the modal, home
     stayed active, and the next pass tried again - every 2.5 seconds for as
     long as the dialog stayed up. One run left 135 plugin invocations.
     """
@@ -378,35 +378,35 @@ def test_a_dialog_over_kodis_home_is_not_somebody_leaving(monkeypatch,
     service, ran = _kiosk(monkeypatch, settings_module, modal=True)
     for _ in range(10):
         service.left_at = time.time() - 10
-        service.keep_katan_open()
-    assert not ran, "relaunched Katan under a dialog it cannot open over"
+        service.keep_pinky_open()
+    assert not ran, "relaunched Pinky under a dialog it cannot open over"
     assert service.left_at == 0.0, \
         "the grace period starts over, so closing the dialog is not leaving"
 
 
-def test_landing_on_kodis_home_screen_brings_katan_back(monkeypatch,
+def test_landing_on_kodis_home_screen_brings_pinky_back(monkeypatch,
                                                         settings_module):
-    """"Stay in Katan" only ever held the home window's back button, and that
+    """"Stay in Pinky" only ever held the home window's back button, and that
     is not where the doors are: almost everything else is a plain Kodi
     directory, and two presses of back from one lands on Kodi's home."""
     import time
     service, ran = _kiosk(monkeypatch, settings_module)
 
-    service.keep_katan_open()
+    service.keep_pinky_open()
     assert not ran, "not on the first sighting - Kodi's home flickers"
 
     service.left_at = time.time() - 10      # it has been there a while
-    service.keep_katan_open()
-    assert ran and "plugin.video.katan" in ran[0]
+    service.keep_pinky_open()
+    assert ran and "plugin.video.pinky" in ran[0]
 
 
 def test_it_does_nothing_when_the_switch_is_off(monkeypatch, settings_module):
     """Nobody's Kodi is taken over unless they asked for it."""
     import time
     service, ran = _kiosk(monkeypatch, settings_module)
-    settings_module.set("ui.stay_in_katan", "false")
+    settings_module.set("ui.stay_in_pinky", "false")
     service.left_at = time.time() - 10
-    service.keep_katan_open()
+    service.keep_pinky_open()
     assert not ran
 
 
@@ -417,11 +417,11 @@ def test_it_does_not_interrupt_the_player_on_screen(monkeypatch,
     service, ran = _kiosk(monkeypatch, settings_module, on_kodi_home=False,
                           playing=True, player_on_screen=True)
     service.left_at = time.time() - 10
-    service.keep_katan_open()
+    service.keep_pinky_open()
     assert not ran
 
 
-def test_audio_playing_behind_kodis_home_still_brings_katan_back(
+def test_audio_playing_behind_kodis_home_still_brings_pinky_back(
         monkeypatch, settings_module):
     """The case this was disabled for, and the one where it is needed most.
 
@@ -436,8 +436,8 @@ def test_audio_playing_behind_kodis_home_still_brings_katan_back(
     service, ran = _kiosk(monkeypatch, settings_module, on_kodi_home=True,
                           playing=True, player_on_screen=False)
     service.left_at = time.time() - 10
-    service.keep_katan_open()
-    assert ran and "plugin.video.katan" in ran[0],         "stranded on Kodi's home because something was still playing"
+    service.keep_pinky_open()
+    assert ran and "plugin.video.pinky" in ran[0],         "stranded on Kodi's home because something was still playing"
 
 
 def test_being_anywhere_else_is_left_alone(monkeypatch, settings_module):
@@ -446,14 +446,14 @@ def test_being_anywhere_else_is_left_alone(monkeypatch, settings_module):
     import time
     service, ran = _kiosk(monkeypatch, settings_module, on_kodi_home=False)
     service.left_at = time.time() - 10
-    service.keep_katan_open()
+    service.keep_pinky_open()
     assert not ran
     assert service.left_at == 0.0, "the timer resets on the way past"
 
 
 def test_kodi_is_not_taken_over_unless_asked(monkeypatch, settings_module):
     """Off by default. Somebody else's home screen is not ours to claim."""
-    from katan import background, kodi
+    from pinky import background, kodi
 
     assert settings_module.get_bool("ui.start_on_boot") is False
     ran = []
@@ -466,7 +466,7 @@ def _asked_to_open(monkeypatch, settings_module, home_active=True,
                    playing=False):
     """A service told to open on boot, with Kodi's state under control."""
     import xbmc
-    from katan import background, kodi
+    from pinky import background, kodi
 
     settings_module.set("ui.start_on_boot", "true")
     monkeypatch.setattr(xbmc, "getCondVisibility", lambda condition:
@@ -477,7 +477,7 @@ def _asked_to_open(monkeypatch, settings_module, home_active=True,
     return background.Service(), ran
 
 
-def test_it_opens_katan_when_asked(monkeypatch, settings_module):
+def test_it_opens_pinky_when_asked(monkeypatch, settings_module):
     service, ran = _asked_to_open(monkeypatch, settings_module)
 
     # The settle: it does not fire the instant Kodi's home appears.
@@ -487,9 +487,9 @@ def test_it_opens_katan_when_asked(monkeypatch, settings_module):
 
     assert service.open_on_boot(now + 5) is True
     assert len(ran) == 1
-    assert "plugin://plugin.video.katan/" in ran[0]
+    assert "plugin://plugin.video.pinky/" in ran[0]
 
-    # The intent behind the old ",return" check: back should leave Katan
+    # The intent behind the old ",return" check: back should leave Pinky
     # rather than unwind a stack of plugin folders. RunPlugin satisfies it by
     # never building a stack - the window is not a directory, and routing
     # through the video browser to reach it left an empty plugin folder behind
@@ -514,8 +514,8 @@ def test_it_waits_for_kodis_home_screen_rather_than_a_clock(monkeypatch,
 
 def test_it_opens_anyway_if_that_home_screen_never_comes(monkeypatch,
                                                          settings_module):
-    """A skin that starts somewhere else must not mean Katan never opens."""
-    from katan import background
+    """A skin that starts somewhere else must not mean Pinky never opens."""
+    from pinky import background
 
     service, ran = _asked_to_open(monkeypatch, settings_module,
                                   home_active=False)
@@ -532,7 +532,7 @@ def test_it_does_not_interrupt_something_already_playing(monkeypatch,
 
 
 def test_it_happens_once_a_session(monkeypatch, settings_module):
-    """Backing out of Katan must leave you in Kodi, not bounce you back in.
+    """Backing out of Pinky must leave you in Kodi, not bounce you back in.
 
     The loop stops asking as soon as open_on_boot returns True, and that is
     the only thing keeping it to once.
@@ -552,8 +552,8 @@ def test_the_tools_entry_says_what_pressing_it_will_do(settings_module):
     out was to press it - which replaces the whole catalogue with the kid-safe
     one and, once a PIN is set, wants the PIN to undo.
     """
-    from katan import kids, kodi
-    from katan.ui import handlers
+    from pinky import kids, kodi
+    from pinky.ui import handlers
 
     def entry():
         return [string_id for string_id, url, _group in handlers.tool_entries()
@@ -578,8 +578,8 @@ def test_switching_kids_mode_needs_no_pin(settings_module):
     - done several times an evening while setting the thing up - wanted a
     password nobody had set.
     """
-    from katan import kids
-    from katan.ui import handlers
+    from pinky import kids
+    from pinky.ui import handlers
 
     kids.set_pin("1234")
     kids.turn_on()
@@ -593,7 +593,7 @@ def test_switching_kids_mode_needs_no_pin(settings_module):
 
 def test_the_pin_still_guards_turn_off_when_it_is_asked_for(settings_module):
     """Only the menu skips it. The check itself is untouched."""
-    from katan import kids
+    from pinky import kids
 
     kids.set_pin("1234")
     kids.turn_on()
@@ -609,7 +609,7 @@ def test_the_home_screen_redraws_when_kids_mode_changes(monkeypatch,
     """Otherwise every row on screen is from the catalogue that no longer
     applies, and kodi.refresh_container cannot help - it refreshes a
     directory, and this is a window."""
-    from katan.ui import handlers, home_window
+    from pinky.ui import handlers, home_window
 
     window = home_window.HomeWindow()
     window.rows = [{"id": "r0", "title_id": 0}]

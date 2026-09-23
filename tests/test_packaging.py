@@ -27,10 +27,10 @@ def built(tmp_path_factory):
     # first release this project ever cut broke five packaging tests, which is
     # exactly the moment you least want the suite lying to you.
     import xml.etree.ElementTree as ET
-    version = ET.parse(os.path.join(ROOT, "plugin.video.katan",
+    version = ET.parse(os.path.join(ROOT, "plugin.video.pinky",
                                     "addon.xml")).getroot().get("version")
-    path = os.path.join(out, "zips", "plugin.video.katan",
-                        "plugin.video.katan-%s.zip" % version)
+    path = os.path.join(out, "zips", "plugin.video.pinky",
+                        "plugin.video.pinky-%s.zip" % version)
     assert os.path.isfile(path), result.stdout
     return path
 
@@ -53,22 +53,22 @@ def test_the_zip_is_rooted_at_the_addon_id(built):
     """Kodi refuses an archive that does not unpack into <addon.id>/."""
     with zipfile.ZipFile(built) as archive:
         roots = {name.split("/")[0] for name in archive.namelist()}
-    assert roots == {"plugin.video.katan"}
+    assert roots == {"plugin.video.pinky"}
 
 
 def test_the_zip_carries_everything_the_addon_needs(built):
     with zipfile.ZipFile(built) as archive:
         names = set(archive.namelist())
     for required in (
-            "plugin.video.katan/addon.xml",
-            "plugin.video.katan/main.py",
-            "plugin.video.katan/service.py",
-            "plugin.video.katan/subtitles.py",
-            "plugin.video.katan/resources/settings.xml",
-            "plugin.video.katan/resources/data/channels.json",
-            "plugin.video.katan/resources/data/vod_series.json",
-            "plugin.video.katan/resources/skins/default/1080i/katan-home.xml",
-            "plugin.video.katan/resources/language/resource.language.he_il/strings.po",
+            "plugin.video.pinky/addon.xml",
+            "plugin.video.pinky/main.py",
+            "plugin.video.pinky/service.py",
+            "plugin.video.pinky/subtitles.py",
+            "plugin.video.pinky/resources/settings.xml",
+            "plugin.video.pinky/resources/data/channels.json",
+            "plugin.video.pinky/resources/data/vod_series.json",
+            "plugin.video.pinky/resources/skins/default/1080i/pinky-home.xml",
+            "plugin.video.pinky/resources/language/resource.language.he_il/strings.po",
     ):
         assert required in names, "missing %s" % required
 
@@ -91,8 +91,8 @@ def test_the_repository_index_lists_both_addons(built):
     index = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(built))),
                          "addons.xml")
     text = open(index, encoding="utf-8").read()
-    assert 'id="plugin.video.katan"' in text
-    assert 'id="repository.katan"' in text
+    assert 'id="plugin.video.pinky"' in text
+    assert 'id="repository.pinky"' in text
     checksum = open(index + ".md5", encoding="utf-8").read().strip()
     import hashlib
     assert checksum == hashlib.md5(text.encode("utf-8")).hexdigest()

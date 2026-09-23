@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from katan.subs import auto, srt
+from pinky.subs import auto, srt
 
 
 MOVIE = {
@@ -124,7 +124,7 @@ def test_a_weak_hebrew_subtitle_comes_before_a_translation(
     pipeline["downloads"][weak] = srt_bytes(text="weak")
     pipeline["downloads"][english] = srt_bytes(text="english")
 
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
     monkeypatch.setattr(translator, "translate", lambda *a, **k: pytest.fail(
         "translated while a Hebrew subtitle existed"))
@@ -288,7 +288,7 @@ def test_consensus_failure_tries_another_accepted_target_before_translation(
         english: srt_bytes(text="english"), spanish: srt_bytes(text="spanish"),
     })
 
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
     monkeypatch.setattr(
         translator, "translate",
@@ -323,7 +323,7 @@ def test_english_is_translated_when_no_hebrew_is_good_enough(pipeline, monkeypat
     pipeline["candidates"] = [candidate(english, language="en")]
     pipeline["downloads"][english] = srt_bytes(count=12, text="english")
 
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
 
     def fake_translate(cues, language, on_progress=None, meta=None, **kwargs):
         return [srt.Cue(c.index, c.start, c.end, "HE " + c.text) for c in cues]
@@ -352,8 +352,8 @@ def test_automatic_search_keeps_primary_language_request_bounded(pipeline):
 def test_optional_timing_evidence_is_one_non_hash_language(
         monkeypatch, settings_module):
     """The fallback cannot repeat six serial REST requests behind one deadline."""
-    from katan.subs import auto
-    from katan.subs.providers import opensubtitles_rest
+    from pinky.subs import auto
+    from pinky.subs.providers import opensubtitles_rest
 
     calls = []
 
@@ -429,7 +429,7 @@ def test_hash_reference_rejects_an_unrelated_target_and_tries_next(
         candidate(reference, language="en", moviehash="abc", hash_match=True),
     ]
     import random
-    from katan.subs import sync
+    from pinky.subs import sync
     rng = random.Random(99)
     unrelated = []
     position = 0.0
@@ -503,7 +503,7 @@ def test_episode_and_movie_names_do_not_collide():
 
 def test_failed_partial_translation_is_removed_from_player(
         monkeypatch, settings_module):
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
 
     settings_module.set("subs.ai.enabled", "true")
     cues = srt.parse(srt.decode(srt_bytes(count=4)))
@@ -534,7 +534,7 @@ def test_a_partial_translation_reaches_the_player_while_it_runs(pipeline,
     pipeline["candidates"] = [candidate(english, language="en")]
     pipeline["downloads"][english] = srt_bytes(count=24, text="english")
 
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
 
     def fake_translate(cues, language, on_progress=None, meta=None, **kwargs):
         translated = [srt.Cue(c.index, c.start, c.end, "HE " + c.text)
@@ -589,7 +589,7 @@ def test_a_gender_marking_language_is_preferred_as_the_translation_source(
     pipeline["downloads"]["english"] = srt_bytes(text="english")
     pipeline["downloads"]["spanish"] = srt_bytes(text="spanish")
 
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
     monkeypatch.setattr(translator, "translate",
                         lambda cues, language, on_progress=None, meta=None, **kwargs: cues)
@@ -602,7 +602,7 @@ def test_the_automatic_path_prefers_an_embedded_track(monkeypatch,
                                                       settings_module):
     """The best case costs nothing: the file already carries the subtitle."""
     import xbmc
-    from katan.subs import auto, embedded
+    from pinky.subs import auto, embedded
 
     settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en",
                               "subs.embedded_first": "true"})
@@ -638,7 +638,7 @@ def test_the_automatic_path_prefers_an_embedded_track(monkeypatch,
 def test_automatic_search_claims_translation_before_provider_work(
         monkeypatch, settings_module):
     """A later manual request must supersede auto search, not be replaced by it."""
-    from katan.subs.ai import coordinator
+    from pinky.subs.ai import coordinator
 
     settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en",
                               "subs.embedded_first": "false"})
@@ -662,7 +662,7 @@ def test_a_forced_embedded_track_is_not_used_automatically(monkeypatch,
                                                            settings_module):
     """Forced tracks caption signs, not dialogue, so they are not a subtitle."""
     import xbmc
-    from katan.subs import auto, embedded
+    from pinky.subs import auto, embedded
 
     settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en"})
     xbmc.JSONRPC_RESULTS["Player.GetProperties"] = {"subtitles": [
@@ -698,14 +698,14 @@ def test_the_automatic_path_asks_for_the_language_to_be_checked(pipeline):
 def test_the_chooser_does_not_second_guess_the_viewer(monkeypatch):
     """They picked that entry. Refusing it would be worse than honouring a
     bad choice they can see and change."""
-    from katan.subs import service
+    from pinky.subs import service
 
     seen = []
     monkeypatch.setattr(auto, "download_candidate",
                         lambda cand, expect_language=None:
                         seen.append(expect_language) or [])
     monkeypatch.setattr(service, "_current_meta", lambda: dict(MOVIE))
-    service.dispatch(["plugin://plugin.video.katan/", "1",
+    service.dispatch(["plugin://plugin.video.pinky/", "1",
                       "?action=download&provider=wizdom&id=x&language=he"])
     assert seen == [None]
 
@@ -713,7 +713,7 @@ def test_the_chooser_does_not_second_guess_the_viewer(monkeypatch):
 def test_an_english_file_labelled_hebrew_is_refused(monkeypatch,
                                                     settings_module):
     """The whole point of the check, at the level it actually runs."""
-    from katan.subs import auto as real
+    from pinky.subs import auto as real
 
     english = (b"1\r\n00:00:01,000 --> 00:00:03,000\r\n"
                b"Hello there, how are you today?\r\n\r\n")
@@ -729,7 +729,7 @@ def test_an_english_file_labelled_hebrew_is_refused(monkeypatch,
 
 
 def test_an_english_file_labelled_japanese_is_refused(monkeypatch):
-    from katan.subs import auto as real
+    from pinky.subs import auto as real
 
     english = srt.dump([srt.Cue(1, 1.0, 3.0,
                                 "Hello there, how are you today?")]).encode("utf-8")
@@ -743,7 +743,7 @@ def test_an_english_file_labelled_japanese_is_refused(monkeypatch):
 
 
 def test_latin_script_languages_are_not_confused_with_english(monkeypatch):
-    from katan.subs import auto as real
+    from pinky.subs import auto as real
 
     french = srt.dump([srt.Cue(1, 1.0, 3.0,
                                "Bonjour, comment allez-vous aujourd'hui?")]).encode("utf-8")
@@ -766,7 +766,7 @@ def test_the_same_subtitle_arriving_twice_is_counted_once(monkeypatch,
     candidates on a real search - so one extra candidate is one extra
     comparison per source, on a projector with a gigabyte of RAM.
     """
-    from katan.subs import auto
+    from pinky.subs import auto
 
     same = {"provider": "opensubtitles_rest", "language": "he",
             "release": "Silo.S01E01.1080p-PSA", "download": "https://dl/1"}
@@ -785,7 +785,7 @@ def test_the_same_subtitle_arriving_twice_is_counted_once(monkeypatch,
 
 
 def test_keyed_opensubtitles_receives_stream_size(monkeypatch, settings_module):
-    from katan.subs import auto
+    from pinky.subs import auto
     calls = []
 
     class Fake(object):
@@ -802,7 +802,7 @@ def test_keyed_opensubtitles_receives_stream_size(monkeypatch, settings_module):
 
 def test_candidate_dedupe_is_scoped_by_provider_and_language(
         monkeypatch, settings_module):
-    from katan.subs import auto
+    from pinky.subs import auto
     rows = [
         {"provider": "a", "language": "en", "release": "a-en",
          "download": 123},
@@ -825,7 +825,7 @@ def test_candidate_dedupe_is_scoped_by_provider_and_language(
 
 def test_a_candidate_with_no_link_is_still_kept(monkeypatch, settings_module):
     """Deduping on a missing key would collapse them all into one."""
-    from katan.subs import auto
+    from pinky.subs import auto
 
     rows = [{"provider": "x", "language": "he", "release": "a", "download": ""},
             {"provider": "x", "language": "he", "release": "b", "download": ""}]
@@ -842,7 +842,7 @@ def test_a_candidate_with_no_link_is_still_kept(monkeypatch, settings_module):
 
 def test_wide_search_splits_serial_rest_languages_into_independent_tasks(
         monkeypatch, settings_module):
-    from katan.subs import auto
+    from pinky.subs import auto
 
     calls = []
 
@@ -881,7 +881,7 @@ def test_the_hash_is_computed_alongside_the_search_not_before_it(monkeypatch,
     three that need it wait at all.
     """
     import time
-    from katan.subs import auto, hasher
+    from pinky.subs import auto, hasher
 
     settings_module.set("subs.hash_match", True)
 
@@ -912,7 +912,7 @@ def test_the_hash_is_computed_alongside_the_search_not_before_it(monkeypatch,
 def test_a_provider_that_wants_the_hash_still_gets_it(monkeypatch,
                                                       settings_module):
     """Overlapping must not mean asking without the thing that was computed."""
-    from katan.subs import auto, hasher
+    from pinky.subs import auto, hasher
 
     settings_module.set("subs.hash_match", True)
     monkeypatch.setattr(hasher, "hash_stream",
@@ -935,7 +935,7 @@ def test_a_provider_that_wants_the_hash_still_gets_it(monkeypatch,
 
 def test_a_stream_that_cannot_be_hashed_does_not_hold_the_search_up():
     """No stream url, no thread, no wait - the common case for local files."""
-    from katan.subs import auto
+    from pinky.subs import auto
     assert auto.video_hash_later({"title": "Dune"})() == ""
 
 
@@ -950,7 +950,7 @@ class _FakeProvider(object):
 
 
 def test_translation_sources_are_not_searched_while_hebrew_fits(pipeline, monkeypatch):
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
     name = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
     pipeline["candidates"] = [candidate(name)]
@@ -961,7 +961,7 @@ def test_translation_sources_are_not_searched_while_hebrew_fits(pipeline, monkey
 
 
 def test_translation_sources_are_searched_once_no_hebrew_exists(pipeline, monkeypatch):
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
     name = "Dune.Part.Two.2024.2160p.BluRay.x265-OTHER"
     pipeline["candidates"] = [candidate(name, language="en")]

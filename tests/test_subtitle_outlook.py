@@ -7,7 +7,7 @@ until now the picker said nothing about it at all.
 """
 import pytest
 
-from katan.subs import outlook
+from pinky.subs import outlook
 
 
 def source(title, info_hash="a" * 40, **extra):
@@ -148,7 +148,7 @@ def test_one_candidate_is_scored_freshly_for_every_source():
 
 
 def test_every_source_gets_an_answer(monkeypatch):
-    from katan.subs import auto
+    from pinky.subs import auto
 
     monkeypatch.setattr(auto, "search_candidates",
                         lambda meta, languages, **kw: _candidates("A.Film"))
@@ -161,7 +161,7 @@ def test_every_source_gets_an_answer(monkeypatch):
 def test_a_subtitle_search_that_fails_leaves_the_picker_alone(monkeypatch):
     """This decorates a list that is already useful. It must never be the
     reason the list does not appear."""
-    from katan.subs import auto
+    from pinky.subs import auto
 
     def explode(meta, languages, **kw):
         raise RuntimeError("the provider went away")
@@ -174,7 +174,7 @@ def test_a_subtitle_search_that_fails_leaves_the_picker_alone(monkeypatch):
 
 def test_the_answer_is_remembered(monkeypatch):
     """One search covers every source, and covers the next open too."""
-    from katan.subs import auto
+    from pinky.subs import auto
 
     calls = []
     monkeypatch.setattr(auto, "search_candidates",
@@ -187,7 +187,7 @@ def test_the_answer_is_remembered(monkeypatch):
 
 
 def test_no_sources_asks_nothing(monkeypatch):
-    from katan.subs import auto
+    from pinky.subs import auto
 
     monkeypatch.setattr(auto, "search_candidates",
                         lambda *a, **k: pytest.fail("should not have asked"))
@@ -201,7 +201,7 @@ def test_no_sources_asks_nothing(monkeypatch):
 
 @pytest.fixture
 def ai_ready(monkeypatch):
-    from katan.subs.ai import translator
+    from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: True)
 
 
@@ -237,8 +237,8 @@ def test_an_ai_subtitle_outranks_hebrew_that_does_not_fit_and_not_hebrew_that_do
 
 
 def test_the_picker_says_the_subtitle_will_be_made_by_ai():
-    from katan import kodi
-    from katan.ui import sources_window
+    from pinky import kodi
+    from pinky.ui import sources_window
     line = sources_window._subtitle_badge(
         {"subs_kind": outlook.AI, "subs_score": 92})
     assert line == kodi.localize(32535, 92)
@@ -248,8 +248,8 @@ def test_the_picker_says_the_subtitle_will_be_made_by_ai():
 def test_translation_languages_are_arabic_english_and_the_shows_own(monkeypatch):
     """A Turkish drama is asked for Turkish; an American film is not asked for
     Korean. Every language is another request per provider."""
-    from katan.subs import auto
-    from katan.subs.ai import translator
+    from pinky.subs import auto
+    from pinky.subs.ai import translator
 
     monkeypatch.setattr(translator, "available", lambda: True)
     languages = auto.translation_source_languages
@@ -261,8 +261,8 @@ def test_translation_languages_are_arabic_english_and_the_shows_own(monkeypatch)
 
 
 def test_nothing_extra_is_asked_without_a_translation_engine(monkeypatch):
-    from katan.subs import auto
-    from katan.subs.ai import translator
+    from pinky.subs import auto
+    from pinky.subs.ai import translator
 
     monkeypatch.setattr(translator, "available", lambda: False)
     assert auto.translation_source_languages({"original_language": "tr"}) == []

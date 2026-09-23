@@ -22,7 +22,7 @@ import tracemalloc
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-ADDON = os.path.join(ROOT, "plugin.video.katan")
+ADDON = os.path.join(ROOT, "plugin.video.pinky")
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 sys.path.insert(0, os.path.join(ROOT, "tests", "stubs"))
 sys.path.insert(0, os.path.join(ADDON, "resources", "lib"))
@@ -38,7 +38,7 @@ def say(text):
 def boot():
     import tempfile
     import xbmcaddon  # noqa: F401
-    from katan import kodi, settings
+    from pinky import kodi, settings
     kodi.profile_path = lambda: tempfile.mkdtemp(prefix="katan-bench-")
     settings.set("subs.languages", "he,en")
     settings.set("sources.max_resolution", "2160p")
@@ -66,7 +66,7 @@ NAMES = [
 
 def sources(count=240):
     """A source list the size a real search returns."""
-    from katan.sources import model
+    from pinky.sources import model
     out = []
     for index in range(count):
         name = NAMES[index % len(NAMES)]
@@ -84,7 +84,7 @@ def subtitle_candidates(count=32):
 
 
 def cues(count=1400):
-    from katan.subs import srt
+    from pinky.subs import srt
     return [srt.Cue(i + 1, i * 4.0, i * 4.0 + 2.5, "line %d" % i)
             for i in range(count)]
 
@@ -95,7 +95,7 @@ def cues(count=1400):
 
 
 def case_parse():
-    from katan.utils import release
+    from pinky.utils import release
     names = [n + str(i) for i in range(40) for n in NAMES]
 
     def run():
@@ -105,7 +105,7 @@ def case_parse():
 
 
 def case_dedupe():
-    from katan.sources import model
+    from pinky.sources import model
     raw = sources(240) + sources(240)
 
     def run():
@@ -114,7 +114,7 @@ def case_dedupe():
 
 
 def case_rank():
-    from katan.sources import scoring
+    from pinky.sources import scoring
     found = sources(240)
 
     def run():
@@ -124,7 +124,7 @@ def case_rank():
 
 def case_outlook():
     """The one that scales badly: every source against every candidate."""
-    from katan.subs import outlook
+    from pinky.subs import outlook
     found = sources(240)
     candidates = subtitle_candidates(32)
     meta = {"type": "movie", "ids": {"tmdb": 603}, "title": "The Matrix",
@@ -136,7 +136,7 @@ def case_outlook():
 
 
 def case_matcher():
-    from katan.subs import matcher
+    from pinky.subs import matcher
     candidates = subtitle_candidates(32) * 8
     target = matcher.target_from({"type": "movie",
                                   "source": {"release": NAMES[0]}})
@@ -147,7 +147,7 @@ def case_matcher():
 
 
 def case_srt():
-    from katan.subs import srt
+    from pinky.subs import srt
     text = srt.dump(cues(1400))
 
     def run():
@@ -156,7 +156,7 @@ def case_srt():
 
 
 def case_sync():
-    from katan.subs import sync
+    from pinky.subs import sync
     reference = cues(1400)
     shifted = [type(c)(c.index, c.start + 2.5, c.end + 2.5, c.text)
                for c in reference]
@@ -174,8 +174,8 @@ def case_sync_on_kodis_python():
     the fallback, which is the honest figure - and it is the one that was
     thirty times worse than the other line in this table.
     """
-    from katan.subs import sync
-    from katan.subs import srt
+    from pinky.subs import sync
+    from pinky.subs import srt
 
     reference = cues(1400)
     # A different rhythm, so nothing lines up: this is the case a refusal
@@ -199,7 +199,7 @@ def case_sync_on_kodis_python():
 
 
 def case_cache():
-    from katan import cache
+    from pinky import cache
     payload = [{"ids": {"tmdb": i}, "title": "Item %d" % i,
                 "art": {"poster": "http://x/%d.jpg" % i}} for i in range(20)]
 

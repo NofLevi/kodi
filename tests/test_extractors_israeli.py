@@ -7,9 +7,9 @@ Hebrew as escape sequences, and an archive addressed by hour rather than by id.
 
 import pytest
 
-from katan import http
-from katan.vod import extractors
-from katan.vod.extractors import now14, radio891, sport1
+from pinky import http
+from pinky.vod import extractors
+from pinky.vod.extractors import now14, radio891, sport1
 
 
 class Response(object):
@@ -236,7 +236,7 @@ def test_891fm_gives_up_on_a_page_with_no_schedule(monkeypatch):
 
 def test_every_catalogue_broadcaster_now_has_an_extractor():
     """The catalogue promised seven broadcasters and delivered two."""
-    from katan.vod import library
+    from pinky.vod import library
     listed = {name for name, _count in library.modules()}
     missing = listed - set(extractors.supported())
     assert not missing, "no extractor for %s" % sorted(missing)

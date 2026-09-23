@@ -6,9 +6,9 @@ by itself and a list of eight releases appearing.
 """
 import pytest
 
-from katan import kodi, play
-from katan.debrid import registry
-from katan.meta import tmdb
+from pinky import kodi, play
+from pinky.debrid import registry
+from pinky.meta import tmdb
 
 
 def source(title, info_hash, cached_by="torbox", **extra):
@@ -101,7 +101,7 @@ def test_the_context_menu_forces_the_picker(film, monkeypatch, settings_module):
     """"Choose a source" must never quietly autoplay instead."""
     settings_module.set("sources.autoplay", "true")
     asked = []
-    import katan.ui.sources_window as window
+    import pinky.ui.sources_window as window
     monkeypatch.setattr(window, "pick_source",
                         lambda sources, meta: asked.append(sources) or sources[1])
 
@@ -112,14 +112,14 @@ def test_the_context_menu_forces_the_picker(film, monkeypatch, settings_module):
 
 def test_autoplay_off_opens_the_picker(film, monkeypatch, settings_module):
     settings_module.set("sources.autoplay", "false")
-    import katan.ui.sources_window as window
+    import pinky.ui.sources_window as window
     monkeypatch.setattr(window, "pick_source", lambda sources, meta: sources[1])
     assert play._choose(SOURCES, {}, force_picker=False) is SOURCES[1]
 
 
 def test_a_cancelled_picker_plays_nothing(film, monkeypatch, settings_module):
     settings_module.set("sources.autoplay", "false")
-    import katan.ui.sources_window as window
+    import pinky.ui.sources_window as window
     monkeypatch.setattr(window, "pick_source", lambda sources, meta: None)
     assert play._choose(SOURCES, {}, force_picker=False) is None
 
@@ -127,17 +127,17 @@ def test_a_cancelled_picker_plays_nothing(film, monkeypatch, settings_module):
 def test_custom_window_play_carries_the_resume_list_item(monkeypatch):
     """Plugin URLs launched outside a directory must retain StartOffset."""
     import xbmc
-    from katan.ui import listing
+    from pinky.ui import listing
 
     marker = object()
     meta = {"type": "movie", "title": "A Film", "ids": {}, "art": {}}
     del xbmc.Player.PLAYED[:]
     monkeypatch.setattr(listing, "make_list_item", lambda item: marker)
 
-    kodi.play_media("plugin://plugin.video.katan/play", meta)
+    kodi.play_media("plugin://plugin.video.pinky/play", meta)
 
     assert xbmc.Player.PLAYED == [
-        (("plugin://plugin.video.katan/play", marker), {})]
+        (("plugin://plugin.video.pinky/play", marker), {})]
 
 
 # --------------------------------------------------------------------------
@@ -267,14 +267,14 @@ def test_no_debrid_account_says_so(film, spoken, settings_module):
 
 
 def test_no_sources_found_says_so(film, spoken, monkeypatch):
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
     monkeypatch.setattr(aggregator, "find", lambda meta, **kw: [])
     play.play(-1, {"type": "movie", "tmdb": "278"})
     assert spoken
 
 
 def test_a_source_that_will_not_resolve_says_so(film, spoken, monkeypatch):
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
     monkeypatch.setattr(aggregator, "find", lambda meta, **kw: list(SOURCES))
     monkeypatch.setattr(play, "_resolve", lambda source: "")
     play.play(-1, {"type": "movie", "tmdb": "278"})
@@ -292,8 +292,8 @@ def _season_of(count):
 
 def test_the_next_episode_is_warmed(monkeypatch, film):
     asked = []
-    from katan.meta import tmdb
-    from katan.sources import aggregator
+    from pinky.meta import tmdb
+    from pinky.sources import aggregator
     monkeypatch.setattr(aggregator, "find",
                         lambda meta, **kw: asked.append(meta) or [])
     monkeypatch.setattr(tmdb, "episodes", lambda tmdb_id, season: _season_of(10))
@@ -307,8 +307,8 @@ def test_the_last_episode_of_a_season_warms_the_next_seasons_first(
     """It added one to the episode number, so S1E7 of a seven-episode season
     prefetched S1E8, which does not exist, and S2E1 started cold."""
     asked = []
-    from katan.meta import tmdb
-    from katan.sources import aggregator
+    from pinky.meta import tmdb
+    from pinky.sources import aggregator
     monkeypatch.setattr(aggregator, "find",
                         lambda meta, **kw: asked.append(meta) or [])
     seasons = {1: _season_of(7), 2: _season_of(7)}
@@ -330,8 +330,8 @@ def test_the_last_episode_of_a_season_warms_the_next_seasons_first(
 
 def test_a_final_episode_prefetches_nothing(monkeypatch, film):
     asked = []
-    from katan.meta import tmdb
-    from katan.sources import aggregator
+    from pinky.meta import tmdb
+    from pinky.sources import aggregator
     monkeypatch.setattr(aggregator, "find",
                         lambda meta, **kw: asked.append(meta) or [])
     monkeypatch.setattr(tmdb, "episodes",
@@ -344,12 +344,12 @@ def test_a_final_episode_prefetches_nothing(monkeypatch, film):
 def test_prefetch_follows_the_setting_when_nothing_was_set(monkeypatch, film,
                                                            settings_module):
     """The player's own fallback said on; the setting says off by default."""
-    from katan import player as player_module
+    from pinky import player as player_module
 
     warmed = []
     monkeypatch.setattr(play, "prefetch_next_episode",
                         lambda meta: warmed.append(meta))
-    monitor = player_module.KatanPlayer()
+    monitor = player_module.PinkyPlayer()
     monitor.meta = {"type": "episode", "season": 1, "episode": 3}
     monkeypatch.setattr(monitor, "_progress", lambda: 90.0)
 
@@ -364,7 +364,7 @@ def test_prefetch_follows_the_setting_when_nothing_was_set(monkeypatch, film,
 
 def test_a_film_has_no_next_episode(monkeypatch, film):
     asked = []
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
     monkeypatch.setattr(aggregator, "find",
                         lambda meta, **kw: asked.append(meta) or [])
     play.prefetch_next_episode({"type": "movie"})
@@ -455,9 +455,9 @@ def test_a_link_the_viewer_picked_is_handed_over_without_a_probe(film,
 
 
 def test_accepting_uncached_sources_is_playback_scoped(monkeypatch):
-    from katan import play
+    from pinky import play
     waiting = [{"title": "uncached", "extra": {}}]
-    monkeypatch.setattr("katan.sources.aggregator.uncached", lambda meta: waiting)
+    monkeypatch.setattr("pinky.sources.aggregator.uncached", lambda meta: waiting)
     monkeypatch.setattr(play.kodi, "yes_no", lambda *args, **kwargs: True)
     writes = []
     monkeypatch.setattr(play.settings, "set", lambda *args: writes.append(args))
@@ -467,7 +467,7 @@ def test_accepting_uncached_sources_is_playback_scoped(monkeypatch):
 
 
 def test_trakt_percentage_resume_is_converted_to_duration_seconds(monkeypatch):
-    from katan.meta import trakt_state
+    from pinky.meta import trakt_state
     monkeypatch.setattr(trakt_state, "enabled", lambda: True)
     key = trakt_state.state_key("movie", {"tmdb": 7})
     monkeypatch.setattr(trakt_state, "_watched_map", lambda: {})
@@ -482,7 +482,7 @@ def test_trakt_percentage_resume_is_converted_to_duration_seconds(monkeypatch):
 def test_a_part_watched_item_resumes_without_being_asked(film, monkeypatch):
     """A numeric StartOffset chooses resume before Kodi can show its chooser."""
     import xbmcplugin
-    from katan.ui import listing
+    from pinky.ui import listing
 
     xbmcplugin.reset()
     listing.resolve(1, "https://cdn/a.mkv",
@@ -496,20 +496,20 @@ def test_a_part_watched_item_resumes_without_being_asked(film, monkeypatch):
 
 
 def test_original_playable_item_carries_start_offset_before_plugin_runs(film):
-    from katan.ui import listing
+    from pinky.ui import listing
 
     item = listing.make_list_item(
         {"type": "movie", "title": "A Film", "ids": {}, "art": {},
          "resume": {"position": 2040.0, "total": 7200.0}})
     assert item.getProperty("StartOffset") == "2040.0"
-    assert float(item.getProperty("katan.percentplayed")) == pytest.approx(
+    assert float(item.getProperty("pinky.percentplayed")) == pytest.approx(
         2040.0 / 7200.0 * 100.0)
     assert "resumepoint" not in item.getVideoInfoTag().data
 
 
 def test_something_never_started_has_no_resume_properties(film):
     import xbmcplugin
-    from katan.ui import listing
+    from pinky.ui import listing
 
     xbmcplugin.reset()
     listing.resolve(1, "https://cdn/a.mkv",
@@ -521,8 +521,8 @@ def test_something_never_started_has_no_resume_properties(film):
 def test_the_resume_point_is_fetched_before_playback(film, monkeypatch):
     """The rows carry it - that is the progress bar under a poster - but the
     item playback builds comes from TMDB and knows nothing about it, so
-    resuming worked from a plain listing and not from the Katan window."""
-    from katan.meta import trakt_state
+    resuming worked from a plain listing and not from the Pinky window."""
+    from pinky.meta import trakt_state
 
     asked = []
     monkeypatch.setattr(trakt_state, "annotate",
@@ -531,7 +531,7 @@ def test_the_resume_point_is_fetched_before_playback(film, monkeypatch):
     monkeypatch.setattr(play, "build_meta", lambda request: {
         "type": "movie", "title": "A Film", "ids": {"imdb": "tt1"},
         "item": {"type": "movie", "title": "A Film", "ids": {}, "art": {}}})
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
     monkeypatch.setattr(aggregator, "find", lambda meta, **kw: list(SOURCES))
 
     play.play(1, {"type": "movie", "tmdb": "1"})
@@ -553,13 +553,13 @@ def test_a_link_that_answers_at_all_is_good_enough(links_open, monkeypatch):
     """Only a connection failure counts against a link. Some CDNs answer a
     range request with 403 and the whole file with 200, and refusing those
     would be worse than the problem this solves."""
-    from katan import http
+    from pinky import http
     monkeypatch.setattr(http, "get", lambda url, **kwargs: _Answered(403))
     assert links_open("https://cdn/whatever") is True
 
 
 def test_a_link_that_never_answers_is_refused(links_open, monkeypatch):
-    from katan import http
+    from pinky import http
     monkeypatch.setattr(http, "get", lambda url, **kwargs: None)
     assert links_open("https://cdn/whatever") is False
 
@@ -570,7 +570,7 @@ def test_the_probe_asks_for_one_byte_and_does_not_retry(links_open,
     seen = {}
     answered = _Answered()
 
-    from katan import http
+    from pinky import http
 
     def fake_get(url, **kwargs):
         seen.update(kwargs)
@@ -589,7 +589,7 @@ def test_a_host_that_would_not_answer_is_not_asked_twice(links_open,
     """A debrid service hands out links round-robin across its nodes, so the
     same dead node comes back for source after source. One evening's log had
     store-028, store-045 and store-028 again, each costing a full timeout."""
-    from katan import http
+    from pinky import http
 
     attempts = []
     monkeypatch.setattr(http, "get",
@@ -606,7 +606,7 @@ def test_a_host_that_would_not_answer_is_not_asked_twice(links_open,
 
 def test_dead_host_cache_and_logs_never_store_signed_url_secrets(
         links_open, monkeypatch):
-    from katan import cache, http
+    from pinky import cache, http
     secret_url = "https://user:password@cdn.example/x?token=TOPSECRET"
     stored = {}
     logs = []
@@ -631,7 +631,7 @@ def test_a_host_is_only_written_off_for_a_few_minutes(links_open, monkeypatch):
     """Being wrong here costs a playback, so the memory is deliberately
     short: a node coming back is normal, and once it is written off it is
     not asked again until the note expires."""
-    from katan import cache, http
+    from pinky import cache, http
 
     monkeypatch.setattr(http, "get", lambda url, **kwargs: None)
     assert links_open("https://store-030.example/dld/one") is False
@@ -703,7 +703,7 @@ def test_a_source_no_service_can_open_says_so(film, monkeypatch, caplog):
     An episode reached the end of playback with eighty-one sources behind it
     and left no trace at all - no attempt, no message, nothing in the log.
     """
-    from katan.debrid import registry
+    from pinky.debrid import registry
 
     monkeypatch.setattr(registry, "resolver_for", lambda source: None)
     logged = []
@@ -730,7 +730,7 @@ def test_a_context_menu_run_starts_playback_itself(film):
     """
     import xbmc
     import xbmcplugin
-    from katan.ui import listing
+    from pinky.ui import listing
 
     del xbmc.Player.PLAYED[:]
     xbmcplugin.reset()
@@ -747,7 +747,7 @@ def test_a_real_handle_is_still_resolved_to(film):
     """The normal path must not change: Kodi is waiting for this one."""
     import xbmc
     import xbmcplugin
-    from katan.ui import listing
+    from pinky.ui import listing
 
     del xbmc.Player.PLAYED[:]
     xbmcplugin.reset()
@@ -761,7 +761,7 @@ def test_a_real_handle_is_still_resolved_to(film):
 
 def test_a_failure_with_no_handle_is_not_reported_to_nobody(film):
     import xbmcplugin
-    from katan.ui import listing
+    from pinky.ui import listing
 
     xbmcplugin.reset()
     listing.resolve_failed(-1)

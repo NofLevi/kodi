@@ -17,7 +17,7 @@ import pytest
 
 @pytest.fixture
 def provider():
-    from katan.subs.providers import opensubtitles_rest
+    from pinky.subs.providers import opensubtitles_rest
     return opensubtitles_rest
 
 
@@ -123,7 +123,7 @@ def test_an_absolute_number_that_is_the_same_asks_once(monkeypatch, provider):
 
 
 def test_the_numberings_are_ordered_most_likely_first():
-    from katan.subs.providers import common
+    from pinky.subs.providers import common
 
     assert common.episode_numberings(ANIME) == [(8, 14), (1, 149)]
     assert common.episode_numberings({"type": "movie"}) == []
@@ -134,7 +134,7 @@ def test_the_numberings_are_ordered_most_likely_first():
 def test_wizdom_asks_for_both_numberings_as_well(monkeypatch):
     """Hebrew-only, and asked by IMDb id and number the same way - so the same
     numbering problem, and the same fix."""
-    from katan.subs.providers import wizdom
+    from pinky.subs.providers import wizdom
 
     seen = _asked_every(monkeypatch, wizdom)
     wizdom.search(ANIME, None, ["he"])
@@ -223,7 +223,7 @@ def test_it_is_asked_by_the_pipeline_and_ships_on(settings_module):
     bans for source providers, and `subs.provider.opensubtitles` is exactly
     that today: on, with no key, contributing nothing.
     """
-    from katan.subs import auto
+    from pinky.subs import auto
 
     assert settings_module.get_bool("subs.provider.opensubtitles_rest")
     assert "opensubtitles_rest" in auto._modules()
@@ -275,7 +275,7 @@ class _Reply(object):
 
 @pytest.fixture
 def bsplayer():
-    from katan.subs.providers import bsplayer as module
+    from pinky.subs.providers import bsplayer as module
     return module
 
 
@@ -337,7 +337,7 @@ def test_no_session_is_not_a_crash(monkeypatch, bsplayer):
 
 def test_it_is_registered_and_gets_the_size(settings_module):
     """The size is the half that is easy to drop on the floor."""
-    from katan.subs import auto
+    from pinky.subs import auto
 
     assert settings_module.get_bool("subs.provider.bsplayer")
     assert "bsplayer" in auto._modules()

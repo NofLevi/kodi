@@ -12,9 +12,9 @@ import json
 
 import pytest
 
-from katan import http
-from katan.subs import srt
-from katan.subs.ai import context, gemini, translator
+from pinky import http
+from pinky.subs import srt
+from pinky.subs.ai import context, gemini, translator
 
 
 class Reply(object):

@@ -44,7 +44,7 @@ def test_the_addon_writes_nothing_inside_its_own_folder():
     """
     import re
 
-    lib = os.path.join(ADDON_DIR, "resources", "lib", "katan")
+    lib = os.path.join(ADDON_DIR, "resources", "lib", "pinky")
     writes = re.compile(r"open\s*\(\s*[^)]*addon_path\(\)|"
                         r"makedirs\s*\(\s*[^)]*addon_path\(\)|"
                         r"srt\.write\s*\(\s*[^)]*addon_path\(\)")
@@ -66,7 +66,7 @@ def test_the_addon_writes_nothing_inside_its_own_folder():
 
 
 def test_every_runtime_path_is_under_the_profile(settings_module):
-    from katan import cache, kodi
+    from pinky import cache, kodi
 
     profile = os.path.normcase(kodi.profile_path())
     for path in (cache.db_path(), kodi.subdir("subtitles"), kodi.subdir("qr")):
@@ -89,7 +89,7 @@ def test_every_credential_survives_a_version_bump(settings_module):
         settings_module.set(key, "value-%d" % index)
 
     xbmcaddon.INFO["version"] = "0.2.0"     # what an update changes
-    from katan import kodi
+    from pinky import kodi
     kodi.refresh_addon()
 
     for index, key in enumerate(keys):
@@ -101,11 +101,11 @@ def test_a_setting_stored_but_no_longer_declared_does_not_break_reading(
     """A renamed or removed id leaves its old value behind in the file."""
     import xbmcaddon
 
-    xbmcaddon.SETTINGS["katan.some.retired.setting"] = "leftover"
+    xbmcaddon.SETTINGS["pinky.some.retired.setting"] = "leftover"
     settings_module.set("tmdb.apikey", "still here")
 
     assert settings_module.get("tmdb.apikey") == "still here"
-    assert settings_module.get("katan.some.retired.setting") == "leftover"
+    assert settings_module.get("pinky.some.retired.setting") == "leftover"
 
 
 def test_a_setting_missing_from_storage_falls_back_to_its_default(
@@ -150,7 +150,7 @@ def test_a_cache_from_an_older_schema_still_works(settings_module):
     swallows its own errors the add-on keeps running with a cache that stores
     nothing - slow, and with no symptom pointing at the cause.
     """
-    from katan import cache
+    from pinky import cache
 
     cache.close()
     _write_old_cache(cache.db_path())
@@ -161,7 +161,7 @@ def test_a_cache_from_an_older_schema_still_works(settings_module):
 
 
 def test_a_corrupt_cache_is_rebuilt_rather_than_fatal(settings_module):
-    from katan import cache
+    from pinky import cache
 
     cache.close()
     with io.open(cache.db_path(), "wb") as handle:
@@ -175,7 +175,7 @@ def test_a_cache_directory_that_does_not_exist_yet_is_created(settings_module):
     """A fresh install has no profile directory until something writes."""
     import shutil
 
-    from katan import cache, kodi
+    from pinky import cache, kodi
 
     cache.close()
     shutil.rmtree(kodi.profile_path(), ignore_errors=True)
@@ -193,10 +193,10 @@ def _release_zip(path, version="0.2.0", addon_xml=True, corrupt=False):
     with zipfile.ZipFile(path, "w") as archive:
         if addon_xml:
             archive.writestr(
-                "plugin.video.katan/addon.xml",
-                '<?xml version="1.0"?>\n<addon id="plugin.video.katan" '
-                'version="%s" name="Katan"/>' % version)
-        archive.writestr("plugin.video.katan/main.py", "print('hi')\n")
+                "plugin.video.pinky/addon.xml",
+                '<?xml version="1.0"?>\n<addon id="plugin.video.pinky" '
+                'version="%s" name="Pinky"/>' % version)
+        archive.writestr("plugin.video.pinky/main.py", "print('hi')\n")
     if corrupt:
         with io.open(path, "r+b") as handle:
             handle.seek(0, os.SEEK_END)
@@ -205,23 +205,23 @@ def _release_zip(path, version="0.2.0", addon_xml=True, corrupt=False):
 
 
 def test_release_with_wrong_embedded_identity_is_refused(tmp_path):
-    from katan import updater
+    from pinky import updater
     path = str(tmp_path / "wrong-id.zip")
     with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("plugin.video.katan/addon.xml",
+        archive.writestr("plugin.video.pinky/addon.xml",
                          '<addon id="repository.unrelated" version="9.9.9"/>')
-        archive.writestr("plugin.video.katan/main.py", "pass\n")
+        archive.writestr("plugin.video.pinky/main.py", "pass\n")
     assert updater._is_sane_zip(path) is False
 
 
 def test_release_version_must_match_the_index(tmp_path):
-    from katan import updater
+    from pinky import updater
     path = _release_zip(str(tmp_path / "wrong-version.zip"), version="9.9.9")
     assert updater._is_sane_zip(path, expected_version="1.2.3") is False
 
 
 def test_a_good_release_passes_the_sanity_check(tmp_path):
-    from katan import updater
+    from pinky import updater
 
     path = _release_zip(str(tmp_path / "good.zip"))
     assert updater._is_sane_zip(path) is True
@@ -234,13 +234,13 @@ def test_a_good_release_passes_the_sanity_check(tmp_path):
 def test_a_bad_release_is_refused(tmp_path, make, why):
     """A projector on wifi produces half-downloads, and installing one would
     leave an add-on that cannot start."""
-    from katan import updater
+    from pinky import updater
 
     assert updater._is_sane_zip(make(str(tmp_path / "bad.zip"))) is False, why
 
 
 def test_something_that_is_not_a_zip_at_all_is_refused(tmp_path):
-    from katan import updater
+    from pinky import updater
 
     path = str(tmp_path / "notazip.zip")
     with io.open(path, "wb") as handle:
@@ -249,11 +249,11 @@ def test_something_that_is_not_a_zip_at_all_is_refused(tmp_path):
 
 
 def test_a_release_with_unparseable_addon_xml_is_refused(tmp_path):
-    from katan import updater
+    from pinky import updater
 
     path = str(tmp_path / "broken.zip")
     with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("plugin.video.katan/addon.xml", "<addon><not closed")
+        archive.writestr("plugin.video.pinky/addon.xml", "<addon><not closed")
     assert updater._is_sane_zip(path) is False
 
 
@@ -267,14 +267,14 @@ def test_a_release_with_unparseable_addon_xml_is_refused(tmp_path):
 ])
 def test_version_comparison_is_numeric_not_alphabetical(installed, latest, newer):
     """0.10.0 sorts before 0.9.0 as text, which would skip a release."""
-    from katan import updater
+    from pinky import updater
 
     assert (updater.parse_version(latest) >
             updater.parse_version(installed)) is newer
 
 
 def test_an_unreadable_version_never_looks_newer():
-    from katan import updater
+    from pinky import updater
 
     assert updater.parse_version("") == (0, 0, 0)
     assert updater.parse_version(None) == (0, 0, 0)
@@ -282,14 +282,14 @@ def test_an_unreadable_version_never_looks_newer():
 
 
 def test_check_says_nothing_when_the_index_is_unreachable(monkeypatch):
-    from katan import http, updater
+    from pinky import http, updater
 
     monkeypatch.setattr(http, "get", lambda *a, **k: None)
     assert updater.check() is None
 
 
 def test_check_says_nothing_when_the_index_is_not_xml(monkeypatch):
-    from katan import http, updater
+    from pinky import http, updater
 
     class Response(object):
         status_code = 200
@@ -301,28 +301,28 @@ def test_check_says_nothing_when_the_index_is_not_xml(monkeypatch):
 
 def test_check_builds_the_zip_url_from_the_index_url(monkeypatch,
                                                      settings_module):
-    from katan import http, updater
+    from pinky import http, updater
 
     settings_module.set("update.url", "https://example.pages.dev/addons.xml")
 
     class Response(object):
         status_code = 200
-        content = (b'<addons><addon id="plugin.video.katan" version="9.9.9"/>'
+        content = (b'<addons><addon id="plugin.video.pinky" version="9.9.9"/>'
                    b'</addons>')
 
     monkeypatch.setattr(http, "get", lambda *a, **k: Response())
     latest, zip_url = updater.check()
     assert latest == "9.9.9"
-    assert zip_url == ("https://example.pages.dev/zips/plugin.video.katan/"
-                       "plugin.video.katan-9.9.9.zip")
+    assert zip_url == ("https://example.pages.dev/zips/plugin.video.pinky/"
+                       "plugin.video.pinky-9.9.9.zip")
 
 
 def test_an_index_that_does_not_list_this_addon_is_not_an_update(monkeypatch):
-    from katan import http, updater
+    from pinky import http, updater
 
     class Response(object):
         status_code = 200
-        content = b'<addons><addon id="repository.katan" version="9.9.9"/></addons>'
+        content = b'<addons><addon id="repository.pinky" version="9.9.9"/></addons>'
 
     monkeypatch.setattr(http, "get", lambda *a, **k: Response())
     assert updater.check() is None
@@ -334,7 +334,7 @@ def test_the_cache_rebuilds_even_while_another_connection_holds_the_file(
     service writes while the UI reads. On Windows the open handle stops the
     file being deleted, so a rebuild that only knows how to delete would leave
     the cache broken for the rest of the session."""
-    from katan import cache
+    from pinky import cache
 
     cache.close()
     _write_old_cache(cache.db_path())
@@ -362,12 +362,12 @@ def test_installing_a_real_release_keeps_every_key(tmp_path, monkeypatch):
     """
     import xbmcaddon
 
-    from katan import kodi, updater
+    from pinky import kodi, updater
 
     addons = tmp_path / "addons"
     addons.mkdir()
-    installed = addons / "plugin.video.katan"
-    profile = tmp_path / "addon_data" / "plugin.video.katan"
+    installed = addons / "plugin.video.pinky"
+    profile = tmp_path / "addon_data" / "plugin.video.pinky"
     profile.mkdir(parents=True)
 
     import shutil
@@ -397,9 +397,9 @@ def test_installing_a_real_release_keeps_every_key(tmp_path, monkeypatch):
             dirs[:] = [d for d in dirs if d != "__pycache__"]
             for name in files:
                 full = os.path.join(folder, name)
-                arc = "plugin.video.katan/" + os.path.relpath(
+                arc = "plugin.video.pinky/" + os.path.relpath(
                     full, ADDON_DIR).replace(os.sep, "/")
-                if arc == "plugin.video.katan/addon.xml":
+                if arc == "plugin.video.pinky/addon.xml":
                     with io.open(full, encoding="utf-8") as handle:
                         archive.writestr(arc, handle.read().replace(
                             'version="%s"' % current, 'version="0.9.9"', 1))
@@ -416,7 +416,7 @@ def test_installing_a_real_release_keeps_every_key(tmp_path, monkeypatch):
     assert "MY-TMDB-KEY" in kept and "MY-TORBOX-KEY" in kept
     assert (profile / "subtitles" / "kept.he.srt").is_file()
 
-    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.pinky"]
     assert not leftovers, "staging or backup left behind: %s" % leftovers
 
 
@@ -430,24 +430,24 @@ def test_the_addon_path_may_end_in_a_separator(tmp_path, monkeypatch):
     thing it was meant to replace.
 
         OSError: [WinError 87] The parameter is incorrect:
-          '...\addons\plugin.video.katan\'
-          -> '...\addons\plugin.video.katan\.old'
+          '...\addons\plugin.video.pinky\'
+          -> '...\addons\plugin.video.pinky\.old'
     """
     import zipfile
-    from katan import kodi, updater
+    from pinky import kodi, updater
 
     addons = tmp_path / "addons"
-    installed = addons / "plugin.video.katan"
+    installed = addons / "plugin.video.pinky"
     (installed / "resources").mkdir(parents=True)
     (installed / "addon.xml").write_text(
-        '<addon id="plugin.video.katan" version="0.1.1"/>', encoding="utf-8")
+        '<addon id="plugin.video.pinky" version="0.1.1"/>', encoding="utf-8")
 
     release = str(tmp_path / "release.zip")
     with zipfile.ZipFile(release, "w") as archive:
-        archive.writestr("plugin.video.katan/addon.xml",
-                         '<addon id="plugin.video.katan" version="0.9.9"/>')
-        archive.writestr("plugin.video.katan/main.py", "pass\n")
-        archive.writestr("plugin.video.katan/resources/marker.txt", "new")
+        archive.writestr("plugin.video.pinky/addon.xml",
+                         '<addon id="plugin.video.pinky" version="0.9.9"/>')
+        archive.writestr("plugin.video.pinky/main.py", "pass\n")
+        archive.writestr("plugin.video.pinky/resources/marker.txt", "new")
 
     # The trailing separator is the whole point of this test.
     monkeypatch.setattr(kodi, "addon_path", lambda: str(installed) + os.sep)
@@ -458,7 +458,7 @@ def test_the_addon_path_may_end_in_a_separator(tmp_path, monkeypatch):
     assert (installed / "resources" / "marker.txt").is_file()
     # And nothing was left inside the add-on folder or beside it.
     assert not (installed / ".old").exists()
-    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.pinky"]
     assert not leftovers, "left behind %s" % leftovers
 
 
@@ -482,12 +482,12 @@ def test_the_whole_upgrade_runs_over_http(tmp_path, monkeypatch):
 
     import xbmcaddon
 
-    from katan import kodi, updater
+    from pinky import kodi, updater
 
     addons = tmp_path / "addons"
     addons.mkdir()
-    installed = addons / "plugin.video.katan"
-    profile = tmp_path / "addon_data" / "plugin.video.katan"
+    installed = addons / "plugin.video.pinky"
+    profile = tmp_path / "addon_data" / "plugin.video.pinky"
     profile.mkdir(parents=True)
     shutil.copytree(ADDON_DIR, str(installed))
     (profile / "settings.xml").write_text(
@@ -501,23 +501,23 @@ def test_the_whole_upgrade_runs_over_http(tmp_path, monkeypatch):
 
     # A published repository, laid out exactly as build.py writes one.
     site = tmp_path / "site"
-    (site / "zips" / "plugin.video.katan").mkdir(parents=True)
+    (site / "zips" / "plugin.video.pinky").mkdir(parents=True)
     (site / "addons.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
-        '<addons><addon id="plugin.video.katan" version="0.0.2"/></addons>',
+        '<addons><addon id="plugin.video.pinky" version="0.0.2"/></addons>',
         encoding="utf-8")
 
     current = ET.parse(os.path.join(ADDON_DIR, "addon.xml")).getroot().get("version")
-    release = str(site / "zips" / "plugin.video.katan"
-                  / "plugin.video.katan-0.0.2.zip")
+    release = str(site / "zips" / "plugin.video.pinky"
+                  / "plugin.video.pinky-0.0.2.zip")
     with zipfile.ZipFile(release, "w", zipfile.ZIP_DEFLATED) as archive:
         for folder, dirs, files in os.walk(ADDON_DIR):
             dirs[:] = [d for d in dirs if d != "__pycache__"]
             for name in files:
                 full = os.path.join(folder, name)
-                arc = "plugin.video.katan/" + os.path.relpath(
+                arc = "plugin.video.pinky/" + os.path.relpath(
                     full, ADDON_DIR).replace(os.sep, "/")
-                if arc == "plugin.video.katan/addon.xml":
+                if arc == "plugin.video.pinky/addon.xml":
                     with io.open(full, encoding="utf-8") as handle:
                         archive.writestr(arc, handle.read().replace(
                             'version="%s"' % current, 'version="0.0.2"', 1))
@@ -542,8 +542,8 @@ def test_the_whole_upgrade_runs_over_http(tmp_path, monkeypatch):
         assert found is not None, "an update was published and not offered"
         latest, zip_url = found
         assert latest == "0.0.2"
-        assert zip_url == (base + "/zips/plugin.video.katan"
-                           "/plugin.video.katan-0.0.2.zip")
+        assert zip_url == (base + "/zips/plugin.video.pinky"
+                           "/plugin.video.pinky-0.0.2.zip")
 
         # The download, over HTTP, including its own sanity check.
         path = updater.download(zip_url)
@@ -558,8 +558,8 @@ def test_the_whole_upgrade_runs_over_http(tmp_path, monkeypatch):
     on_disk = ET.parse(str(installed / "addon.xml")).getroot().get("version")
     assert on_disk == "0.0.2", "the upgrade did not land"
     assert "MY-TMDB-KEY" in (profile / "settings.xml").read_text(encoding="utf-8")
-    assert (installed / "resources" / "lib" / "katan" / "updater.py").is_file()
-    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    assert (installed / "resources" / "lib" / "pinky" / "updater.py").is_file()
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.pinky"]
     assert not leftovers, "left behind %s" % leftovers
 
 
@@ -572,12 +572,12 @@ def _install(tmp_path):
     import shutil
 
     import xbmcaddon
-    from katan import kodi
+    from pinky import kodi
 
     addons = tmp_path / "addons"
     addons.mkdir()
-    installed = addons / "plugin.video.katan"
-    profile = tmp_path / "addon_data" / "plugin.video.katan"
+    installed = addons / "plugin.video.pinky"
+    profile = tmp_path / "addon_data" / "plugin.video.pinky"
     profile.mkdir(parents=True)
     shutil.copytree(ADDON_DIR, str(installed))
 
@@ -616,7 +616,7 @@ def _release(tmp_path, version, drop=(), add=(), name="release.zip"):
                 relative = os.path.relpath(full, ADDON_DIR).replace(os.sep, "/")
                 if relative in drop:
                     continue
-                arc = "plugin.video.katan/" + relative
+                arc = "plugin.video.pinky/" + relative
                 if relative == "addon.xml":
                     with io.open(full, encoding="utf-8") as handle:
                         archive.writestr(arc, handle.read().replace(
@@ -625,7 +625,7 @@ def _release(tmp_path, version, drop=(), add=(), name="release.zip"):
                 else:
                     archive.write(full, arc)
         for relative, body in add:
-            archive.writestr("plugin.video.katan/" + relative, body)
+            archive.writestr("plugin.video.pinky/" + relative, body)
     return path
 
 
@@ -639,20 +639,20 @@ def test_a_release_that_changes_a_great_deal_still_lands(tmp_path):
     construction - but nothing here had ever checked that, and "by
     construction" is exactly the kind of claim that stops being true quietly.
     """
-    from katan import updater
+    from pinky import updater
 
     addons, installed, profile = _install(tmp_path)
 
     # Take out a whole subsystem and put a differently shaped one back.
-    lib = os.path.join("resources", "lib", "katan")
+    lib = os.path.join("resources", "lib", "pinky")
     doomed = sorted(
         os.path.join(lib, "subs", name).replace(os.sep, "/")
         for name in os.listdir(os.path.join(ADDON_DIR, lib, "subs"))
         if name.endswith(".py"))
     assert len(doomed) > 5, "expected a subsystem worth deleting"
 
-    newcomers = [("resources/lib/katan/captions/__init__.py", "X = 1\n")]
-    newcomers += [("resources/lib/katan/captions/part%02d.py" % i,
+    newcomers = [("resources/lib/pinky/captions/__init__.py", "X = 1\n")]
+    newcomers += [("resources/lib/pinky/captions/part%02d.py" % i,
                    "VALUE = %d\n" % i) for i in range(40)]
 
     zip_path = _release(tmp_path, "3.0.0", drop=doomed, add=newcomers)
@@ -671,7 +671,7 @@ def test_a_release_that_changes_a_great_deal_still_lands(tmp_path):
     # The folder itself survives - its subpackages were not dropped - but
     # nothing that was taken out may still be sitting in it.
     survivors = [n for n in os.listdir(
-        str(installed / "resources" / "lib" / "katan" / "subs"))
+        str(installed / "resources" / "lib" / "pinky" / "subs"))
         if n.endswith(".py")]
     assert not survivors, "dropped modules still on disk: %s" % survivors
 
@@ -681,7 +681,7 @@ def test_a_release_that_changes_a_great_deal_still_lands(tmp_path):
     assert (profile / "subtitles" / "kept.he.srt").is_file()
     assert (profile / "cache.db").read_bytes().startswith(b"SQLite format 3")
 
-    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.pinky"]
     assert not leftovers, "staging or backup left behind: %s" % leftovers
 
 
@@ -694,7 +694,7 @@ def test_a_swap_that_fails_puts_the_installed_copy_back(tmp_path, monkeypatch):
     fails - a projector with no space left, or Android holding a file open.
     Getting that wrong leaves no add-on at all rather than an old one.
     """
-    from katan import updater
+    from pinky import updater
 
     addons, installed, profile = _install(tmp_path)
     before = sorted(os.listdir(str(installed)))
@@ -728,7 +728,7 @@ def test_a_swap_that_fails_puts_the_installed_copy_back(tmp_path, monkeypatch):
     assert (profile / "settings.xml").read_text(encoding="utf-8").count(
         "MY-TMDB-KEY") == 1
 
-    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.katan"]
+    leftovers = [n for n in os.listdir(str(addons)) if n != "plugin.video.pinky"]
     assert not leftovers, "left behind after a failure: %s" % leftovers
 
 
@@ -738,7 +738,7 @@ def test_a_swap_that_fails_puts_the_installed_copy_back(tmp_path, monkeypatch):
 
 def _index(version):
     return ('<?xml version="1.0" encoding="UTF-8"?><addons>'
-            '<addon id="plugin.video.katan" version="%s"/></addons>'
+            '<addon id="plugin.video.pinky" version="%s"/></addons>'
             % version).encode("utf-8")
 
 
@@ -754,7 +754,7 @@ class _Answer(object):
     ("test", "raw.githubusercontent.com/NofLevi/kodi/test-channel"),
 ])
 def test_the_channel_chooses_the_index(settings_module, channel, expected):
-    from katan import updater
+    from pinky import updater
 
     settings_module.set("update.channel", channel)
     assert expected in updater.index_url()
@@ -762,7 +762,7 @@ def test_the_channel_chooses_the_index(settings_module, channel, expected):
 
 def test_an_explicit_url_still_beats_the_channel(settings_module):
     """`update.url` is the escape hatch for the host moving. It has to win."""
-    from katan import updater
+    from pinky import updater
 
     settings_module.set("update.channel", "test")
     settings_module.set("update.url", "https://elsewhere.example/addons.xml")
@@ -785,7 +785,7 @@ def test_the_test_channel_offers_any_difference(settings_module, monkeypatch,
                                                 installed, published, offered):
     import xbmcaddon
 
-    from katan import http, kodi, updater
+    from pinky import http, kodi, updater
 
     settings_module.set("update.channel", "test")
     xbmcaddon.INFO["version"] = installed
@@ -806,7 +806,7 @@ def test_the_stable_channel_still_refuses_to_go_backwards(settings_module,
     """The looser rule must not leak into the channel most people are on."""
     import xbmcaddon
 
-    from katan import http, kodi, updater
+    from pinky import http, kodi, updater
 
     settings_module.set("update.channel", "stable")
     xbmcaddon.INFO["version"] = "0.0.9"
@@ -832,7 +832,7 @@ def test_an_update_removes_everything_it_leaves_behind(tmp_path, monkeypatch):
     """
     import tempfile as tempfile_module
 
-    from katan import updater
+    from pinky import updater
 
     addons = tmp_path / "addons"
     packages = addons / "packages"
@@ -841,13 +841,13 @@ def test_an_update_removes_everything_it_leaves_behind(tmp_path, monkeypatch):
     temporary.mkdir()
     monkeypatch.setattr(tempfile_module, "gettempdir", lambda: str(temporary))
 
-    (addons / "plugin.video.katan.old").mkdir()
-    (addons / "plugin.video.katan.old" / "addon.xml").write_text("<addon/>")
-    (addons / "katan-staging-abc123").mkdir()
-    (addons / "katan-staging-abc123" / "junk.txt").write_text("x")
-    (packages / "plugin.video.katan-0.0.1.zip").write_bytes(b"PK\x05\x06" + b"\0" * 18)
-    (packages / "plugin.video.katan-0.0.2.zip").write_bytes(b"PK\x05\x06" + b"\0" * 18)
-    (temporary / "katan-update-old.zip").write_bytes(b"PK")
+    (addons / "plugin.video.pinky.old").mkdir()
+    (addons / "plugin.video.pinky.old" / "addon.xml").write_text("<addon/>")
+    (addons / "pinky-staging-abc123").mkdir()
+    (addons / "pinky-staging-abc123" / "junk.txt").write_text("x")
+    (packages / "plugin.video.pinky-0.0.1.zip").write_bytes(b"PK\x05\x06" + b"\0" * 18)
+    (packages / "plugin.video.pinky-0.0.2.zip").write_bytes(b"PK\x05\x06" + b"\0" * 18)
+    (temporary / "pinky-update-old.zip").write_bytes(b"PK")
 
     # Not ours, and not to be touched.
     (addons / "plugin.video.other").mkdir()
@@ -856,11 +856,11 @@ def test_an_update_removes_everything_it_leaves_behind(tmp_path, monkeypatch):
 
     removed = updater.sweep(str(addons))
 
-    assert not (addons / "plugin.video.katan.old").exists()
-    assert not (addons / "katan-staging-abc123").exists()
-    assert not (packages / "plugin.video.katan-0.0.1.zip").exists()
-    assert not (packages / "plugin.video.katan-0.0.2.zip").exists()
-    assert not (temporary / "katan-update-old.zip").exists()
+    assert not (addons / "plugin.video.pinky.old").exists()
+    assert not (addons / "pinky-staging-abc123").exists()
+    assert not (packages / "plugin.video.pinky-0.0.1.zip").exists()
+    assert not (packages / "plugin.video.pinky-0.0.2.zip").exists()
+    assert not (temporary / "pinky-update-old.zip").exists()
     assert len(removed) == 5
 
     assert (addons / "plugin.video.other").is_dir(), "removed another add-on"
@@ -878,21 +878,21 @@ def test_the_zip_being_installed_is_never_swept(tmp_path, monkeypatch):
     """
     import tempfile as tempfile_module
 
-    from katan import updater
+    from pinky import updater
 
     addons = tmp_path / "addons"
     packages = addons / "packages"
     packages.mkdir(parents=True)
     monkeypatch.setattr(tempfile_module, "gettempdir", lambda: str(tmp_path))
 
-    current = packages / "plugin.video.katan-0.0.2.zip"
+    current = packages / "plugin.video.pinky-0.0.2.zip"
     current.write_bytes(b"PK")
-    (packages / "plugin.video.katan-0.0.1.zip").write_bytes(b"PK")
+    (packages / "plugin.video.pinky-0.0.1.zip").write_bytes(b"PK")
 
     updater.sweep(str(addons), keep=str(current))
 
     assert current.is_file(), "swept the zip it was installing"
-    assert not (packages / "plugin.video.katan-0.0.1.zip").exists()
+    assert not (packages / "plugin.video.pinky-0.0.1.zip").exists()
 
 
 def test_a_real_update_sweeps_as_part_of_installing(tmp_path, monkeypatch):
@@ -904,27 +904,27 @@ def test_a_real_update_sweeps_as_part_of_installing(tmp_path, monkeypatch):
     """
     import tempfile as tempfile_module
 
-    from katan import kodi, updater
+    from pinky import kodi, updater
 
     addons = tmp_path / "addons"
-    installed = addons / "plugin.video.katan"
+    installed = addons / "plugin.video.pinky"
     packages = addons / "packages"
     packages.mkdir(parents=True)
     installed.mkdir()
     (installed / "addon.xml").write_text(
-        '<addon id="plugin.video.katan" version="0.0.1"/>', encoding="utf-8")
+        '<addon id="plugin.video.pinky" version="0.0.1"/>', encoding="utf-8")
     (installed / "gone-upstream.py").write_text("# deleted in the new version")
     monkeypatch.setattr(tempfile_module, "gettempdir", lambda: str(tmp_path))
 
     # Leftovers of the kind a previous update strews about.
-    (addons / "plugin.video.katan.old").mkdir()
-    (packages / "plugin.video.katan-0.0.1.zip").write_bytes(b"PK")
+    (addons / "plugin.video.pinky.old").mkdir()
+    (packages / "plugin.video.pinky-0.0.1.zip").write_bytes(b"PK")
 
     release = str(tmp_path / "release.zip")
     with zipfile.ZipFile(release, "w") as archive:
-        archive.writestr("plugin.video.katan/addon.xml",
-                         '<addon id="plugin.video.katan" version="0.0.2"/>')
-        archive.writestr("plugin.video.katan/main.py", "# new\n")
+        archive.writestr("plugin.video.pinky/addon.xml",
+                         '<addon id="plugin.video.pinky" version="0.0.2"/>')
+        archive.writestr("plugin.video.pinky/main.py", "# new\n")
 
     monkeypatch.setattr(kodi, "addon_path", lambda: str(installed))
     monkeypatch.setattr(updater, "_is_sane_zip",
@@ -936,10 +936,10 @@ def test_a_real_update_sweeps_as_part_of_installing(tmp_path, monkeypatch):
         "version") == "0.0.2"
     assert not (installed / "gone-upstream.py").exists(), \
         "a file deleted upstream survived the update"
-    assert not (addons / "plugin.video.katan.old").exists()
-    assert not (packages / "plugin.video.katan-0.0.1.zip").exists()
+    assert not (addons / "plugin.video.pinky.old").exists()
+    assert not (packages / "plugin.video.pinky-0.0.1.zip").exists()
     leftovers = [n for n in os.listdir(str(addons))
-                 if n not in ("plugin.video.katan", "packages")]
+                 if n not in ("plugin.video.pinky", "packages")]
     assert not leftovers, "left behind %s" % leftovers
 
 
@@ -957,31 +957,31 @@ def test_a_release_asset_sits_beside_the_index_not_under_a_tree():
     for a URL that has never existed - which fails as "no update available"
     rather than as an error anybody would notice.
     """
-    from katan import updater
+    from pinky import updater
 
     release = updater.zip_url_for(
         "https://github.com/NofLevi/kodi/releases/latest/download/addons.xml",
         "0.0.7")
     assert release == ("https://github.com/NofLevi/kodi/releases/latest/"
-                       "download/plugin.video.katan-0.0.7.zip")
+                       "download/plugin.video.pinky-0.0.7.zip")
 
     pages = updater.zip_url_for("https://noflevi.github.io/kodi/addons.xml",
                                 "0.0.7")
     assert pages == ("https://noflevi.github.io/kodi/zips/"
-                     "plugin.video.katan/plugin.video.katan-0.0.7.zip")
+                     "plugin.video.pinky/plugin.video.pinky-0.0.7.zip")
 
     # The test channel is a branch, which is a tree like the Pages site.
     branch = updater.zip_url_for(
         "https://raw.githubusercontent.com/NofLevi/kodi/test-channel/"
         "addons.xml", "0.0.7~dev.3")
     assert branch.endswith(
-        "test-channel/zips/plugin.video.katan/"
-        "plugin.video.katan-0.0.7~dev.3.zip")
+        "test-channel/zips/plugin.video.pinky/"
+        "plugin.video.pinky-0.0.7~dev.3.zip")
 
 
 def test_the_shipped_update_url_is_the_release_alias():
     """`latest` rather than a version, or every release needs a code change."""
-    from katan import updater
+    from pinky import updater
 
     assert updater.DEFAULT_INDEX == (
         "https://github.com/NofLevi/kodi/releases/latest/download/addons.xml")

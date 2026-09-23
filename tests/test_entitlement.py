@@ -8,8 +8,8 @@ channel or a refresh loop behind every stream.
 
 import pytest
 
-from katan import http
-from katan.vod import channels, entitlement
+from pinky import http
+from pinky.vod import channels, entitlement
 
 # Shaped like a real Akamai ticket, but the hmac is filler. A ticket is a
 # fifteen minute grant on a free-to-air stream, so a real one would be worth

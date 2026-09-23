@@ -2,8 +2,8 @@
 """The Skip intro button over the episode."""
 import xbmc
 
-from katan import player
-from katan.ui import skip_window
+from pinky import player
+from pinky.ui import skip_window
 
 EPISODE = {"type": "episode", "ids": {"imdb": "tt0903747", "tmdb": 1396},
            "season": 1, "episode": 2, "title": "Breaking Bad"}
@@ -21,9 +21,9 @@ class Action(object):
 
 
 def playing(monkeypatch, auto=False):
-    from katan import settings
+    from pinky import settings
     settings.set("ui.auto_skip", "true" if auto else "false")
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     monitor.meta = dict(EPISODE)
     monitor.total_time = 2950.0
     monitor._segments = {"intro": [314.5, 331.0], "credits": [2843.0, 2901.0]}

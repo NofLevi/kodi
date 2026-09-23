@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.pinky"
+       name="Pinky Repository"
+       version="0.0.1"
+       provider-name="pinky">
+    <extension point="xbmc.addon.repository" name="Pinky Repository">
+        <dir>
+            <info compressed="false">https://noflevi.github.io/kodi/addons.xml</info>
+            <checksum>https://noflevi.github.io/kodi/addons.xml.md5</checksum>
+            <datadir zip="true">https://noflevi.github.io/kodi/zips</datadir>
+        </dir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en_GB">Updates for the Pinky add-on</summary>
+        <description lang="en_GB">Install this to receive Pinky updates automatically.</description>
+        <platform>all</platform>
+        <license>GPL-3.0-or-later</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon>

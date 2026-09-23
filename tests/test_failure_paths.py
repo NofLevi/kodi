@@ -32,7 +32,7 @@ class Response(object):
 
 @pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
 def test_a_retryable_status_is_retried_then_given_up_on(monkeypatch, status):
-    from katan import http
+    from pinky import http
 
     calls = []
 
@@ -54,7 +54,7 @@ def test_a_retryable_status_is_retried_then_given_up_on(monkeypatch, status):
 @pytest.mark.parametrize("status", [400, 401, 403, 404])
 def test_a_client_error_is_not_retried(monkeypatch, status):
     """Retrying a 404 just spends someone's rate limit to be told twice."""
-    from katan import http
+    from pinky import http
 
     calls = []
 
@@ -75,7 +75,7 @@ def test_a_client_error_is_not_retried(monkeypatch, status):
 def test_retry_after_is_honoured_rather_than_the_backoff(monkeypatch):
     """Real-Debrid counts refused requests against the limit, so ignoring
     Retry-After digs the hole deeper."""
-    from katan import http
+    from pinky import http
 
     slept = []
     monkeypatch.setattr(time, "sleep", lambda seconds: slept.append(seconds))
@@ -93,7 +93,7 @@ def test_retry_after_is_honoured_rather_than_the_backoff(monkeypatch):
 
 def test_an_absurd_retry_after_is_capped(monkeypatch):
     """A service asking us to wait an hour must not freeze the search."""
-    from katan import http
+    from pinky import http
 
     slept = []
     monkeypatch.setattr(time, "sleep", lambda seconds: slept.append(seconds))
@@ -107,7 +107,7 @@ def test_an_absurd_retry_after_is_capped(monkeypatch):
 
 def test_a_transport_failure_becomes_none_rather_than_an_exception(monkeypatch):
     """DNS failure and connection refused reach the provider as no answer."""
-    from katan import http
+    from pinky import http
 
     def session():
         class Session(object):
@@ -129,7 +129,7 @@ def test_a_transport_failure_becomes_none_rather_than_an_exception(monkeypatch):
 ])
 def test_malformed_json_returns_the_default(monkeypatch, body):
     """A truncated body is the normal shape of a failure mid-transfer."""
-    from katan import http
+    from pinky import http
 
     monkeypatch.setattr(http, "session", lambda: type(
         "S", (), {"request": lambda self, m, u, **k: Response(200, body)})())
@@ -150,7 +150,7 @@ def test_a_provider_that_hangs_does_not_hold_up_the_others():
     a search that waits for it is a device that looks frozen. Only the clock
     ends this one.
     """
-    from katan import http
+    from pinky import http
 
     def quick():
         return ["fast"]
@@ -170,7 +170,7 @@ def test_a_provider_that_hangs_does_not_hold_up_the_others():
 
 
 def test_one_provider_raising_does_not_take_the_search_with_it():
-    from katan import http
+    from pinky import http
 
     def works():
         return ["ok"]
@@ -185,7 +185,7 @@ def test_one_provider_raising_does_not_take_the_search_with_it():
 
 
 def test_every_provider_failing_returns_nothing_rather_than_raising():
-    from katan import http
+    from pinky import http
 
     def explodes():
         raise RuntimeError("down")
@@ -195,7 +195,7 @@ def test_every_provider_failing_returns_nothing_rather_than_raising():
 
 
 def test_no_tasks_is_not_an_error():
-    from katan import http
+    from pinky import http
     assert http.run_parallel([], workers=4, deadline=5) == {}
 
 
@@ -203,7 +203,7 @@ def test_the_worker_count_never_exceeds_the_cap():
     """Four workers is the budget on a device with a gigabyte of RAM."""
     import threading
 
-    from katan import http
+    from pinky import http
 
     live = {"now": 0, "peak": 0}
     lock = threading.Lock()
@@ -230,8 +230,8 @@ def test_the_worker_count_never_exceeds_the_cap():
 def test_no_sources_is_reported_rather_than_raised(monkeypatch,
                                                    settings_module):
     """Every debrid service down at once must reach the 'nothing found' path."""
-    from katan import http
-    from katan.sources import aggregator
+    from pinky import http
+    from pinky.sources import aggregator
 
     monkeypatch.setattr(http, "run_parallel", lambda tasks, **k: {})
     meta = {"type": "movie", "ids": {"imdb": "tt0000001"}, "title": "X",
@@ -241,14 +241,14 @@ def test_no_sources_is_reported_rather_than_raised(monkeypatch,
 
 def test_a_debrid_service_that_raises_does_not_stop_the_ranking(monkeypatch,
                                                                settings_module):
-    from katan.debrid import registry
+    from pinky.debrid import registry
 
     def explodes(hashes):
         raise RuntimeError("service is down")
 
     monkeypatch.setattr(registry, "cached_map", explodes)
 
-    from katan.sources import aggregator, model
+    from pinky.sources import aggregator, model
     sources = [model.from_release_name("Movie.2024.1080p.WEB-DL-X",
                                        provider="t", info_hash="a" * 40)]
     aggregator._check_debrid_cache(sources)

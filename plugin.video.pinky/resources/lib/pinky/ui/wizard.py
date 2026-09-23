@@ -1,0 +1,338 @@
+"""First-run setup.
+
+One screen per account, each skippable, in the order that unlocks the most:
+TMDB first because nothing renders without it, then a debrid service because
+nothing plays without one, then the optional extras.
+"""
+from .. import kodi, settings
+
+TMDB_SIGNUP = "https://www.themoviedb.org/settings/api"
+GEMINI_SIGNUP = "https://aistudio.google.com/apikey"
+OPENROUTER_SIGNUP = "openrouter.ai/keys"
+OPENSUBTITLES_KEYS = "https://www.opensubtitles.com/en/consumers"
+KTUVIT_SIGNUP = "https://ktuvit.me/Register.aspx"
+
+
+def run(open_home_after=True):
+    steps = [
+        (kodi.localize(32310), step_tmdb, lambda: bool(settings.get("tmdb.apikey"))),
+        (kodi.localize(32311), step_debrid, lambda: bool(settings.configured_debrid())),
+        (kodi.localize(32312), step_trakt, lambda: bool(settings.get("trakt.access_token"))),
+        (kodi.localize(32490), step_opensubtitles,
+         lambda: bool(settings.get("subs.opensubtitles.apikey"))),
+        (kodi.localize(32313), step_ai, lambda: bool(settings.get("subs.ai.gemini_key"))),
+        # Not an account, and the only step that is already answered when the
+        # wizard opens. It is here rather than buried in the settings because
+        # it is the one decision that changes how the add-on looks, and the
+        # shipped answer is the cautious one.
+        (kodi.localize(32410), step_visuals, lambda: True),
+    ]
+    while True:
+        labels = []
+        for title, _, done in steps:
+            labels.append("%s  %s" % ("[OK]" if done() else "[  ]", title))
+        labels.append(kodi.localize(32314))     # finish
+        choice = kodi.select(labels, kodi.localize(32260))
+        if choice < 0 or choice >= len(steps):
+            break
+        try:
+            steps[choice][1]()
+        except Exception:
+            kodi.log_exception("setup step failed")
+            kodi.notify(kodi.localize(32315))
+    _finish(open_home_after=open_home_after)
+
+
+def _finish(open_home_after=True):
+    """Warm the rows, then go where the viewer was trying to get to.
+
+    Setup is not the destination. Finishing it and being returned to a Kodi
+    file list reads as though nothing happened, so once there is a key the
+    Pinky window is opened directly.
+    """
+    from .. import catalog
+    catalog.invalidate()
+
+    has_key = bool(settings.get("tmdb.apikey"))
+    if has_key:
+        catalog.warm(force=True)
+    kodi.notify(kodi.localize(32316))
+
+    if open_home_after and has_key and settings.get_bool("ui.window_home", True):
+        from .home_window import open_home
+        open_home()
+
+
+# --------------------------------------------------------------------------
+# steps
+# --------------------------------------------------------------------------
+
+
+def step_tmdb():
+    kodi.ok_dialog(kodi.localize(32317, TMDB_SIGNUP), kodi.localize(32310))
+    key = kodi.keyboard(settings.get("tmdb.apikey"), kodi.localize(32310))
+    if key is None:
+        return
+    key = key.strip()
+    settings.set("tmdb.apikey", key)
+    if key and _tmdb_key_works():
+        kodi.notify(kodi.localize(32318))
+    elif key:
+        kodi.notify(kodi.localize(32319))
+
+
+def _tmdb_key_works():
+    from ..meta import tmdb
+    from .. import cache
+    cache.delete_prefix("tmdb|")
+    return bool(tmdb.trending("movie", "day"))
+
+
+def step_debrid():
+    services = [
+        ("torbox", "TorBox"),
+        ("realdebrid", "Real-Debrid"),
+        ("premiumize", "Premiumize"),
+        ("alldebrid", "AllDebrid"),
+    ]
+    try:
+        from ..debrid import registry
+    except ImportError:
+        kodi.ok_dialog(kodi.localize(32281))
+        return
+
+    # Say which ones are already connected rather than making the viewer
+    # remember. This screen is reached again and again from Tools.
+    labels = []
+    for service, name in services:
+        client = registry.get(service)
+        connected = bool(client and client.configured())
+        labels.append("%s  %s" % ("[OK]" if connected else "[  ]", name))
+
+    choice = kodi.select(labels, kodi.localize(32311))
+    if choice < 0:
+        return
+    service, name = services[choice]
+    client = registry.get(service)
+    if client is None:
+        kodi.notify(kodi.localize(32320))
+        return
+    if connect(client, name):
+        kodi.notify(kodi.localize(32321, name))
+    else:
+        kodi.notify(kodi.localize(32322))
+
+
+def connect(client, name=""):
+    """Sign in to one service, however that service can be signed in to.
+
+    The ways in are shown rather than chosen between on the viewer's behalf.
+    Running the device flow on its own was tried and is wrong: somebody who
+    presses a service wants to see what their options are, and being dropped
+    straight into a QR code with no way to see the alternatives is a screen
+    happening *to* them. The easiest one is marked as recommended instead,
+    which says the same thing and leaves the decision where it belongs.
+
+    The choice of method lives here rather than inside each client, so that
+    every service asks the same question in the same words and a client only
+    has to say which ways in it actually has.
+    """
+    from . import signin
+
+    title = name or getattr(client, "label", "") or ""
+    method = signin.choose_method(
+        title, getattr(client, "methods", ("key",)),
+        can_paste=hasattr(client, "authorize_with_key"),
+        overrides=getattr(client, "method_labels", None))
+    if method is None:
+        return False
+
+    if method == signin.PASTE:
+        # The key comes from a phone on the same network rather than from the
+        # remote. Handled here rather than inside each client, because what
+        # differs between them is only which setting it lands in.
+        key = signin.receive_key("%s API key" % title)
+        if not key:
+            return False
+        return bool(client.authorize_with_key(key))
+
+    return bool(client.authorize(method))
+
+
+def step_trakt():
+    """Connect Trakt, asking for an application only when none is bundled.
+
+    Everything after this is the shared device flow, so the flow itself lives
+    in `meta/trakt.py` beside the token handling and this step is only the
+    part that is peculiar to Trakt: it is the one service that needs an
+    application registered before anybody can sign in at all.
+    """
+    from ..meta import trakt
+
+    # The chooser first, always. This used to demand a client id and secret
+    # before offering anything, so pressing Trakt opened a keyboard for two
+    # long strings - the exact barrier this screen exists to remove, and the
+    # reason nobody ever reached the link. Asking for an application is now
+    # part of whichever way in needs one, which `trakt.authorize` decides.
+    if connect(trakt, kodi.localize(32312)):
+        kodi.notify(kodi.localize(32325, settings.get("trakt.user")))
+    else:
+        kodi.notify(kodi.localize(32322))
+
+
+def step_visuals():
+    """Light or richer artwork, with what each one costs written down.
+
+    The add-on ships light, because it was written for a projector with a
+    gigabyte of RAM shared with Android and artwork is the largest thing it
+    allocates: Kodi holds decoded bitmaps, so a w342 poster occupies about
+    700 KB against 205 KB at w185.
+
+    Nothing is decided for the viewer here. `profiles.recommend()` reads what
+    the device says about itself and its opinion is shown, but a box with room
+    to spare is told so rather than quietly switched.
+    """
+    from .. import profiles
+
+    lean = profiles.LOW_MEMORY
+    rich = profiles.RICH_VISUALS
+    labels = [
+        kodi.localize(32411, lean["ui.poster_size"],
+                      int(lean["ui.row_items"]),
+                      int(round(profiles.artwork_megabytes(
+                          lean["ui.poster_size"], int(lean["ui.row_items"]))))),
+        kodi.localize(32412, rich["ui.poster_size"],
+                      int(rich["ui.row_items"]),
+                      int(round(profiles.artwork_megabytes(
+                          rich["ui.poster_size"], int(rich["ui.row_items"]))))),
+    ]
+
+    _suggested, why = profiles.recommend()
+    heading = "%s   -   %s" % (kodi.localize(32410),
+                               kodi.localize(32413, why))
+    on = settings.get_bool("ui.rich_visuals", False)
+    choice = kodi.select(labels, heading, preselect=1 if on else 0)
+    if choice < 0:
+        return
+    profiles.set_rich_visuals(choice == 1)
+
+
+def step_opensubtitles():
+    """The single biggest thing that can be done about subtitle accuracy.
+
+    It is the only provider that matches on the *file hash* - not the
+    release name, the actual bytes - which is a certainty rather than an
+    estimate, and it is the largest catalogue by a wide margin. Everything
+    for it is already built and it has been contributing nothing at all,
+    because without a key the provider answers with an empty list.
+
+    The key is free and lives behind one page, so this offers to put that
+    page on a phone rather than describing where to look.
+    """
+    from .. import settings as _settings
+    from . import signin
+
+    entered = signin.ask_for_key(kodi.localize(32490),
+                                 _settings.get("subs.opensubtitles.apikey"),
+                                 help_url=OPENSUBTITLES_KEYS)
+    if entered is None:
+        return
+    _settings.set("subs.opensubtitles.apikey", entered)
+    if not entered:
+        return
+    try:
+        from ..subs.providers import opensubtitles
+    except ImportError:
+        return
+    if opensubtitles.configured():
+        kodi.notify(kodi.localize(32318))
+    else:
+        kodi.notify(kodi.localize(32319))
+
+
+def step_ktuvit():
+    """The one subtitle provider with an account, made findable.
+
+    Ktuvit is a members' site, so it cannot ship with a credential: one login
+    shared by everyone who installs this is precisely what gets an account
+    closed, and the dead credential would then be frozen into every installed
+    copy until a release replaced it. A free account each is the only version
+    of this that keeps working.
+
+    What *was* wrong is that nothing said so. The toggle and its two fields
+    sit at expert level behind a visibility dependency, so finding them meant
+    knowing to raise Kodi's settings level first - and the registration page
+    is not where anybody would guess either. This is one button that offers
+    the signup page as a scannable code and then asks for the two fields,
+    which is how every other account here is entered.
+    """
+    from .. import settings as _settings
+    from . import signin
+
+    email = signin.ask_for_key(kodi.localize(30065),
+                               _settings.get("subs.ktuvit.user"),
+                               help_url=KTUVIT_SIGNUP)
+    if email is None:
+        return
+    password = signin.ask_for_key(kodi.localize(30066),
+                                  _settings.get("subs.ktuvit.password"))
+    if password is None:
+        return
+
+    _settings.set("subs.ktuvit.user", email)
+    _settings.set("subs.ktuvit.password", password)
+    _settings.set("subs.provider.ktuvit", "true" if (email and password) else "false")
+    if not (email and password):
+        return
+
+    try:
+        from ..subs.providers import ktuvit
+    except ImportError:
+        return
+    # A sign-in that is only stored is a sign-in nobody knows failed until a
+    # film plays with no subtitles, so it is tried here while somebody is
+    # still looking at the screen.
+    kodi.notify(kodi.localize(32318) if ktuvit.session_cookie(refresh=True)
+                else kodi.localize(32319))
+
+
+def step_ai():
+    # Whichever engine is selected. Asking for a Gemini key while the engine
+    # is OpenRouter stores it where nothing reads it, and the accounts screen
+    # then reports a connection that cannot translate anything.
+    if (settings.get("subs.ai.engine") or "gemini").strip() == "openrouter":
+        return _step_openrouter()
+    kodi.ok_dialog(kodi.localize(32326, GEMINI_SIGNUP), kodi.localize(32313))
+    key = kodi.keyboard(settings.get("subs.ai.gemini_key"), kodi.localize(32313))
+    if key is None:
+        return
+    settings.set("subs.ai.gemini_key", key.strip())
+    if not key.strip():
+        return
+    try:
+        from ..subs.ai import gemini
+    except ImportError:
+        kodi.notify(kodi.localize(32318))
+        return
+    if gemini.test_key(key.strip()):
+        kodi.notify(kodi.localize(32318))
+    else:
+        kodi.notify(kodi.localize(32319))
+
+
+def _step_openrouter():
+    """The same conversation for OpenRouter, whose free models cost nothing.
+
+    No key test: OpenRouter has no free "is this key valid" call, and spending
+    a request out of somebody's daily allowance to find out is the wrong
+    trade - the first translation says so soon enough.
+    """
+    kodi.ok_dialog(kodi.localize(32538, OPENROUTER_SIGNUP),
+                   kodi.localize(32313))
+    key = kodi.keyboard(settings.get("subs.ai.openrouter_key"),
+                        kodi.localize(32313))
+    if key is None:
+        return
+    settings.set("subs.ai.openrouter_key", key.strip())
+    if key.strip():
+        kodi.notify(kodi.localize(32318))

@@ -83,9 +83,9 @@ def _cached_search(meta, languages, video_hash="", **kwargs):
 
 def examine(entry, use_debrid):
     """One title, run through the real pipeline and then judged."""
-    from katan import play, settings
-    from katan.subs import auto, matcher, srt, sync
-    from katan.utils import release as release_parser
+    from pinky import play, settings
+    from pinky.subs import auto, matcher, srt, sync
+    from pinky.utils import release as release_parser
 
     started = time.time()
     record = dict(entry)
@@ -256,7 +256,7 @@ def main():
     if args.episodes:
         base.STRATA = base.EPISODE_MIX
     base.boot(use_debrid=args.debrid)
-    from katan.subs import auto
+    from pinky.subs import auto
     global _real_search
     _real_search = auto.search_candidates
     auto.search_candidates = _cached_search

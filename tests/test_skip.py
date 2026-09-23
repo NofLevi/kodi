@@ -3,7 +3,7 @@
 import xbmc
 import xbmcgui
 
-from katan import kodi, player, skip
+from pinky import kodi, player, skip
 
 # IntroDB's answer for Breaking Bad 1x02, as fetched.
 BREAKING_BAD_1X02 = {
@@ -116,9 +116,9 @@ def test_credits_may_run_to_the_end():
 
 
 def playing(monkeypatch, position, auto=True):
-    from katan import settings
+    from pinky import settings
     settings.set("ui.auto_skip", "true" if auto else "false")
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     monitor.meta = dict(EPISODE)
     monitor.total_time = 2950.0
     monitor._segments = {"intro": [314.5, 331.0], "credits": [2843.0, 2901.0]}
@@ -160,7 +160,7 @@ def test_seeking_back_into_the_intro_is_respected(monkeypatch):
 
 def test_a_lookup_for_an_old_playback_is_dropped(monkeypatch):
     answering(monkeypatch, BREAKING_BAD_1X02)
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     meta = dict(EPISODE)
     monitor.meta = meta
     monitor._segments = {}
@@ -172,7 +172,7 @@ def test_a_lookup_for_an_old_playback_is_dropped(monkeypatch):
 
 def test_a_lookup_for_this_playback_is_kept(monkeypatch):
     answering(monkeypatch, BREAKING_BAD_1X02)
-    monitor = player.KatanPlayer()
+    monitor = player.PinkyPlayer()
     meta = dict(EPISODE)
     monitor.meta = meta
     monitor._segments = {}

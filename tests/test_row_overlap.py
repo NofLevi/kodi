@@ -11,7 +11,7 @@ to inherit priority from, so it is left exactly as it was.
 """
 import pytest
 
-from katan import cache, catalog
+from pinky import cache, catalog
 
 
 def film(tmdb_id):

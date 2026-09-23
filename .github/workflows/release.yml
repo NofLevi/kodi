@@ -75,18 +75,18 @@ jobs:
 
           tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
           wrong = []
-          for addon in ("plugin.video.katan", "repository.katan"):
+          for addon in ("plugin.video.pinky", "repository.pinky"):
               got = ET.parse(addon + "/addon.xml").getroot().get("version")
               if got != tag:
                   wrong.append("%s/addon.xml says %s" % (addon, got))
 
-          news = ET.parse("plugin.video.katan/addon.xml").find(".//news")
+          news = ET.parse("plugin.video.pinky/addon.xml").find(".//news")
           first = (news.text or "").strip().splitlines()[0].strip() if news is not None else ""
           if first != "v" + tag:
               wrong.append("the changelog opens with %r" % first)
 
           readme = open("README.md", encoding="utf-8").read()
-          linked = set(re.findall(r"repository\.katan-(\d+\.\d+\.\d+)\.zip", readme))
+          linked = set(re.findall(r"repository\.pinky-(\d+\.\d+\.\d+)\.zip", readme))
           if linked - {tag}:
               wrong.append("the README links to %s" % sorted(linked))
 
@@ -103,7 +103,7 @@ jobs:
         run: |
           python - <<'PY' > notes.md
           import xml.etree.ElementTree as ET
-          news = ET.parse("plugin.video.katan/addon.xml").find(
+          news = ET.parse("plugin.video.pinky/addon.xml").find(
               ".//news")
           print((news.text or "").strip() if news is not None else "")
           PY
@@ -113,8 +113,8 @@ jobs:
           # release is newest. Without them here that URL is a 404 and no
           # device is ever told there is a new version.
           gh release create "$GITHUB_REF_NAME" \
-            repo/zips/plugin.video.katan/*.zip \
-            repo/zips/repository.katan/*.zip \
+            repo/zips/plugin.video.pinky/*.zip \
+            repo/zips/repository.pinky/*.zip \
             repo/addons.xml repo/addons.xml.md5 \
             --title "$GITHUB_REF_NAME" --notes-file notes.md
 
@@ -131,7 +131,7 @@ jobs:
       # 2.9 MB zip.
       #
       # `repo/` is uploaded as the site root, so the URLs baked into
-      # repository.katan need no path juggling.
+      # repository.pinky need no path juggling.
       - name: upload the built repository
         uses: actions/upload-pages-artifact@v3
         with:
@@ -159,10 +159,10 @@ jobs:
                   # A bare urllib request to this CDN is answered 403 without
                   # a User-Agent, which is what tools/e2e.py found too.
                   request = urllib.request.Request(
-                      INDEX, headers={"User-Agent": "katan-release"})
+                      INDEX, headers={"User-Agent": "pinky-release"})
                   body = urllib.request.urlopen(request, timeout=20).read()
                   root = ET.fromstring(body)
-                  node = root.find("./addon[@id='plugin.video.katan']")
+                  node = root.find("./addon[@id='plugin.video.pinky']")
                   seen = node.get("version") if node is not None else "no addon"
               except Exception as error:
                   seen = "%s: %s" % (type(error).__name__, error)
@@ -181,13 +181,13 @@ jobs:
           # so compare the bytes rather than the name.
           import hashlib
 
-          name = "plugin.video.katan-%s.zip" % want
-          local = os.path.join("repo", "zips", "plugin.video.katan", name)
+          name = "plugin.video.pinky-%s.zip" % want
+          local = os.path.join("repo", "zips", "plugin.video.pinky", name)
           mine = hashlib.md5(open(local, "rb").read()).hexdigest()
 
           request = urllib.request.Request(
-              "https://noflevi.github.io/kodi/zips/plugin.video.katan/" + name,
-              headers={"User-Agent": "katan-release"})
+              "https://noflevi.github.io/kodi/zips/plugin.video.pinky/" + name,
+              headers={"User-Agent": "pinky-release"})
           published = urllib.request.urlopen(request, timeout=60).read()
           theirs = hashlib.md5(published).hexdigest()
 

@@ -34,7 +34,7 @@ import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-ADDON = os.path.join(ROOT, "plugin.video.katan")
+ADDON = os.path.join(ROOT, "plugin.video.pinky")
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 sys.path.insert(0, os.path.join(ROOT, "tests", "stubs"))
 sys.path.insert(0, os.path.join(ADDON, "resources", "lib"))
@@ -68,7 +68,7 @@ def check(name, area, required=True, network=True):
 def boot():
     """Load the add-on the way a plugin call would, with its own profile."""
     import xbmcaddon  # noqa: F401  - registers the stub
-    from katan import kodi
+    from pinky import kodi
 
     if not os.path.isdir(WORK):
         os.makedirs(WORK)
@@ -82,7 +82,7 @@ def boot():
     # the source checks measure a debrid account CI does not have: cached_only
     # ships on, so with no service configured every source is filtered away
     # and a perfectly healthy search reports "no sources for Fight Club".
-    from katan import settings
+    from pinky import settings
     settings.set("sources.results", "0")
     settings.set("cached_only", "false")
     settings.set("sources.cached_only", "false")
@@ -98,11 +98,11 @@ def boot():
 def _imports():
     import importlib
     import pkgutil
-    import katan
+    import pinky
 
     failed = []
     count = 0
-    for _finder, name, _pkg in pkgutil.walk_packages(katan.__path__, "katan."):
+    for _finder, name, _pkg in pkgutil.walk_packages(pinky.__path__, "pinky."):
         count += 1
         try:
             importlib.import_module(name)
@@ -126,7 +126,7 @@ def _manifests():
 
 @check("the bundled Israeli catalogue loads", "vod", network=False)
 def _vod_loads():
-    from katan.vod import library
+    from pinky.vod import library
 
     library.refresh()
     entries = library.load()
@@ -142,8 +142,8 @@ def _vod_loads():
 
 @check("a Hebrew search finds the Israeli entry first", "vod", network=False)
 def _vod_search_order():
-    from katan.search import unified
-    from katan.vod import library
+    from pinky.search import unified
+    from pinky.vod import library
 
     library.refresh()
     unified.invalidate_index()
@@ -156,7 +156,7 @@ def _vod_search_order():
 
 @check("the bundled channel list is usable", "vod", network=False)
 def _channels():
-    from katan.vod import channels
+    from pinky.vod import channels
 
     channels.refresh()
     television = channels.live_channels()
@@ -186,8 +186,8 @@ def _channels():
 
 @check("subtitle names survive this filesystem", "platform", network=False)
 def _subtitle_names():
-    from katan import kodi
-    from katan.subs import auto
+    from pinky import kodi
+    from pinky.subs import auto
 
     folder = os.path.join(kodi.profile_path(), "platform-check")
     if not os.path.isdir(folder):
@@ -229,8 +229,8 @@ def _case_sensitivity():
     add-on reached a television box, where the second write lands somewhere
     else and the subtitle is simply never found.
     """
-    from katan import kodi
-    from katan.subs import auto
+    from pinky import kodi
+    from pinky.subs import auto
 
     folder = os.path.join(kodi.profile_path(), "platform-check")
     if not os.path.isdir(folder):
@@ -254,7 +254,7 @@ def _awkward_profile():
     under a user folder that very often has a space and sometimes a name in
     another script.
     """
-    from katan import cache, kodi
+    from pinky import cache, kodi
 
     original = kodi.profile_path
     awkward = os.path.join(WORK, u"a folder \u05e2\u05d1\u05e8\u05d9\u05ea (2)")
@@ -285,7 +285,7 @@ def _zip_portable():
     """
     import zipfile
 
-    target = os.path.join(ROOT, "repo", "zips", "plugin.video.katan")
+    target = os.path.join(ROOT, "repo", "zips", "plugin.video.pinky")
     zips = sorted(f for f in os.listdir(target)) if os.path.isdir(target) else []
     zips = [f for f in zips if f.endswith(".zip")]
     if not zips:
@@ -314,7 +314,7 @@ def _log_encoding():
     UnicodeEncodeError printing exactly these titles, because a Windows
     console defaults to cp1252 while Android is UTF-8 throughout.
     """
-    from katan import kodi
+    from pinky import kodi
 
     title = u"\u05d4\u05d7\u05d1\u05e8\u05d9\u05dd \u05e9\u05dc \u05e0\u05d0\u05d5\u05e8 - \u9b3c\u6ec5\u306e\u5203"
     kodi.log("platform check: %s" % title)
@@ -329,7 +329,7 @@ def _log_encoding():
 
 @check("TMDB answers with the bundled key", "metadata")
 def _tmdb():
-    from katan.meta import tmdb
+    from pinky.meta import tmdb
 
     if not tmdb.has_key():
         raise AssertionError("no API key at all")
@@ -341,7 +341,7 @@ def _tmdb():
 
 @check("the anime catalogue answers", "metadata")
 def _anime():
-    from katan.meta import anime
+    from pinky.meta import anime
 
     rows = anime.trending(limit=10)
     if not rows:
@@ -352,7 +352,7 @@ def _anime():
 
 @check("Kitsu can be asked for a cour", "metadata")
 def _kitsu():
-    from katan.meta import kitsu
+    from pinky.meta import kitsu
 
     # Bleach's Thousand-Year Blood War: four broadcast runs of 13, 13, 14, 10.
     parts = kitsu._cours("Bleach", "Thousand-Year Blood War")
@@ -364,7 +364,7 @@ def _kitsu():
 
 @check("a debrid service is reachable", "debrid", required=False)
 def _debrid():
-    from katan import http
+    from pinky import http
 
     response = http.get("https://api.torbox.app/v1/api/user/me",
                         timeout=(5, 10))
@@ -385,7 +385,7 @@ def _index_published():
     raw.githubusercontent.com on a private repository, which answers 404 to
     exactly that request - and the add-on had no way to notice.
     """
-    from katan import http, updater
+    from pinky import http, updater
 
     url = updater.index_url()
     response = http.get(url, timeout=(5, 12))
@@ -410,7 +410,7 @@ def _release_downloadable():
     import re
     import xml.etree.ElementTree as ET
 
-    from katan import http, updater
+    from pinky import http, updater
 
     response = http.get(updater.index_url(), timeout=(5, 12))
     root = ET.fromstring(response.content)
@@ -442,7 +442,7 @@ def _old_install_upgrades():
 
     Everything else here is checked against a zip this machine just built, and
     against an installed copy invented for the occasion. This one starts from
-    `tests/data/baseline-plugin.video.katan.zip` - the real 0.0.2 tree, 148
+    `tests/data/baseline-plugin.video.pinky.zip` - the real 0.0.2 tree, 148
     files, taken from the commit that released it and never regenerated. That
     it is frozen is the point: the distance between it and the current release
     grows with every change, so this asks a harder question every month rather
@@ -469,10 +469,10 @@ def _old_install_upgrades():
 
     import xbmcaddon
 
-    from katan import kodi, updater
+    from pinky import kodi, updater
 
     baseline = os.path.join(ROOT, "tests", "data",
-                            "baseline-plugin.video.katan.zip")
+                            "baseline-plugin.video.pinky.zip")
     if not os.path.isfile(baseline):
         raise AssertionError("no baseline release at %s"
                              % os.path.relpath(baseline, ROOT))
@@ -580,7 +580,7 @@ def _missing_release_is_a_404():
     400`, so under that fallback a withdrawn or misnamed release reads as
     present and fails later, in the download rather than the lookup.
     """
-    from katan import http, updater
+    from pinky import http, updater
 
     base = updater.index_url().rsplit("/", 1)[0]
     url = "%s/zips/%s/%s-99.99.99.zip" % (base, updater.ADDON_ID,
@@ -605,7 +605,7 @@ def _version_comparison():
     line would look like a downgrade and never be offered. Anything
     unparseable sorts lowest, so a corrupt index cannot trigger an update.
     """
-    from katan import updater
+    from pinky import updater
 
     cases = [("0.1.2", "0.1.1", True), ("0.1.10", "0.1.9", True),
              ("1.0.0", "0.9.9", True), ("0.1.1", "0.1.1", False),
@@ -632,7 +632,7 @@ def _stdlib_update_path():
     same index answers 403. Worth proving rather than assuming, because the
     machine that would notice is the one furthest from here.
     """
-    from katan import http, updater
+    from pinky import http, updater
 
     was = http.HAVE_REQUESTS
     try:
@@ -657,7 +657,7 @@ def _stdlib_update_path():
 
 @check("every account still offers a phone sign-in", "accounts")
 def _device_flows():
-    from katan import http
+    from pinky import http
 
     probes = [
         ("Real-Debrid", lambda: http.get(
@@ -669,7 +669,7 @@ def _device_flows():
             params={"agent": "katan"}, timeout=(5, 10)), (200,)),
         ("TorBox", lambda: http.get(
             "https://api.torbox.app/v1/api/user/auth/device/start",
-            params={"app": "Katan"}, timeout=(5, 10)), (200,)),
+            params={"app": "Pinky"}, timeout=(5, 10)), (200,)),
         # These two answer "invalid_client" until the applications are
         # registered, which is a configuration gap rather than an outage - so
         # the check is that the endpoint is there and says so.
@@ -703,8 +703,8 @@ def _device_flows():
 
 
 def _sources_for(kind, tmdb_id, season=0, episode=0):
-    from katan import play
-    from katan.sources import aggregator
+    from pinky import play
+    from pinky.sources import aggregator
 
     meta = play.build_meta({"type": kind, "tmdb": tmdb_id,
                             "season": season, "episode": episode})
@@ -734,11 +734,11 @@ def _episode_sources():
 
 @check("an anime episode is asked for at both addresses", "sources")
 def _anime_addresses():
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
 
     # Bleach 2x46. TMDB's address returns nothing at all and the Kitsu one
     # returns the episode, which is the whole reason the second address exists.
-    from katan import play
+    from pinky import play
     meta = play.build_meta({"type": "episode", "tmdb": 30984,
                             "season": 2, "episode": 46})
     address = aggregator._anime_address(meta)
@@ -755,8 +755,8 @@ def _anime_addresses():
 
 @check("subtitles are found for a film", "subtitles", required=False)
 def _subtitles():
-    from katan import play
-    from katan.subs import outlook
+    from pinky import play
+    from pinky.subs import outlook
 
     meta = play.build_meta({"type": "movie", "tmdb": 550})
     candidates = outlook.candidates(meta)
@@ -780,8 +780,8 @@ def _ktuvit_host():
     and the response envelope in one request - and a rejected empty login is
     the gentlest possible thing to ask of somebody else's server.
     """
-    from katan import http
-    from katan.subs.providers import ktuvit
+    from pinky import http
+    from pinky.subs.providers import ktuvit
 
     response = http.post(ktuvit.LOGIN,
                          json={"request": {"Email": "", "Password": ""}},
@@ -807,7 +807,7 @@ def _ktuvit_host():
 
 @check("an Israeli channel resolves to a stream", "vod", required=False)
 def _channel_stream():
-    from katan.vod import channels
+    from pinky.vod import channels
 
     tried = []
     for entry in channels.live_channels(limit=6):
@@ -905,7 +905,7 @@ def main():
     args = parser.parse_args()
 
     boot()
-    say("Katan end to end, %d checks%s%s"
+    say("Pinky end to end, %d checks%s%s"
         % (len(CHECKS), " (offline)" if args.offline else "",
            " matching %r" % args.only if args.only else ""))
     say("")

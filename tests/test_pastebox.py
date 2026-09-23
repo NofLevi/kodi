@@ -13,7 +13,7 @@ import urllib.request
 
 import pytest
 
-from katan import pastebox
+from pinky import pastebox
 
 
 # --------------------------------------------------------------------------

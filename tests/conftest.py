@@ -11,7 +11,7 @@ import pytest
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TESTS_DIR)
-ADDON_DIR = os.path.join(ROOT, "plugin.video.katan")
+ADDON_DIR = os.path.join(ROOT, "plugin.video.pinky")
 LIB_DIR = os.path.join(ADDON_DIR, "resources", "lib")
 STUBS_DIR = os.path.join(TESTS_DIR, "stubs")
 
@@ -42,9 +42,9 @@ def kodi_environment(tmp_path):
     del xbmcgui.NOTIFICATIONS[:]
     xbmcplugin.reset()
 
-    from katan import cache, kodi
-    from katan.meta import tmdb
-    from katan.subs import auto as _auto
+    from pinky import cache, kodi
+    from pinky.meta import tmdb
+    from pinky.subs import auto as _auto
     # The subtitle search memoises a playback's repeated rounds in the
     # process, so it is per-test state like the caches around it.
     _auto._SEARCHES.clear()
@@ -60,7 +60,7 @@ def kodi_environment(tmp_path):
     # IntroDB is asked from a worker the moment an episode starts, so without
     # this every test that starts one would go to the network. A test that
     # wants an answer patches it.
-    from katan import skip
+    from pinky import skip
     monkeypatch.setattr(skip, "_fetch", lambda *args: None)
 
     kodi.refresh_addon()
@@ -79,14 +79,14 @@ def kodi_environment(tmp_path):
 
 @pytest.fixture
 def settings_module():
-    from katan import settings
+    from pinky import settings
     return settings
 
 
 @pytest.fixture
 def no_network(monkeypatch):
     """Fail loudly if a test reaches the network by accident."""
-    from katan import http
+    from pinky import http
 
     def blocked(*args, **kwargs):
         raise AssertionError("test attempted a network request: %s" % (args,))

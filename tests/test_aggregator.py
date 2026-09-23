@@ -6,7 +6,7 @@ a cache flag that could go up but never come down.
 """
 import pytest
 
-from katan.sources import aggregator, model
+from pinky.sources import aggregator, model
 
 
 def make(title, **kwargs):
@@ -96,7 +96,7 @@ def test_a_second_search_comes_from_the_cache(twenty_sources):
 
 def test_a_legacy_cached_source_gets_subtitle_accuracy(monkeypatch, registry):
     """An upgrade must not leave the picker blank until a 20-minute cache expires."""
-    from katan import cache
+    from pinky import cache
 
     old = make("A.Film.1994.1080p.WEB-DL.x264-GRP", info_hash="a" * 40)
     assert "subs_kind" not in old
@@ -123,8 +123,8 @@ def test_a_legacy_cached_source_gets_subtitle_accuracy(monkeypatch, registry):
 def test_a_failed_legacy_cache_upgrade_is_not_persisted(
         monkeypatch, registry):
     """A provider failure must not renew stale sources or create a retry loop."""
-    from katan import cache
-    from katan.subs import auto
+    from pinky import cache
+    from pinky.subs import auto
 
     old = make("A.Film.1994.1080p.WEB-DL.x264-GRP", info_hash="a" * 40)
     cache.set(aggregator.cache_key(META), [old], aggregator.TTL_RESULTS)
@@ -196,7 +196,7 @@ class FakeRegistry(object):
 @pytest.fixture
 def registry(monkeypatch):
     """Install a fake debrid registry and hand the test back the fake."""
-    from katan.debrid import registry as real
+    from pinky.debrid import registry as real
 
     def install(cached_hashes):
         fake = FakeRegistry(cached_hashes)
@@ -290,7 +290,7 @@ def test_a_debrid_service_that_will_not_answer_leaves_the_list_alone(
     Clearing the flags when the lookup itself failed would empty the picker
     every time the network hiccuped, with cached_only on.
     """
-    from katan.debrid import registry as real
+    from pinky.debrid import registry as real
 
     fake = FakeRegistry({"a" * 40})
     monkeypatch.setattr(real, "cached_map", fake.cached_map)
@@ -414,8 +414,8 @@ def test_a_correction_is_not_written_back_over_the_full_list(two_sources,
     that can be most of the list. Storing the shorter version would mean a
     source that became cached again could not come back until the whole entry
     expired."""
-    from katan import cache
-    from katan.sources import aggregator as agg
+    from pinky import cache
+    from pinky.sources import aggregator as agg
 
     settings_module.set("sources.cached_only", "true")
     fake = registry({"a" * 40, "b" * 40})
@@ -445,7 +445,7 @@ def test_uncached_sources_are_still_there_when_nothing_is_cached(
     real, and not one was on the debrid account yet - so the viewer was told
     "no sources found", which was untrue.
     """
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
 
     settings_module.set_many({"sources.cached_only": "true",
                               "sources.min_resolution": "720p",
@@ -461,7 +461,7 @@ def test_uncached_sources_are_still_there_when_nothing_is_cached(
          "quality": "720p", "size": 700 * 1024 ** 2, "cached": False,
          "seeders": 12, "languages": [], "hdr": [], "codec": "h264"},
     ]
-    from katan import cache
+    from pinky import cache
     cache.volatile_set(aggregator.unfiltered_key(meta), fresh, 600)
 
     waiting = aggregator.uncached(meta)
@@ -471,7 +471,7 @@ def test_uncached_sources_are_still_there_when_nothing_is_cached(
 
 def test_nothing_at_all_is_still_nothing(settings_module):
     """The fallback must not invent sources that were never found."""
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
 
     meta = {"type": "movie", "title": "A Film", "ids": {"imdb": "tt1"}}
     assert aggregator.uncached(meta) == []
@@ -479,8 +479,8 @@ def test_nothing_at_all_is_still_nothing(settings_module):
 
 def test_the_fallback_still_honours_every_other_filter(settings_module):
     """Only "not cached" is set aside. A cam is still a cam."""
-    from katan import cache
-    from katan.sources import aggregator
+    from pinky import cache
+    from pinky.sources import aggregator
 
     settings_module.set_many({"sources.cached_only": "true",
                               "sources.allow_cam": "false",
@@ -510,7 +510,7 @@ def test_the_fallback_still_honours_every_other_filter(settings_module):
 
 
 def test_a_named_arc_replaces_the_address_it_does_not_add_to_it(monkeypatch):
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
 
     asked = []
 
@@ -547,7 +547,7 @@ def test_a_named_arc_replaces_the_address_it_does_not_add_to_it(monkeypatch):
 
 
 def test_without_an_anime_address_everything_is_asked_once(monkeypatch):
-    from katan.sources import aggregator
+    from pinky.sources import aggregator
 
     asked = []
 

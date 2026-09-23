@@ -1,9 +1,9 @@
 """Credential-bearing values must never reach Kodi logs."""
-from katan import kodi
+from pinky import kodi
 
 
 def test_missing_adaptive_log_does_not_expose_signed_stream_path(monkeypatch):
-    from katan.ui import listing
+    from pinky.ui import listing
     secret = "https://cdn.example/private/SYNTH_PATH_TOKEN/manifest.mpd?sig=QUERY"
     logs = []
 
@@ -35,8 +35,8 @@ def test_exception_logging_omits_exception_values(monkeypatch):
 
 
 def test_translation_retry_log_omits_backend_exception_values(monkeypatch):
-    from katan.subs import srt
-    from katan.subs.ai import translator
+    from pinky.subs import srt
+    from pinky.subs.ai import translator
     logs = []
 
     class Backend(object):
@@ -56,7 +56,7 @@ def test_translation_retry_log_omits_backend_exception_values(monkeypatch):
 
 
 def test_update_failure_log_omits_private_url(monkeypatch):
-    from katan import updater
+    from pinky import updater
     secret = "https://updates.example/private/SYNTH_UPDATE_TOKEN/k.zip?sig=SYNTH_SIG"
     logs = []
 
@@ -72,7 +72,7 @@ def test_update_failure_log_omits_private_url(monkeypatch):
 
 
 def test_page_failure_log_omits_url_userinfo(monkeypatch):
-    from katan.vod.extractors import page
+    from pinky.vod.extractors import page
     secret = "https://user:SYNTH_PASSWORD@vod.example/private"
     logs = []
 
@@ -87,7 +87,7 @@ def test_page_failure_log_omits_url_userinfo(monkeypatch):
 
 
 def test_extractor_failure_logs_omit_private_urls(monkeypatch):
-    from katan.vod.extractors import radio891, sport1
+    from pinky.vod.extractors import radio891, sport1
     logs = []
     secret = "https://vod.example/private/SYNTH_PATH?token=SYNTH_QUERY"
     monkeypatch.setattr(kodi, "log", lambda message, *args: logs.append(message))
@@ -102,7 +102,7 @@ def test_extractor_failure_logs_omit_private_urls(monkeypatch):
 
 
 def test_paste_server_log_omits_private_lan_url(monkeypatch):
-    from katan import pastebox
+    from pinky import pastebox
     logs = []
 
     class Done(object):
@@ -143,7 +143,7 @@ def test_paste_server_log_omits_private_lan_url(monkeypatch):
 
 
 def test_signed_url_cache_keys_are_opaque():
-    from katan import cache
+    from pinky import cache
     secret = "https://cdn.example/SYNTH_CACHE_PATH?sig=SYNTH_CACHE_SIG"
     key = cache.make_key("vod", "sport1", secret)
     assert "SYNTH_CACHE_PATH" not in key
@@ -152,7 +152,7 @@ def test_signed_url_cache_keys_are_opaque():
 
 
 def test_cache_failure_context_omits_signed_key(monkeypatch):
-    from katan import cache
+    from pinky import cache
     secret = "vod|sport1|https://cdn.example/SYNTH_CACHE_PATH?sig=SYNTH_CACHE_SIG"
     contexts = []
 
@@ -169,7 +169,7 @@ def test_cache_failure_context_omits_signed_key(monkeypatch):
 
 
 def test_auth_qr_failure_does_not_log_verification_url(monkeypatch):
-    from katan.ui import auth_window, signin
+    from pinky.ui import auth_window, signin
     secret = "https://auth.example/verify?device_code=SYNTH_DEVICE_CODE_7K9Q"
     logs = []
 

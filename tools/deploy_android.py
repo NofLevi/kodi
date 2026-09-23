@@ -3,7 +3,7 @@
     python tools/deploy_android.py           newest zip to every device
     python tools/deploy_android.py --list    show what adb can see
     python tools/deploy_android.py --settings
-                                             copy this machine's Katan
+                                             copy this machine's Pinky
                                              settings, credentials and all,
                                              to every device
 
@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ZIPS = os.path.join(ROOT, "repo", "zips")
 REMOTE = "/sdcard/Download"
 
-ADDON_ID = "plugin.video.katan"
+ADDON_ID = "plugin.video.pinky"
 # What this machine's own Kodi has written, which is where the accounts are.
 SETTINGS = os.path.join(ROOT, ".kodi-test", "portable_data", "userdata",
                         "addon_data", ADDON_ID, "settings.xml")
@@ -65,7 +65,7 @@ def newest_zips():
 
 
 def push_settings(targets):
-    """Copy this machine's Katan settings onto every device.
+    """Copy this machine's Pinky settings onto every device.
 
     Accounts are the reason this exists. Twenty-two credentials can be entered
     on a keyboard in a couple of minutes and are miserable on a projector with
@@ -124,7 +124,7 @@ def main():
                      os.path.getsize(path) / 1024.0))
 
     print("\nOn the box: Kodi -> Add-ons -> Install from zip file -> Download")
-    print("Start with repository.katan; Katan itself then installs from it,")
+    print("Start with repository.pinky; Pinky itself then installs from it,")
     print("and every later release arrives on its own.")
     return 0
 

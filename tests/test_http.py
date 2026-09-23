@@ -1,7 +1,7 @@
 """HTTP logging must never expose URL credentials or query tokens."""
 import pytest
 
-from katan import http
+from pinky import http
 
 
 def test_request_failure_log_redacts_url_from_exception(monkeypatch):
@@ -24,7 +24,7 @@ def test_request_failure_log_redacts_url_from_exception(monkeypatch):
 
 def test_stdlib_buffered_gzip_is_bounded_and_decoded(monkeypatch):
     import gzip
-    from katan import http, urlsession
+    from pinky import http, urlsession
 
     response = urlsession.Response(
         "https://example.invalid", 200, {"Content-Encoding": "gzip"},
@@ -43,7 +43,7 @@ def test_stdlib_buffered_gzip_is_bounded_and_decoded(monkeypatch):
 
 def test_stdlib_redirect_strips_api_keys_across_origins():
     from urllib.request import Request
-    from katan.urlsession import _SafeRedirect
+    from pinky.urlsession import _SafeRedirect
 
     request = Request("https://api.example/start", headers={
         "X-Api-Key": "SYNTH", "Api-Key": "SYNTH",

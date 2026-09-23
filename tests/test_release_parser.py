@@ -1,7 +1,7 @@
 """The release parser drives both source ranking and subtitle matching."""
 import pytest
 
-from katan.utils import release
+from pinky.utils import release
 
 
 @pytest.mark.parametrize("name,expected", [
@@ -148,7 +148,7 @@ def test_an_unreadable_resolution_is_not_filtered_out():
     Fansub names routinely omit it: thirteen of the forty-four copies of one
     Bleach episode were thrown away this way, several of them 1080p.
     """
-    from katan.sources import scoring
+    from pinky.sources import scoring
 
     class Prefs(object):
         allow_cam = allow_hevc = allow_av1 = allow_hdr = True
@@ -306,7 +306,7 @@ def test_it_reads_how_the_audio_is_presented(name, expected):
 
 def test_the_picker_says_which_one_it_is():
     """The whole point: two identical-looking rows that now read differently."""
-    from katan.sources import model
+    from pinky.sources import model
 
     dubbed = model.from_release_name(
         "One Piece 1071 [1080p][English Dub][WEB-DL]", "torrentio", size=1 << 30)

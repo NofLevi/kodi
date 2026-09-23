@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Install Katan onto an Android box over its own FTP server.
+"""Install Pinky onto an Android box over its own FTP server.
 
 Some Android boxes - the Byintek U4 among them - ship a file manager that
 offers an FTP server on the local network. That is a better route onto the
@@ -18,7 +18,7 @@ told twice.
 
 Credentials are arguments, never files: this is somebody's home network and
 nothing here should end up committed. `--password` may also be given through
-the KATAN_FTP_PASSWORD environment variable.
+the PINKY_FTP_PASSWORD environment variable.
 """
 from __future__ import print_function
 
@@ -30,7 +30,7 @@ import posixpath
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ADDONS = ["plugin.video.katan", "repository.katan"]
+ADDONS = ["plugin.video.pinky", "repository.pinky"]
 
 # Where Kodi keeps its add-ons on Android. The `org.xbmc.kodi` package is the
 # official build; a fork such as POV lives under its own package and this
@@ -41,7 +41,7 @@ SKIP_SUFFIX = (".pyc", ".pyo", ".orig", ".rej", ".log", ".tmp")
 
 
 SITE = "https://noflevi.github.io/kodi"
-AGENT = "Kodi/21.3 (Android) Katan/installer"
+AGENT = "Kodi/21.3 (Android) Pinky/installer"
 
 
 def local_files(addon_id):
@@ -141,7 +141,7 @@ def main():
     parser.add_argument("--port", type=int, default=2121)
     parser.add_argument("--user", default="pc")
     parser.add_argument("--password",
-                        default=os.environ.get("KATAN_FTP_PASSWORD", ""))
+                        default=os.environ.get("PINKY_FTP_PASSWORD", ""))
     parser.add_argument("--kodi", default=KODI,
                         help="Kodi's .kodi directory on the device")
     parser.add_argument("--release", action="store_true",
@@ -152,7 +152,7 @@ def main():
     staging = ""
     if args.release:
         import tempfile
-        staging = tempfile.mkdtemp(prefix="katan-release-")
+        staging = tempfile.mkdtemp(prefix="pinky-release-")
         versions = fetch_release(staging)
         print("the published release: %s"
               % ", ".join("%s %s" % pair for pair in sorted(versions.items())))
@@ -215,8 +215,8 @@ def main():
                            for n in ftp.nlst("/device/Download")):
             if not name.endswith(".zip"):
                 continue
-            if not (name.startswith("plugin.video.katan")
-                    or name.startswith("repository.katan")):
+            if not (name.startswith("plugin.video.pinky")
+                    or name.startswith("repository.pinky")):
                 continue                # somebody else's file, leave it alone
             ftp.delete("/device/Download/" + name)
             print("  removed %s from Download" % name)
@@ -226,7 +226,7 @@ def main():
         except Exception:
             ftp.close()
 
-    print("\ninstalled. Restart Kodi on the device and Katan will be there.")
+    print("\ninstalled. Restart Kodi on the device and Pinky will be there.")
     return 0
 
 

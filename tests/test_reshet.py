@@ -7,9 +7,9 @@ silently reorders a programme and breaks picking the next unwatched episode.
 """
 import pytest
 
-from katan import http
-from katan.vod import extractors
-from katan.vod.extractors import reshet
+from pinky import http
+from pinky.vod import extractors
+from pinky.vod.extractors import reshet
 
 SEASON = u"עונה"        # "season"
 EPISODE = u"פרק"             # "episode"
@@ -212,7 +212,7 @@ def test_reshet_is_registered_as_an_extractor():
 
 def test_the_catalogue_routes_reshet_through_the_extractor(api):
     """The bundled ids are Kaltura SeriesIDs, so they need no translation."""
-    from katan.vod import library
+    from pinky.vod import library
     entries = library.by_module("reshet", limit=3)
     assert entries, "expected Reshet programmes in the bundled catalogue"
     for entry in entries:
@@ -239,7 +239,7 @@ def test_the_catalogue_routes_reshet_through_the_extractor(api):
     ("x_1p23hf83_1_fop805w6", ""),
 ])
 def test_the_kaltura_entry_is_read_off_the_playback_source(external, expected):
-    from katan.vod import kaltura
+    from pinky.vod import kaltura
 
     assert kaltura.entry_id(external) == expected
 
@@ -254,8 +254,8 @@ def test_reshet_asks_plain_kaltura_rather_than_the_ad_inserting_endpoint(
     Kaltura with nothing inserted, and its id is already on the source we
     have, so this costs one request and no change to how anything is listed.
     """
-    from katan.vod import kaltura
-    from katan.vod.extractors import reshet
+    from pinky.vod import kaltura
+    from pinky.vod.extractors import reshet
 
     monkeypatch.setattr(reshet, "session", lambda refresh=False: "ks")
     monkeypatch.setattr(reshet, "_call", lambda *a, **k: {"sources": [{
@@ -281,8 +281,8 @@ def test_reshet_asks_plain_kaltura_rather_than_the_ad_inserting_endpoint(
 
 def test_reshet_still_plays_when_the_clean_route_cannot_answer(monkeypatch):
     """A viewer with adverts is better off than one with a black screen."""
-    from katan.vod import kaltura
-    from katan.vod.extractors import reshet
+    from pinky.vod import kaltura
+    from pinky.vod.extractors import reshet
 
     monkeypatch.setattr(reshet, "session", lambda refresh=False: "ks")
     monkeypatch.setattr(reshet, "_call", lambda *a, **k: {"sources": [{

@@ -8,7 +8,7 @@ as though nothing had happened until the cache expired hours later.
 """
 import pytest
 
-from katan.meta import trakt
+from pinky.meta import trakt
 
 
 class Response(object):
@@ -64,7 +64,7 @@ def test_what_the_watchlist_returns_is_marked_as_on_it(monkeypatch):
 
 
 def test_the_menu_offers_remove_only_where_the_item_is_on_the_watchlist():
-    from katan.ui import listing
+    from pinky.ui import listing
 
     listed = {"type": "movie", "title": "Fight Club", "ids": {"tmdb": 550},
               "extra": {"in_watchlist": True}}
@@ -83,8 +83,8 @@ def test_the_menu_offers_remove_only_where_the_item_is_on_the_watchlist():
     ("trakt_watchlist_remove", "remove_from_watchlist"),
 ])
 def test_either_change_refreshes_the_watchlist_row(monkeypatch, route, call):
-    from katan import catalog, kodi
-    from katan.ui import handlers
+    from pinky import catalog, kodi
+    from pinky.ui import handlers
 
     cleared = []
     monkeypatch.setattr(catalog, "invalidate",

@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from katan import bookmarks
-from katan.meta import trakt_state
+from pinky import bookmarks
+from pinky.meta import trakt_state
 
 MOVIE = {"type": "movie", "title": "A Film", "ids": {"tmdb": 7}}
 MOVIE_KEY = trakt_state.state_key("movie", {"tmdb": 7})
@@ -100,9 +100,9 @@ def test_marking_something_watched_forgets_its_place(monkeypatch):
 
 @pytest.fixture
 def monitor(monkeypatch):
-    from katan import player
+    from pinky import player
 
-    watcher = player.KatanPlayer()
+    watcher = player.PinkyPlayer()
     watcher.meta = dict(MOVIE)
     watcher.total_time = 0.0
     clock = {"now": 3600.0, "stopped": False}
