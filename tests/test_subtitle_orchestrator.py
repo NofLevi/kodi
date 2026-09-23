@@ -556,3 +556,37 @@ def test_a_search_that_found_nothing_is_asked_again(providers):
     assert auto.search_candidates(MOVIE, ["he", "en"]) == []
     assert auto.search_candidates(MOVIE, ["he", "en"]) == []
     assert empty.searched == 2
+
+
+def test_an_oversized_subtitle_is_refused_before_it_is_built():
+    """The per-cue ceiling fires only after twenty thousand Cue objects exist.
+
+    That is about 5 MB of objects on a device with a few hundred, spent on a
+    file already decided against. Counting the arrows first is one C-level
+    scan of a string we are holding anyway.
+    """
+    import tracemalloc
+
+    absurd = "".join(
+        "%d\n00:00:%06.3f --> 00:00:%06.3f\nline %d\n"
+        % (i + 1, (i * 2.0) % 60, (i * 2.0 + 1.5) % 60, i)
+        for i in range(25000))
+
+    tracemalloc.start()
+    try:
+        parsed = srt.parse(absurd)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+    assert parsed == []
+    assert peak < 512 * 1024, \
+        "built %.1f MB before refusing it" % (peak / 1024.0 / 1024.0)
+
+
+def test_a_normal_film_is_untouched_by_that_guard():
+    normal = "".join(
+        "%d\n00:00:%06.3f --> 00:00:%06.3f\nline %d\n"
+        % (i + 1, (i * 2.0) % 60, (i * 2.0 + 1.5) % 60, i)
+        for i in range(1800))
+    assert len(srt.parse(normal)) == 1800

@@ -101,6 +101,14 @@ def parse(text):
     house format for anime, which is the part of the catalogue that can least
     afford to lose a provider.
     """
+    # A cheap look before any object is built. The per-cue ceiling below is
+    # the real guard, but by the time it fires twenty thousand Cue objects
+    # exist - about 5 MB on a device with a few hundred - for a file already
+    # decided against. Counting the arrows is one C-level scan of a string we
+    # are holding anyway, and a file claiming more cues than this is corrupt
+    # rather than talkative.
+    if text.count("-->") > MAX_CUES:
+        return []
     if not text:
         return []
     text = text.replace("\r\n", "\n").replace("\r", "\n")
