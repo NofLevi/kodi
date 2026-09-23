@@ -413,10 +413,39 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   wrong owner on a television used by one family. `kids.check_pin` and its
   hashed store remain for whenever there is a reason to ask again.
 * `subs/sync.py` is the part that makes a subtitle actually fit. It correlates
-  speech activity as big-integer bitmasks, which is fast enough to align a two
-  hour film in about 170 ms, and corrects constant offset, PAL/NTSC drift and
-  **splits**. Its score is chance corrected, so an unrelated subtitle is
-  refused.
+  speech activity as big-integer bitmasks and corrects constant offset,
+  PAL/NTSC drift and **splits**. Its score is chance corrected, so an
+  unrelated subtitle is refused.
+
+  **The "about 170 ms" this used to claim was never true on a device.** It was
+  measured on a Python with `int.bit_count()`, which arrived in 3.10, and
+  Kodi 21 ships **3.8** - so every device took the fallback, and the fallback
+  built a 72,000-character string for each of the 3,601 lags in a scan.
+  Measured on a 2.8 hour pair, on the fallback: **0.78 s matching and 7.85 s
+  unrelated**, on a desktop four to eight times faster than the projector. An
+  unrelated pair is not the rare case - it is what refusing a wrong subtitle
+  looks like, and it is the expensive one because only a good match trips the
+  early break. `consensus` runs six to eight of them for one decision.
+
+  Two fixes, both measured, now **0.16 s and 0.31 s** on that same fallback.
+  The popcount translates bytes to their bit counts and sums, keeping all
+  three steps in C - the obvious 256-entry table lookup is *slower* than the
+  string it replaces, 516 us against 324 us, because `sum(tbl[b] for b in ...)`
+  is a Python loop over nine thousand bytes. That was worth 24%. The rest was
+  the *number of lags*: a one-second bin now answers "roughly where" over the
+  full three minutes and the 100 ms pass only examines the window it names.
+  That second pass engages only on feature-length timelines, because a
+  one-second bin has to be sparse to discriminate and on a four-minute excerpt
+  it is not - there the full scan is cheap anyway. `tools/bench.py` measures
+  that path rather than the builtin no device has.
+
+  **The timeline is clamped**, because this is where a stranger's numbers
+  become the size of an allocation. `srt._TIME` accepts three-digit hours, so
+  a downloaded file may name a cue ending 999 hours in; at a 100 ms bin that
+  is a 36-million-bit integer. Measured before the clamp: **119 seconds** on a
+  fast desktop for one such file, and `MemoryError` is the other outcome.
+  `activity_mask` always took a `limit_bins` argument and not one of its three
+  call sites passed it, so the default is the fix.
 
   The whole field agrees on the first half of this. ffsubsync discretises both
   sides into 10 ms "is anyone talking" bins and finds the shift that maximises
@@ -510,7 +539,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1886 tests, all running against Kodi stubs, so no Kodi install is needed:
+1924 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -542,6 +571,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
 | `test_subtitle_pipeline.py` | 50 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. |
 | `test_aes.py` | 8 | AES, because one login depends on it and a cipher that is subtly wrong looks exactly like one that is right. Checked against FIPS-197 and NIST SP 800-38A rather than against itself, so none of the expected values came from this code. |
+| `test_subtitle_orchestrator.py` | 35 | What happens when the things the subtitle search depends on misbehave. Every other subtitle test replaces the search and the download with fakes that only ever return data, so the code between a provider and the decision had never been asked what it does when a provider raises, answers nonsense, hangs, or hands back a dict full of junk. These inject at the real provider boundary and keep everything above it. Also the two stuck screens, the cancelled job that still wrote a file, and Kodi itself answering with an error envelope. |
 | `test_ktuvit.py` | 24 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
 | `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
