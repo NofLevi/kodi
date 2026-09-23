@@ -339,6 +339,20 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
     downloads = _DownloadBudget(consensus.budget())
     wanted = languages[0]
 
+    def keep(language, cues, variant=""):
+        """Write the chosen subtitle, unless this playback is already over.
+
+        The cancellation check used to happen only in `on_playback_started`,
+        *after* this returned - so a superseded search still wrote its file
+        and still ran `prune_cache()`, which deletes other titles' subtitles
+        to stay under the cap. Pressing stop and starting something else could
+        therefore evict the subtitle the new playback was about to reuse.
+        """
+        if is_cancelled():
+            return ""
+        return store(meta, language, cues, variant)
+
+
     get_hash = video_hash_later(meta)
     candidates = search_candidates(meta, languages, get_hash)
     if is_cancelled():
@@ -357,7 +371,8 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
                                     generation=translation_generation)
         if path or is_cancelled():
             return path, report
-        return _english(meta, languages, [], {}, report, downloads, 0, embedded)
+        return _english(meta, languages, [], {}, report, downloads, 0,
+                        embedded, keep)
 
     target = matcher.target_from(meta)
     threshold = settings.get_int("subs.threshold", 70)
@@ -402,7 +417,7 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
             if cues:
                 report["reason"] = (report.get("reason")
                                     or (winner or {}).get("reason", ""))
-                return store(meta, wanted, cues), report
+                return keep(wanted, cues), report
 
     if _subs_mode(meta) in ("native", "english"):
         # Chosen from the picker's Hebrew or English rows. The best Hebrew there is,
@@ -413,7 +428,7 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
             chosen, cues = _first_usable(_ranked, wanted, downloads)
             if cues:
                 report["reason"] = "native row: best %s available" % wanted
-                return store(meta, wanted, cues), report
+                return keep(wanted, cues), report
         report["reason"] = "native row: no %s subtitle could be used" % wanted
         return "", report
 
@@ -425,7 +440,7 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
             _ranked, wanted, downloads, winners, languages, report, runtime)
         if cues:
             report["reason"] = "below threshold, used anyway"
-            return store(meta, wanted, cues), report
+            return keep(wanted, cues), report
 
     # No Hebrew at all. Only now is it worth asking for what AI could
     # translate from: while any Hebrew exists those requests buy nothing.
@@ -452,11 +467,11 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
     if path or is_cancelled():
         return path, report
     return _english(meta, languages, _ranked, winners, report, downloads,
-                    runtime, embedded)
+                    runtime, embedded, keep)
 
 
 def _english(meta, languages, ranked, winners, report, downloads, runtime,
-             embedded=None):
+             embedded=None, keep=None):
     """The last part: a subtitle in the next language down, as it is.
 
     The file's own track first, because it is in time by construction - for
@@ -475,7 +490,8 @@ def _english(meta, languages, ranked, winners, report, downloads, runtime,
         if cues:
             report["reason"] = "%s subtitle, nothing in %s" % (code, languages[0])
             report["language"] = code
-            return store(meta, code, cues), report
+            write = keep or (lambda language, found: store(meta, language, found))
+            return write(code, cues), report
     return "", report
 
 
@@ -1228,11 +1244,15 @@ def _translate_progressively(cues, meta, language, player, variant="",
         path = slots[state["slot"] % len(slots)]
 
         def apply_partial():
+            # Both checks are before the write, not around it. `srt.write`
+            # used to sit between them, so a job superseded while it was
+            # writing still put a file on disk for a playback that had already
+            # been replaced - and on slow eMMC that write is not instant.
             if cancelled is not None and cancelled():
+                return False
+            if not coordinator.current(generation):
                 return False
             srt.write(path, partial)
-            if cancelled is not None and cancelled():
-                return False
             player.setSubtitles(path)
             player.showSubtitles(True)
             state["slot"] += 1

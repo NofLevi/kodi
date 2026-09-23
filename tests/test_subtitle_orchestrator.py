@@ -395,3 +395,40 @@ def test_a_look_up_that_failed_is_not_remembered_as_no_subtitles(
     again = outlook.candidates(MOVIE)
     assert [c["release"] for c in again] == ["Pulp.Fiction.1994.1080p"], \
         "the failure was cached and the retry never happened"
+
+
+# --------------------------------------------------------------------------
+# work for a playback that is over must leave nothing behind
+# --------------------------------------------------------------------------
+
+
+def test_a_superseded_search_writes_no_file(monkeypatch, settings_module):
+    """Cancelling was checked after `find_and_prepare` returned, not inside.
+
+    So a superseded search still wrote its subtitle *and* still ran
+    `prune_cache()`, which deletes other titles' files to stay under the cap.
+    Pressing stop and starting something else could evict the very subtitle
+    the new playback was about to reuse.
+    """
+    settings_module.set_many({"subs.languages": "he,en", "subs.threshold": "70",
+                             "subs.hash_match": "false", "subs.ai.enabled": "false"})
+    import os
+    from katan.subs import auto as auto_module
+
+    good = candidate("Pulp.Fiction.1994.1080p.BluRay.x264-AAA")
+    cues = [srt.Cue(i + 1, i * 4.0, i * 4.0 + 2.0, "line") for i in range(30)]
+    monkeypatch.setattr(auto_module, "search_candidates",
+                        lambda *a, **k: [dict(good)])
+    monkeypatch.setattr(auto_module, "download_candidate",
+                        lambda *a, **k: list(cues))
+    monkeypatch.setattr(auto_module, "video_hash_later",
+                        lambda meta: (lambda: ""))
+
+    # Cancelled from the moment the candidates are back.
+    path, report = auto_module.find_and_prepare(
+        MOVIE, ["he", "en"], cancelled=lambda: True)
+
+    assert path == ""
+    folder = auto_module.subtitle_dir()
+    left = os.listdir(folder) if os.path.isdir(folder) else []
+    assert left == [], "a cancelled playback left %r behind" % left
