@@ -380,3 +380,65 @@ def test_play_on_the_season_list_still_means_the_next_unwatched(window,
     assert len(calls) == 1
     assert calls[0][0]["episode"] == 2, "episode 1 is already watched"
 
+
+
+# --------------------------------------------------------------------------
+# an item that carries no TMDB id
+# --------------------------------------------------------------------------
+
+
+def test_an_anime_row_item_finds_its_seasons(window, monkeypatch):
+    """AniList and Kitsu know nothing about TMDB.
+
+    An anime row item arrives carrying {"anilist": 189046, "mal": 61316} and
+    no tmdb id, and everything this window does is keyed on one - so seasons
+    returned early without a word, the episode list stayed empty, and Play
+    said "nothing left to watch" about a series with a thousand episodes.
+    """
+    from pinky.meta import tmdb
+    from pinky.ui import details_window
+
+    asked = []
+    monkeypatch.setattr(tmdb, "find_by_name",
+                        lambda title, kind, year, alternatives=(): asked.append(
+                            (title, kind, year)) or 37854)
+    monkeypatch.setattr(tmdb, "seasons", lambda tmdb_id: [
+        {"type": "season", "title": "Season 1", "season": 1, "ids": {},
+         "art": {}, "extra": {"episode_count": 61}}])
+
+    detail = details_window.DetailsWindow("pinky-details.xml", ".", "default",
+                                          "1080i")
+    detail.item = {"type": "show", "title": "ONE PIECE", "year": 1999,
+                   "ids": {"anilist": 189046}, "art": {}, "extra": {}}
+    assert detail._tmdb_id() == 37854
+    assert asked == [("ONE PIECE", "tv", 1999)]
+    assert detail.item["ids"]["tmdb"] == 37854, "written back for what follows"
+
+
+def test_the_name_lookup_happens_once(window, monkeypatch):
+    """A title TMDB does not know must not cost a search per redraw."""
+    from pinky.meta import tmdb
+    from pinky.ui import details_window
+
+    asked = []
+    monkeypatch.setattr(tmdb, "find_by_name",
+                        lambda *a, **k: asked.append(1) or 0)
+
+    detail = details_window.DetailsWindow("pinky-details.xml", ".", "default",
+                                          "1080i")
+    detail.item = {"type": "show", "title": "Nothing At All", "year": 2026,
+                   "ids": {"anilist": 1}, "art": {}, "extra": {}}
+    for _ in range(4):
+        assert detail._tmdb_id() is None
+    assert len(asked) == 1
+
+
+def test_an_item_that_has_an_id_is_never_looked_up(window, monkeypatch):
+    from pinky.meta import tmdb
+    from pinky.ui import details_window
+
+    monkeypatch.setattr(tmdb, "find_by_name", lambda *a, **k: 1 / 0)
+    detail = details_window.DetailsWindow("pinky-details.xml", ".", "default",
+                                          "1080i")
+    detail.item = {"type": "show", "title": "Silo", "ids": {"tmdb": 125988}}
+    assert detail._tmdb_id() == 125988

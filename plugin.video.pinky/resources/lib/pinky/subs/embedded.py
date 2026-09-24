@@ -49,8 +49,17 @@ LANGUAGE_NAMES = {
     "zh": "Chinese",
 }
 
-# Tracks that are not full dialogue, and should not be offered as if they were.
-_PARTIAL_MARKERS = ("forced", "signs", "songs", "commentary")
+# Tracks that are not full dialogue, and should not be offered as if they
+# were: they caption on-screen text rather than translating it. Named in
+# more than English because the releases are: a German or Spanish anime rip
+# labels its forced track in its own language, and calling that one "the
+# English subtitles" is how a file ends up playing with nothing readable on
+# it. "s&s" and "signs & songs" are what fansub groups actually write.
+_PARTIAL_MARKERS = (
+    "forced", "signs", "songs", "commentary", "s&s", "sign/song",
+    "erzwungen", "forzado", "forzati", "forcé", "forcee",
+    "принуд", "karaoke", "typeset",
+)
 
 
 def streams():
@@ -225,14 +234,27 @@ def candidates(languages=None):
     return found
 
 
-def select(index, player=None):
-    """Switch the supplied/current player to an embedded track."""
+def select(index, player=None, name=""):
+    """Switch the supplied/current player to an embedded track.
+
+    Reports what actually happened. The playback facade in `player.py`
+    discards writes once playback has moved on, and this used to log
+    "selected embedded subtitle track 0" either way - so a bare screen and a
+    switched track left exactly the same line behind. The track's own name
+    goes in the line too, because "track 0" alone cannot be told apart from
+    a signs-and-songs track that is doing its job perfectly.
+    """
     try:
         player = player or xbmc.Player()
-        player.setSubtitleStream(int(index))
-        player.showSubtitles(True)
+        switched = player.setSubtitleStream(int(index))
+        shown = player.showSubtitles(True)
     except Exception:
         kodi.log_exception("could not switch to embedded track %s" % index)
         return False
-    kodi.log("selected embedded subtitle track %s" % index)
+    if switched is False or shown is False:
+        kodi.log("playback moved on before embedded track %s could be "
+                 "selected, so nothing was switched" % index, kodi.LOG_INFO)
+        return False
+    kodi.log("selected embedded subtitle track %s (%s)"
+             % (index, name or "unnamed"))
     return True

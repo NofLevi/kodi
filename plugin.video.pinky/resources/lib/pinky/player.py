@@ -52,7 +52,16 @@ def clear_now_playing():
 
 
 class _PlaybackPlayer(object):
-    """Player facade that ignores writes from an obsolete subtitle worker."""
+    """Player facade that ignores writes from an obsolete subtitle worker.
+
+    Every write answers **True when it was applied and False when it was
+    dropped**, which it did not used to do. `embedded.select` called
+    `setSubtitleStream` and `showSubtitles` through here, got None back
+    whatever happened, and logged "selected embedded subtitle track 0" - so
+    the log said a track had been switched on while the screen stayed bare
+    and nothing anywhere recorded the difference. A facade that discards
+    writes has to say so, or it is a facade that invents log lines.
+    """
 
     def __init__(self, owner, generation, meta):
         self.owner = owner
@@ -66,21 +75,24 @@ class _PlaybackPlayer(object):
 
     def setSubtitleStream(self, index):
         with PLAYBACK_LOCK:
-            if (self.owner._subtitle_generation == self.generation
-                    and self.owner.meta is self.meta):
-                self.owner.setSubtitleStream(index)
+            if not self.current():
+                return False
+            self.owner.setSubtitleStream(index)
+            return True
 
     def setSubtitles(self, path):
         with PLAYBACK_LOCK:
-            if (self.owner._subtitle_generation == self.generation
-                    and self.owner.meta is self.meta):
-                self.owner.setSubtitles(path)
+            if not self.current():
+                return False
+            self.owner.setSubtitles(path)
+            return True
 
     def showSubtitles(self, visible):
         with PLAYBACK_LOCK:
-            if (self.owner._subtitle_generation == self.generation
-                    and self.owner.meta is self.meta):
-                self.owner.showSubtitles(visible)
+            if not self.current():
+                return False
+            self.owner.showSubtitles(visible)
+            return True
 
     def __getattr__(self, name):
         return getattr(self.owner, name)

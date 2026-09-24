@@ -613,7 +613,7 @@ def test_the_automatic_path_prefers_an_embedded_track(monkeypatch,
 
     chosen = []
     monkeypatch.setattr(embedded, "select",
-                        lambda index, player=None: chosen.append(index) or True)
+                        lambda index, player=None, name="": chosen.append(index) or True)
 
     searched = []
     monkeypatch.setattr(auto, "search_candidates",
@@ -1104,3 +1104,58 @@ def test_a_subtitle_is_never_its_own_timing_reference():
     assert auto.reference_cues({"en": candidate}, ["he", "en"], budget,
                                skip=candidate) == []
     assert auto.reference_cues({"en": candidate}, ["he", "en"], budget) != []
+
+
+# --------------------------------------------------------------------------
+# a log line that was true whatever happened
+# --------------------------------------------------------------------------
+
+
+def test_a_dropped_subtitle_write_is_reported_as_dropped():
+    """The facade discards writes once playback has moved on.
+
+    `embedded.select` called through it, got None back whatever happened, and
+    logged "selected embedded subtitle track 0" - so a bare screen and a
+    switched track left exactly the same line behind. Black Lagoon 1x04 was
+    that line with no subtitles under it.
+    """
+    from pinky import player as player_module
+    from pinky.subs import embedded
+
+    owner = player_module.PinkyPlayer()
+    owner.meta = {"type": "episode"}
+    owner._subtitle_generation = 5
+    facade = player_module._PlaybackPlayer(owner, 5, owner.meta)
+    assert facade.setSubtitleStream(0) is True
+    assert facade.showSubtitles(True) is True
+
+    owner._subtitle_generation = 6           # this playback is no longer current
+    assert facade.setSubtitleStream(0) is False
+    assert embedded.select(0, facade) is False, \
+        "a write nobody applied is not a selected track"
+
+
+def test_a_live_playback_still_selects():
+    from pinky import player as player_module
+    from pinky.subs import embedded
+
+    owner = player_module.PinkyPlayer()
+    owner.meta = {"type": "episode"}
+    owner._subtitle_generation = 1
+    facade = player_module._PlaybackPlayer(owner, 1, owner.meta)
+    assert embedded.select(0, facade, "English") is True
+
+
+def test_a_forced_track_is_recognised_in_its_own_language():
+    """A German or Spanish rip labels its forced track in its own language.
+
+    Calling that one "the English subtitles" is how a file plays with nothing
+    readable on it while the log says a track was selected.
+    """
+    from pinky.subs import embedded
+
+    for name in ("Forced", "Signs & Songs", "S&S", "Erzwungen",
+                 "Subtitulos forzado", "Sottotitoli forzati", "Karaoke"):
+        assert embedded.is_partial(name), name
+    for name in ("English", "English (Full)", "Hebrew", "Dialogue"):
+        assert not embedded.is_partial(name), name

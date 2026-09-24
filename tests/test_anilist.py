@@ -153,3 +153,40 @@ def test_an_empty_search_never_asks(answers):
     calls = answers(FakeResponse(200, {"data": {"Page": {"media": []}}}))
     assert anilist.search("", limit=5) == []
     assert not calls
+
+
+def test_a_name_and_a_year_pick_the_right_one_of_two(monkeypatch):
+    """Searching "ONE PIECE" returns the 2023 live action first.
+
+    Both match the name exactly, so a name match alone would open the wrong
+    programme with a straight face. Measured live: with the year, 1999 gives
+    37854 and 2023 gives 111110.
+    """
+    from pinky.meta import tmdb
+
+    rows = [{"title": "ONE PIECE", "year": 2023, "ids": {"tmdb": 111110}},
+            {"title": "One Piece", "year": 1999, "ids": {"tmdb": 37854}}]
+    monkeypatch.setattr(tmdb, "search", lambda q, kind="multi", page=1: rows)
+
+    assert tmdb.find_by_name("ONE PIECE", "tv", 1999) == 37854
+    assert tmdb.find_by_name("ONE PIECE", "tv", 2023) == 111110
+
+
+def test_a_year_nobody_agrees_on_still_answers(monkeypatch):
+    """AniList names a cour - "... Season 4", 2026 - where TMDB has one show
+    from 2016. Neither name nor year agrees, and the best answer is still the
+    show TMDB thinks is called that."""
+    from pinky.meta import tmdb
+
+    monkeypatch.setattr(tmdb, "search", lambda q, kind="multi", page=1: [
+        {"title": "Re:ZERO -Starting Life in Another World-", "year": 2016,
+         "ids": {"tmdb": 65942}}])
+    assert tmdb.find_by_name(
+        "Re:ZERO -Starting Life in Another World- Season 4", "tv", 2026) == 65942
+
+
+def test_nothing_found_is_zero_not_a_guess(monkeypatch):
+    from pinky.meta import tmdb
+
+    monkeypatch.setattr(tmdb, "search", lambda q, kind="multi", page=1: [])
+    assert tmdb.find_by_name("A Title Nobody Has", "tv", 2026) == 0

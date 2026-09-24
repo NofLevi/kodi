@@ -343,6 +343,47 @@ def absolute_episode(tmdb_id, season, episode):
     return total + episode if total else episode
 
 
+def find_by_name(title, media_type="tv", year=0, alternatives=()):
+    """A TMDB id for something that only has a name, or 0.
+
+    The anime rows come from AniList or Kitsu, which know nothing about TMDB:
+    an item arrives carrying `{"anilist": 189046, "mal": 61316}` and no tmdb
+    id at all. Everything downstream is keyed on TMDB - seasons, episodes,
+    the source search - so without this the whole anime row is a dead end,
+    which is exactly how it behaved: One Piece opened on an empty episode
+    list and Play answered "nothing left to watch".
+
+    The year is what makes it safe rather than a coin toss. Searching
+    "ONE PIECE" returns the 2023 live-action series *first* and the 1999
+    anime second, and both match the name exactly - so a name match alone
+    would have opened the wrong programme with a straight face. A name and a
+    year together separate them.
+
+    Falling back to the first result is deliberate. AniList names a cour -
+    "Re:ZERO -Starting Life in Another World- Season 4", year 2026 - where
+    TMDB has one show from 2016, so neither the name nor the year agrees and
+    the best answer is still the show TMDB thinks is called that.
+    """
+    names = [title] + [name for name in alternatives if name]
+    for name in names:
+        if not name:
+            continue
+        results = search(name, media_type) or []
+        if not results:
+            continue
+        wanted = name.strip().lower()
+        exact = [r for r in results
+                 if (r.get("title") or "").strip().lower() == wanted]
+        if year:
+            for row in exact or results:
+                if int(row.get("year") or 0) == int(year):
+                    return (row.get("ids") or {}).get("tmdb") or 0
+        if exact:
+            return (exact[0].get("ids") or {}).get("tmdb") or 0
+        return (results[0].get("ids") or {}).get("tmdb") or 0
+    return 0
+
+
 def search(query, media_type="multi", page=1):
     if not query:
         return []

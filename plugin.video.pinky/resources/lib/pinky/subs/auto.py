@@ -234,7 +234,8 @@ def use_embedded(player, language, cancelled=None):
             continue
         if cancelled():
             return False
-        if embedded.select(candidate["stream_index"], player):
+        if embedded.select(candidate["stream_index"], player,
+                           candidate.get("release") or ""):
             return True
     return False
 

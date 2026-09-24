@@ -36,6 +36,9 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.season = None
         self.played = False
         self.ready = False
+        # Whether the name-to-TMDB lookup has been tried, so a title TMDB
+        # does not know costs one search and not one per redraw.
+        self._named_lookup = False
 
     def onInit(self):
         if self.ready:
@@ -142,7 +145,47 @@ class DetailsWindow(xbmcgui.WindowXML):
     # -- shows -------------------------------------------------------------
 
     def _tmdb_id(self):
-        return (self.item.get("ids") or {}).get("tmdb")
+        """The show's TMDB id, looked up by name when the item has none.
+
+        An item from the anime rows comes from AniList or Kitsu and carries
+        no tmdb id, and everything this window does is keyed on one - so it
+        returned None, `_load_seasons` returned early without a word, the
+        episode list stayed empty, and Play said "nothing left to watch"
+        about a series with a thousand episodes. Silently, which is why it
+        survived: nothing in the window and nothing in the log said the id
+        was missing rather than the seasons.
+
+        Looked up once per window and written back onto the item, so the
+        seasons, the episodes and the source search that follow all see it.
+        """
+        ids = self.item.setdefault("ids", {})
+        found = ids.get("tmdb")
+        if found:
+            return found
+        if self._named_lookup:
+            return None
+        self._named_lookup = True
+
+        from ..meta import tmdb
+        title = self.item.get("title") or ""
+        if not title:
+            return None
+        kind = "movie" if self.item.get("type") == "movie" else "tv"
+        try:
+            found = tmdb.find_by_name(
+                title, kind, self.item.get("year") or 0,
+                alternatives=(self.item.get("original_title") or "",))
+        except Exception:
+            kodi.log_exception("could not look %s up on TMDB" % title)
+            return None
+        if not found:
+            kodi.log("%r has no TMDB entry, so it has no seasons to list"
+                     % title, kodi.LOG_INFO)
+            return None
+        kodi.log("%r carried no TMDB id; matched it to %s by name and year"
+                 % (title, found))
+        ids["tmdb"] = found
+        return found
 
     def _load_seasons(self):
         from ..meta import tmdb
