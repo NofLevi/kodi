@@ -147,6 +147,43 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   `DEVICE_CODE_NOT_USED` from `ITEM_NOT_FOUND`, so `post_json` cannot be used
   there - it turns every 400 into the default, and the body of the 400 is the
   entire answer.
+* **An IMDb id that finds nothing is not the same as there being nothing.**
+  This is the one to carry elsewhere. `rest.opensubtitles.org` files an upload
+  against an id only if whoever uploaded it said so, and for a long-running
+  anime most of them did not: `imdbid-0426711` knows English for Hikaru no Go
+  episodes 1 to 30 and stops, while the same season and episode asked *by
+  name* returns `Hikaru No Go S01E32.en.vtt`. The numbering was already right
+  - `common.episode_numberings` asks at 2x02 and at 1x32 both - and both
+  addresses returned nothing, because the address was never the problem.
+
+  Then the answer was thrown away. That row's `SeriesIMDBParent` is
+  **13364846**; the show has at least three IMDb entries (0426711, 0303461,
+  13364846) and an uploader files against whichever they were looking at. The
+  mis-registered-hash guard rejected it - and having gone around the id
+  *because it found nothing*, discarding the answer for disagreeing with that
+  same id is the search cancelling itself out. `_imdb_agrees` is therefore not
+  asked of a name query; the name and the episode number are what constrained
+  it, and the wrong-episode guard downstream is what checks it.
+
+  The name query runs **only after the id query comes back empty**, so it
+  costs one request in exactly the case that currently returns nothing and
+  none at all in the common one. It asks under the *show's* name, because
+  `title` on an episode is the episode's own name and nobody files a subtitle
+  under "The Last Day of the Preliminaries".
+
+  Measured: Hikaru no Go season two went from **0 of 8 episodes with an
+  English subtitle to 6 of 8**. Swept over nine titles across anime, drama and
+  film afterwards, counting rows the matcher scores at zero: **no wrong-episode
+  contamination anywhere**. Two remain empty - Bleach TYBW 2x46 and Kurulus
+  Osman 1x01 - and OpenSubtitles has nothing for either in any language, which
+  is a gap upstream rather than here.
+
+  What it looked like from the outside is worth recording, because it is why
+  this went unnoticed: the picker drew eight sources all reading
+  `LLM translated from JA, 52% fit`. Eight rows, one file - the *same* lone
+  Japanese subtitle rated against eight releases, printed eight times and
+  called a choice. A picker that offers one option eight times looks like a
+  picker that is working.
 * `subs/` picks one subtitle: embedded track, then file hash, then release
   correlation, then AI translation of the best English match. Wizdom and
   SubSource are anonymous; Ktuvit is a members' site, so it is off until an
@@ -322,6 +359,31 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   It is one thread rather than a task in the search pool, because a task that
   waits inside the pool for another task in the same pool deadlocks as soon as
   every worker is a waiter.
+
+  **The wait was five seconds and the hash took 5317 ms.** Measured on the
+  same file twice: 4588 ms once, 5317 ms the next time, so five sat exactly
+  on the boundary and the second run missed it by 317 milliseconds. That is
+  not three providers short of an answer - without the hash nothing can come
+  back marked `hash`, so there is no timing reference for *anything* and the
+  release name becomes the whole judgement, which is the paragraph above
+  describing the failure rather than the design. Eight seconds now, which
+  costs nothing when the hash is quick because the wait ends the moment it
+  lands, and the other nine providers are being asked throughout.
+
+  **A translation inherits its source's timing, and nothing re-read it.**
+  Both translation paths said in so many words that timings come from the
+  source subtitle and are never touched, and that was the whole of it: a
+  Polish subtitle matched on release name became a well-gendered Hebrew
+  subtitle that was out by however much the Polish one was out. The Hebrew
+  path has re-timed against a hash reference since the beginning; the AI path
+  simply never asked for one. `retimed_for_translation` runs the source
+  through the same aligner first. It only ever *shifts* - `verify_and_sync`
+  may reject what a reference disproves, and that is right when another
+  Hebrew candidate waits behind it, but here the source is chosen and the
+  budget spent, so refusing would leave the viewer with nothing instead of
+  something a second out. `reference_cues` also takes a `skip` now, because
+  this path asks about the same languages it translates from and a file was
+  one call away from being its own ruler.
 * **Anime publishes the same episode twice** - Japanese audio with subtitles,
   and an English dub - and the release name is the only place that says which.
   Two rows of the same resolution, size and group were indistinguishable in
@@ -400,6 +462,38 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
     mode is exempt, and MULTI counts as DUAL rather than DUB.
   * **The audio track** is switched to the original language on a file with
     several, or to Hebrew in kids mode; Kodi's audio menu still switches back.
+* **Leaving the video pauses it, and Continue Watching needs no account.**
+  Kodi's own answer to Escape is to return to the menu and keep the file
+  running behind it, which is right for a media centre with a library and
+  wrong for a debrid link on a gigabyte of RAM. `player.stop_if_left_behind`
+  is asked by the service loop rather than by `tick`, because it is a question
+  about the GUI and everything `tick` does is about the playing file. Paused
+  rather than stopped, because stopping means the way back in is a whole
+  source search again and the resume point only survives past one per cent.
+  It fires once - `pause()` is a toggle, so a second one is the film playing
+  again - and the counter resets only when the video is on screen. Two ticks
+  rather than one, because the window is not always up on the tick after
+  `onAVStarted` and killing a film somebody just started is the worse failure.
+  A live channel and the radio are exempt: playing behind the menus is the one
+  thing a television does that nothing else does.
+
+  The `continue` row was declared `needs=("trakt",)` and `_continue_watching`
+  only ever asked Trakt, so on a box with no account it could never appear -
+  while the resume point was being kept the whole time in `bookmarks.json`,
+  reachable only by finding the title again yourself. Trakt still wins where
+  it answers, because it knows every box and this knows one.
+
+* **Two presses racing was real.** A source search is seconds of network, so
+  backing out and pressing something else left two in flight - and the
+  cancelled title finished second, handed Kodi *its* URL, and the film that
+  started was the one the viewer had left. Each press claims a ticket in a
+  window property, which is the same value in every plugin invocation where
+  module state is not, and it is checked before the picker opens and again
+  before the hand-off. The ticket is random rather than the clock: `time.time()`
+  on Windows moves in fifteen millisecond steps and two presses would claim
+  the same one. A second AI translation is refused the same way and says so,
+  because each holds a film's cues for minutes and both write the same file.
+
 * `kids.py` replaces the home rows rather than filtering them. A TMDB list
   result carries no certification at all, so a filter alone would let
   everything through; the kid-safe rows ask TMDB for a ceiling instead.
@@ -474,6 +568,31 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   split - a Supernatural special, whose fit rose from 0.64 on one offset to
   0.78 on two. One in twelve is a small sample, but it is a real gain on a
   real file and costs nothing on the other eleven, so it stays.
+* **The broadcaster is asked before the trackers, not after them.** The two
+  halves of this add-on held both answers and never joined them: רמזור sits in
+  the VOD catalogue under Keshet while the source search reported nothing at
+  all. "No sources" is the *ordinary* answer for Israeli television rather
+  than a failure - the trackers are private, Sdarot was dissolved in 2023 -
+  and the copy that exists is the one the broadcaster streams. So
+  `play._broadcaster_stream` runs before the debrid check, because its stream
+  needs no account, no torrent and no seeder.
+
+  It has to come back with the **episode**, and that is the whole of it.
+  Landing in a folder of four seasons after a press that meant "play episode
+  three" is the add-on looking like it lost its place; that is what the first
+  version did and it was wrong. Mako numbers nothing in a field - a season is
+  "עונה 2" in the title and `-s2` in the address, an episode is
+  "פרק 3 07.04.08 תמונות גולשים" - so the number is read from the word that
+  names it and never from the first digits on the line, because every title
+  carries a broadcast date and 07 is not episode seven. Two rows claiming the
+  same number is a page this code has not understood, so it falls through to
+  the trackers rather than guessing. Measured: רמזור 1x03 resolves to
+  `.../Ramzor/S01/Ramzor_03_070408_VOD_plp249/...` in 0.73 s to walk and
+  1.23 s to resolve.
+
+  The name is the only join there is, because the catalogue carries no TMDB
+  id, so the match is exact and never a substring, and only a title whose own
+  language is Hebrew is looked up at all.
 * `vod/` is Israeli television. Live channels and the on-demand catalogue are
   separate sections on purpose, because they are browsed differently. A
   programme **opens on its seasons** where the broadcaster has any, and the
@@ -539,7 +658,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1924 tests, all running against Kodi stubs, so no Kodi install is needed:
+1964 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -565,15 +684,16 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 30 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
+| `test_opensubtitles_rest.py` | 32 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. |
 | `test_subtitle_matching.py` | 22 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
-| `test_subtitle_pipeline.py` | 50 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. |
+| `test_subtitle_pipeline.py` | 54 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. Plus the source of a translation being put in time before it is translated, and never being its own timing reference. |
 | `test_aes.py` | 8 | AES, because one login depends on it and a cipher that is subtly wrong looks exactly like one that is right. Checked against FIPS-197 and NIST SP 800-38A rather than against itself, so none of the expected values came from this code. |
 | `test_subtitle_orchestrator.py` | 35 | What happens when the things the subtitle search depends on misbehave. Every other subtitle test replaces the search and the download with fakes that only ever return data, so the code between a provider and the decision had never been asked what it does when a provider raises, answers nonsense, hangs, or hands back a dict full of junk. These inject at the real provider boundary and keep everything above it. Also the two stuck screens, the cancelled job that still wrote a file, and Kodi itself answering with an error envelope. |
 | `test_ktuvit.py` | 24 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
-| `test_translation.py` | 13 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Timings must never move. |
+| `test_translation.py` | 27 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Plus no model name containing a version number, which has been retired under us twice, and a 404 striking a model off for the session where a 503 does not. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
 | `test_vod_seasons.py` | 17 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video. |
 | `test_vod.py` | 30 | Israeli live TV and the catalogue: broadcaster ordering, referers carried through, relative paths given their CDN host, broken channels hidden, Hebrew substring search, and updating the bundled data invalidating the cache. |
@@ -583,11 +703,11 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_sport5.py` | 22 | Six megabytes of broadcaster JSON reduced before it is cached, a season's clips gathered into its programme, the manifest lifted out of the player URL, and the byte order mark that made the whole document unparseable. |
 | `test_extractors_israeli.py` | 23 | Now 14, Sport 1 and 891FM, plus the check that every broadcaster in the catalogue has an extractor behind it. |
 | `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
-| `test_kids.py` | 39 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. |
+| `test_kids.py` | 52 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. Also Continue Watching built from this device's own resume points when there is no Trakt account, newest first, with a title TMDB no longer knows dropped rather than drawn blank. |
 | `test_windows.py` | 55 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Pinky window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
-| `test_details_window.py` | 20 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. |
+| `test_details_window.py` | 24 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. Plus the one button acting on the episode its label names, and falling back to the next unwatched one on the season list where the label names none. |
 | `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
-| `test_play.py` | 33 | From "the user pressed OK" to "Kodi has a URL": the autoplay decision, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. |
+| `test_play.py` | 64 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. |
 | `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
 | `test_signin.py` | 32 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
 | `test_profiles.py` | 26 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, **the shipped defaults being the lean profile key for key**, and the visual-polish switch raising artwork without ever lowering a richer profile. |
@@ -1366,12 +1486,33 @@ well-fitting subtitle is in another language is shown as "AI subtitles" and
 ranked above a release whose Hebrew does not fit - never above Hebrew that
 clears the threshold. What it translates from is searched in a *second*
 round, and only when needed: when a film starts, once there is no usable
-Hebrew subtitle at all; in the picker, once no release has Hebrew that fits. That round asks for Arabic and English, plus the show's
-own language when it is Chinese, French, Korean, Spanish, Italian, Turkish or
-Japanese - a Turkish drama is asked for Turkish, an American film is not
-asked for Korean. Choosing AI translation by hand asks for every language.
-Without an engine none of this is requested, because every language is
-another request per provider.
+Hebrew subtitle at all; in the picker, once no release has Hebrew that fits.
+That round asks for **Arabic, English, Polish, Spanish, Russian and French**,
+plus the show's own language when it is Chinese, Korean, Turkish, Japanese or
+Italian - a Turkish drama is asked for Turkish, an American film is not asked
+for Korean. Choosing AI translation by hand asks for every language. Without
+an engine none of this is requested, because every language is another
+request per provider.
+
+It used to be Arabic and English alone, while `context.GENDER_MARKING` listed
+nineteen languages that were never once asked for - so the bonus below could
+only ever choose between the two that were. Measured over five titles on 24
+September 2026, subtitles found per language:
+
+    en 29   ar 32   pl 26   es 20   ru 20   fr 18   pt 15   it 12
+
+and the anime rows are the whole argument, because that is where English and
+Arabic are thinnest: Naruto Shippuden 8x14 has **Polish 6 and Russian 4**
+against English 2 and Arabic 3, and Hikaru no Go 2x02 has exactly two
+subtitles in the world, one of which is Polish. Italian and Portuguese are
+left out on the same numbers - same request, least found, and a list that
+grows without a reason is a search a device waits longer for. The one thing
+that does not work and would make this free is asking for several at once:
+`sublanguageid-eng,spa` answers **400**.
+
+Widening it exposed a duplicate: a French film was asked for French twice,
+once from the base list and once as its own language, which is two identical
+requests per provider and the same file offered twice in the picker.
 
 **The engine is a setting, and one of them is free.** Gemini, OpenRouter or
 any OpenAI-compatible endpoint. OpenRouter is the interesting one: it speaks
@@ -1384,6 +1525,31 @@ then dropped, and an exhausted model arrives as a **200 with an error object**,
 which would otherwise read as a subtitle with nothing in it. The model name is
 a setting because OpenRouter's free list changes; the default is a starting
 point, not a promise.
+
+**No Gemini model name here may contain a version number.** Pinning has
+failed twice: `gemini-2.5-flash` began answering 404 to every request from a
+new key in September 2026, and the `gemini-3.6-flash` that replaced it did
+the same for a real key two days later - both times while every test in this
+repository passed, because a fixture never asks Google anything. The chain is
+`gemini-flash-latest` then `gemini-flash-lite-latest`, and a test fails on any
+name with a digit in it.
+
+Flash first and flash-lite second is the quality order, not the allowance
+order. Measured free tier, September 2026: flash is 10 requests a minute and
+250 a day, flash-lite is 15 and **1,000**. Flash-lite is four times the daily
+allowance and half again the speed and is still second, because it was
+measured getting Hebrew gender wrong where flash gets it right - which is the
+one thing this whole file exists to avoid. They are separate quotas, so a
+spent flash is not the end of the film. Pro left the free tier in May 2026 and
+answers 429, so it is never in the chain.
+
+**404 and 503 are opposite claims and were treated as one.** 503 says the
+model is there and busy; 404 says the name is not served on this endpoint,
+and it will say so again for every chunk of the film. Measured on a real
+translation: the configured model answered 404 and was asked again for every
+chunk, three requests and two retries deep each time, for over a minute of an
+already-playing episode. A 404 now strikes the model off for the session; a
+429 or a 503 keeps its place.
 
 Chunks are **120 lines** by default, 200 and 300 on the richer profiles. The
 old 50 was a memory decision, and the memory it saves is a few kilobytes of
@@ -1406,6 +1572,21 @@ tried had no Hebrew subtitle at all and a full LLM list, which is the case the
 page exists for. In the player's own subtitle list AI translation is offered
 twice, into Hebrew and into English, rather than once in whatever language
 Kodi's subtitle setting names - English, on a stock Kodi.
+
+**There is no autoplay any more, and no setting that brings it back.**
+`sources.autoplay` is deleted rather than defaulted off, because the ranking
+cannot see what this page shows: the three lists are a question about
+*subtitles*, and the source sort never asks it. For most anime and every
+Turkish drama measured the first list is empty - so starting the top row by
+itself threw the comparison away on exactly the titles it was built for. A
+setting that must never be true is not a setting.
+
+That removed the details screen's second button with it. "Choose a source"
+and Play now did the same thing from the same list position, so Play absorbed
+the episode indicator - the part worth keeping - and with the label naming an
+episode it has to act on the highlighted one or the label is a lie. On the
+season list, where nothing is highlighted and the label says only "Play", it
+still means the next unwatched episode.
 
 **Taken: progressive delivery.** Translating a feature film takes minutes.
 Showing each finished chunk as it arrives means the viewer starts watching
@@ -1452,6 +1633,12 @@ settings that promised a provider with no code behind them were removed, and
   the background service in about 170 ms, the subtitle list closes itself and
   the key prompt opens over the still-playing film. What no key can prove is
   the only thing left - that the model returns usable Hebrew.
+
+  Run with a real key on 24 September 2026, and it did not get that far: the
+  free tier answered **429 and 503 for an hour**, so the request path is
+  proven and the Hebrew still is not. The two defects that run exposed - a
+  pinned model name and a 404 retried for every chunk - are fixed above and
+  were both invisible from a fixture.
 * Subtitles have run on a real playback - the file hash is computed in about a
   second and the Hebrew search starts - but no subtitle has been watched
   through to the end of a film on a real file.
