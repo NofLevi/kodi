@@ -1,15 +1,18 @@
-# Continuation report — 22 September 2026
+# Continuation report — 24 September 2026
 
 The handoff for continuing Pinky on another development host. Branch:
-`development`, level with `origin/development` at the time of writing. **No
-release was created and no version tag was pushed** — the only tag is
-`v0.0.1`, which exists locally and is deliberately not on GitHub yet (pushing
-a `v*` tag runs `release.yml` and publishes). `python tools/release.py
---dry-run` offers `v0.0.2`.
+`development`, level with `origin/development`. **No release was created and
+no version tag was pushed.**
 
 Read `CLAUDE.md` first, then `AGENTS.md`, then this file. `SUBTITLE-LOG.md`
-has the subtitle measurements and the release procedure; `NIGHT-LOG.md` has
-the earlier real-device work.
+has the earlier subtitle measurements and the release procedure;
+`NIGHT-LOG.md` has the earlier real-device work.
+
+**This batch is different in kind from the ones below it.** Almost none of it
+was found by reading code. It was found by running against live services and
+reading Kodi's own log beside ours, and four of the defects had been shipping
+invisibly because the path that exercises them is the path no test takes. If
+you continue this work, continue it that way.
 
 ## Before anything else on a new host
 
@@ -39,13 +42,162 @@ the earlier real-device work.
 
 ## Current verification state
 
-* **1,868 tests pass** (`python -m pytest tests`, Windows, Python 3.11, about
-  85 s). `python tools/build.py --check` is valid.
+* **1,980 tests pass** (`python -m pytest tests`, Windows, Python 3.11).
 * No e2e or GitHub workflow was run, per the standing instruction.
-* Nothing in this batch has been watched in a real Kodi; all of it is logic
-  proven against the stubs and, where marked, against live services.
+* **Much of this batch was watched in a real Kodi**, which is new: the source
+  picker, the episode walk into Mako, Escape pausing, and the subtitle search
+  were all read out of `kodi.log` during playback rather than inferred. What
+  has still never been seen is a Gemini translation succeeding - the free tier
+  answered 429 and 503 for the whole session.
+* **One number in this file is contaminated and says so where it appears:**
+  the download half of the accuracy survey measures an OpenSubtitles quota I
+  exhausted, not the add-on.
 
 ## What this batch changed, and how each was checked
+
+Eight commits, `6a5f3f9..1ae97a3`. **1,980 tests pass** (`python -m pytest
+tests`, Windows, Python 3.11).
+
+### The four defects that were invisible by construction
+
+* **Ktuvit had never signed in on a device.** `urlsession` exposes headers as
+  an `email.message.Message`, whose `.get()` returns only the **first** header
+  of a repeated name - and Ktuvit sets `ASP.NET_SessionId` first and `Login`
+  second. A host with `requests` installed read the cookie jar and worked;
+  every shipped Kodi read the session id, found no login, and logged "ktuvit
+  refused the sign in" against a good account. Every earlier claim in
+  `CLAUDE.md` about Ktuvit working was measured through `requests`.
+  *Fixed at the root:* `urlsession.Response` has a `cookies` dict built from
+  every `Set-Cookie`. *Checked:* the real login with `requests` forced off
+  returns `SIGNED IN`; the two-header case is a regression test. Same shape as
+  the gzip bug in `_case_insensitive`, and it will recur.
+* **BSPlayer's hosts are gone, and it was taking Ktuvit with it.** All three
+  resolve to 185.100.234.211 and none accepts a connection. Its budget was
+  `MAX_CALL_SECONDS = 12.0` against a **ten second** search deadline, on one
+  of four shared workers - so `deadline hit after 10.0s, dropped: ktuvit` was
+  never about Ktuvit. Ships off, budget six seconds, and a test fails if any
+  provider may outlast the deadline. *This was the second hash provider*:
+  `reference_cues` takes a hash match and nothing else, so the only ruler the
+  add-on owns now has one supplier.
+* **An IMDb id that finds nothing is not evidence of nothing.** An upload is
+  filed against an id only if the uploader said so. `imdbid-0426711` knows
+  English for Hikaru no Go episodes 1-30 and stops; the same episode asked
+  *by name* returns `Hikaru No Go S01E32.en.vtt`. That answer was then
+  discarded because its `SeriesIMDBParent` is 13364846 - the show has three
+  IMDb entries. The name query runs only after the id query is empty, and is
+  not judged against the id it deliberately went around. *Measured:* Hikaru no
+  Go season two, 0 of 8 episodes with English to **6 of 8**; candidate
+  coverage across the survey 85% to **93%**.
+* **A MicroDVD file whose first line is an advert parsed to zero cues.** The
+  frame-rate declaration had to be the first meaningful line, and release
+  sites put a banner there. Detection is by shape now, and an undeclared rate
+  reads at 23.976 - which `sync.py` can correct and `verify_and_sync` can
+  refuse. Returning nothing cannot be corrected.
+
+### The measurement tool was answering a different question
+
+`accepted` was `chosen_score >= threshold` - the matcher's opinion of a
+filename, not what the add-on does with it. `verify_and_sync` rejects what a
+hash reference disproves and what stops too early, then falls through to the
+next candidate, and the tool ran none of it. It reported a file covering 26%
+of its runtime as accepted. It now runs the real decision and reports both;
+over 27 titles they disagree, 50% against **83%**.
+
+### The episode rung was missing from the score ladder
+
+Every row of an anime picker read 52%, which is arithmetic: `WEIGHT_TITLE 40
++ WEIGHT_EPISODE 12`, and for anime there is no third term - a subtitle named
+`Attack on Titan - S01E12` has no group, source, resolution or codec to agree
+with `[Leopard-Raws] Shingeki no Kyojin - S01E12`. Against a hash reference
+such candidates fit 0.78 after re-timing; against a second upload of the same
+episode they agree 0.75. `WEIGHT_EPISODE` is 30, so title-plus-episode lands
+on the threshold. *Measured with real release names:* anime 2/6 to **5/6**
+over the threshold, foreign drama 3/6 to **5/6**, series and films unchanged
+- they have no episode to name. It changes no ordering: every candidate for
+an episode either names it or is zeroed.
+
+### Where this is actually weak, and the number that was wrong
+
+Hebrew, then a language the model can work from, seven titles a group:
+
+    group        has Hebrew   translatable   neither
+    anime            0/7          2/7           5
+    turkish          0/7          2/7           5
+    korean           0/7          3/7           4
+    us series        4/7          4/7           3
+    israeli          3/7          3/7           4
+    films            6/7          7/7           0
+
+Both Hebrew providers were checked on the same run against titles that
+certainly have Hebrew - Fight Club 26 and 24, Breaking Bad 9 and 7 - so the
+zeros are the corpus, not the code. The sample is *currently popular* titles,
+which skews to episodes that aired days ago; a finished season does better.
+
+**The "neither" column overstates it, because none of these numbers can see
+inside the file.** `embedded.py` asks Kodi, so it answers only during
+playback. Read out of the Matroska header over two ranged requests, **five of
+eight anime episodes carry a subtitle track** (`S_TEXT/UTF8`, `S_TEXT/ASS`).
+A track inside the file is in time by construction. The real gap is the
+picker, which cannot promise a track it has no way to see.
+
+### Smaller, all measured
+
+* **A failed translation shows the subtitle it was made from**, in a language
+  the viewer reads. Hikaru no Go 1x02 found the exact release name in English,
+  timed it, handed it to Gemini, got 429, and played with nothing.
+* **`subs.ai.engine` is a preference, not the whole answer.** `engines()`
+  returns the rest behind it, because for this catalogue the translation *is*
+  the subtitle and an engine out of quota is a blank screen. A cancelled
+  translation never moves on.
+* **No Gemini model name may contain a version number** - pinning failed
+  twice. The chain is `gemini-flash-latest` then `gemini-flash-lite-latest`,
+  and a test fails on any digit. 404 (retired) strikes a model off for the
+  session; 429 and 503 (busy) do not. Free tier measured: flash 10/min and
+  250/day, flash-lite 15 and 1,000 - flash-lite is still second because it was
+  measured getting Hebrew gender wrong.
+* **The AI source languages were two of the nineteen we knew about.** Now
+  `ar, en, pl, es, ru, fr`; all but English mark gender. Per-language counts
+  are in `CLAUDE.md`. Widening it exposed a French film asked for French twice.
+* **The hash wait was 5 s and the hash took 5317 ms.** Now 8 s. Missing it is
+  not one provider short: without a hash nothing comes back marked `hash`, so
+  there is no timing reference for anything.
+* **A translation source is re-timed before it is translated** - both paths
+  previously said in as many words that timings are never touched.
+* **Escape pauses rather than keeps playing**; **Continue Watching works
+  without Trakt** (it was `needs=("trakt",)` and could never appear); **two
+  presses racing** could start the cancelled title; **VOD is asked before the
+  trackers** and walks down to the episode; **autoplay is deleted** rather
+  than defaulted off.
+
+## Known gaps and next work
+
+1. **Re-run the accuracy survey.** Today's is contaminated: half way through,
+   `rest.opensubtitles.org` began refusing *downloads* - search still answers -
+   after three surveys in one afternoon. All 93 parse failures were `download
+   returned nothing`. Search-side numbers stand; download-side ones measure
+   the quota. Wait a day, then
+   `python tools/survey_subtitles.py --count 400 --debrid`.
+2. **A 429 is retried within a request and never remembered between them.**
+   TorrentsDB is 429ing right now, from today's load, and is asked on every
+   search, costing a worker each time. The fix is a short per-host cooldown in
+   `http` honouring `Retry-After` - the same shape as the Ktuvit refusal cache
+   and the BSPlayer deadline. **Not built.**
+3. **The picker cannot see embedded tracks**, and five of eight anime files
+   carry one. Reading the Matroska header costs two ranged requests, which is
+   what the hasher already spends. Worth considering; not built.
+4. **`test_the_channels_that_remain_all_resolve_to_a_url` failed once** in a
+   full run and passes consistently alone and in its own module - an
+   order-dependent flake on a Russian radio channel. Unrelated to this batch,
+   real, not chased.
+5. **An OpenRouter key would do more than anything left here.** Hebrew does
+   not exist for anime or Turkish drama, so translation reliability *is*
+   subtitle accuracy, and Gemini's free tier is exhausted for hours at a time.
+   The engine fallback is built and waiting for a second engine.
+6. Still open from before: make the repository public and cut a release,
+   `Application.Quit`, and **physical validation on the U4 projector and the
+   Mi Box**, which is what this add-on exists for.
+
+## Previous batch — 22 September 2026
 
 ### The automatic subtitle order is strictly Hebrew, then AI, then English
 
@@ -110,7 +262,7 @@ the earlier real-device work.
 * `.gitignore` regained two broader rules that had narrowed over time:
   `.env*` and `settings.local.*`.
 
-## Known gaps and next work
+### Known gaps as of 22 September
 
 1. **Make the repository public, set Pages to GitHub Actions, and cut a
    release** (`python tools/release.py`, then push the tag). Until then no
