@@ -205,26 +205,49 @@
 
         <!-- The name and the face, in the corner the menu leaves empty.
              Nothing else lives left of x=300 above the tab strip at y=400,
-             so this costs no layout anywhere else. -->
+             so this costs no layout anywhere else.
+
+             The picture is the full width of the tab strip below it - 260 at
+             x=20 - so the left column reads as one thing rather than a
+             centred square with a caption over it. `scale` rather than
+             `keep`, because a picture that keeps its ratio inside a box it
+             does not match leaves bars, and the bars are what make it look
+             pasted on.
+
+             Order matters: the image first, then the strip, then the word.
+             Kodi draws controls in the order they appear, so the last one
+             written is the one on top. -->
+        <control type="image">
+            <left>20</left>
+            <top>40</top>
+            <width>260</width>
+            <height>260</height>
+            <aspectratio>scale</aspectratio>
+            <texture>special://home/addons/plugin.video.pinky/resources/media/logo.jpg</texture>
+        </control>
+
+        <!-- A darkened band under the word, because the picture behind it is
+             a photograph and white on a light patch of it is unreadable. A
+             shadow alone is not enough over fur. -->
+        <control type="image">
+            <left>20</left>
+            <top>216</top>
+            <width>260</width>
+            <height>84</height>
+            <texture>special://home/addons/plugin.video.pinky/resources/media/scrim.png</texture>
+        </control>
+
         <control type="label">
             <left>20</left>
-            <top>48</top>
+            <top>232</top>
             <width>260</width>
             <height>56</height>
             <font>font37</font>
             <align>center</align>
+            <aligny>center</aligny>
             <textcolor>white</textcolor>
             <shadowcolor>black</shadowcolor>
             <label>Pinky</label>
-        </control>
-
-        <control type="image">
-            <left>50</left>
-            <top>116</top>
-            <width>200</width>
-            <height>200</height>
-            <aspectratio>keep</aspectratio>
-            <texture>special://home/addons/plugin.video.pinky/resources/media/logo.jpg</texture>
         </control>
 
         <control type="grouplist" id="9019">
