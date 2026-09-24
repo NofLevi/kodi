@@ -31,6 +31,12 @@ def film(monkeypatch, settings_module):
         "ids": {"tmdb": 278, "imdb": "tt0111161"},
         "title": "The Shawshank Redemption", "year": 1994,
         "art": {}, "original_title": "The Shawshank Redemption"})
+    # Nothing plays without the picker any more, so a test that is about
+    # what happens after the choice stands in for the viewer taking the top
+    # row. Tests about the picker itself patch over this.
+    import pinky.ui.sources_window as window
+    monkeypatch.setattr(window, "pick_source",
+                        lambda sources, meta: sources[0] if sources else None)
     return settings_module
 
 
@@ -88,18 +94,33 @@ def test_no_tmdb_answer_means_no_title(monkeypatch, settings_module):
 
 
 # --------------------------------------------------------------------------
-# the autoplay decision
+# choosing a source
 # --------------------------------------------------------------------------
 
 
-def test_autoplay_takes_the_best_source_without_asking(film, settings_module):
-    settings_module.set("sources.autoplay", "true")
+def test_the_picker_is_always_opened(film, monkeypatch):
+    """There is no autoplay any more, and no setting that brings it back.
+
+    The ranking cannot see what the picker shows: its three lists compare
+    the best Hebrew subtitle against the best one AI can translate from,
+    and for most anime the first list is empty - which is a question about
+    subtitles that the source sort never asked.
+    """
+    import pinky.ui.sources_window as window
+    asked = []
+    monkeypatch.setattr(window, "pick_source",
+                        lambda sources, meta: asked.append(sources) or sources[0])
     assert play._choose(SOURCES, {}, force_picker=False) is SOURCES[0]
+    assert asked, "nothing may start without the picker"
+
+
+def test_no_setting_can_turn_the_picker_off():
+    from pinky import settings
+    assert "sources.autoplay" not in settings.DEFAULTS
 
 
 def test_the_context_menu_forces_the_picker(film, monkeypatch, settings_module):
     """"Choose a source" must never quietly autoplay instead."""
-    settings_module.set("sources.autoplay", "true")
     asked = []
     import pinky.ui.sources_window as window
     monkeypatch.setattr(window, "pick_source",
@@ -110,15 +131,13 @@ def test_the_context_menu_forces_the_picker(film, monkeypatch, settings_module):
     assert chosen is SOURCES[1]
 
 
-def test_autoplay_off_opens_the_picker(film, monkeypatch, settings_module):
-    settings_module.set("sources.autoplay", "false")
+def test_the_picker_choice_is_what_plays(film, monkeypatch, settings_module):
     import pinky.ui.sources_window as window
     monkeypatch.setattr(window, "pick_source", lambda sources, meta: sources[1])
     assert play._choose(SOURCES, {}, force_picker=False) is SOURCES[1]
 
 
 def test_a_cancelled_picker_plays_nothing(film, monkeypatch, settings_module):
-    settings_module.set("sources.autoplay", "false")
     import pinky.ui.sources_window as window
     monkeypatch.setattr(window, "pick_source", lambda sources, meta: None)
     assert play._choose(SOURCES, {}, force_picker=False) is None
@@ -766,3 +785,200 @@ def test_a_failure_with_no_handle_is_not_reported_to_nobody(film):
     xbmcplugin.reset()
     listing.resolve_failed(-1)
     assert not xbmcplugin.RESOLVED
+
+
+# --------------------------------------------------------------------------
+# the broadcaster's own copy
+# --------------------------------------------------------------------------
+
+
+def test_an_israeli_title_falls_back_to_the_broadcaster():
+    """Israeli television is not on the trackers, and never will be.
+
+    The private Israeli trackers are account-gated and Sdarot was dissolved in
+    2023, so "no sources" is the ordinary answer for a Keshet programme rather
+    than a failure. The broadcaster streams it, the VOD catalogue has it, and
+    the two halves of this add-on held both and never joined them.
+    """
+    found = play._vod_alternative({"original_title": u"רמזור",
+                                   "original_language": "he"})
+    assert "action=vod_show" in found["url"]
+    assert "keshet" in found["url"]
+    assert found["module"] == "keshet"
+    assert found["ref"], "the walk down to the episode starts from this"
+
+
+def test_a_foreign_title_is_never_looked_up_in_the_israeli_catalogue():
+    assert play._vod_alternative({"original_title": "Fight Club",
+                                  "original_language": "en"}) is None
+
+
+def test_the_broadcaster_match_is_exact_and_never_a_substring():
+    """A prefix of a real programme name must not open that programme.
+
+    Landing inside the wrong series is worse than the honest "nothing found"
+    this replaces, and the catalogue carries no id to check the guess against.
+    """
+    assert play._vod_alternative({"original_title": u"רמז",
+                                  "original_language": "he"}) is None
+
+
+def _mako_entries(module, ref, mode=""):
+    """Mako as it really answers: numbers in the Hebrew title and nowhere else."""
+    if ref.endswith("ramzor"):
+        return [{"title": u"עונה %d" % n, "ids": {"vod": "ramzor-s%d" % n},
+                 "extra": {"url": "plugin://x/?action=vod_show&ref=ramzor-s%d" % n}}
+                for n in (1, 2, 3, 4)]
+    season = ref[-1]
+    return [{"title": u"פרק %d 07.04.08 כותרת" % n,
+             "ids": {"vod": "vod-%s-%d" % (season, n)},
+             "extra": {"url": "plugin://x/?action=play_vod&ref=vod-%s-%d" % (season, n)}}
+            for n in range(1, 14)]
+
+
+@pytest.fixture
+def broadcaster(monkeypatch):
+    from pinky.vod import extractors
+    monkeypatch.setattr(extractors, "episodes", _mako_entries)
+    return {"title": u"רמזור", "studio": "Keshet", "module": "keshet",
+            "ref": "https://www.mako.co.il/mako-vod-keshet/ramzor", "mode": "2",
+            "url": "plugin://x/?action=vod_show"}
+
+
+def test_the_walk_reaches_the_episode_that_was_pressed(broadcaster, no_network):
+    """Landing on the programme is not the feature; landing on the episode is.
+
+    The first version of this opened a folder of four seasons after a press
+    that meant "play episode three", which is the add-on looking like it lost
+    its place rather than like it found something.
+    """
+    url = play._walk_to_episode({"season": 2, "episode": 5}, broadcaster)
+    assert "action=play_vod" in url
+    assert "ref=vod-2-5" in url
+
+
+def test_a_season_the_broadcaster_does_not_have_falls_through(broadcaster, no_network):
+    assert play._walk_to_episode({"season": 9, "episode": 1}, broadcaster) == ""
+
+
+def test_the_date_in_a_mako_title_is_not_an_episode_number(broadcaster, no_network):
+    """Every title carries "07.04.08", and 7 is not episode seven.
+
+    The number is read from the word that names it, not from the first digits
+    on the line, because playing the wrong episode is the one failure nothing
+    downstream can catch - the file is exactly what it says it is.
+    """
+    url = play._walk_to_episode({"season": 1, "episode": 7}, broadcaster)
+    assert "ref=vod-1-7" in url
+
+
+def test_an_ambiguous_number_is_refused_rather_than_guessed(no_network, monkeypatch):
+    from pinky.vod import extractors
+    twice = [{"title": u"פרק 1 א", "ids": {"vod": "a"},
+              "extra": {"url": "plugin://x/?action=play_vod&ref=a"}},
+             {"title": u"פרק 1 ב", "ids": {"vod": "b"},
+              "extra": {"url": "plugin://x/?action=play_vod&ref=b"}}]
+    monkeypatch.setattr(extractors, "episodes", lambda *a, **k: twice)
+    assert play._walk_to_episode({"season": 0, "episode": 1},
+                                 {"title": "x", "studio": "s", "module": "keshet",
+                                  "ref": "r", "mode": "2"}) == ""
+
+
+# --------------------------------------------------------------------------
+# leaving the video, and two presses racing
+# --------------------------------------------------------------------------
+
+
+FULLSCREEN = "Window.IsActive(fullscreenvideo)"
+
+
+def _watching(meta_type="movie"):
+    import xbmc
+    from pinky import player as player_module
+
+    p = player_module.PinkyPlayer()
+    p.meta = {"type": meta_type, "title": "x", "ids": {}}
+    p.paused = 0
+    p.pause = lambda: setattr(p, "paused", p.paused + 1)
+    xbmc.CONDITIONS.add(FULLSCREEN)
+    return p
+
+
+def test_playback_survives_while_the_video_is_on_screen():
+    p = _watching()
+    for _ in range(5):
+        assert p.stop_if_left_behind() is False
+    assert not p.paused
+
+
+def test_leaving_the_video_pauses_it():
+    """Escape means paused, not playing behind the menu.
+
+    Kodi's own answer is to keep the file running, which is right for a
+    library and wrong for a debrid link on a gigabyte of RAM. Paused rather
+    than stopped, because going back in would otherwise be a source search
+    and a resolve all over again.
+    """
+    import xbmc
+    p = _watching()
+    xbmc.CONDITIONS.discard(FULLSCREEN)
+    assert p.stop_if_left_behind() is False, "one tick out is not enough"
+    assert p.stop_if_left_behind() is True
+    assert p.paused == 1
+
+
+def test_it_pauses_once_and_does_not_toggle_back():
+    """pause() is a toggle, so a second one is the film playing again."""
+    import xbmc
+    p = _watching()
+    xbmc.CONDITIONS.discard(FULLSCREEN)
+    for _ in range(10):
+        p.stop_if_left_behind()
+    assert p.paused == 1
+
+
+def test_a_film_the_viewer_paused_is_left_alone():
+    import xbmc
+    p = _watching()
+    xbmc.CONDITIONS.discard(FULLSCREEN)
+    xbmc.CONDITIONS.add("Player.Paused")
+    for _ in range(5):
+        p.stop_if_left_behind()
+    assert p.paused == 0
+
+
+def test_a_glimpse_away_from_the_video_does_not_stop_it():
+    """The window is not always up on the tick after onAVStarted."""
+    import xbmc
+    p = _watching()
+    xbmc.CONDITIONS.discard(FULLSCREEN)
+    p.stop_if_left_behind()
+    xbmc.CONDITIONS.add(FULLSCREEN)
+    p.stop_if_left_behind()
+    xbmc.CONDITIONS.discard(FULLSCREEN)
+    assert p.stop_if_left_behind() is False
+    assert not p.paused
+
+
+def test_a_live_channel_is_meant_to_play_behind_the_menus():
+    """A television plays the channel while you browse; that is the point."""
+    import xbmc
+    p = _watching("channel")
+    xbmc.CONDITIONS.discard(FULLSCREEN)
+    for _ in range(5):
+        assert p.stop_if_left_behind() is False
+    assert not p.paused
+
+
+def test_the_newest_press_cancels_the_one_still_resolving():
+    """Two searches in flight, and the loser must not start its film.
+
+    A source search is seconds of network. Without this the cancelled title
+    finishes second, hands Kodi its URL, and the film that starts is the one
+    the viewer backed out of.
+    """
+    first = play._take_ticket()
+    assert play._still_wanted(first)
+    second = play._take_ticket()
+    assert play._still_wanted(second)
+    assert not play._still_wanted(first)

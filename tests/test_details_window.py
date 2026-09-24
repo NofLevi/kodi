@@ -275,11 +275,11 @@ def test_the_button_acts_on_the_highlighted_episode(window, monkeypatch):
     detail.getControl(details_window.LIST_CONTENT).position = 2
     detail._update_action_label()
 
-    label = detail.getProperty("pinky.detail.sourcelabel")
+    label = detail.getProperty("pinky.detail.playlabel")
     assert "1x03" in label, "the button has to name the episode: %r" % label
 
     calls = _picker_calls(monkeypatch)
-    detail.onClick(details_window.BUTTON_SOURCES)
+    detail.onClick(details_window.BUTTON_PLAY)
 
     assert len(calls) == 1
     entry, force_picker = calls[0]
@@ -290,8 +290,8 @@ def test_the_button_acts_on_the_highlighted_episode(window, monkeypatch):
 def test_the_label_is_the_plain_one_while_seasons_are_showing(window):
     """There is no episode to name yet, and naming one would be a guess."""
     detail = window(SHOW)
-    assert detail.getProperty("pinky.detail.sourcelabel")
-    assert "x" not in detail.getProperty("pinky.detail.sourcelabel").split()[-1]
+    assert detail.getProperty("pinky.detail.playlabel")
+    assert "x" not in detail.getProperty("pinky.detail.playlabel").split()[-1]
 
 
 def test_the_label_follows_the_cursor(window):
@@ -300,7 +300,7 @@ def test_the_label_follows_the_cursor(window):
     for position in (0, 1, 2):
         detail.getControl(details_window.LIST_CONTENT).position = position
         detail.onAction(FakeAction(4))          # move down
-        seen.append(detail.getProperty("pinky.detail.sourcelabel"))
+        seen.append(detail.getProperty("pinky.detail.playlabel"))
     assert len({s for s in seen}) == 3, "every episode gets its own label: %s" % seen
 
 
@@ -328,7 +328,7 @@ def test_a_season_is_not_something_a_source_can_be_chosen_for(window,
     detail.getControl(details_window.LIST_CONTENT).position = 1
 
     calls = _picker_calls(monkeypatch)
-    detail.onClick(details_window.BUTTON_SOURCES)
+    detail.onClick(details_window.BUTTON_PLAY)
 
     assert len(calls) == 1
     entry, force_picker = calls[0]
@@ -340,23 +340,43 @@ def test_a_film_still_chooses_a_source_for_itself(window, monkeypatch):
     detail = window(MOVIE)
     calls = _picker_calls(monkeypatch)
 
-    detail.onClick(details_window.BUTTON_SOURCES)
+    detail.onClick(details_window.BUTTON_PLAY)
 
     assert calls == [(detail.item, True)]
 
 
-def test_play_still_means_the_next_unwatched_episode(window, monkeypatch):
-    """Play keeps what it always meant. Only the source picker follows the
-    highlight, because that is the one that has to name an episode."""
+def test_play_acts_on_the_episode_under_the_cursor(window, monkeypatch):
+    """One button has to act on what it says, and it names the highlight.
+
+    Play used to mean "the next unwatched episode" while a second button
+    took the highlighted one. With autoplay gone the two did the same thing
+    from the same position, so the second was removed and the label moved
+    onto Play - which makes the highlight the thing it must act on, or the
+    label is a lie.
+    """
     detail = window(SHOW)
     detail.getControl(details_window.LIST_CONTENT).position = 0
     detail.onClick(details_window.LIST_CONTENT)
-    detail.getControl(details_window.LIST_CONTENT).position = 0   # episode 1
+    detail.getControl(details_window.LIST_CONTENT).position = 0
+    detail._update_action_label()
+    assert "1x01" in detail.getProperty("pinky.detail.playlabel")
 
     calls = _picker_calls(monkeypatch)
     detail.onClick(details_window.BUTTON_PLAY)
 
     assert len(calls) == 1
-    entry, force_picker = calls[0]
-    assert force_picker is False
-    assert entry["episode"] == 2, "episode 1 is already watched"
+    assert calls[0][0]["episode"] == 1, "it must play what the label names"
+
+
+def test_play_on_the_season_list_still_means_the_next_unwatched(window,
+                                                                monkeypatch):
+    """No episode is under the cursor there, and the label says only "Play"."""
+    detail = window(SHOW)
+    assert "x" not in detail.getProperty("pinky.detail.playlabel").split()[-1]
+
+    calls = _picker_calls(monkeypatch)
+    detail.onClick(details_window.BUTTON_PLAY)
+
+    assert len(calls) == 1
+    assert calls[0][0]["episode"] == 2, "episode 1 is already watched"
+

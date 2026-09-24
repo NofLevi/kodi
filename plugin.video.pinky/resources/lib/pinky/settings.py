@@ -70,7 +70,6 @@ DEFAULTS = {
     "sources.allow_hdr": "false",
     "sources.allow_dv": "false",
     "sources.max_size_gb": "8",
-    "sources.autoplay": "true",
     "sources.source_memory": "true",
     "sources.seadex": "true",
     # kids mode
@@ -106,7 +105,7 @@ DEFAULTS = {
     "subs.ai.gemini_key": "",
     "subs.ai.openrouter_key": "",
     "subs.ai.openrouter_model": "deepseek/deepseek-chat-v3-0324:free",
-    "subs.ai.gemini_model": "gemini-3.6-flash",
+    "subs.ai.gemini_model": "gemini-flash-latest",
     "subs.ai.openai_url": "",
     "subs.ai.openai_key": "",
     "subs.ai.openai_model": "",
@@ -188,7 +187,7 @@ def get_bool(key, default=None):
     returns any default that is not None *instead of* consulting DEFAULTS. So
     an unset boolean came back as "" and therefore False, whatever DEFAULTS
     said. Every caller that relied on the registered default got the opposite:
-    sources.autoplay, cached_only, prefer_hebrew and source_memory all default
+    cached_only, prefer_hebrew and source_memory all default
     to true and all read as false.
 
     Kodi itself hides this in normal use, because it writes every declared

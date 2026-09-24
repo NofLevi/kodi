@@ -75,35 +75,22 @@
             <orientation>horizontal</orientation>
             <itemgap>14</itemgap>
             <ondown>5300</ondown>
+            <!-- 320 rather than 230: this used to say only "Play", and now
+                 it names the episode it will act on, which "Choose a source"
+                 did before it was removed. Auto width would size these to
+                 their own labels and end this class of bug, but a rendering
+                 change has to be checked in a real Kodi. -->
             <control type="button" id="9100">
-                <width>230</width>
+                <width>320</width>
                 <height>60</height>
                 <font>font14</font>
                 <textcolor>white</textcolor>
                 <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
-                <label>$ADDON[plugin.video.pinky 32390]</label>
-                <texturefocus border="2">special://home/addons/plugin.video.pinky/resources/media/button-focus.png</texturefocus>
-                <texturenofocus border="2">special://home/addons/plugin.video.pinky/resources/media/button.png</texturenofocus>
-            </control>
-            <!-- 360, the same as the Trakt button below and for the same
-                 reason. "Choose a source" does not fit in 230 and was drawn
-                 as "Choose a so...", which reads as a different instruction.
-                 Auto width would size these to their own labels and end this
-                 class of bug, but a rendering change has to be checked in a
-                 real Kodi and this window cannot be opened from the outside
-                 yet - so this is the measured fix rather than the clever one. -->
-            <control type="button" id="9101">
-                <width>420</width>
-                <height>60</height>
-                <font>font14</font>
-                <textcolor>white</textcolor>
-                <focusedcolor>FF141414</focusedcolor>
-                <align>center</align>
-                <!-- Names the episode it will act on, so the viewer can
-                     see it rather than find out by pressing. Set by
+                <!-- Names the episode it will act on, so the viewer can see
+                     it rather than find out by pressing. Set by
                      _update_action_label on every move; never empty. -->
-                <label>$INFO[Window.Property(pinky.detail.sourcelabel)]</label>
+                <label>$INFO[Window.Property(pinky.detail.playlabel)]</label>
                 <texturefocus border="2">special://home/addons/plugin.video.pinky/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.pinky/resources/media/button.png</texturenofocus>
             </control>

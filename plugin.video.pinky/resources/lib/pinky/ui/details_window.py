@@ -24,7 +24,6 @@ MOVE_ACTIONS = (1, 2, 3, 4, 6, 7, 104, 105, 107)
 
 LIST_CONTENT = 5300
 BUTTON_PLAY = 9100
-BUTTON_SOURCES = 9101
 BUTTON_TRAILER = 9102
 BUTTON_WATCHLIST = 9103
 
@@ -69,8 +68,14 @@ class DetailsWindow(xbmcgui.WindowXML):
 
     def onClick(self, control_id):
         if control_id == BUTTON_PLAY:
-            self._play_best()
-        elif control_id == BUTTON_SOURCES:
+            # The highlighted episode, because the label names it. There used
+            # to be two buttons - Play took the next unwatched episode and
+            # "Choose a source" took the highlighted one - and with autoplay
+            # gone they did the same thing from the same position. One button
+            # has to act on what it says, and what it says is what is under
+            # the cursor; `_choose_source` still falls back to the next
+            # unwatched episode when nothing is highlighted, which is the
+            # case on the season list and the one Play existed for.
             self._choose_source()
         elif control_id == BUTTON_TRAILER:
             trailer = (self.item.get("extra") or {}).get("trailer")
@@ -98,22 +103,27 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.setProperty("pinky.detail.trailer",
                          (self.item.get("extra") or {}).get("trailer", ""))
         self.setProperty("pinky.detail.listheading", "")
-        self.setProperty("pinky.detail.sourcelabel", kodi.localize(32250))
+        self.setProperty("pinky.detail.playlabel", kodi.localize(32390))
 
     def _update_action_label(self):
-        """Name the episode the buttons will act on, on the button itself.
+        """Name the episode Play will act on, on the button itself.
 
         The alternative is what was there before: a button that acts on
         something the viewer cannot see, and finds out about by pressing it.
         With the episode in the label there is nothing to guess - and when the
         list is showing seasons, or a film, the label is just the plain one.
+
+        It is on Play because "Choose a source" is gone. Autoplay was removed,
+        so Play opened the picker too and the two buttons did the same thing
+        from the same list position - the second was a second way to press the
+        first. The episode indicator was the part worth keeping.
         """
         entry = self._selected_episode()
-        label = kodi.localize(32250)
+        label = kodi.localize(32390)
         if entry is not None:
             label = "%s   %dx%02d" % (label, int(entry.get("season") or 0),
                                       int(entry.get("episode") or 0))
-        self.setProperty("pinky.detail.sourcelabel", label)
+        self.setProperty("pinky.detail.playlabel", label)
 
     def _fill(self, entries, heading):
         self.entries = entries or []
@@ -328,7 +338,7 @@ class DetailsWindow(xbmcgui.WindowXML):
 
     def _cleanup(self):
         for name in ("title", "plot", "poster", "fanart", "meta", "cast",
-                     "trailer", "listheading", "sourcelabel"):
+                     "trailer", "listheading", "playlabel"):
             self.clearProperty("pinky.detail.%s" % name)
         self.entries = []
 

@@ -453,10 +453,6 @@
                     <constraints><minimum>1</minimum><step>1</step><maximum>8</maximum></constraints>
                     <control type="slider" format="integer"/>
                 </setting>
-                <setting id="sources.autoplay" type="boolean" label="30042">
-                    <level>0</level><default>true</default>
-                    <control type="toggle"/>
-                </setting>
                 <setting id="sources.prefetch_next" type="boolean" label="30043">
                     <level>2</level><default>false</default>
                     <control type="toggle"/>
@@ -681,7 +677,7 @@
                     </dependencies>
                 </setting>
                 <setting id="subs.ai.gemini_model" type="string" label="30073">
-                    <level>2</level><default>gemini-3.6-flash</default>
+                    <level>2</level><default>gemini-flash-latest</default>
                     <control type="edit" format="string">
                         <heading>30073</heading>
                     </control>

@@ -7,6 +7,9 @@ The flow is deliberately short:
 Everything expensive happens behind a progress dialog the user can cancel, and
 the source search is bounded by the shared worker pool and its deadline.
 """
+import re
+import uuid
+
 from . import kodi, settings
 from .ui import listing
 
@@ -143,8 +146,38 @@ def _name_it_the_way_the_indexes_do(meta, tmdb_id):
             pass
 
 
+# The one play request that is still wanted, as a window property so it is
+# the same value in every plugin invocation - each press is its own process
+# and module state is not reliably shared between them.
+REQUEST_KEY = "play_request"
+
+
+def _take_ticket():
+    """Claim the newest play request, cancelling whatever was mid-flight."""
+    # A random ticket rather than the clock: time.time() on Windows moves in
+    # fifteen millisecond steps, so two presses in the same step would claim
+    # the same one and neither would cancel the other.
+    ticket = uuid.uuid4().hex
+    kodi.set_property(REQUEST_KEY, ticket)
+    return ticket
+
+
+def _still_wanted(ticket):
+    """Whether this request is still the one the viewer is waiting for.
+
+    A source search is seconds of network on a slow box, and a viewer who
+    backs out and presses something else has two of them running. Without
+    this the loser finishes second and hands Kodi *its* URL, so the film that
+    starts is the one that was cancelled - and the player then attributes the
+    new title's metadata to it. Checked at every hand-off rather than once,
+    because every stage between here and Kodi can block.
+    """
+    return kodi.get_property(REQUEST_KEY) == ticket
+
+
 def play(handle, request, force_picker=False):
     """Route entry point for playing a movie or an episode."""
+    ticket = _take_ticket()
     meta = build_meta(request)
     if not meta.get("title"):
         # The one failure with no explanation anywhere. An episode reached
@@ -165,6 +198,18 @@ def play(handle, request, force_picker=False):
         listing.resolve_failed(handle)
         return
 
+    # The broadcaster first, and before the debrid check on purpose: its own
+    # stream needs no account, no torrent and no seeder, and for Israeli
+    # television it is the better copy rather than the consolation one. The
+    # trackers are asked only when it cannot be pinned to the episode.
+    if not force_picker:
+        stream = _broadcaster_stream(meta)
+        if stream:
+            listing.resolve_failed(handle)
+            if _still_wanted(ticket):
+                kodi.run_builtin("PlayMedia(%s)" % stream)
+            return
+
     if not settings.configured_debrid():
         kodi.log("no debrid service is configured, so nothing can be played",
                  kodi.LOG_INFO)
@@ -183,9 +228,29 @@ def play(handle, request, force_picker=False):
                  % (meta.get("title", ""), _describe(meta)), kodi.LOG_INFO)
         sources = _offer_uncached(meta)
         if not sources:
+            broadcaster = _vod_alternative(meta)
+            if broadcaster:
+                kodi.log("no sources for %s, but %s has it"
+                         % (broadcaster["title"], broadcaster["studio"]),
+                         kodi.LOG_INFO)
+                listing.resolve_failed(handle)
+                if kodi.yes_no(kodi.localize(32545)
+                               % (broadcaster["title"], broadcaster["studio"])):
+                    kodi.run_builtin('ActivateWindow(Videos,"%s",return)'
+                                     % broadcaster["url"])
+                return
             kodi.notify(kodi.localize(32283))
             listing.resolve_failed(handle)
             return
+
+    if not _still_wanted(ticket):
+        # Before the picker rather than only before the hand-off: a chooser
+        # that opens for a title the viewer has already moved on from is a
+        # dialog they have to dismiss to get back to the one they wanted.
+        kodi.log("%s was cancelled while it searched" % meta.get("title", ""),
+                 kodi.LOG_INFO)
+        listing.resolve_failed(handle)
+        return
 
     chosen = _choose(sources, meta, force_picker)
     if not chosen:
@@ -237,6 +302,11 @@ def play(handle, request, force_picker=False):
         meta["fallbacks"] = _fallbacks_after(chosen, sources)
         meta["_retry"] = 0
     meta["stream_url"] = url
+    if not _still_wanted(ticket):
+        kodi.log("%s was cancelled while it resolved, so it is not started"
+                 % meta.get("title", ""), kodi.LOG_INFO)
+        listing.resolve_failed(handle)
+        return
     player.set_now_playing(meta)
     listing.resolve(handle, url, meta.get("item"))
 
@@ -340,6 +410,145 @@ def resolve_fallback(meta):
 # the small number stands.
 RESOLVE_ATTEMPTS = 3
 RESOLVE_ATTEMPTS_CACHED = 6
+
+
+_SEASON_WORD = re.compile(r"עונה\s*(\d+)")
+_EPISODE_WORD = re.compile(r"פרק\s*(\d+)")
+
+
+def _numbered(entries, pattern, wanted):
+    """The entry whose Hebrew title carries this number, or None.
+
+    Mako numbers nothing in a field: a season is "עונה 1" and an episode is
+    "פרק 3 07.04.08 תמונות גולשים", and the number in the title is the only
+    place either one is stated. Anchored on the word rather than on any digit
+    in the line, because the date sits in the same title and 07 is not an
+    episode number.
+
+    Exactly one match or nothing. Two entries claiming episode three is a page
+    this code has not understood, and playing the first of them would be a
+    guess wearing a confident face.
+    """
+    found = [entry for entry in entries
+             if _matches_number(entry.get("title") or "", pattern, wanted)]
+    return found[0] if len(found) == 1 else None
+
+
+def _matches_number(title, pattern, wanted):
+    match = pattern.search(title)
+    return bool(match) and int(match.group(1)) == wanted
+
+
+def _broadcaster_stream(meta):
+    """The episode the viewer pressed, on the broadcaster's own service.
+
+    Israeli television is barely on the trackers and never will be - they are
+    private and account-gated, Sdarot was dissolved in 2023, and Torrentio's
+    Hebrew priority returns what no filter returns. The broadcaster streams
+    the same programme in the open, and this add-on has always held both
+    halves and never joined them: רמזור sits in the VOD catalogue under
+    Keshet while the source search reports nothing at all.
+
+    So it is asked first rather than last, and it has to come back with the
+    *episode*, not the programme. Landing in a folder of four seasons after a
+    press that meant "play episode three" is the add-on looking like it lost
+    its place; that is what the first version of this did and it was wrong.
+    Anything less than the episode itself falls through to the trackers, and
+    the offer at the end of the search opens the folder for a viewer who
+    would rather browse.
+    """
+    broadcaster = _vod_alternative(meta)
+    if not broadcaster or not broadcaster.get("module"):
+        return ""
+    try:
+        return _walk_to_episode(meta, broadcaster)
+    except Exception as error:
+        kodi.log("broadcaster walk failed for %s: %s"
+                 % (broadcaster["title"], error), kodi.LOG_WARNING)
+        return ""
+
+
+def _walk_to_episode(meta, broadcaster):
+    from .vod import extractors
+
+    module, mode = broadcaster["module"], broadcaster["mode"]
+    entries = extractors.episodes(module, broadcaster["ref"], mode) or []
+
+    season = int(meta.get("season") or 0)
+    if season and any("action=vod_show" in ((e.get("extra") or {}).get("url") or "")
+                      for e in entries):
+        folder = _numbered(entries, _SEASON_WORD, season)
+        if folder is None:
+            return ""
+        entries = extractors.episodes(
+            module, (folder.get("ids") or {}).get("vod", ""), mode) or []
+
+    episode = int(meta.get("episode") or 0)
+    if episode:
+        wanted = _numbered(entries, _EPISODE_WORD, episode)
+    elif len(entries) == 1:
+        # A film, where the catalogue entry is the film. More than one and
+        # there is nothing to choose between them, so the trackers get it.
+        wanted = entries[0]
+    else:
+        return ""
+
+    url = ((wanted or {}).get("extra") or {}).get("url") or ""
+    if "action=play_vod" not in url:
+        return ""
+    kodi.log("playing %s %s from %s rather than searching the trackers"
+             % (broadcaster["title"], wanted.get("title", ""),
+                broadcaster["studio"]), kodi.LOG_INFO)
+    return url
+
+
+def _vod_alternative(meta):
+    """The broadcaster's own copy, for a title the trackers do not carry.
+
+    "No sources" is the *normal* answer for Israeli television rather than a
+    failure: the Israeli trackers are private, Sdarot was dissolved in 2023,
+    and Torrentio's Hebrew priority returns what no filter returns. The copy
+    that does exist is the one the broadcaster streams - and this add-on has
+    always held both halves and never joined them. רמזור sits in the VOD
+    catalogue under Keshet while the source search reports nothing at all.
+
+    The name is the only join there is, because the catalogue carries no TMDB
+    id, so the match is exact and never a substring: sending somebody who
+    asked for one programme into another whose name merely contains it is
+    worse than the honest "nothing found" this replaces.
+
+    Only a title whose own language is Hebrew is looked up. An American film
+    has no business being searched against a catalogue of Israeli television,
+    and every lookup here is a read of a 2,810 entry index.
+
+    **It is offered and never taken.** This lands on the programme, and it
+    cannot land anywhere else: a Mako episode is a page title and an opaque
+    VOD document id, with no episode number anywhere on it to match against
+    the one the viewer pressed. So a press that meant "play episode three"
+    would silently become a folder of four seasons - the add-on looking like
+    it had lost its place rather than like it had found something. Asking
+    first costs one press and says where it is going.
+    """
+    hebrew = (meta.get("original_title") or "").strip()
+    if not hebrew or (meta.get("original_language") or "") != "he":
+        return None
+    try:
+        from .vod import library
+        for candidate in library.search(hebrew, limit=8):
+            if (candidate.get("title") or "").strip() != hebrew:
+                continue
+            url = (candidate.get("extra") or {}).get("url") or ""
+            if url:
+                extra = candidate.get("extra") or {}
+                return {"title": candidate["title"], "url": url,
+                        "studio": (candidate.get("studio") or [""])[0],
+                        "module": extra.get("module", ""),
+                        "ref": extra.get("ref", ""),
+                        "mode": extra.get("mode", "")}
+    except Exception as error:
+        kodi.log("vod fallback failed for %s: %s" % (hebrew, error),
+                 kodi.LOG_WARNING)
+    return None
 
 
 def _offer_uncached(meta):
@@ -497,10 +706,23 @@ def _reachable(url):
 
 
 def _choose(sources, meta, force_picker):
-    """Autoplay the best source, or open the picker."""
-    autoplay = settings.get_bool("sources.autoplay") and not force_picker
-    if autoplay:
-        return sources[0]
+    """Open the picker. There is no longer a way not to.
+
+    Autoplay was a setting and is gone, because the ranking cannot see what
+    the picker shows. Its three lists are a comparison - the best Hebrew
+    subtitle against the best one AI can translate from against the best
+    English - and for most anime and every Turkish drama measured the first
+    list is *empty*, so "the best source" is a question about subtitles that
+    the source sort never asked. Starting the top row by itself threw that
+    away on exactly the titles it was built for.
+
+    `force_picker` survives as what it always meant: the viewer pressed
+    "choose a source" rather than play, which is still a different thing -
+    it never carries fallbacks, because they asked for that release.
+
+    VOD does not come through here at all. A broadcaster's programme has one
+    stream and nothing to choose between, so there is no page to open.
+    """
     try:
         from .ui.sources_window import pick_source
         return pick_source(sources, meta)

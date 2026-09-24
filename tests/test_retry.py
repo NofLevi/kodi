@@ -31,7 +31,10 @@ def source(title, info_hash, cached_by="torbox", **extra):
 @pytest.fixture
 def film(monkeypatch, settings_module):
     settings_module.set("torbox.apikey", "a-key")
-    settings_module.set("sources.autoplay", "true")
+    # The picker is always opened now, so the test stands in for the viewer
+    # taking the top row - which is what the retry chain hangs off.
+    import pinky.ui.sources_window as window
+    monkeypatch.setattr(window, "pick_source", lambda sources, meta: sources[0])
     monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
         "ids": {"tmdb": 278, "imdb": "tt0111161"}, "title": "A Film",
         "year": 1994, "art": {}, "original_title": "A Film"})

@@ -1366,7 +1366,7 @@ msgid "Setup, accounts, kids mode and maintenance."
 msgstr ""
 
 msgctxt "#32471"
-msgid "Back to what's playing"
+msgid "Now playing"
 msgstr ""
 
 msgctxt "#32472"
@@ -1731,4 +1731,12 @@ msgstr ""
 
 msgctxt "#30323"
 msgid "Connect Ktuvit (free account)"
+msgstr ""
+
+msgctxt "#32545"
+msgid "No sources found. Watch %s on %s instead?"
+msgstr ""
+
+msgctxt "#32546"
+msgid "A translation is already running"
 msgstr ""

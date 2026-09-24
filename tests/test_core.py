@@ -10,15 +10,15 @@ import time
 # touched it, and get_bool was quietly ignoring it: it handed get() an empty
 # string as the fallback, and get() returns any fallback that is not None
 # instead of consulting DEFAULTS. So every boolean that had never been written
-# read as false whatever DEFAULTS said - autoplay, cached_only, prefer_hebrew,
+# read as false whatever DEFAULTS said - cached_only, prefer_hebrew,
 # source_memory and thirteen others, all of which ship as true.
 # --------------------------------------------------------------------------
 
 
 def test_an_unset_boolean_uses_its_registered_default():
     from pinky import settings
-    assert settings.DEFAULTS["sources.autoplay"] == "true"
-    assert settings.get_bool("sources.autoplay") is True
+    assert settings.DEFAULTS["sources.source_memory"] == "true"
+    assert settings.get_bool("sources.source_memory") is True
     assert settings.DEFAULTS["kids.enabled"] == "false"
     assert settings.get_bool("kids.enabled") is False
 
