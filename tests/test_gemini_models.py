@@ -34,10 +34,12 @@ def keyed(settings_module, monkeypatch):
     return settings_module
 
 
-def test_the_default_is_the_tested_model_with_aliases_behind_it(keyed):
-    assert gemini.model() == "gemini-3.6-flash"
+def test_every_model_is_an_alias(keyed):
+    """Pinning bit twice: 2.5-flash, then 3.6-flash for a real key two days
+    later. A version written down here is one that will be retired."""
+    assert gemini.model() == "gemini-flash-latest"
     assert gemini.CHAIN[0] == gemini.DEFAULT_MODEL
-    assert all(name.endswith("-latest") for name in gemini.CHAIN[1:])
+    assert all(name.endswith("-latest") for name in gemini.CHAIN)
     assert not any("pro" in name for name in gemini.CHAIN), "Pro is not free"
 
 
@@ -66,7 +68,7 @@ def test_a_retired_model_falls_back_to_the_alias(keyed, monkeypatch):
 
     monkeypatch.setattr(http, "post", post)
     assert gemini.complete("system", "prompt") == "ok"
-    assert asked == ["gemini-2.5-flash", "gemini-3.6-flash"]
+    assert asked == ["gemini-2.5-flash", gemini.DEFAULT_MODEL]
 
 
 def test_the_key_check_does_not_blame_the_key_for_a_retired_model(keyed, monkeypatch):

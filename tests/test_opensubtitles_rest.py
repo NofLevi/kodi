@@ -22,13 +22,21 @@ def provider():
 
 
 def _asked(monkeypatch, provider, payload=None):
-    """Capture the URL built, and answer with whatever the test wants."""
+    """Capture the URL built, and answer with whatever the test wants.
+
+    The default answer is one row rather than none, because an empty id
+    query is now followed by a name query - so a test that asks "what URL
+    was built" would otherwise be shown the fallback's.
+    """
     seen = {}
+    if payload is None:
+        payload = [{"SubFileName": "x.srt", "SubDownloadLink": "https://x/1.gz",
+                    "SubLanguageID": "eng"}]
 
     def get_json(url, default=None, **kwargs):
         seen["url"] = url
         seen["headers"] = kwargs.get("headers") or {}
-        return payload if payload is not None else []
+        return list(payload)
 
     monkeypatch.setattr(provider.http, "get_json", get_json)
     return seen
@@ -56,7 +64,7 @@ def test_an_imdb_id_is_preferred_to_a_title(monkeypatch, provider):
     provider.search({"type": "episode", "title": "Silo", "season": 1,
                      "episode": 1, "ids": {"imdb": "tt14688458"}}, None, ["he"])
     assert "imdbid-14688458" in seen["url"]
-    assert "query-" not in seen["url"]
+    assert "query-" not in seen["url"], "the id is asked first, on its own"
 
 
 def test_the_episode_and_season_reach_the_path(monkeypatch, provider):
@@ -78,13 +86,22 @@ def test_a_film_asks_for_no_season(monkeypatch, provider):
 # --------------------------------------------------------------------------
 
 
-def _asked_every(monkeypatch, module):
-    """Every URL or params dict a provider asked with, in order."""
+def _asked_every(monkeypatch, module, answer=None):
+    """Every URL or params dict a provider asked with, in order.
+
+    Answers with one row by default. An empty answer is not neutral any
+    more: an id query that finds nothing is followed by a name query, so a
+    test about *numbering* has to say the id query worked or it measures the
+    fallback instead.
+    """
     seen = []
+    if answer is None:
+        answer = [{"SubFileName": "x.srt", "SubDownloadLink": "https://x/1.gz",
+                   "SubLanguageID": "heb"}]
 
     def get_json(url, default=None, params=None, **kwargs):
         seen.append(params if params is not None else url)
-        return []
+        return list(answer)
 
     monkeypatch.setattr(module.http, "get_json", get_json)
     return seen
@@ -450,3 +467,78 @@ def test_a_hash_is_asked_about_as_well_as_a_title(monkeypatch, provider):
     assert any("moviehash-ff73982902e896f2" in u for u in urls), urls
     assert any("moviebytesize-478600575" in u for u in urls), urls
     assert any("query-silo" in u for u in urls), urls
+
+
+# --------------------------------------------------------------------------
+# an id that finds nothing is not the same as there being nothing
+# --------------------------------------------------------------------------
+
+
+def _row(name="A subtitle", parent="99999999"):
+    return {"SubFileName": name, "SubDownloadLink": "https://x/1.gz",
+            "SeriesIMDBParent": parent, "SubLanguageID": "eng",
+            "MovieReleaseName": name}
+
+
+def _asked_many(monkeypatch, provider, answers):
+    """Answer each URL in turn, recording every one that was asked."""
+    urls = []
+
+    def get_json(url, default=None, **kwargs):
+        urls.append(url)
+        return answers.pop(0) if answers else []
+
+    monkeypatch.setattr(provider.http, "get_json", get_json)
+    return urls
+
+
+def test_an_empty_id_query_falls_back_to_the_name(monkeypatch, provider):
+    """Measured on Hikaru no Go 2x02, which is S01E32 to everybody but TMDB.
+
+    `imdbid-0426711` knows English for episodes 1 to 30 and stops, while the
+    same season and episode asked by name returns "Hikaru No Go S01E32.en.vtt".
+    An upload is filed against an id only if whoever uploaded it said so.
+    """
+    urls = _asked_many(monkeypatch, provider, [[], [_row()]])
+    found = provider.search({"type": "episode", "show_title": "Hikaru no Go",
+                             "title": "Team Formed!", "season": 1, "episode": 32,
+                             "ids": {"imdb": "tt0426711"}}, None, ["en"])
+    assert len(urls) == 2
+    assert "imdbid-0426711" in urls[0]
+    assert "query-hikaru%20no%20go" in urls[1]
+    assert found, "the name query's answer must be kept"
+
+
+def test_the_name_query_costs_nothing_when_the_id_answers(monkeypatch, provider):
+    urls = _asked_many(monkeypatch, provider, [[_row(parent="426711")]])
+    provider.search({"type": "episode", "show_title": "Silo", "title": "Freedom Day",
+                     "season": 1, "episode": 1,
+                     "ids": {"imdb": "tt426711"}}, None, ["en"])
+    assert len(urls) == 1, "one request in the common case"
+
+
+def test_a_name_query_is_not_thrown_away_for_disagreeing_with_the_id(
+        monkeypatch, provider):
+    """One show can have several IMDb entries and uploaders pick one.
+
+    Hikaru no Go has at least 0426711, 0303461 and 13364846, and the only
+    English subtitle for episode 32 is under the third. Having gone around
+    the id because it found nothing, discarding the answer for disagreeing
+    with that same id is the search cancelling itself out.
+    """
+    _asked_many(monkeypatch, provider, [[], [_row(parent="13364846")]])
+    found = provider.search({"type": "episode", "show_title": "Hikaru no Go",
+                             "title": "x", "season": 1, "episode": 32,
+                             "ids": {"imdb": "tt0426711"}}, None, ["en"])
+    assert found, "a different IMDb entry for the same show is not another show"
+
+
+def test_a_series_is_asked_for_under_the_show_name(monkeypatch, provider):
+    """"The Last Day of the Preliminaries" is not what anybody filed under."""
+    urls = _asked_many(monkeypatch, provider, [[], []])
+    provider.search({"type": "episode", "show_title": "Hikaru no Go",
+                     "title": "The Last Day of the Preliminaries",
+                     "season": 2, "episode": 2,
+                     "ids": {"imdb": "tt0426711"}}, None, ["en"])
+    assert "query-hikaru%20no%20go" in urls[1]
+    assert "preliminaries" not in urls[1]

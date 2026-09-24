@@ -14,20 +14,30 @@ from ... import http, kodi, settings
 
 BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
-# A tested model first, and a chain behind it, because every single name has
-# failed in its own way. Google retires versions for new users: on 22
-# September 2026 gemini-2.5-flash and gemini-2.5-flash-lite answered every
-# request from a new key with HTTP 404, which made AI translation fail for
-# anyone with a new key while every test here passed. The -latest alias that
-# fixes that answered **503, "high demand"**, the same day. So the default is
-# the model measured to get Hebrew gender right, gemini-3.6-flash, and a model
-# that is retired (404), overloaded (503) or out of quota (429) hands the
-# request to the next name - each model has its own quota, so a spent one is
-# not the end of the film. gemini-pro-latest is never in the chain: it
-# answered 429 because Pro is not in the free tier.
-DEFAULT_MODEL = "gemini-3.6-flash"
+# Aliases, never a version number. Google retires versions for new users and
+# does it silently: on 22 September 2026 gemini-2.5-flash and
+# gemini-2.5-flash-lite answered every request from a new key with HTTP 404,
+# which made AI translation fail for anyone with a new key while every test
+# here passed - and then a pinned gemini-3.6-flash went the same way for a
+# real key two days later. A name written down here is a name that will be
+# wrong; "-latest" is Google's own answer to that and costs nothing.
+#
+# Flash first and flash-lite behind it, which is the quality order rather
+# than the allowance order. Measured free tier, September 2026: flash is
+# 10 requests a minute and 250 a day, flash-lite is 15 and 1,000 - so
+# flash-lite is four times the daily allowance and half again the speed, and
+# is still second, because it was measured to get Hebrew gender wrong where
+# flash gets it right and a subtitle that addresses a woman as a man is the
+# thing this whole file exists to avoid. They are separate quotas, so a
+# spent flash is not the end of the film.
+#
+# A model that is retired (404) is struck off for the session; overloaded
+# (503) or out of quota (429) keeps its place and is tried again.
+# gemini-pro-latest is never in the chain: Pro left the free tier in May 2026
+# and answers 429.
+DEFAULT_MODEL = "gemini-flash-latest"
 FAST_MODEL = "gemini-flash-lite-latest"
-CHAIN = (DEFAULT_MODEL, "gemini-flash-latest", FAST_MODEL)
+CHAIN = (DEFAULT_MODEL, FAST_MODEL)
 
 # Conservative pacing per model family, a little under the published limits.
 RATE_LIMITS = {
@@ -90,11 +100,19 @@ def complete(system_prompt, prompt, timeout=(10, 90), model_name=None):
     model's fault and is raised as it is.
     """
     first = model_name or model()
-    names = [first] + [name for name in CHAIN if name != first]
+    names = [name for name in [first] + [n for n in CHAIN if n != first]
+             if name not in _RETIRED]
+    if not names:
+        raise ModelRetired("no Gemini model in the chain is served for this key")
     last = None
     for name in names:
         try:
             return _complete(system_prompt, prompt, timeout, name)
+        except ModelRetired as error:
+            last = error
+            _RETIRED.add(name)
+            kodi.log("Gemini model %s is not served here, so it will not be "
+                     "asked again (%s)" % (name, error))
         except ModelUnavailable as error:
             last = error
             kodi.log("Gemini model %s could not take the request (%s)"
@@ -119,7 +137,22 @@ fast = _Fast()
 
 
 class ModelUnavailable(GeminiError):
-    """This model cannot take the request now: retired, overloaded or spent."""
+    """This model cannot take the request now: overloaded or out of quota."""
+
+
+class ModelRetired(ModelUnavailable):
+    """This model is not served here at all, and will not be on the next try."""
+
+
+# Models this process has been told do not exist. A 404 is the API saying the
+# name is not served on this endpoint - retired, or never offered for this
+# key's API version - so it will answer 404 again for every chunk of the
+# film. Measured on a real translation: the configured model answered 404 and
+# was asked again for every chunk, three requests and two retries deep each
+# time, for over a minute of a film that was already playing. A 429 or a 503
+# is the opposite claim - the model is there and busy - so it keeps its place
+# in the chain and is tried again.
+_RETIRED = set()
 
 
 def _complete(system_prompt, prompt, timeout, name):
@@ -143,7 +176,9 @@ def _complete(system_prompt, prompt, timeout, name):
 
     if response is None:
         raise GeminiError("no response from Gemini")
-    if response.status_code in (404, 429, 503):
+    if response.status_code == 404:
+        raise ModelRetired("HTTP 404")
+    if response.status_code in (429, 503):
         raise ModelUnavailable("HTTP %s" % response.status_code)
     if response.status_code in (400, 403):
         raise InvalidKey("Gemini rejected the key (HTTP %s)" % response.status_code)

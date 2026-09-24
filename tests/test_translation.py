@@ -263,3 +263,104 @@ def test_a_failing_progress_callback_does_not_stop_the_translation(use_engine):
 
     result = translator.translate(cues(10), "he", on_progress=broken)
     assert all(c.text.startswith("HE:") for c in result)
+
+
+def test_a_model_that_answers_404_is_not_asked_again(monkeypatch):
+    """404 is the API saying the name is not served here, and it is permanent.
+
+    Measured on a real translation: the configured model answered 404 and was
+    asked again for every chunk, three requests deep each time, for over a
+    minute of a film that was already playing.
+    """
+    from pinky.subs.ai import gemini
+
+    gemini._RETIRED.clear()
+    asked = []
+
+    def answer(system_prompt, prompt, timeout, name):
+        asked.append(name)
+        if name == gemini.DEFAULT_MODEL:
+            raise gemini.ModelRetired("HTTP 404")
+        return "ok"
+
+    monkeypatch.setattr(gemini, "_complete", answer)
+    try:
+        assert gemini.complete("s", "p") == "ok"
+        first = list(asked)
+        assert gemini.DEFAULT_MODEL in first
+        del asked[:]
+        assert gemini.complete("s", "p") == "ok"
+        assert gemini.DEFAULT_MODEL not in asked
+    finally:
+        gemini._RETIRED.clear()
+
+
+def test_an_overloaded_model_keeps_its_place(monkeypatch):
+    """503 says the model is there and busy, which is the opposite claim."""
+    from pinky.subs.ai import gemini
+
+    gemini._RETIRED.clear()
+    asked = []
+
+    def answer(system_prompt, prompt, timeout, name):
+        asked.append(name)
+        if name == gemini.DEFAULT_MODEL:
+            raise gemini.ModelUnavailable("HTTP 503")
+        return "ok"
+
+    monkeypatch.setattr(gemini, "_complete", answer)
+    try:
+        gemini.complete("s", "p")
+        del asked[:]
+        gemini.complete("s", "p")
+        assert gemini.DEFAULT_MODEL in asked
+    finally:
+        gemini._RETIRED.clear()
+
+
+def test_nothing_left_in_the_chain_is_said_once_rather_than_tried(monkeypatch):
+    from pinky.subs.ai import gemini
+
+    gemini._RETIRED.clear()
+    gemini._RETIRED.update(gemini.CHAIN)
+    try:
+        with pytest.raises(gemini.ModelRetired):
+            gemini.complete("s", "p", model_name=gemini.DEFAULT_MODEL)
+    finally:
+        gemini._RETIRED.clear()
+
+
+def test_no_gemini_model_is_pinned_to_a_version():
+    """A version number written down here is one that will be retired.
+
+    It has happened twice: gemini-2.5-flash and then gemini-3.6-flash both
+    started answering 404 for new keys while every test here passed, because
+    a fixture never asks Google anything. "-latest" is Google's own answer
+    and the only one that survives a release we do not make.
+    """
+    from pinky import settings
+    from pinky.subs.ai import gemini
+
+    names = set(gemini.CHAIN) | {gemini.DEFAULT_MODEL, gemini.FAST_MODEL,
+                                 settings.DEFAULTS["subs.ai.gemini_model"]}
+    for name in names:
+        assert name.endswith("-latest"), "%s pins a version" % name
+        assert not any(ch.isdigit() for ch in name), "%s names a version" % name
+
+
+def test_the_faster_model_is_the_fallback_and_not_the_default():
+    """Flash-lite has four times the daily allowance and worse Hebrew.
+
+    Measured free tier, September 2026: flash 10/min and 250/day, flash-lite
+    15/min and 1,000/day. The bigger allowance still loses, because a
+    subtitle that addresses a woman as a man is what this file exists to
+    avoid.
+    """
+    from pinky.subs.ai import gemini
+
+    assert gemini.CHAIN[0] == gemini.DEFAULT_MODEL
+    assert "lite" not in gemini.DEFAULT_MODEL
+    assert "lite" in gemini.FAST_MODEL
+    assert gemini.CHAIN[-1] == gemini.FAST_MODEL
+    assert gemini._requests_per_minute(gemini.FAST_MODEL) > \
+        gemini._requests_per_minute(gemini.DEFAULT_MODEL)

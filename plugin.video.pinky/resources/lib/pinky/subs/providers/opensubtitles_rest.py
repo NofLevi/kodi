@@ -105,6 +105,16 @@ def _imdb_agrees(entry, meta):
     Episodes are filed under the *episode's* imdb id and we carry the show's,
     so `SeriesIMDBParent` is the field that compares - and it is right there in
     the response.
+
+    **Not asked of a name query**, which is the whole point of a name query.
+    One show can have several IMDb entries and an uploader files against
+    whichever they were looking at: Hikaru no Go has at least 0426711,
+    0303461 and 13364846, and the only English subtitle for episode 32 is
+    under the third. Having deliberately gone around the id because it found
+    nothing, throwing the answer away for disagreeing with that same id is
+    the search cancelling itself out. The name and the episode number are
+    what constrained that query, and the wrong-episode guard downstream is
+    what checks the answer.
     """
     ours = str((meta.get("ids") or {}).get("imdb") or "")
     ours = ours.replace("tt", "").lstrip("0")
@@ -140,25 +150,49 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
 
     if meta.get("type") == "episode":
         parts.append("episode-%d" % int(meta.get("episode") or 1))
-    if imdb:
-        parts.append("imdbid-%s" % imdb)
-    else:
-        title = meta.get("title") or ""
-        if not title:
-            return []
-        # Lowercased, and that is not tidiness. A capitalised query answers
-        # **302** to a redirect this add-on cannot follow - urllib reports it
-        # as `getaddrinfo failed`, which reads like the network being down
-        # rather than like the one character that caused it. Measured: "Silo"
-        # 302, "silo" 200; "Mousetrap" 302, "mousetrap" 200 with 5 results.
-        parts.append("query-%s" % urllib.parse.quote(title.lower()))
-    if meta.get("type") == "episode":
         parts.append("season-%d" % int(meta.get("season") or 1))
     parts.append("sublanguageid-%s" % code)
-    return _fetch(meta, language, parts)
+
+    if imdb:
+        found = _fetch(meta, language, parts + ["imdbid-%s" % imdb])
+        if found:
+            return found
+        # An id query that finds nothing is not the same as there being
+        # nothing. Measured on Hikaru no Go 2x02, which is S01E32 to everyone
+        # but TMDB: `imdbid-0426711` knows English for episodes 1 to 30 and
+        # stops, while the same season and episode asked *by name* returns
+        # "Hikaru No Go S01E32.en.vtt". An upload is filed against an id only
+        # if whoever uploaded it said so, and for a seventy-five episode anime
+        # most of them did not - so the picker offered one Japanese subtitle
+        # and called it a choice.
+        #
+        # Only after the id query comes back empty, so it costs one request in
+        # exactly the case that currently returns nothing, and none at all in
+        # the common one.
+    return _fetch(meta, language, parts + _by_name(meta), by_name=True)
 
 
-def _fetch(meta, language, parts, hash_query=False, video_size=0):
+def _by_name(meta):
+    """The title as a query fragment, or nothing if there is no title.
+
+    Lowercased, and that is not tidiness. A capitalised query answers **302**
+    to a redirect this add-on cannot follow - urllib reports it as
+    `getaddrinfo failed`, which reads like the network being down rather than
+    like the one character that caused it. Measured: "Silo" 302, "silo" 200;
+    "Mousetrap" 302, "mousetrap" 200 with 5 results.
+
+    A series is asked for under the show's name, not the episode's. `title`
+    is the episode's own name on an episode, and "The Last Day of the
+    Preliminaries" is not what anybody filed a subtitle under.
+    """
+    title = meta.get("show_title") or meta.get("title") or ""
+    if not title:
+        return []
+    return ["query-%s" % urllib.parse.quote(title.lower())]
+
+
+def _fetch(meta, language, parts, hash_query=False, video_size=0,
+           by_name=False):
     payload = http.get_json(
         "%s/%s" % (BASE, "/".join(sorted(parts))),
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
@@ -179,7 +213,7 @@ def _fetch(meta, language, parts, hash_query=False, video_size=0):
         link = entry.get("SubDownloadLink")
         if not link:
             continue
-        agrees = _imdb_agrees(entry, meta)
+        agrees = None if by_name else _imdb_agrees(entry, meta)
         if agrees is False:
             # Somebody else's programme, filed against our file's hash.
             continue

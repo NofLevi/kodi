@@ -44,7 +44,28 @@ WIDE_LANGUAGES = ("en", "es", "ar", "pt", "fr", "ru", "de", "it", "tr", "pl",
 # Not all of them every time. Every language is another request per provider,
 # and a Korean subtitle is worth nothing to an American film. See
 # ai/context.source_bonus for the order they are preferred in.
-AI_SOURCE_LANGUAGES = ("ar", "en")
+# What an automatic Hebrew translation may be made from, asked only once no
+# Hebrew subtitle fits - which for anime is always. Every one of these except
+# English marks the speaker's gender, which is the whole reason the list is
+# not just English: Hebrew marks it on verbs and adjectives, so a source that
+# carries it saves the model a guess.
+#
+# It used to be Arabic and English alone, and `context.GENDER_MARKING` knew
+# about nineteen languages that were never once asked for. Measured over five
+# titles on 24 September 2026, subtitles found per language:
+#
+#     en 29   ar 32   es 20   ru 20   pl 26   fr 18   it 12   pt 15
+#
+# and the anime rows are where the difference is, because that is where
+# English and Arabic are thinnest. Naruto Shippuden 8x14: Polish 6 and
+# Russian 4 against English 2 and Arabic 3. Frieren 1x01: Spanish 3 and
+# French 2 where Italian and Portuguese found one each. Hikaru no Go 2x02
+# has exactly two subtitles in the world and one of them is Polish.
+#
+# Italian and Portuguese are left out on those numbers: they cost the same
+# request and found least, and a list that grows without a reason is a
+# search that takes longer on a device waiting to draw a picker.
+AI_SOURCE_LANGUAGES = ("ar", "en", "pl", "es", "ru", "fr")
 FOREIGN_SOURCE_LANGUAGES = ("zh", "fr", "ko", "es", "it", "tr", "ja")
 
 # TMDB's codes that are not ISO 639-1. "cn" is its code for Cantonese, which
@@ -72,7 +93,11 @@ def translation_source_languages(meta, already=()):
         return []
     wanted = list(AI_SOURCE_LANGUAGES)
     original = normalise_language(meta.get("original_language"))
-    if original in FOREIGN_SOURCE_LANGUAGES:
+    # Only if it is not already one of them. French and Spanish joined the
+    # base list, and a French film was then asked for French twice - two
+    # identical requests per provider, and the same file offered twice in
+    # the picker.
+    if original in FOREIGN_SOURCE_LANGUAGES and original not in wanted:
         wanted.append(original)
     return [code for code in wanted if code not in already]
 TIMING_EVIDENCE_LANGUAGES = ("en", "es")
@@ -566,7 +591,15 @@ def _last_resort(meta, languages, report, player, video_hash, reason,
 # How long a provider will wait for the hash before asking without it. The
 # whole search has a ten second deadline, so this has to leave room for the
 # request that follows it.
-HASH_WAIT = 5.0
+# How long the three hash-keyed providers wait for it. Eight seconds rather
+# than five, measured on the same file twice: 4588 ms once and 5317 ms the
+# next time, so five sat exactly on the boundary and the second run missed it
+# by 317 ms. Missing it is not one provider short - without the hash no
+# candidate can come back marked "hash", so there is no timing reference for
+# anything either, and the release name becomes the whole judgement. It costs
+# nothing when the hash is quick, because the wait ends the moment it lands,
+# and the other nine providers are being asked throughout.
+HASH_WAIT = 8.0
 
 
 def video_hash_later(meta):
@@ -1060,10 +1093,17 @@ def _verified_fallback(candidates, rejected, wanted, winners, languages,
     return None, [], report
 
 
-def reference_cues(winners, languages, downloads):
-    """A subtitle whose timings we know are correct for this file."""
+def reference_cues(winners, languages, downloads, skip=None):
+    """A subtitle whose timings we know are correct for this file.
+
+    `skip` is the candidate being judged, so a file can never be its own
+    ruler - which the translation path can otherwise ask for, because there
+    the subtitle under test is in one of these same other languages.
+    """
     for language in languages[1:]:
         candidate = winners.get(language)
+        if candidate is skip:
+            continue
         if candidate and candidate.get("reason") == "hash":
             cues = downloads.fetch(candidate)
             if cues:
@@ -1072,12 +1112,57 @@ def reference_cues(winners, languages, downloads):
     return []
 
 
+def hash_reference(candidates, downloads, skip=None):
+    """A hash-matched subtitle from `candidates`, for use as a timing ruler."""
+    for candidate in candidates or []:
+        if candidate is skip or candidate.get("reason") != "hash":
+            continue
+        cues = downloads.fetch(candidate)
+        if cues:
+            return cues
+    return []
+
+
+def retimed_for_translation(cues, reference, language=""):
+    """Put the source subtitle in time *before* it is translated.
+
+    Both translation paths used to say "timings come from the source subtitle
+    and are never touched", and that was the whole of it: a Polish subtitle
+    found by release name became a well-gendered Hebrew subtitle that was out
+    by however much the Polish one was out, with nothing anywhere to notice.
+    The Hebrew path has re-timed against a hash-matched reference since the
+    beginning; the AI path simply never asked for one.
+
+    Shifting is all it does. `verify_and_sync` may reject a subtitle the
+    reference disproves, and that is right when there is another Hebrew
+    candidate behind it - here the source has already been chosen and the
+    budget spent, so refusing would leave the viewer with nothing rather than
+    with something a second out. A poor fit is left exactly where it was,
+    which is what the reference not existing already does.
+    """
+    if not reference or not cues:
+        return cues
+    fitted, result = _synchronise_safely(cues, reference)
+    if result["applied"]:
+        kodi.log("the %s subtitle was re-timed by %.2fs before translating "
+                 "(scale %.5f, confidence %.2f)"
+                 % (language or "source", result["offset"], result["scale"],
+                    result["confidence"]))
+        return fitted
+    kodi.log("the %s subtitle was left where it was before translating: %s"
+             % (language or "source", result["reason"]))
+    return cues
+
+
 def translate_fallback(meta, winners, languages, report, player=None,
                        cancelled=None, generation=None, downloads=None):
     """Translate the best other-language match into the wanted language.
 
-    Timings come from the source subtitle and are never touched, so a
-    translated file is exactly as well synchronised as the file it came from.
+    The source is re-timed first where there is a hash-matched reference to
+    re-time it against, because a translation inherits its source's timings
+    and nothing downstream looks at them again. Without a reference they are
+    kept as they are, so this is exactly as well synchronised as the file it
+    came from whenever there is no ruler.
 
     Which source to translate from is not simply the best match. Hebrew marks
     the speaker's gender on verbs and adjectives, and a language that already
@@ -1114,6 +1199,9 @@ def translate_fallback(meta, winners, languages, report, player=None,
     cues = downloads.fetch(candidate)
     if not cues:
         return "", report
+    cues = retimed_for_translation(
+        cues, reference_cues(winners, languages, downloads, skip=candidate),
+        language)
 
     translated = _translate_progressively(cues, meta, languages[0], player,
                                           cancelled=stopped,
@@ -1182,8 +1270,9 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
     does not care whether a subtitle already exists in the target language.
     Its whole job is to produce one.
 
-    Timings come from the source subtitle and are never touched, so the result
-    fits exactly as well as the file it was translated from. Each finished
+    Timings come from the source subtitle, re-timed against a hash-matched
+    reference where one exists and otherwise untouched, so the result fits
+    as well as the file it was translated from. Each finished
     chunk goes on screen as it arrives, because a feature film is minutes of
     translation and nobody should watch a progress bar for it.
 
@@ -1225,6 +1314,9 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
             continue
         kodi.log("translating the %s subtitle %r into %s"
                  % (language, (candidate.get("release") or "")[:60], target))
+        cues = retimed_for_translation(
+            cues, hash_reference(candidates, downloads, skip=candidate),
+            language)
         translated = _translate_progressively(cues, meta, target, player,
                                               variant=VARIANT_AI,
                                               cancelled=stopped,

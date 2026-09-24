@@ -968,7 +968,9 @@ def test_translation_sources_are_searched_once_no_hebrew_exists(pipeline, monkey
     pipeline["downloads"][name] = srt_bytes()
 
     auto.find_and_prepare(dict(MOVIE, original_language="fr"), ["he", "en"])
-    assert pipeline["searched_languages"][:2] == [["he", "en"], ["ar", "fr"]]
+    wide = [code for code in auto.AI_SOURCE_LANGUAGES if code != "en"]
+    assert pipeline["searched_languages"][:2] == [["he", "en"], wide]
+    assert wide.count("fr") == 1, "the show's own language must not repeat"
 
 
 def test_without_ai_a_downloaded_english_subtitle_is_used(pipeline):
@@ -1037,3 +1039,68 @@ def test_a_subtitle_for_another_episode_is_never_applied(pipeline):
     path, report = auto.find_and_prepare(special, ["he", "en"])
     assert path == "", report
     assert pipeline["downloaded"] == [], "and it is not even downloaded"
+
+
+# --------------------------------------------------------------------------
+# a translation inherits its source's timing, so the source has to be in time
+# --------------------------------------------------------------------------
+
+
+def _shifted(cues, seconds):
+    return [srt.Cue(c.index, c.start + seconds, c.end + seconds, c.text)
+            for c in cues]
+
+
+def _speech(count=60, step=4.0):
+    return [srt.Cue(i + 1, i * step, i * step + 2.0, "line %d" % i)
+            for i in range(count)]
+
+
+class _Budget(object):
+    def __init__(self, table):
+        self.table = table
+
+    def fetch(self, candidate):
+        return self.table.get(id(candidate), [])
+
+
+def test_the_source_is_re_timed_before_it_is_translated():
+    """A translation inherits its source's timing and nothing re-reads it.
+
+    Measured on Hikaru no Go: the only thing found was a Polish subtitle
+    matched on release name, and it became a Hebrew subtitle that was out by
+    exactly as much as the Polish one was.
+    """
+    reference = _speech()
+    source = _shifted(reference, 12.0)
+    fitted = auto.retimed_for_translation(source, reference, "pl")
+    assert abs(fitted[0].start - reference[0].start) < 0.5, \
+        "the source should have been pulled back into time"
+
+
+def test_a_source_with_no_reference_is_left_exactly_as_it_was():
+    source = _speech()
+    assert auto.retimed_for_translation(source, [], "pl") is source
+
+
+def test_an_unrelated_reference_never_shifts_the_source():
+    """A poor fit is left where it was rather than confidently moved.
+
+    The source has already been chosen and the download budget spent, so
+    refusing here would leave the viewer with nothing rather than with
+    something that may be a second out.
+    """
+    source = _speech()
+    unrelated = [srt.Cue(i + 1, i * 7.3 + 1.1, i * 7.3 + 2.4, "x")
+                 for i in range(60)]
+    fitted = auto.retimed_for_translation(source, unrelated, "pl")
+    assert [c.start for c in fitted] == [c.start for c in source]
+
+
+def test_a_subtitle_is_never_its_own_timing_reference():
+    """The translation path asks about the same languages it translates from."""
+    candidate = {"reason": "hash", "language": "en"}
+    budget = _Budget({id(candidate): _speech()})
+    assert auto.reference_cues({"en": candidate}, ["he", "en"], budget,
+                               skip=candidate) == []
+    assert auto.reference_cues({"en": candidate}, ["he", "en"], budget) != []

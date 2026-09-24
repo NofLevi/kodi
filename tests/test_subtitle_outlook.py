@@ -245,19 +245,34 @@ def test_the_picker_says_the_subtitle_will_be_made_by_ai():
     assert "92" in line
 
 
-def test_translation_languages_are_arabic_english_and_the_shows_own(monkeypatch):
+def test_translation_sources_are_the_gender_marking_ones_plus_the_shows_own(
+        monkeypatch):
     """A Turkish drama is asked for Turkish; an American film is not asked for
-    Korean. Every language is another request per provider."""
+    Korean. Every language is another request per provider.
+
+    All but English mark the speaker's gender, which Hebrew marks on verbs
+    and adjectives - so the source carries what the model would otherwise
+    have to guess. Measured on 24 September 2026, the anime rows are where
+    the wider list earns its requests: Naruto Shippuden 8x14 has Polish 6 and
+    Russian 4 against English 2 and Arabic 3.
+    """
     from pinky.subs import auto
+    from pinky.subs.ai import context
     from pinky.subs.ai import translator
 
     monkeypatch.setattr(translator, "available", lambda: True)
     languages = auto.translation_source_languages
-    assert languages({"original_language": "tr"}, ["he"]) == ["ar", "en", "tr"]
-    assert languages({"original_language": "ko"}, ["he"]) == ["ar", "en", "ko"]
-    assert languages({"original_language": "cn"}, ["he"]) == ["ar", "en", "zh"]
-    assert languages({"original_language": "en"}, ["he", "en"]) == ["ar"]
-    assert languages({"original_language": "de"}, ["he"]) == ["ar", "en"]
+    base = list(auto.AI_SOURCE_LANGUAGES)
+    assert languages({"original_language": "tr"}, ["he"]) == base + ["tr"]
+    assert languages({"original_language": "ko"}, ["he"]) == base + ["ko"]
+    assert languages({"original_language": "cn"}, ["he"]) == base + ["zh"]
+    assert languages({"original_language": "de"}, ["he"]) == base
+    assert languages({"original_language": "en"}, ["he", "en"]) ==         [code for code in base if code != "en"]
+
+    for code in base:
+        if code == "en":
+            continue
+        assert context.source_bonus(code) > 0,             "%s is asked for, so it has to be worth asking for" % code
 
 
 def test_nothing_extra_is_asked_without_a_translation_engine(monkeypatch):
