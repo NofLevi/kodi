@@ -59,11 +59,42 @@ MAX_RESULTS = 20
 # The whole of one SOAP call, hosts and retries included. The subtitle search
 # runs on a 10 second deadline through four shared worker threads, so a
 # provider is allowed a little longer than that and no more.
-MAX_CALL_SECONDS = 12.0
+# Six, not twelve. The search deadline is ten seconds, so a twelve second
+# budget meant one call could outlast the whole search - and it did: this
+# provider is what `deadline hit after 10.0s, dropped: ktuvit` was really
+# about, a worker spending longer than the deadline on hosts that never
+# answer, with whatever queued behind it dropped too.
+MAX_CALL_SECONDS = 6.0
 
 # Attributes on every tag, so a bare <tag> pattern silently matches nothing.
 _FIELD = r"<%s[^>]*>([^<]*)</%s>"
 _ROW = re.compile(r"<item[^>]*>(.*?)</item>", re.S)
+
+
+# Said once per process, because the alternative is a provider that is
+# switched on and silently contributes nothing - the same thing SubSource
+# does and for the same reason.
+_SAID = []
+
+
+def _answering():
+    """Whether it is worth asking. Measured 24 September 2026: it is not.
+
+    All three hosts resolve to one address, 185.100.234.211, and none of them
+    accepts a connection on port 80 - a four second timeout each, three of
+    them, for every search. That is not a bad day: the service is gone.
+
+    It therefore ships **off**, and this exists for anyone who switches it on
+    and wonders why nothing changed. The check is a log line rather than a
+    probe, because probing to find out that probing does not work is the cost
+    this is here to avoid.
+    """
+    if not _SAID:
+        _SAID.append(True)
+        kodi.log("bsplayer is switched on, but its hosts stopped answering in "
+                 "September 2026 - all three resolve to one address that "
+                 "accepts no connection. Nothing will come back.")
+    return True
 
 
 def supports(language):
@@ -125,6 +156,8 @@ def search(meta, target, languages, video_hash="", video_size=0):
     an empty result - so this returns early rather than spending a request to
     find that out.
     """
+    if not _answering():
+        return []
     if not video_hash or not video_size:
         return []
     codes = [THREE_LETTER[language] for language in languages

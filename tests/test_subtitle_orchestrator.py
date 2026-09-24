@@ -610,3 +610,58 @@ def test_a_candidates_stem_is_computed_once_not_once_per_source():
     info = matcher._stem.cache_info()
     assert info.misses == 1, "recomputed %d times" % info.misses
     assert info.hits == 499
+
+
+# --------------------------------------------------------------------------
+# a provider that is gone
+# --------------------------------------------------------------------------
+
+
+def test_bsplayer_ships_off():
+    """Every host stopped answering in September 2026.
+
+    All three resolve to one address that accepts no connection, so each
+    search paid three four-second timeouts for nothing - and its call budget
+    was twelve seconds against a ten second search deadline, which is what
+    `dropped: ktuvit` in the log was really about.
+    """
+    from pinky import settings
+
+    assert settings.DEFAULTS["subs.provider.bsplayer"] == "false"
+
+
+def test_no_provider_may_outlast_the_search_deadline():
+    """A worker that runs longer than the deadline drops what queued behind it.
+
+    `search_candidates` gives the whole search ten seconds. bsplayer allowed
+    itself twelve, so one call could outlive the search that asked for it.
+    """
+    import inspect
+
+    from pinky.subs import auto
+    from pinky.subs.providers import bsplayer
+
+    source = inspect.getsource(auto.search_candidates)
+    assert "deadline=10.0" in source, "the deadline moved; re-check this"
+    assert bsplayer.MAX_CALL_SECONDS < 10.0, (
+        "bsplayer may spend %.1fs against a 10.0s deadline"
+        % bsplayer.MAX_CALL_SECONDS)
+
+
+def test_switching_it_on_says_why_nothing_comes_back(monkeypatch):
+    """Once per process, not once per search - the log has to stay readable.
+
+    It still asks, the way SubSource still asks: the service being gone today
+    is not a reason to make its return unreachable.
+    """
+    said = []
+    from pinky import kodi
+    from pinky.subs.providers import bsplayer
+
+    monkeypatch.setattr(kodi, "log", lambda message, *a, **k: said.append(message))
+    monkeypatch.setattr(bsplayer.http, "post", lambda *a, **k: None)
+    del bsplayer._SAID[:]
+    for _ in range(3):
+        assert bsplayer.search({}, None, ["en"], "abc", 123) == []
+    warnings = [line for line in said if "stopped answering" in line]
+    assert len(warnings) == 1, said

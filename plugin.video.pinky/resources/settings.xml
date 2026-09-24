@@ -555,7 +555,7 @@
                 </setting>
                 <setting id="subs.provider.bsplayer" type="boolean"
                          label="30319">
-                    <level>2</level><default>true</default>
+                    <level>2</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.opensubtitles_rest" type="boolean"

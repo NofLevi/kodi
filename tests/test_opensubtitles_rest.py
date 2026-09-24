@@ -353,10 +353,15 @@ def test_no_session_is_not_a_crash(monkeypatch, bsplayer):
 
 
 def test_it_is_registered_and_gets_the_size(settings_module):
-    """The size is the half that is easy to drop on the floor."""
+    """The size is the half that is easy to drop on the floor.
+
+    bsplayer ships off since its hosts stopped answering, so this switches it
+    on: what is being checked is the wiring, which has to keep working for
+    whenever the service comes back.
+    """
     from pinky.subs import auto
 
-    assert settings_module.get_bool("subs.provider.bsplayer")
+    settings_module.set("subs.provider.bsplayer", "true")
     assert "bsplayer" in auto._modules()
     assert "bsplayer" in [name for name, _m in auto._providers()]
 

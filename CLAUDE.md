@@ -1700,6 +1700,25 @@ settings that promised a provider with no code behind them were removed, and
   once and then re-decides. The one thing lost while on Kitsu is SeaDex
   rankings, which are keyed on AniList ids; that degrades quietly.
 
+* **BSPlayer's hosts stopped answering.** Measured 24 September 2026: all
+  three of `s1`, `s2` and `s3.api.bsplayer-subtitles.com` resolve to one
+  address, 185.100.234.211, and none of them accepts a connection on port 80.
+  DNS is alive and the server is not.
+
+  It was costing far more than nothing. Three hosts at a four second connect
+  timeout is twelve seconds per call on one of four shared workers, and its
+  own budget was `MAX_CALL_SECONDS = 12.0` against a **ten second** search
+  deadline - so one call could outlive the search that asked for it. That is
+  what `deadline hit after 10.0s, dropped: ktuvit` in the log was really
+  about: not Ktuvit being slow, but a dead provider holding a worker past the
+  deadline and taking whatever queued behind it. It ships **off** now, says so
+  once per process if switched on, and its budget is six seconds so it can
+  never outlast the search again.
+
+  This matters more than one provider going quiet, because it was the *second*
+  hash provider. `reference_cues` accepts a hash match and nothing else, so
+  with OpenSubtitles alone the only ruler the add-on owns has one supplier.
+
 * **SubSource has moved behind a login.** The `POST /api/...` surface this
   add-on was written against answers 404, and the `/v1` REST API that replaced
   it answers 401 "Not authenticated" with no anonymous search route left. The
