@@ -216,6 +216,38 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   certainly have Hebrew on the same run - Fight Club 26 and 24, Breaking Bad
   9 and 7 - so this is the corpus and not the code.
 
+  **Which is not only anime.** Asked as two questions - is there a Hebrew
+  subtitle, and failing that is there one in a language the model can work
+  from - over seven titles a group:
+
+    group        has Hebrew   translatable   neither
+    anime            0/7          2/7           5
+    turkish          0/7          2/7           5
+    korean           0/7          3/7           4
+    us series        4/7          4/7           3
+    israeli          3/7          3/7           4
+    films            6/7          7/7           0
+
+  Films are strong and anime and Turkish drama are equally weak, with Korean
+  behind them. The sample is *currently popular* titles, which skews hard
+  towards episodes that aired days ago and nobody has subtitled yet, so a
+  finished season does better than this - but the ordering between groups is
+  the point and it does not depend on that.
+
+  **The "neither" column overstates it, and the reason is worth knowing: none
+  of this can see inside the file.** `embedded.py` asks Kodi, so it answers
+  only during playback and no survey has ever counted a track. Read straight
+  out of the Matroska header over two ranged requests - the same trick the
+  hasher uses to avoid downloading a film - **five of eight anime episodes
+  carry a subtitle track**, `S_TEXT/UTF8` or `S_TEXT/ASS`, which is what
+  fansub releases are. A track inside the file is in time by construction,
+  so for anime the honest reading is that the automatic path often does find
+  a subtitle where every number here says it found nothing.
+
+  What that leaves as the real gap is the *picker*, which cannot promise a
+  track it has no way to see and so offers eight LLM rows next to a file that
+  already has subtitles in it.
+
   What follows from it is the whole shape of the subtitle problem here. For
   anime and foreign drama, AI translation is not a fallback and not a
   second-best: it is the **only** route, and the quality of the translation
