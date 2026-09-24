@@ -198,6 +198,34 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   credential would then be frozen into every installed copy until a release
   replaced it.
 
+  **There is no Hebrew subtitle for what this household watches.** This is
+  the most important measurement in this file and it was never taken: every
+  earlier accuracy run was stratified for *source-finding* edge cases and was
+  heavily English, which is exactly the sample that cannot answer the
+  question. Asked directly on 24 September 2026 - seven titles each of
+  Turkish drama, Korean drama, anime and Israeli television, both Hebrew
+  providers, search only:
+
+    group      titles   any Hebrew
+    turkish        7        0
+    korean         7        0
+    anime          7        0
+    israeli        7        2
+
+  Zero of twenty-one. Both providers were checked against titles that
+  certainly have Hebrew on the same run - Fight Club 26 and 24, Breaking Bad
+  9 and 7 - so this is the corpus and not the code.
+
+  What follows from it is the whole shape of the subtitle problem here. For
+  anime and foreign drama, AI translation is not a fallback and not a
+  second-best: it is the **only** route, and the quality of the translation
+  source is the quality of the subtitle. It also disposes of any remaining
+  argument about Ktuvit adding reach - on a Hebrew-weighted sample it adds
+  neither, because there is nothing there to add.
+
+  And it is why an engine that is out of quota is not a degraded experience
+  but a blank screen, which is what `translator.engines` exists for.
+
   **What the automatic path is actually worth, measured 23 September 2026**
   over 223 stratified titles with real debrid streams, against two rulers: a
   hash-matched subtitle where one exists (ground truth) and the best candidate
@@ -1434,8 +1462,18 @@ threshold, so an AI translation was preferred to it - which on Hikaru no Go
 meant a perfect file being handed to a model that was out of quota while the
 episode played with nothing.
 
-Both samples are small, because the anonymous download quota ran out during
-the measurement, and this is due a re-run before it is treated as settled.
+Measured after, against real release names so the matcher had a group, a
+source and a resolution to agree with - six titles per group, counting how
+many reach the threshold:
+
+    group     was >= 70   now >= 70
+    anime        2/6         5/6
+    foreign      3/6         5/6
+    series       6/6         6/6
+    film         4/6         4/6
+
+Exactly where it was needed and nowhere else: films have no episode to name,
+so nothing moved them, and English-language series were already clearing.
 
 That ladder is checked against live Wizdom results, not only fixtures. It used
 to top out at **33** for a subtitle agreeing on source, resolution *and*

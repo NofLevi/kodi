@@ -80,11 +80,11 @@ class TranslationBudgetExceeded(TranslationError):
     pass
 
 
-def engine():
-    """The configured engine, or None when translation is switched off."""
-    if not settings.get_bool("subs.ai.enabled"):
-        return None
-    name = settings.get("subs.ai.engine")
+ENGINE_ORDER = ("gemini", "openrouter", "openai")
+
+
+def _named(name):
+    """One engine module, or None when it has no credentials."""
     if name == "gemini":
         from . import gemini
         return gemini if gemini.configured() else None
@@ -95,6 +95,42 @@ def engine():
         from . import openai_compat
         return openai_compat if openai_compat.configured() else None
     return None
+
+
+def engine():
+    """The engine a translation starts on, or None when it is switched off."""
+    if not settings.get_bool("subs.ai.enabled"):
+        return None
+    return _named(settings.get("subs.ai.engine"))
+
+
+def engines():
+    """Every configured engine, the chosen one first.
+
+    The setting is a preference now rather than the whole of the answer. It
+    used to be the whole of it, so an engine out of quota ended the
+    translation - and for this household that means no subtitle at all rather
+    than a worse one: measured over twenty-one Turkish, Korean and anime
+    episodes, **none** has a Hebrew subtitle in existence. AI is not a
+    fallback there, it is the only route, so Gemini answering 429 for an hour
+    left a film playing with nothing on it while a second engine sat
+    configured and unasked.
+
+    Built on `engine()` rather than beside it, so there is one answer to
+    "which engine is first" and not two that can disagree.
+
+    It costs nothing to anyone with one engine, which is the common case: the
+    list is one long and the loop runs once.
+    """
+    first = engine()
+    if first is None:
+        return []
+    found = [first]
+    for name in ENGINE_ORDER:
+        module = _named(name)
+        if module is not None and module not in found:
+            found.append(module)
+    return found
 
 
 def available():
@@ -114,12 +150,36 @@ def translate(cues, target_language="he", on_progress=None, meta=None,
     merged in, so the caller can put it on screen immediately and let the
     viewer start watching while the rest is still being translated.
     """
-    backend = engine()
-    if backend is None:
+    backends = engines()
+    if not backends:
         raise TranslationError("no translation engine is configured")
     if not cues:
         return []
 
+    last = None
+    for position, backend in enumerate(backends):
+        try:
+            return _translate_with(backend, cues, target_language, on_progress,
+                                   meta, cancelled)
+        except TranslationCancelled:
+            raise
+        except TranslationError as error:
+            last = error
+            if position + 1 < len(backends):
+                # Nothing usable came back and there is another engine with
+                # credentials. Measured on a real playback: Gemini answered
+                # 429 for an hour and the episode played with no subtitles at
+                # all, because for anime there is no Hebrew subtitle to fall
+                # back to - the translation *is* the subtitle.
+                kodi.log("%s could not translate this (%s), trying the next "
+                         "engine" % (getattr(backend, "__name__", "engine"),
+                                     str(error)[:80]))
+    raise last
+
+
+def _translate_with(backend, cues, target_language, on_progress, meta,
+                    cancelled):
+    """One engine's attempt at the whole file."""
     language = LANGUAGE_NAMES.get(target_language, target_language)
     context = _context_block(meta)
     size = chunk_size()

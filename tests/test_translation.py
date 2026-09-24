@@ -364,3 +364,83 @@ def test_the_faster_model_is_the_fallback_and_not_the_default():
     assert gemini.CHAIN[-1] == gemini.FAST_MODEL
     assert gemini._requests_per_minute(gemini.FAST_MODEL) > \
         gemini._requests_per_minute(gemini.DEFAULT_MODEL)
+
+
+def test_a_second_engine_is_tried_when_the_first_is_out_of_quota(monkeypatch):
+    """For this catalogue the translation *is* the subtitle.
+
+    Measured over twenty-one Turkish, Korean and anime episodes: none has a
+    Hebrew subtitle in existence. So an engine answering 429 does not mean a
+    worse subtitle, it means none at all - and a second configured engine was
+    sitting unasked while the film played blank.
+    """
+    from pinky.subs import srt
+    from pinky.subs.ai import translator
+
+    class Dead(object):
+        def complete(self, system_prompt, prompt):
+            raise translator.TranslationError("HTTP 429")
+
+    class Alive(object):
+        def complete(self, system_prompt, prompt):
+            import json
+            payload = json.loads(prompt.split("Input:", 1)[1].strip())
+            return json.dumps({k: "שלום" for k in payload})
+
+    dead, alive = Dead(), Alive()
+    monkeypatch.setattr(translator, "engines", lambda: [dead, alive])
+    cues = [srt.Cue(i + 1, i * 2.0, i * 2.0 + 1.5, "line %d" % i)
+            for i in range(6)]
+
+    out = translator.translate(cues, "he")
+    assert [c.text for c in out] == ["שלום"] * 6
+    assert [c.start for c in out] == [c.start for c in cues]
+
+
+def test_one_engine_is_not_walked_twice(monkeypatch):
+    """The common case must not become two passes over the same dead service.
+
+    The chunk retries are its own business - a failed chunk is halved and
+    tried again - but the *engine* list has one entry and must be walked once.
+    """
+    from pinky.subs import srt
+    from pinky.subs.ai import translator
+
+    passes = []
+
+    class Dead(object):
+        def complete(self, system_prompt, prompt):
+            raise translator.TranslationError("HTTP 429")
+
+    only = Dead()
+
+    def engines():
+        passes.append(1)
+        return [only]
+
+    monkeypatch.setattr(translator, "engines", engines)
+    with pytest.raises(translator.TranslationError):
+        translator.translate([srt.Cue(1, 0.0, 1.0, "line")], "he")
+    assert passes == [1], "the engine list is built once per translation"
+
+
+def test_a_cancelled_translation_does_not_move_to_the_next_engine(monkeypatch):
+    from pinky.subs import srt
+    from pinky.subs.ai import translator
+
+    asked = []
+
+    class Cancelled(object):
+        def complete(self, system_prompt, prompt):
+            asked.append("first")
+            raise translator.TranslationCancelled("stopped")
+
+    class Other(object):
+        def complete(self, system_prompt, prompt):
+            asked.append("second")
+            return "{}"
+
+    monkeypatch.setattr(translator, "engines", lambda: [Cancelled(), Other()])
+    with pytest.raises(translator.TranslationCancelled):
+        translator.translate([srt.Cue(1, 0.0, 1.0, "line")], "he")
+    assert "second" not in asked, "the viewer stopped it; do not start again"
