@@ -42,7 +42,9 @@ you continue this work, continue it that way.
 
 ## Current verification state
 
-* **1,980 tests pass** (`python -m pytest tests`, Windows, Python 3.11).
+* **1,980 tests passed** on the last full run. The evening's changes have
+  their own tests and the affected files pass; the whole suite has not been
+  re-run since, by request - run it before trusting the number.
 * No e2e or GitHub workflow was run, per the standing instruction.
 * **Much of this batch was watched in a real Kodi**, which is new: the source
   picker, the episode walk into Mako, Escape pausing, and the subtitle search
@@ -168,6 +170,68 @@ picker, which cannot promise a track it has no way to see.
   presses racing** could start the cancelled title; **VOD is asked before the
   trackers** and walks down to the episode; **autoplay is deleted** rather
   than defaulted off.
+
+### The evening: subtitles that were selected and never appeared
+
+Found by the owner testing in Kodi and reading the picture beside the log,
+which is the only way any of it could have been found.
+
+* **We were choosing the signs-and-songs track.** Black Lagoon has four
+  English tracks - `English Lyrics/Signs [default]`, `English Subtitles`,
+  `English BD (Signs / Songs)`, `English BD (Full)` - and we took index 0. A
+  fansub marks the signs track **default on purpose**, so that somebody
+  watching the English dub gets signs automatically. It was doing its job and
+  showing nothing during dialogue. Three things were wrong under it:
+  * the names never reached `is_partial`, which reads them correctly. Kodi
+    enumerates tracks while it opens the file, so the question asked at
+    `onAVStarted` came back nameless and fell through to the Python player
+    API - which returns only `"English"`, four times. `streams()` now asks
+    again until names arrive and says so if they never do;
+  * the JSON-RPC player id was hardcoded to `1`. A wrong id answers with an
+    error, which read as "no tracks" and took the same nameless fallback;
+  * `isforced` and `isimpaired` were never read, and they are the container
+    saying it itself without needing a name.
+* **A second release of the same episode has two tracks both called
+  "English"**, one of which shows nothing. Nothing separates them but the
+  default flag - and the one marked default is the signs-only one. So on a
+  language with **more than one** track, default is now evidence *against*
+  a track being the dialogue. That looks backwards and it is how both files
+  are built. A single default English track, which is nearly every file that
+  is not anime, is unaffected.
+* **`_PlaybackPlayer` discarded subtitle writes silently.** It returned None
+  whether it applied a write or dropped it, so `embedded.select` logged
+  "selected embedded subtitle track 0" either way: a bare screen and a
+  switched track left the same line behind. Writes answer True or False now
+  and the line names the track. This is why the bug could be reported and not
+  found.
+* **A failed AI translation ended the search.** On Black Lagoon the picker
+  offered the AI row at 100%, the source could not be downloaded, the log
+  said "every translation source failed to download", and the viewer switched
+  the embedded English track on by hand. It now does that for them - without
+  searching for Hebrew, because the row still means what it said.
+* **An anime row item carries no TMDB id.** AniList and Kitsu know nothing
+  about TMDB, so `_tmdb_id` returned None, `_load_seasons` returned early
+  without a word, the episode list stayed empty, and Play said "nothing left
+  to watch" about One Piece. `tmdb.find_by_name` resolves it once per window
+  from the name **and the year** - searching "ONE PIECE" returns the 2023
+  live action first and the 1999 anime second and both match the name
+  exactly, so a name alone would have opened the wrong programme with a
+  straight face.
+
+### Hebrew for anime, asked properly
+
+The earlier zero was measured on *currently popular* anime, which is unfair.
+On the anime people actually know:
+
+    films    Spirited Away 15   Howl's Moving Castle 13   Mononoke 7
+             Your Name 5        Akira 3                   Grave of the Fireflies 0
+    series   Naruto 1   Attack on Titan 1   One Piece 1   FMA:B 1
+             Death Note 0   DBZ 0   Black Lagoon 0   Cowboy Bebop 0   Pokemon 0
+
+Nine of sixteen, and the split is the finding: anime *films* are well covered
+and anime *series* are one subtitle or none. Somebody subtitles a film once;
+nobody subtitles three hundred episodes. Which is why the track inside the
+file matters so much for anime, and why the four defects above mattered.
 
 ## Known gaps and next work
 

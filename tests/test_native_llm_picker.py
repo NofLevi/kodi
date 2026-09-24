@@ -152,7 +152,45 @@ def test_an_llm_row_translates_without_looking_for_hebrew(monkeypatch, settings_
                         lambda *a, **k: calls.append("translate") or "")
     monkeypatch.setattr(outlook, "translation_candidates", lambda meta: [])
     auto.on_playback_started(object(), dict(META, source={"subs_mode": "llm"}))
-    assert calls == ["translate"]
+    assert "hebrew search" not in calls, "the row said translate, not search"
+    assert calls[0] == "translate"
+
+
+def test_a_failed_translation_falls_back_to_the_file_s_own_track(
+        monkeypatch, settings_module):
+    """A blank screen in front of a subtitle is not what the row promised.
+
+    Measured on Black Lagoon 1x12: the picker offered the AI row at 100%, the
+    source could not be downloaded, the log said "every translation source
+    failed to download", and the viewer switched the embedded English track
+    on by hand.
+    """
+    settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en"})
+    tried = []
+    monkeypatch.setattr(auto, "find_and_prepare",
+                        lambda *a, **k: tried.append("hebrew search") or ("", {}))
+    monkeypatch.setattr(auto, "translate_now", lambda *a, **k: "")
+    monkeypatch.setattr(auto, "use_embedded",
+                        lambda player, code, cancelled=None:
+                        tried.append(code) or (code == "en"))
+    monkeypatch.setattr(outlook, "translation_candidates", lambda meta: [])
+
+    auto.on_playback_started(object(), dict(META, source={"subs_mode": "llm"}))
+    assert tried == ["he", "en"], tried
+    assert "hebrew search" not in tried, "still no provider search for Hebrew"
+
+
+def test_a_successful_translation_leaves_the_file_s_track_alone(
+        monkeypatch, settings_module):
+    settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en"})
+    tried = []
+    monkeypatch.setattr(auto, "translate_now", lambda *a, **k: "/tmp/he.srt")
+    monkeypatch.setattr(auto, "use_embedded",
+                        lambda player, code, cancelled=None: tried.append(code))
+    monkeypatch.setattr(outlook, "translation_candidates", lambda meta: [])
+
+    auto.on_playback_started(object(), dict(META, source={"subs_mode": "llm"}))
+    assert tried == []
 
 
 def test_a_native_row_never_turns_into_ai(monkeypatch, settings_module):

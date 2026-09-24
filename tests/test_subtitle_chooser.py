@@ -439,3 +439,69 @@ def test_a_two_letter_alias_inside_a_longer_word_is_a_coincidence():
     # And an exact two-letter code still works, because that is not a guess.
     assert embedded._code_for("es") == "es"
     assert embedded._code_for("ja") == "ja"
+
+
+# --------------------------------------------------------------------------
+# two tracks a container calls "English" and "English"
+# --------------------------------------------------------------------------
+
+
+def _jsonrpc(monkeypatch, tracks):
+    import json
+
+    import xbmc
+    from pinky.subs import embedded
+
+    def answer(request):
+        if "GetActivePlayers" in request:
+            return json.dumps({"result": [{"playerid": 1, "type": "video"}]})
+        return json.dumps({"result": {"subtitles": tracks}})
+
+    monkeypatch.setattr(xbmc, "executeJSONRPC", answer)
+    return embedded
+
+
+def test_the_named_signs_track_is_not_the_dialogue(monkeypatch):
+    """Black Lagoon 1x04 names its four tracks and marks signs default."""
+    embedded = _jsonrpc(monkeypatch, [
+        {"index": 0, "language": "eng", "name": "English Lyrics/Signs",
+         "isdefault": True},
+        {"index": 1, "language": "eng", "name": "English Subtitles"},
+        {"index": 2, "language": "eng", "name": "English BD (Signs / Songs)"},
+        {"index": 3, "language": "eng", "name": "English BD (Full)"},
+    ])
+    best = [c for c in embedded.candidates(["en"]) if not c["partial"]]
+    assert best[0]["stream_index"] == 1, [c["release"] for c in best]
+
+
+def test_default_is_evidence_against_when_a_language_has_several(monkeypatch):
+    """The other Black Lagoon release calls both tracks "English".
+
+    Nothing but the default flag separates them, and the one marked default
+    is the signs-only one - a fansub marks it so that somebody watching the
+    dub gets signs automatically.
+    """
+    embedded = _jsonrpc(monkeypatch, [
+        {"index": 0, "language": "eng", "name": "English", "isdefault": True},
+        {"index": 1, "language": "eng", "name": "English"},
+    ])
+    assert embedded.candidates(["en"])[0]["stream_index"] == 1
+
+
+def test_a_single_default_track_is_still_chosen(monkeypatch):
+    """Nearly every file that is not anime has exactly one, and it is default."""
+    embedded = _jsonrpc(monkeypatch, [
+        {"index": 0, "language": "eng", "name": "English", "isdefault": True},
+        {"index": 1, "language": "heb", "name": "Hebrew"},
+    ])
+    assert embedded.candidates(["en"])[0]["stream_index"] == 0
+
+
+def test_the_container_saying_forced_is_believed(monkeypatch):
+    embedded = _jsonrpc(monkeypatch, [
+        {"index": 0, "language": "eng", "name": "English", "isforced": True},
+        {"index": 1, "language": "eng", "name": "English"},
+    ])
+    found = embedded.candidates(["en"])
+    assert found[0]["stream_index"] == 1
+    assert [c for c in found if c["stream_index"] == 0][0]["partial"]

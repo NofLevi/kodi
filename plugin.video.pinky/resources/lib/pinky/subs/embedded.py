@@ -62,23 +62,81 @@ _PARTIAL_MARKERS = (
 )
 
 
+# How long to keep asking for a track list that has names on it. Kodi
+# enumerates the tracks while it opens the file, so the first question - asked
+# the moment onAVStarted fires - can come back empty or nameless.
+_NAME_ATTEMPTS = 4
+_NAME_WAIT_MS = 400
+
+
 def streams():
     """Every subtitle track in the playing file: index, language and name.
 
-    JSON-RPC carries the language and the track name; the Python Player API
-    only gives a list of names. The richer source is tried first and the
-    simpler one covers older builds.
+    JSON-RPC carries the language *and the track name*; the Python Player API
+    gives only a list of languages. That difference is the whole of this
+    function, because without names nothing can tell a signs-and-songs track
+    from the dialogue.
+
+    Black Lagoon 1x04 is what taught it. The file has four English tracks:
+
+        English Lyrics/Signs [default]   English Subtitles
+        English BD (Signs / Songs)       English BD (Full)
+
+    The first is signs-only and the file marks it default, which is what a
+    fansub does for people watching the dub. Asked without names all four
+    read as plain "English", none looked partial, index 0 won, and the
+    episode played with a track selected and nothing on screen.
+
+    So a nameless answer is treated as "not ready yet" and asked again before
+    it is believed. The Python fallback is the last resort rather than the
+    second option, and it says what it costs.
     """
-    found = _streams_via_jsonrpc()
+    found = []
+    for attempt in range(_NAME_ATTEMPTS):
+        found = _streams_via_jsonrpc()
+        if found and any(track["name"] for track in found):
+            return found
+        if attempt + 1 < _NAME_ATTEMPTS:
+            xbmc.sleep(_NAME_WAIT_MS)
     if found:
+        kodi.log("the player named none of its %d subtitle tracks, so a "
+                 "signs-only track cannot be told from the dialogue"
+                 % len(found), kodi.LOG_INFO)
         return found
-    return _streams_via_player()
+    fallback = _streams_via_player()
+    if fallback:
+        kodi.log("subtitle tracks came from the Python player API, which "
+                 "carries no track names", kodi.LOG_INFO)
+    return fallback
+
+
+def _active_player():
+    """The video player's id, which is not always 1.
+
+    It was hardcoded, and a wrong id answers with an error rather than a
+    track list - which this then read as "no tracks" and fell through to the
+    nameless fallback.
+    """
+    try:
+        payload = json.loads(xbmc.executeJSONRPC(json.dumps({
+            "jsonrpc": "2.0", "id": 1, "method": "Player.GetActivePlayers"})))
+    except (ValueError, TypeError):
+        return 1
+    result = payload.get("result") if isinstance(payload, dict) else None
+    if isinstance(result, list):
+        for player in result:
+            if isinstance(player, dict) and player.get("type") == "video":
+                try:
+                    return int(player.get("playerid"))
+                except (TypeError, ValueError):
+                    break
+    return 1
 
 
 def _streams_via_jsonrpc():
     request = json.dumps({
         "jsonrpc": "2.0", "id": 1, "method": "Player.GetProperties",
-        "params": {"playerid": 1,
+        "params": {"playerid": _active_player(),
                    "properties": ["subtitles", "currentsubtitle",
                                   "audiostreams", "currentaudiostream"]},
     })
@@ -116,6 +174,12 @@ def _tracks(entries):
             "index": index,
             "language": _code_for(entry.get("language") or entry.get("name") or ""),
             "name": entry.get("name") or entry.get("language") or "",
+            # Kodi 20 and later carry these on every stream. They are the only
+            # thing that separates two tracks a container calls "English" and
+            # "English".
+            "forced": bool(entry.get("isforced")),
+            "impaired": bool(entry.get("isimpaired")),
+            "default": bool(entry.get("isdefault")),
         })
     return out
 
@@ -125,7 +189,8 @@ def _streams_via_player():
         names = xbmc.Player().getAvailableSubtitleStreams() or []
     except Exception:
         return []
-    return [{"index": index, "language": _code_for(name), "name": name}
+    return [{"index": index, "language": _code_for(name), "name": name,
+             "forced": False, "impaired": False, "default": False}
             for index, name in enumerate(names)]
 
 
@@ -216,7 +281,11 @@ def candidates(languages=None):
         language = stream["language"]
         if wanted and language not in wanted:
             continue
-        partial = is_partial(stream["name"])
+        # Forced and hearing-impaired are the container saying it itself; the
+        # name is how a fansub says it. Either one means this track is not
+        # the dialogue.
+        partial = (is_partial(stream["name"]) or stream.get("forced")
+                   or stream.get("impaired"))
         found.append({
             "provider": PROVIDER,
             "language": language,
@@ -226,11 +295,35 @@ def candidates(languages=None):
             "score": SCORE - (30 if partial else 0),
             "reason": "embedded",
             "embedded": True,
-            "partial": partial,
+            "partial": bool(partial),
+            "default": bool(stream.get("default")),
         })
 
     order = {code: position for position, code in enumerate(wanted)}
-    found.sort(key=lambda c: (order.get(c["language"], len(order)), -c["score"]))
+    # Language first, then the dialogue tracks, then **not** the default one.
+    #
+    # That last term looks backwards and is the whole point. Measured on two
+    # different Black Lagoon releases: one names its four tracks and marks
+    # "English Lyrics/Signs" default; the other names both of its tracks
+    # "English" and marks the signs-only one default. A fansub marks the signs
+    # track default on purpose, because it is what somebody watching the dub
+    # should get automatically - so on a file with several tracks in one
+    # language, default is evidence *against* a track being the dialogue.
+    #
+    # Only as a tie-break, and only when a language has more than one track.
+    # A file with a single default English track is not affected by this at
+    # all, which is nearly every file that is not anime.
+    multiple = set()
+    seen = set()
+    for candidate in found:
+        if candidate["language"] in seen:
+            multiple.add(candidate["language"])
+        seen.add(candidate["language"])
+    found.sort(key=lambda c: (order.get(c["language"], len(order)),
+                              -c["score"],
+                              1 if (c["default"] and c["language"] in multiple)
+                              else 0,
+                              c["stream_index"]))
     return found
 
 

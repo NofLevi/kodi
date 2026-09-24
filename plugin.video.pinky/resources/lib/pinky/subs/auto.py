@@ -174,6 +174,26 @@ def on_playback_started(player, meta, cancelled=None):
                              cancelled=is_cancelled, generation=generation)
         if path and not is_cancelled():
             kodi.notify(kodi.localize(32334, kodi.localize(32494)))
+            return
+        if is_cancelled():
+            return
+        # The translation produced nothing and this used to end here, which on
+        # a file that has English inside it is a blank screen in front of a
+        # subtitle. Measured on Black Lagoon 1x12: the picker offered the AI
+        # row at 100%, the source could not be downloaded, the log said "every
+        # translation source failed to download", and the viewer switched the
+        # embedded English track on by hand - which is precisely what this now
+        # does for them.
+        #
+        # It does not go looking for Hebrew, so the row still means what it
+        # said: the viewer asked to see what the model makes of this release,
+        # and this is only what to show when the model makes nothing.
+        for code in _readable_languages(languages):
+            if _embedded_track(code, player, generation, is_cancelled):
+                kodi.log("the translation produced nothing, so the %s track "
+                         "inside the file is shown instead" % code)
+                kodi.notify(kodi.localize(32350))
+                return
         return
 
     if settings.get_bool("subs.embedded_first"):
@@ -191,9 +211,7 @@ def on_playback_started(player, meta, cancelled=None):
     kodi.log("looking for %s subtitles" % wanted)
 
     def embedded_track(code):
-        committed, selected = coordinator.commit(
-            generation, lambda: use_embedded(player, code, is_cancelled))
-        return committed and selected
+        return _embedded_track(code, player, generation, is_cancelled)
 
     path, report = find_and_prepare(meta, languages, player,
                                     cancelled=is_cancelled,
@@ -224,6 +242,24 @@ def on_playback_started(player, meta, cancelled=None):
 # uses. Keeping one implementation matters: two copies of "find the Hebrew
 # track in this file" would answer differently the moment either changed.
 # --------------------------------------------------------------------------
+
+
+def _readable_languages(languages):
+    """The languages the viewer reads, best first, without repeats."""
+    out = []
+    for code in list(languages or []) + ["en"]:
+        code = (code or "").strip().lower()
+        if code and code not in out:
+            out.append(code)
+    return out
+
+
+def _embedded_track(code, player, generation, cancelled):
+    """Switch to an embedded track in `code`, if this playback is still it."""
+    from .ai import coordinator
+    committed, selected = coordinator.commit(
+        generation, lambda: use_embedded(player, code, cancelled))
+    return committed and selected
 
 
 def use_embedded(player, language, cancelled=None):
