@@ -1406,9 +1406,36 @@ calibrated rather than a sum of whatever weights looked plausible:
     100   the same file by hash, or the same release name
      85   the same group, source and codec
      70   the right title, same source and resolution, a different group
+     70   the right series and the right episode
      55   the right title and the same source
      40   the right title and nothing else
       0   demonstrably the wrong episode
+
+**The episode rung was missing and it cost anime everything.** An anime
+episode's picker drew *every* row at 52%, which is this arithmetic and not an
+opinion: 40 for the title, 12 for the episode, and for anime there is no
+third term. A subtitle called "Attack on Titan - S01E12 - Wound" carries no
+group, no source, no resolution and no codec to agree with a release called
+"[Leopard-Raws] Shingeki no Kyojin - S01E12" - the two facts it states are
+the only two that can score, and one of them was worth twelve points.
+
+The number is documented as a probability that this subtitle fits this file,
+so it was checked against two rulers. Against a hash-matched reference,
+candidates scoring under 55 measured a fit of 0.64 and **0.78 after
+re-timing**. Against a second, differently-named upload of the same episode -
+which is the only corroboration available for anime, because exactly one
+provider answers for it - they agreed **0.75**. Three quarters, not one half.
+
+So naming the right episode of the right series is worth 30 and lands on the
+threshold. It changes no ordering, because every candidate for an episode
+either names it or is zeroed by the wrong-episode penalty. What it changes is
+what the threshold decides: at 52 a correct English subtitle was *below*
+threshold, so an AI translation was preferred to it - which on Hikaru no Go
+meant a perfect file being handed to a model that was out of quota while the
+episode played with nothing.
+
+Both samples are small, because the anonymous download quota ran out during
+the measurement, and this is due a re-run before it is treated as settled.
 
 That ladder is checked against live Wizdom results, not only fixtures. It used
 to top out at **33** for a subtitle agreeing on source, resolution *and*

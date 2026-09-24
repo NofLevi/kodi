@@ -77,7 +77,37 @@ WEIGHT_CODEC = 5
 ADDITIVE_CEILING = 99
 WEIGHT_PROVIDER_SYNC = 15
 WEIGHT_EXACT_NAME = 100
-WEIGHT_EPISODE = 12
+
+# Naming the right episode of the right series, which was worth twelve points
+# and is worth far more than that.
+#
+# The symptom: an anime episode's picker drew every row at 52%, because 52 is
+# what this arithmetic produces - 40 for the title and 12 for the episode -
+# and for anime it is *all* the arithmetic there is. A subtitle called
+# "Attack on Titan - S01E12 - Wound" carries no group, no source, no
+# resolution and no codec to agree with a release called
+# "[Leopard-Raws] Shingeki no Kyojin - S01E12", so the two facts it does
+# state are the only two that can score. The viewer reads 52% next to a
+# subtitle that is unambiguously the right episode.
+#
+# The number is documented as a probability that this subtitle fits this
+# file, and two independent rulers say the probability is about three
+# quarters, not one half. Against a hash-matched reference, candidates
+# scoring under 55 measured a fit of 0.64, and 0.78 after re-timing. Against
+# a second, differently-named upload of the same episode, they measured a
+# median agreement of 0.75. So title-plus-episode is set to land on 70 - the
+# threshold, and the ladder's "right title, same source and resolution" rung -
+# rather than on 52.
+#
+# It changes no ordering, because every candidate for an episode either names
+# it or is zeroed by PENALTY_WRONG_EPISODE. What it changes is the decision
+# the threshold makes: at 52 a correct English subtitle was "below
+# threshold", so an AI translation was preferred to it, which on Hikaru no Go
+# meant a perfect file being fed to a model that was out of quota.
+#
+# Both samples are small - the download quota ran out mid-measurement - so
+# this is due a re-run before it is treated as settled.
+WEIGHT_EPISODE = 30
 
 # Applied when a candidate is clearly for something else.
 PENALTY_WRONG_EPISODE = -100

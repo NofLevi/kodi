@@ -467,3 +467,51 @@ def test_a_film_hash_match_is_unaffected():
     target = {"type": "movie", "release": "Fight.Club.1999.1080p.BluRay-GRP"}
     assert matcher.rate({"release": "anything at all", "hash_match": True},
                         target) == (100, "hash")
+
+
+# --------------------------------------------------------------------------
+# an episode subtitle has only two facts to offer, and both must count
+# --------------------------------------------------------------------------
+
+
+def test_naming_the_right_episode_reaches_the_threshold():
+    """A subtitle for the right series and the right episode is not a guess.
+
+    An anime episode's picker drew every row at 52% - 40 for the title and 12
+    for the episode - because that is all the arithmetic there is: a subtitle
+    called "Attack on Titan - S01E12 - Wound" carries no group, source,
+    resolution or codec to agree with "[Leopard-Raws] Shingeki no Kyojin -
+    S01E12". Measured against a hash reference such candidates fit 0.78 after
+    re-timing, and against a second upload of the same episode they agree 0.75.
+    """
+    from pinky.subs import matcher
+
+    target = matcher.target_from({
+        "type": "episode", "title": "Attack on Titan", "show_title": "Attack on Titan",
+        "season": 1, "episode": 12, "ids": {}})
+    score, _reason = matcher.rate(
+        {"release": "Attack on Titan - S01E12 - Wound", "language": "en"}, target)
+    assert score >= 70, "the right episode of the right show is not 52%%: %d" % score
+
+
+def test_the_wrong_episode_is_still_zero():
+    """Raising the reward must not soften the penalty."""
+    from pinky.subs import matcher
+
+    target = matcher.target_from({
+        "type": "episode", "title": "Attack on Titan", "show_title": "Attack on Titan",
+        "season": 1, "episode": 12, "ids": {}})
+    score, reason = matcher.rate(
+        {"release": "Attack on Titan - S01E19 - Wound", "language": "en"}, target)
+    assert score == 0 and "episode" in reason
+
+
+def test_a_film_is_not_affected():
+    """Films have no episode to name, so nothing here moves them."""
+    from pinky.subs import matcher
+
+    target = matcher.target_from({"type": "movie", "title": "Fight Club",
+                                  "year": 1999, "ids": {}})
+    score, _reason = matcher.rate(
+        {"release": "Fight Club 1999", "language": "en"}, target)
+    assert score < 70, "a title alone is still a title alone: %d" % score
