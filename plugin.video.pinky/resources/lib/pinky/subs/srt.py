@@ -182,43 +182,89 @@ def _iter_lines(text):
         start = end + 1
 
 
+# How far into a file the FPS declaration and the shape check will look. A
+# MicroDVD file is cue after cue from the top, so a handful of lines settles
+# it either way and a huge file is never scanned to decide what it is.
+_MICRODVD_SCAN = 20
+
+# What a MicroDVD file is assumed to run at when it does not say. Release
+# sites ship these without a declaration constantly, and 23.976 is what the
+# format's own tooling defaults to. A wrong guess is recoverable - `sync.py`
+# corrects exactly this class of error through FRAME_RATIOS, and
+# `verify_and_sync` refuses a subtitle that does not correlate - while
+# refusing to parse is not recoverable at all.
+_MICRODVD_DEFAULT_FPS = 23.976
+
+
 def _microdvd_fps(text):
-    """Return FPS only when its declaration is the first meaningful line."""
-    for line in _iter_lines(text):
+    """The declared frame rate, or 0.0 when the file does not declare one.
+
+    The declaration is `{1}{1}23.976`: a cue whose two frame numbers are
+    equal and whose body is a number. It used to have to be the *first*
+    meaningful line, and that is how a real file came back empty - a survey
+    download opened with `{25}{175}Watch Online Movies and Series for FREE`,
+    an advertising banner shipped as cue one, so the declaration check failed
+    on it, the file was not recognised as MicroDVD at all, and the SRT parser
+    found no arrows and returned nothing. Release sites put a banner there
+    constantly.
+    """
+    for position, line in enumerate(_iter_lines(text)):
+        if position >= _MICRODVD_SCAN:
+            break
         stripped = line.strip()
         if not stripped:
             continue
         match = _MICRODVD_LINE.match(stripped)
         if not match or match.group(1) != match.group(2):
-            return 0.0
+            continue
         try:
             fps = float(match.group(3).strip())
         except ValueError:
-            return 0.0
-        return fps if 1.0 <= fps <= 120.0 else 0.0
+            continue
+        if 1.0 <= fps <= 120.0:
+            return fps
     return 0.0
 
 
 def _looks_like_microdvd(text):
-    return bool(_microdvd_fps(text))
+    """Is this frame-numbered MicroDVD rather than something else?
+
+    By shape rather than by the declaration, because the declaration is
+    optional and is not always first. Three cue-shaped lines is enough: no
+    other subtitle format in use here opens `{number}{number}`, and the SRT
+    parser - which is what a false positive would take this from - needs an
+    arrow that MicroDVD never contains.
+    """
+    seen = 0
+    for position, line in enumerate(_iter_lines(text)):
+        if position >= _MICRODVD_SCAN:
+            break
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not _MICRODVD_LINE.match(stripped):
+            return False
+        seen += 1
+        if seen >= 3:
+            return True
+    return seen > 0
 
 
 def _parse_microdvd(text):
     """Convert frame-based MicroDVD incrementally, with bounded frame values."""
-    fps = _microdvd_fps(text)
-    if not fps:
-        return []
+    fps = _microdvd_fps(text) or _MICRODVD_DEFAULT_FPS
     cues = []
-    declaration_seen = False
     for line in _iter_lines(text):
         match = _MICRODVD_LINE.match(line.strip())
         if not match:
             continue
         start_text, end_text, body = match.groups()
-        if not declaration_seen:
-            declaration_seen = True
-            continue
         start, end = int(start_text), int(end_text)
+        if start == end:
+            # The frame-rate declaration, and anything else shaped like it,
+            # which is a zero-length cue either way. Skipped wherever it
+            # appears rather than only when it is first.
+            continue
         if start > _MAX_MICRODVD_FRAME or end > _MAX_MICRODVD_FRAME:
             continue
         body = _MICRODVD_TAG.sub("", body).replace("|", "\n").strip()

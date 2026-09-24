@@ -372,3 +372,39 @@ def test_the_settings_have_defaults():
     for key in ("subs.provider.ktuvit", "subs.ktuvit.user",
                 "subs.ktuvit.password"):
         assert key in settings.DEFAULTS
+
+
+def test_the_login_cookie_is_found_behind_the_session_cookie():
+    """Ktuvit sets two, and the one that matters is second.
+
+    This is why the provider had never signed in on a real device: a Kodi
+    with `requests` read the cookie jar and worked, and a Kodi without it -
+    which is every Kodi this add-on ships to - read only the first Set-Cookie
+    header and logged "refused the sign in" against a good account.
+    """
+    from email.message import Message
+
+    from pinky import urlsession
+    from pinky.subs.providers import ktuvit
+
+    headers = Message()
+    headers["Set-Cookie"] = "ASP.NET_SessionId=anon; path=/; HttpOnly"
+    headers["Set-Cookie"] = ("Login=u=A034&g=BEA4; path=/; "
+                             "expires=Wed, 24-Sep-2026 12:00:00 GMT")
+    response = urlsession.Response("https://ktuvit.me/", 200, headers, None)
+
+    assert ktuvit._cookie_from(response) == "Login=u=A034&g=BEA4"
+
+
+def test_an_anonymous_visitor_is_not_mistaken_for_a_sign_in():
+    """A refused login still comes back with ASP.NET_SessionId."""
+    from email.message import Message
+
+    from pinky import urlsession
+    from pinky.subs.providers import ktuvit
+
+    headers = Message()
+    headers["Set-Cookie"] = "ASP.NET_SessionId=anon; path=/; HttpOnly"
+    response = urlsession.Response("https://ktuvit.me/", 200, headers, None)
+
+    assert ktuvit._cookie_from(response) == ""

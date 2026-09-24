@@ -82,6 +82,19 @@ DOWNLOAD = BASE + "/Services/DownloadFile.ashx?DownloadIdentifier=%s"
 MAX_RESULTS = 40
 
 SESSION_TTL = 24 * 3600
+
+# How long a *refused* login is remembered. A refusal is a wrong password or a
+# closed account, and neither becomes right in the next few minutes - but this
+# used to remember only successes, so every search scraped the homepage for the
+# salt and posted the login again. Measured in a real Kodi with a bad password:
+# `ktuvit refused the sign in` once per search and `deadline hit after 10.0s,
+# dropped: ktuvit`, so one of four workers was spending the *whole* deadline on
+# a provider that could not answer, and whatever was behind it in the queue was
+# dropped with it. Much shorter than a success, because the fix for a refusal
+# is somebody typing the password again and they should not have to wait a day
+# to find out it worked.
+REFUSAL_TTL = 15 * 60
+_REFUSED = "refused"
 TIMEOUT = (5, 12)
 
 HEADERS = {
@@ -224,7 +237,7 @@ def session_cookie(refresh=False):
     if not refresh:
         cached = cache.volatile_get(key)
         if cached:
-            return cached
+            return "" if cached == _REFUSED else cached
 
     salt = _encryption_salt()
     if not salt:
@@ -236,6 +249,8 @@ def session_cookie(refresh=False):
         headers=HEADERS, timeout=TIMEOUT)
 
     if response is None or response.status_code >= 400:
+        # Not remembered: the site being down is not the account being wrong,
+        # and it may answer on the next search.
         kodi.log("ktuvit login did not answer")
         return ""
 
@@ -250,11 +265,13 @@ def session_cookie(refresh=False):
     if isinstance(answer, dict) and not answer.get("IsSuccess"):
         kodi.log("ktuvit refused the sign in: %s"
                  % (answer.get("ErrorMessage") or "no reason given"))
+        cache.volatile_set(key, _REFUSED, REFUSAL_TTL)
         return ""
 
     cookie = _cookie_from(response)
     if not cookie:
         kodi.log("ktuvit refused the sign in")
+        cache.volatile_set(key, _REFUSED, REFUSAL_TTL)
         return ""
 
     cache.volatile_set(key, cookie, SESSION_TTL)
@@ -283,11 +300,31 @@ def _cookie_from(response):
         except Exception:
             pass
 
-    header = (response.headers or {}).get("Set-Cookie", "")
-    for part in header.split(","):
-        part = part.strip()
-        if part.startswith("Login="):
-            return part.split(";")[0]
+    # Every Set-Cookie header, not the first one. This is where it has been
+    # failing on every device: `urlsession` exposes headers as an
+    # `email.message.Message`, whose `.get()` returns only the *first* header
+    # of a repeated name - and Ktuvit sends `ASP.NET_SessionId` first and
+    # `Login` second. So a Kodi with `requests` installed read the cookie jar
+    # above and signed in, and a Kodi without it - which is every Kodi this
+    # add-on ships to - saw the session id, found no `Login=`, and logged
+    # "ktuvit refused the sign in" against a perfectly good account. The same
+    # shape as the gzip header bug in `urlsession._case_insensitive`.
+    headers = response.headers or {}
+    get_all = getattr(headers, "get_all", None)
+    raw = get_all("Set-Cookie") if get_all is not None else None
+    if raw is None:
+        single = headers.get("Set-Cookie", "")
+        raw = [single] if single else []
+
+    # Split on both separators. A folded header joins cookies with commas,
+    # and `expires=Wed, 24-Sep-2026 ...` puts a comma inside one - so the
+    # answer is to look at every token rather than to trust either split.
+    for header in raw:
+        for chunk in str(header).split(";"):
+            for part in chunk.split(","):
+                part = part.strip()
+                if part.startswith("Login="):
+                    return part
     return ""
 
 

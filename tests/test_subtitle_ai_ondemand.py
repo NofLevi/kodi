@@ -199,8 +199,14 @@ def test_translation_failure_does_not_reset_budget_on_another_source(
         lambda *args, **kwargs: (_ for _ in ()).throw(
             translator.TranslationBudgetExceeded("budget")))
 
-    assert auto.translate_now(MOVIE, "he", video_hash="") == ""
+    # The model failing must not send this at the next candidate, which is
+    # what the download list checks. What it *does* now is show the English
+    # file it already has rather than nothing - measured on Hikaru no Go
+    # 1x02, where an exact-release-name English subtitle sat in memory while
+    # the episode played blank.
+    path = auto.translate_now(MOVIE, "he", video_hash="")
     assert fake_world["downloaded"] == [first]
+    assert path.endswith(".en.srt"), path
 
 
 def test_translation_source_downloads_never_exceed_operation_budget(fake_world):
@@ -498,3 +504,36 @@ def test_a_second_translation_is_refused_while_one_is_running(monkeypatch):
 
     service.check_translation_request()
     assert started == ["he", "he"], "once it has finished, a press works again"
+
+
+def test_a_failed_translation_shows_the_subtitle_it_was_made_from(fake_world,
+                                                                  monkeypatch):
+    """Nobody can tell "the model is out of quota" from "found nothing".
+
+    Measured on Hikaru no Go 1x02: the search found the exact release name in
+    English, downloaded it, put it in time, handed it to Gemini and got HTTP
+    429 - and the episode played with no subtitles at all.
+    """
+    from pinky.subs.ai import translator
+
+    name = "Shawshank.1994.1080p.BluRay.x264-AMIABLE"
+    fake_world["candidates"] = [candidate(name, "en")]
+    fake_world["downloads"][name] = srt_bytes()
+    monkeypatch.setattr(translator, "translate", lambda *a, **k: [])
+
+    path = auto.translate_now(MOVIE, "he", video_hash="")
+    assert path and path.endswith(".en.srt"), path
+
+
+def test_a_failed_translation_shows_nothing_in_a_language_nobody_reads(
+        fake_world, monkeypatch, settings_module):
+    """A Polish file on screen looks like a bug, not like a fallback."""
+    from pinky.subs.ai import translator
+
+    settings_module.set("subs.languages", "he,en")
+    name = "Shawshank.1994.1080p.BluRay.x264-AMIABLE"
+    fake_world["candidates"] = [candidate(name, "pl")]
+    fake_world["downloads"][name] = srt_bytes()
+    monkeypatch.setattr(translator, "translate", lambda *a, **k: [])
+
+    assert auto.translate_now(MOVIE, "he", video_hash="") == ""

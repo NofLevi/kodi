@@ -1154,6 +1154,49 @@ def retimed_for_translation(cues, reference, language=""):
     return cues
 
 
+def readable_fallback(cues, language, meta, player, generation, coordinator):
+    """Show the subtitle we were going to translate, when nothing came back.
+
+    Measured on Hikaru no Go 1x02: the search found the *exact* release name
+    in English - `Hikaru.No.Go.TV.EP02.BluRay.1080p.AC3.x264-CHD`, a hundred
+    per cent match - downloaded it, put it in time, handed it to Gemini and
+    got HTTP 429. The episode then played with **no subtitles at all**, with
+    a perfect English file sitting in memory. Nobody watching that can tell
+    the difference between "the model is out of quota" and "this add-on found
+    nothing", and the second is what it looks like.
+
+    Only a language the viewer actually reads. Falling back to the Polish
+    file that was about to be translated would be a worse answer than none:
+    it looks like a bug rather than like a fallback, and it cannot be read.
+
+    It is the translated file's own slot that is written, so the ordinary
+    "a translation never overwrites the subtitle it was made alongside" rule
+    still holds and a later successful run replaces this one.
+    """
+    if not cues or not language:
+        return ""
+    try:
+        readable = [code.lower() for code in settings.subtitle_languages() or []]
+    except Exception:
+        readable = ["he", "en"]
+    if language.lower() not in readable:
+        kodi.log("the translation failed and its %s source is not a language "
+                 "anyone here reads, so nothing is shown" % language)
+        return ""
+
+    def apply_source():
+        path = store(meta, language, cues, variant=VARIANT_AI)
+        if path and player is not None:
+            player.setSubtitles(path)
+            player.showSubtitles(True)
+        return path
+
+    kodi.log("the translation produced nothing, so the %s subtitle it was "
+             "made from is shown instead" % language)
+    committed, path = coordinator.commit(generation, apply_source)
+    return path if committed else ""
+
+
 def translate_fallback(meta, winners, languages, report, player=None,
                        cancelled=None, generation=None, downloads=None):
     """Translate the best other-language match into the wanted language.
@@ -1206,8 +1249,14 @@ def translate_fallback(meta, winners, languages, report, player=None,
     translated = _translate_progressively(cues, meta, languages[0], player,
                                           cancelled=stopped,
                                           generation=generation)
-    if stopped() or not translated:
+    if stopped():
         return "", report
+    if not translated:
+        # The automatic path, where nobody asked for AI in particular - so
+        # a readable source beats the blank screen even more clearly here.
+        return (readable_fallback(cues, language, meta, player, generation,
+                                  coordinator),
+                report)
 
     def apply_final():
         path = store(meta, languages[0], translated)
@@ -1334,7 +1383,10 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
         # A source that downloaded successfully has already consumed the one
         # operation-wide model budget. Only dead downloads fall through; a
         # model failure must not reset the budget on another candidate.
-        return ""
+        if stopped():
+            return ""
+        return readable_fallback(cues, language, meta, player, generation,
+                                 coordinator)
     kodi.log("every translation source failed to download")
     return ""
 

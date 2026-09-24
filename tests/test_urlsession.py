@@ -155,3 +155,35 @@ def test_a_lowercase_content_encoding_is_still_decompressed():
                                     "content-type": "application/json"}, body)
     assert response.headers.get("Content-Encoding") == "gzip"
     assert response.json()[0]["SubFileName"] == "Hikaru No Go 05.srt"
+
+
+def test_every_cookie_is_read_not_only_the_first():
+    """Headers are an email.Message, whose get() returns the first only.
+
+    Measured against Ktuvit, which sets ASP.NET_SessionId first and Login
+    second: every Kodi without requests - which is every Kodi this add-on
+    ships to - read the anonymous session id, found no Login, and reported
+    "refused the sign in" against a working account.
+    """
+    from email.message import Message
+
+    from pinky import urlsession
+
+    headers = Message()
+    headers["Set-Cookie"] = "ASP.NET_SessionId=abc123; path=/; HttpOnly"
+    headers["Set-Cookie"] = ("Login=u=DEAD&g=BEEF; path=/; "
+                             "expires=Wed, 24-Sep-2026 12:00:00 GMT")
+
+    response = urlsession.Response("https://x/", 200, headers, None)
+    assert response.cookies["ASP.NET_SessionId"] == "abc123"
+    assert response.cookies["Login"] == "u=DEAD&g=BEEF", \
+        "the comma inside expires must not split the value"
+
+
+def test_a_response_with_no_cookies_has_an_empty_jar():
+    from email.message import Message
+
+    from pinky import urlsession
+
+    response = urlsession.Response("https://x/", 200, Message(), None)
+    assert response.cookies == {}

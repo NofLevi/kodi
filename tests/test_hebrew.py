@@ -520,10 +520,37 @@ def test_microdvd_frames_are_converted_to_cues():
     assert cues[1].text == "Later"
 
 
-def test_microdvd_without_a_valid_framerate_is_rejected():
+def test_microdvd_without_a_framerate_is_read_at_the_usual_one():
+    """Refusing it threw away whole files, which is not recoverable.
+
+    A survey download opened with an advertising banner shipped as cue one,
+    so the check that the declaration must be the first line failed, the file
+    was not recognised as MicroDVD at all, and the SRT parser found no arrows
+    and returned nothing. Release sites put a banner there constantly.
+
+    A guessed frame rate *is* recoverable: sync.py corrects exactly this error
+    through FRAME_RATIOS, and verify_and_sync refuses a subtitle that does not
+    correlate.
+    """
     from pinky.subs import srt
 
-    assert srt.parse("{10}{20}No framerate declaration\n") == []
+    cues = srt.parse("{10}{20}No framerate declaration" + chr(10))
+    assert len(cues) == 1
+    assert 0.3 < cues[0].start < 0.6, "read at about 23.976 frames a second"
+
+
+def test_a_banner_before_the_framerate_does_not_lose_the_file():
+    from pinky.subs import srt
+
+    text = (chr(10)).join([
+        "{25}{175}Watch Online Movies and Series for FREE|www.example",
+        "{1}{1}25.000",
+        "{250}{300}First real line",
+        "{350}{400}Second real line",
+        ""])
+    cues = srt.parse(text)
+    assert [c.text for c in cues][-2:] == ["First real line", "Second real line"]
+    assert abs(cues[-2].start - 10.0) < 0.1, "the declared 25 fps was used"
 
 
 def test_microdvd_unbounded_frame_numbers_do_not_crash():

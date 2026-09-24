@@ -73,6 +73,7 @@ class Response(object):
         self.url = url
         self.status_code = status_code
         self.headers = _case_insensitive(headers)
+        self.cookies = _cookies(self.headers)
         self._body = body
         self._content = None
         self.raw = _Raw(self)
@@ -184,6 +185,40 @@ def _case_insensitive(headers):
     for name, value in (headers or {}).items():
         message[name] = value
     return message
+
+
+def _cookies(headers):
+    """Every cookie the response set, as requests' `.cookies` would give them.
+
+    Without this a caller has to read `Set-Cookie` itself, and that is a trap
+    with two jaws. Headers here are an `email.message.Message`, whose `.get()`
+    returns only the **first** header of a repeated name - so a server that
+    sets two cookies hands the caller one and hides the other. And a caller
+    that works around it by joining and splitting on commas meets
+    `expires=Wed, 24-Sep-2026 ...`, which has a comma inside it.
+
+    Measured: Ktuvit sets `ASP.NET_SessionId` first and `Login` second, so
+    every Kodi *without* `requests` - which is every Kodi this add-on ships
+    to - read the anonymous session id, found no `Login`, and reported
+    "refused the sign in" against a working account. The provider had a cookie
+    jar branch all along and only a Kodi with requests ever reached it.
+
+    Values are left exactly as sent; nothing here decodes or validates them.
+    """
+    jar = {}
+    get_all = getattr(headers, "get_all", None)
+    raw = (get_all("Set-Cookie") if get_all is not None
+           else ([headers.get("Set-Cookie")] if headers.get("Set-Cookie") else []))
+    for header in raw or []:
+        # The cookie itself is the first pair; the rest are attributes.
+        pair = str(header).split(";", 1)[0].strip()
+        if "=" not in pair:
+            continue
+        name, _, value = pair.partition("=")
+        name = name.strip()
+        if name:
+            jar[name] = value.strip()
+    return jar
 
 
 def _decompress(data, headers):
