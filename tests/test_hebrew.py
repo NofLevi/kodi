@@ -623,3 +623,48 @@ def test_the_column_order_is_read_not_assumed():
     assert len(cues) == 1
     assert cues[0].text == "hello there"
     assert abs(cues[0].start - 1.0) < 0.01
+
+
+def test_an_israeli_title_is_shown_under_its_hebrew_name(settings_module):
+    """TMDB answers in one language at a time, and an English-speaking Kodi
+    gets "Up Your Anchor" for a film this household calls אסקימו לימון 6.
+
+    The Hebrew name needs no extra call - it is `original_title` in the same
+    payload, because for an Israeli title the *original* language is Hebrew.
+    So it is a substitution rather than a guess.
+    """
+    from pinky.meta import items
+
+    settings_module.set("subs.languages", "he,en")
+    israeli = {"type": "movie", "title": "Up Your Anchor", "year": 1985,
+               "original_title": u"אסקימו לימון 6",
+               "original_language": "he"}
+    assert items.label(israeli) == u"אסקימו לימון 6 (1985)"
+
+
+def test_a_foreign_title_keeps_the_name_this_household_knows(settings_module):
+    """Only the viewer's *own* language is substituted. A French film stays
+    under the name the interface gives it, because that is what it is called
+    here - swapping every title to its original would be a worse screen, not
+    a more authentic one."""
+    from pinky.meta import items
+
+    settings_module.set("subs.languages", "he,en")
+    french = {"type": "movie", "title": "Amelie", "year": 2001,
+              "original_title": "Le Fabuleux Destin d'Amelie Poulain",
+              "original_language": "fr"}
+    assert items.label(french) == "Amelie (2001)"
+
+    english = {"type": "movie", "title": "Fight Club", "year": 1999,
+               "original_title": "Fight Club", "original_language": "en"}
+    assert items.label(english) == "Fight Club (1999)"
+
+
+def test_a_title_with_no_language_is_left_alone(settings_module):
+    """Half the catalogue arrives from places that do not say."""
+    from pinky.meta import items
+
+    settings_module.set("subs.languages", "he,en")
+    unknown = {"type": "movie", "title": "Something", "year": 2020,
+               "original_title": "Etwas", "original_language": ""}
+    assert items.label(unknown) == "Something (2020)"

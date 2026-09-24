@@ -93,6 +93,43 @@ def new_item(item_type, **fields):
     return item
 
 
+def display_title(item):
+    """What a title is called, in the language the viewer reads it in.
+
+    TMDB answers in one language at a time, and for an English-speaking Kodi
+    that means an Israeli film comes back as "Up Your Anchor" - a name nobody
+    in the household has ever used for it. The Hebrew one is right there in
+    the same payload as `original_title`, because for an Israeli title the
+    *original* language is Hebrew:
+
+        title=Up Your Anchor        original=אסקימו לימון 6: הרימו עוגן   lang=he
+        title=The Galilee Eskimos   original=אסקימוסים בגליל             lang=he
+
+    So a title made in the viewer's own language is shown under its own name,
+    whatever language the rest of TMDB is being asked in. It costs nothing -
+    no extra call, the field is already there - and it is only ever a
+    *substitution*, never a guess: `original_title` for a Hebrew title is the
+    Hebrew title, by definition.
+
+    Everything else is untouched. A French film stays under whatever name the
+    interface language gives it, because that is the name this household
+    knows it by.
+    """
+    title = item.get("title") or ""
+    original = item.get("original_title") or ""
+    if not original or original == title:
+        return title
+    language = (item.get("original_language") or "").strip().lower()
+    if not language:
+        return title
+    try:
+        from .. import settings
+        spoken = (settings.subtitle_languages() or ["he"])[0]
+    except Exception:
+        spoken = "he"
+    return original if language == spoken else title
+
+
 def label(item):
     """The one-line label shown in a list."""
     if item.get("type") == "episode":
@@ -100,7 +137,7 @@ def label(item):
         episode = item.get("episode") or 0
         title = item.get("title") or ""
         return "%dx%02d. %s" % (season, episode, title) if title else "%dx%02d" % (season, episode)
-    title = item.get("title") or ""
+    title = display_title(item)
     year = item.get("year") or 0
     return "%s (%d)" % (title, year) if year else title
 
