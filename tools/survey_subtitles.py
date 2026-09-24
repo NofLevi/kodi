@@ -79,6 +79,7 @@ def examine(entry, use_debrid):
     record = dict(entry)
     record.update(error="", candidates=0, per_provider={}, has_hash_match=False,
                   chosen_provider="", chosen_score=-1, accepted=False,
+                  survives_pipeline=None,
                   decoded=False, cues=0, last_cue=0.0, runtime=0,
                   language_claimed="", language_detected="",
                   fit_confidence=-1.0, fit_offset=0.0, fit_scale=1.0,
@@ -219,8 +220,42 @@ def examine(entry, use_debrid):
             except Exception as error:
                 record["error"] = "sync: %s" % str(error)[:90]
 
+    # What the add-on would actually do with it. `accepted` above is only the
+    # name score, and that is not the decision: `verify_and_sync` rejects a
+    # subtitle a hash reference disproves and one that stops too early, and
+    # the caller then falls through to the next candidate. Measuring the score
+    # alone reported a file covering 26% of its runtime as accepted, when the
+    # pipeline would have refused it and taken the next one - so the tool was
+    # answering a different question from the one it is asked.
+    record["survives_pipeline"] = _survives(chosen_cues, ranked, languages,
+                                            record["runtime"])
+
     record["ms"] = int((time.time() - started) * 1000)
     return record
+
+
+def _survives(cues, ranked, languages, runtime):
+    """Would `verify_and_sync` keep this subtitle, or throw it back?"""
+    from pinky.subs import auto
+
+    winners = {}
+    for candidate in ranked:
+        language = candidate.get("language") or ""
+        if language and language not in winners:
+            winners[language] = candidate
+
+    class _Budget(object):
+        """The download budget, without a budget - this is a measurement."""
+
+        def fetch(self, candidate):
+            return _cues(candidate) or []
+
+    try:
+        kept, _report = auto.verify_and_sync(cues, winners, languages, {},
+                                             _Budget(), runtime)
+    except Exception:
+        return None
+    return bool(kept)
 
 
 def _stream_url(top, sources):
@@ -371,6 +406,12 @@ def report(path, examples=10):
         % (len(with_candidates), _pc(with_candidates, with_sources)))
     say("  cleared the threshold%4d (%d%%)"
         % (len(accepted), _pc(accepted, with_sources)))
+    survived = [r for r in with_candidates if r.get("survives_pipeline")]
+    refused = [r for r in with_candidates if r.get("survives_pipeline") is False]
+    say("  the pipeline kept it %4d (%d%%)"
+        % (len(survived), _pc(survived, with_sources)))
+    say("  ...and refused       %4d, each falling through to the next candidate"
+        % len(refused))
 
     # -- the point of the whole exercise -----------------------------------
     measured = [r for r in rows if r.get("fit_confidence", -1) >= 0]
