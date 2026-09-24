@@ -329,8 +329,13 @@ def _build_rows():
         # is no token, and an empty result hides the row - so on an install
         # with no account the screen simply starts at what is trending, with
         # no gap where they would have been.
+        # No `needs` any more. This row was Trakt-only, so on a box with no
+        # Trakt account it could never appear - and the resume point was
+        # being kept the whole time, in bookmarks.json, reachable only by
+        # finding the title again yourself. Half the point of a home screen
+        # is the thing you were in the middle of.
         _row("continue", S["continue"],
-             lambda page: _continue_watching(), ttl=300, needs=("trakt",),
+             lambda page: _continue_watching(), ttl=300,
              paged=False, sections=(HOME, MOVIES, SHOWS)),
         _row("because_you_watched", S["because_you_watched"],
              lambda page: _because_you_watched(page), TTL_MEDIUM,
@@ -922,11 +927,72 @@ def invalidate(row_id=None):
 
 
 def _continue_watching():
+    """What is half-watched: Trakt's answer, or this device's own.
+
+    Trakt knows what was watched on every box and is the better answer where
+    it exists, so it is asked first and its result is taken whole. Without an
+    account the local bookmark file says the same thing for this device, which
+    is the only device most people have.
+    """
     try:
         from .meta import trakt
+        found = trakt.continue_watching(limit=ROW_LIMIT)
+        if found:
+            return found
     except ImportError:
+        pass
+    except Exception:
+        kodi.log_exception("Trakt could not say what is half-watched")
+    return _continue_from_bookmarks()
+
+
+def _continue_from_bookmarks():
+    """The half-watched list built from this device's own resume points.
+
+    The key is what `trakt_state.state_key` wrote - "movie:tmdb:1607127" or
+    "episode:tmdb:30982:1:5" - so it is read back the same way rather than
+    guessed at. Anything keyed on IMDb is skipped: every row here is drawn
+    from TMDB and there is nothing to look the title up with.
+
+    Newest first, and a title TMDB no longer knows is dropped rather than
+    drawn as a blank poster.
+    """
+    from . import bookmarks
+    from .meta import trakt_state
+
+    entries = bookmarks.all_entries()
+    if not entries:
         return []
-    return trakt.continue_watching(limit=ROW_LIMIT)
+
+    found = []
+    for key in sorted(entries, key=lambda k: entries[k].get("at", 0),
+                      reverse=True)[:ROW_LIMIT]:
+        parts = key.split(":")
+        if len(parts) < 3 or parts[1] != "tmdb":
+            continue
+        try:
+            item = _bookmarked_item(parts)
+        except Exception:
+            kodi.log_exception("could not read the half-watched %s" % key)
+            continue
+        if item:
+            found.append(item)
+
+    trakt_state.annotate(found)
+    return found
+
+
+def _bookmarked_item(parts):
+    """One TMDB item from a bookmark key's parts."""
+    kind, tmdb_id = parts[0], parts[2]
+    if kind == "movie":
+        return _tmdb().movie(tmdb_id)
+    if kind == "episode" and len(parts) >= 5:
+        season, number = int(parts[3]), int(parts[4])
+        for episode in _tmdb().episodes(tmdb_id, season) or []:
+            if episode.get("episode") == number:
+                return episode
+    return None
 
 
 def _watchlist():

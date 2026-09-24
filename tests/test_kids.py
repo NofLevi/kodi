@@ -629,3 +629,59 @@ def test_the_home_screen_redraws_when_kids_mode_changes(monkeypatch,
     window._tools()
     assert reloaded == [True], \
         "the window has to redraw itself, not run a plugin: %s" % reloaded
+
+
+# --------------------------------------------------------------------------
+# continue watching, without an account
+# --------------------------------------------------------------------------
+
+
+def test_continue_watching_works_without_trakt(monkeypatch, no_network):
+    """The row was Trakt-only, so a box with no account never saw it.
+
+    The resume point was being kept the whole time, in bookmarks.json, and
+    was reachable only by finding the title again yourself - which is half
+    the point of a home screen.
+    """
+    from pinky import bookmarks, catalog
+    from pinky.meta import tmdb
+
+    bookmarks.save("movie:tmdb:278", 600.0, 8000.0)
+    monkeypatch.setattr(catalog, "_tmdb", lambda: tmdb)
+    monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
+        "type": "movie", "ids": {"tmdb": int(tmdb_id)}, "title": "Shawshank",
+        "year": 1994, "art": {}, "resume": {}})
+
+    rows = catalog._continue_from_bookmarks()
+    assert [item["title"] for item in rows] == ["Shawshank"]
+    assert rows[0]["resume"]["position"] == 600.0
+
+
+def test_the_continue_row_is_newest_first(monkeypatch, no_network):
+    from pinky import bookmarks, catalog
+    from pinky.meta import tmdb
+
+    bookmarks.save("movie:tmdb:1", 10.0, 100.0)
+    bookmarks.save("movie:tmdb:2", 10.0, 100.0)
+    entries = bookmarks.all_entries()
+    entries["movie:tmdb:1"]["at"] = 1
+    entries["movie:tmdb:2"]["at"] = 2
+    monkeypatch.setattr(bookmarks, "all_entries", lambda: entries)
+    monkeypatch.setattr(catalog, "_tmdb", lambda: tmdb)
+    monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
+        "type": "movie", "ids": {"tmdb": int(tmdb_id)},
+        "title": "film %s" % tmdb_id, "year": 0, "art": {}, "resume": {}})
+
+    assert [i["title"] for i in catalog._continue_from_bookmarks()] == \
+        ["film 2", "film 1"]
+
+
+def test_a_bookmark_tmdb_no_longer_knows_is_dropped(monkeypatch, no_network):
+    """A blank poster with no title is worse than one fewer row entry."""
+    from pinky import bookmarks, catalog
+    from pinky.meta import tmdb
+
+    bookmarks.save("movie:tmdb:999999999", 10.0, 100.0)
+    monkeypatch.setattr(catalog, "_tmdb", lambda: tmdb)
+    monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: None)
+    assert catalog._continue_from_bookmarks() == []

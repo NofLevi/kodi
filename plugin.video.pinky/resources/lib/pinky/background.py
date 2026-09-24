@@ -169,11 +169,23 @@ class Service(xbmc.Monitor):
         if not target:
             return
         import threading
+        # Taking the property stops one press starting two, but not two
+        # presses. A feature film is minutes of work and several megabytes of
+        # cues held while it runs, so a second one alongside it is the shape
+        # of an out-of-memory kill on a projector with a gigabyte - and the
+        # two would then race to write the same file. Refused out loud,
+        # because a press that does nothing reads as a press that was missed.
+        running = getattr(self, "translation", None)
+        if running is not None and running.is_alive():
+            kodi.log("a translation is already running, so %s is refused"
+                     % target, kodi.LOG_INFO)
+            kodi.notify(kodi.localize(32546))
+            return
         kodi.log("the subtitle dialog asked for a %s translation" % target)
-        thread = threading.Thread(target=subtitles.run_translation,
-                                  args=(target,))
-        thread.daemon = True
-        thread.start()
+        self.translation = threading.Thread(target=subtitles.run_translation,
+                                            args=(target,))
+        self.translation.daemon = True
+        self.translation.start()
 
     def check_for_update(self):
         """Tell the viewer a release exists; never install one behind them.
@@ -296,7 +308,11 @@ class Service(xbmc.Monitor):
             if self.waitForAbort(OPEN_TICK if not self.opened else 1):
                 break
             if self.player is not None and self.player.isPlaying():
-                self.player.tick()
+                # Asked here rather than inside tick() because it is a
+                # question about the GUI, which is what this loop watches,
+                # and everything tick() does is about the playing file.
+                if not self.player.stop_if_left_behind():
+                    self.player.tick()
             self.check_translation_request()
             now = time.time()
             if not self.opened:

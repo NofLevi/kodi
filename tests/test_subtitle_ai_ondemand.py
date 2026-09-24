@@ -467,3 +467,34 @@ def test_finished_translation_cannot_attach_to_a_new_playback(
     assert service.run_translation("he") == ""
     assert calls and calls[0].get("cancelled")
     assert shown == []
+
+
+def test_a_second_translation_is_refused_while_one_is_running(monkeypatch):
+    """Two presses must not start two feature-length jobs.
+
+    Taking the request property stops one press starting two; it does nothing
+    about two presses. Each job holds a film's cues in memory for minutes and
+    both write the same file, so the second is refused rather than queued.
+    """
+    import threading
+    from pinky import background
+    from pinky.subs import service as subtitles
+
+    started = []
+    monkeypatch.setattr(subtitles, "take_request", lambda: "he")
+    monkeypatch.setattr(subtitles, "run_translation",
+                        lambda target: started.append(target) or stop.wait(5))
+
+    stop = threading.Event()
+    service = background.Service.__new__(background.Service)
+    service.check_translation_request()
+    service.check_translation_request()
+    try:
+        assert started == ["he"], "the second press must not start a job"
+        assert service.translation.is_alive()
+    finally:
+        stop.set()
+        service.translation.join(5)
+
+    service.check_translation_request()
+    assert started == ["he", "he"], "once it has finished, a press works again"

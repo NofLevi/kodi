@@ -37,8 +37,14 @@ def convertLanguage(language, format=ISO_639_1):
     return names.get((language or "").strip().lower(), "")
 
 
+# Conditions a test has declared true. Real Kodi answers these from the GUI,
+# and "the video window is up" is the difference between playback somebody is
+# watching and playback left running behind a menu.
+CONDITIONS = set()
+
+
 def getCondVisibility(condition):
-    return False
+    return condition in CONDITIONS
 
 
 JSONRPC_CALLS = []

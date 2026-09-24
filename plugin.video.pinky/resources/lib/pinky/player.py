@@ -110,6 +110,7 @@ class PinkyPlayer(xbmc.Player):
         self._next_checked = False
         self._card_dismissed = False
         self._next_card = None
+        self._left_behind = 0
 
     def shutdown(self):
         """Invalidate playback-owned background work before service teardown."""
@@ -215,6 +216,7 @@ class PinkyPlayer(xbmc.Player):
         self._next = None
         self._next_checked = False
         self._card_dismissed = False
+        self._left_behind = 0
 
         self._scrobble("start")
         self._apply_subtitles()
@@ -369,6 +371,55 @@ class PinkyPlayer(xbmc.Player):
             self._bookmarked_at = now
             if 1 < progress < 95:
                 self._keep_place(self.meta, progress)
+
+    # Ticks out of the video window before playback is stopped. Two rather
+    # than one because the window is not always up on the tick after
+    # onAVStarted on a slow device, and stopping the film somebody just
+    # started is a far worse failure than leaving it running for one more
+    # second.
+    LEFT_BEHIND_TICKS = 2
+
+    def stop_if_left_behind(self):
+        """Leaving the video pauses it, rather than leaving it playing unseen.
+
+        Kodi's own answer to Escape is to return to the menu and keep the file
+        running behind it, which is right for a media centre with a library
+        and wrong here: the stream is a debrid link or a broadcaster's CDN,
+        it is being paid for in bandwidth on a device with a gigabyte of
+        memory, and the viewer who pressed Escape has stopped watching.
+
+        Paused rather than stopped, because stopping is a decision the viewer
+        has not made: going back into the film is then a source search and a
+        resolve again, and the resume point only survives past one per cent.
+        Paused, the file is where they left it and pressing play carries on.
+
+        It happens once. Ticking on would toggle the pause straight back off,
+        and the counter only resets when the video is on screen again - so
+        returning and pressing play is not undone a second later.
+
+        Only what somebody sits and watches. A live channel and the radio are
+        *meant* to play behind the menus, and a channel left running while
+        browsing is the one thing a television does that nothing else does.
+        """
+        if (self.meta or {}).get("type") not in ("movie", "episode"):
+            return False
+        if xbmc.getCondVisibility("Window.IsActive(fullscreenvideo)"):
+            self._left_behind = 0
+            return False
+        if self._left_behind >= self.LEFT_BEHIND_TICKS:
+            return False               # already paused; leave it alone
+        self._left_behind += 1
+        if self._left_behind < self.LEFT_BEHIND_TICKS:
+            return False
+        if xbmc.getCondVisibility("Player.Paused"):
+            return False               # they paused it themselves
+        kodi.log("left the video behind, so pausing %s"
+                 % self.meta.get("title", ""), kodi.LOG_INFO)
+        try:
+            self.pause()
+        except Exception:
+            kodi.log_exception("could not pause playback that was left behind")
+        return True
 
     def _keep_place(self, meta, progress, completed=False):
         """Save or clear where this was stopped, for resuming without Trakt.

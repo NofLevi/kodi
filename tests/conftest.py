@@ -34,6 +34,15 @@ def kodi_environment(tmp_path):
     # The stub can now answer badly and can be told Kodi is shutting down;
     # both are process-wide, so they are cleared per test like the rest.
     xbmc.JSONRPC_RESULTS.clear()
+    xbmc.CONDITIONS.clear()
+    # Which Gemini models this process has been told do not exist. Struck off
+    # for the life of the process on purpose, so it has to be cleared here or
+    # one test's 404 decides what the next one may ask for.
+    try:
+        from pinky.subs.ai import gemini
+        gemini._RETIRED.clear()
+    except Exception:
+        pass
     del xbmc.JSONRPC_CALLS[:]
     xbmc.Monitor.ABORT = False
     xbmcaddon.load_strings(os.path.join(
