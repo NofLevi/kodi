@@ -403,6 +403,8 @@ REASON_STRINGS = {
     "far too small for its claimed quality": 32487,
     "implausibly large": 32488,
     "not cached": 32489,
+    "another series of the same name": 32557,
+    "no seeders": 32558,
 }
 
 

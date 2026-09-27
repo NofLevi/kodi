@@ -181,6 +181,21 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
         if high and per_episode_size > high * runtime_hours * 2.5:
             return "implausibly large"
 
+    if not source.get("cached") and int(source.get("seeders") or 0) <= 0:
+        # An uncached source with nobody seeding it cannot become anything
+        # else. It is not a quality trade-off like a low resolution or an
+        # oversized batch - a torrent with zero seeders has nothing for a
+        # debrid service to fetch from, ever, so offering it as "Uncached"
+        # promises a download that will sit at 0% forever. Measured on
+        # Naruto 2x54: the one surviving batch that named the right episode
+        # had zero seeders, and would have been offered next to a genuinely
+        # working cached copy as though the two were the same kind of thing.
+        #
+        # A cached source is exempt regardless of seeders - it is already
+        # sitting on the debrid service's own storage and does not need the
+        # swarm at all.
+        return "no seeders"
+
     if prefs.cached_only and not source.get("cached"):
         return "not cached"
 

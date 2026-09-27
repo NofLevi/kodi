@@ -62,10 +62,15 @@ def test_biggest_setting_really_prefers_biggest(settings_module):
         "sources.max_resolution": "1080p", "sources.allow_hevc": "true",
         "sources.allow_av1": "true", "sources.allow_hdr": "true",
     })
+    # seeders=10 on both: this test is about the size-preference sort, not
+    # about whether a source is obtainable at all, and an unseeded source is
+    # now refused outright regardless of size.
     small = model.from_release_name("Film.1080p.WEB.x264-A", "x",
-                                    size=2 * 1024 ** 3, info_hash="d" * 40)
+                                    size=2 * 1024 ** 3, info_hash="d" * 40,
+                                    seeders=10)
     big = model.from_release_name("Film.1080p.WEB.x264-B", "x",
-                                  size=8 * 1024 ** 3, info_hash="e" * 40)
+                                  size=8 * 1024 ** 3, info_hash="e" * 40,
+                                  seeders=10)
     ranked, _reason = scoring.rank([small, big])
     assert ranked[0]["size"] == big["size"]
 

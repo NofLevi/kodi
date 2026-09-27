@@ -1725,3 +1725,11 @@ msgctxt "#32556"
 msgid "Uncached"
 msgstr "לא במטמון"
 
+msgctxt "#32557"
+msgid "Another series of the same name"
+msgstr "סדרה אחרת באותו שם"
+
+msgctxt "#32558"
+msgid "No seeders"
+msgstr "אין מפיצים"
+

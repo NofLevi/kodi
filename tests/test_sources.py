@@ -153,15 +153,24 @@ def test_hdr_switched_off_still_explains_a_dolby_vision_release(prefs):
 
 def test_every_rejection_reason_has_a_label():
     """The picker translates each reason it reports. A reason added without
-    a label is shown to a Hebrew-speaking household in English."""
+    a label is shown to a Hebrew-speaking household in English.
+
+    Scans every function `rank()` actually combines into its rejection dict,
+    not just `rejection_reason` alone - "another series of the same name"
+    was added to `_a_different_series` and reached a real screen in English
+    before this test was widened to see it, because the narrower scan only
+    ever looked at one of the four functions that can produce a reason.
+    """
     import inspect
     import re
 
     from pinky.ui import sources_window
 
-    reasons = set(re.findall(r'return "([^"]+)"',
-                             inspect.getsource(scoring.rejection_reason)))
-    assert reasons, "no reasons found - has rejection_reason changed shape?"
+    reasons = set()
+    for fn in (scoring.rejection_reason, scoring._another_production,
+              scoring._a_different_series, scoring._a_different_film):
+        reasons |= set(re.findall(r'return "([^"]+)"', inspect.getsource(fn)))
+    assert reasons, "no reasons found - has rank()'s reason chain changed shape?"
     missing = reasons - set(sources_window.REASON_STRINGS)
     assert not missing, "no label for %s" % sorted(missing)
 
@@ -929,3 +938,52 @@ def test_a_single_oversized_file_is_unaffected(settings_module):
     huge = _at("2160p", 4, title="Movie.2024.2160p.BluRay.x265-GRP",
               size=int(13.2 * 1024 ** 3))
     assert scoring.rejection_reason(huge, prefs) == "larger than the size limit"
+
+
+# --------------------------------------------------------------------------
+# a torrent nobody is seeding cannot become anything else
+# --------------------------------------------------------------------------
+
+
+def test_an_uncached_source_with_no_seeders_is_refused(settings_module):
+    """It is not a quality trade-off like a low resolution or an oversized
+    batch - a torrent with zero seeders has nothing for a debrid service to
+    fetch from, ever. Measured on Naruto 2x54: the one surviving batch that
+    named the right episode had zero seeders, and would have been offered
+    next to a genuinely working cached copy as though the two were the same
+    kind of thing."""
+    from pinky.sources import scoring
+
+    settings_module.set_many({"sources.cached_only": "false",
+                              "sources.min_resolution": "sd",
+                              "sources.max_resolution": "2160p"})
+    prefs = scoring.Preferences()
+
+    dead = _at("1080p", 1, cached=False, seeders=0)
+    assert scoring.rejection_reason(dead, prefs) == "no seeders"
+
+
+def test_an_uncached_source_with_seeders_is_fine(settings_module):
+    from pinky.sources import scoring
+
+    settings_module.set_many({"sources.cached_only": "false",
+                              "sources.min_resolution": "sd",
+                              "sources.max_resolution": "2160p"})
+    prefs = scoring.Preferences()
+
+    alive = _at("1080p", 2, cached=False, seeders=1)
+    assert scoring.rejection_reason(alive, prefs) == ""
+
+
+def test_a_cached_source_needs_no_seeders_at_all(settings_module):
+    """It is already sitting on the debrid service's own storage and does
+    not need the swarm any more."""
+    from pinky.sources import scoring
+
+    settings_module.set_many({"sources.cached_only": "false",
+                              "sources.min_resolution": "sd",
+                              "sources.max_resolution": "2160p"})
+    prefs = scoring.Preferences()
+
+    stored = _at("1080p", 3, cached=True, seeders=0)
+    assert scoring.rejection_reason(stored, prefs) == ""
