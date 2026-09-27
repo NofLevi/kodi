@@ -408,3 +408,78 @@ def test_an_anonymous_visitor_is_not_mistaken_for_a_sign_in():
     response = urlsession.Response("https://ktuvit.me/", 200, headers, None)
 
     assert ktuvit._cookie_from(response) == ""
+
+
+# --------------------------------------------------------------------------
+# the two IMDb fields, which disagree
+# --------------------------------------------------------------------------
+
+
+def test_both_imdb_fields_are_offered_because_one_is_truncated():
+    """A film carries `IMDB_Link` and `ImdbID` and they disagree - the second
+    is a character short:
+
+        IMDB_Link = "https://www.imdb.com/title/tt14173636/"
+        ImdbID    = "tt1417363"
+
+    This preferred the short one, so the comparison was 1417363 against
+    14173636 and no recent film ever matched. Six and seven digit ids are
+    unaffected, which is why it looked like it worked. Measured against the
+    live site: 3 of 7 films matched before, 7 of 7 after, and the four that
+    were failing are exactly the four with eight-digit ids.
+    """
+    film = {"IMDB_Link": "https://www.imdb.com/title/tt14173636/",
+            "ImdbID": "tt1417363"}
+    assert "tt14173636" in ktuvit._film_imdb(film)
+
+
+def test_a_film_is_found_when_only_its_link_is_right(site, monkeypatch):
+    meta = {"type": "movie", "title": "The Invite", "year": 2026,
+            "ids": {"imdb": "tt14173636"}}
+    films = [{"ID": "THEID", "EngName": "The Invite", "ReleaseDate": "2026",
+              "IMDB_Link": "https://www.imdb.com/title/tt14173636/",
+              "ImdbID": "tt1417363"}]
+    monkeypatch.setattr(ktuvit, "_post",
+                        lambda url, body, cookie: (_Payload({"Films": films}), cookie))
+    found, _cookie = ktuvit._find_id(meta, "cookie")
+    assert found == "THEID"
+
+
+def test_the_wrong_year_is_not_taken_by_name(site, monkeypatch):
+    """Asked for The Odyssey (2026), Ktuvit answers with Star Quest: The
+    Odyssey (2009) - a name that passes and a year that does not. Checked
+    against the live site, which really does answer exactly that."""
+    meta = {"type": "movie", "title": "The Odyssey", "year": 2026,
+            "ids": {"imdb": "tt33764258"}}
+    films = [{"ID": "WRONG", "EngName": "Star Quest: The Odyssey",
+              "ReleaseDate": "2009",
+              "IMDB_Link": "https://www.imdb.com/title/tt1360833/"}]
+    monkeypatch.setattr(ktuvit, "_post",
+                        lambda url, body, cookie: (_Payload({"Films": films}), cookie))
+    found, _cookie = ktuvit._find_id(meta, "cookie")
+    assert found == "", "a different film must not be taken on its name alone"
+
+
+def test_a_film_with_no_imdb_link_is_taken_by_name_and_year(site, monkeypatch):
+    """An id that matches nothing is not the same as there being nothing -
+    the lesson already learned from OpenSubtitles, applied here."""
+    meta = {"type": "movie", "title": "The Invite", "year": 2026,
+            "ids": {"imdb": "tt14173636"}}
+    films = [{"ID": "BYNAME", "EngName": "The Invite", "ReleaseDate": "2026"}]
+    monkeypatch.setattr(ktuvit, "_post",
+                        lambda url, body, cookie: (_Payload({"Films": films}), cookie))
+    found, _cookie = ktuvit._find_id(meta, "cookie")
+    assert found == "BYNAME"
+
+
+class _Payload(object):
+    def __init__(self, data):
+        self._data = data
+        self.status_code = 200
+
+    def json(self):
+        return {"d": __import__("json").dumps(self._data)}
+
+    @property
+    def text(self):
+        return __import__("json").dumps({"d": __import__("json").dumps(self._data)})

@@ -386,21 +386,32 @@ def search(meta, target, languages):
 
 
 def _film_imdb(film):
-    """The IMDb id of a search result, which Ktuvit publishes as a link.
+    """Every IMDb id a search result claims, because it claims two.
 
-    This was written against an `ImdbID` field that the live payload does not
-    have: a film carries `IMDB_Link`, "http://www.imdb.com/title/tt0110912".
-    So every comparison was made against nothing, no result ever matched, and
-    the search gave up with "no title with the requested IMDb id" while the
-    film it wanted sat in the list as the only answer. Measured against a real
-    account on 23 September 2026 - the first time this provider had ever been
-    signed in to, which is why a defect this total went unseen.
+    A film carries both `IMDB_Link` and `ImdbID`, and **they disagree**:
+
+        IMDB_Link = "https://www.imdb.com/title/tt14173636/"
+        ImdbID    = "tt1417363"
+
+    The second is a character short. This preferred it, so the comparison was
+    `1417363` against `14173636` and no recent film ever matched - the search
+    gave up with "no title with the requested IMDb id" while the film sat in
+    the list as the only answer. Seven-digit ids are unaffected, which is why
+    it looked like it worked: it fails for everything with an eight-digit id,
+    which is everything made in the last decade.
+
+    So both are returned and either may match. The link is the one to trust,
+    but a field that is right most of the time is still worth asking.
     """
-    direct = film.get("ImdbID") or film.get("IMDB_ID")
-    if direct:
-        return direct
+    ids = []
     found = re.search(r"tt\d+", str(film.get("IMDB_Link") or ""))
-    return found.group(0) if found else ""
+    if found:
+        ids.append(found.group(0))
+    for key in ("ImdbID", "IMDB_ID"):
+        value = str(film.get(key) or "").strip()
+        if value:
+            ids.append(value)
+    return ids
 
 
 def _find_id(meta, cookie):
@@ -435,17 +446,48 @@ def _find_id(meta, cookie):
         return (value.lstrip("0") or "0") if value.isdigit() else ""
 
     wanted = imdb_id(ids.get("imdb"))
+    films = [film for film in films if isinstance(film, dict)]
     for film in films:
-        if not isinstance(film, dict):
-            continue
-        if wanted and imdb_id(_film_imdb(film)) == wanted:
+        if wanted and wanted in [imdb_id(value) for value in _film_imdb(film)]:
             return str(film.get("ID") or ""), cookie
+
+    # An id that matches nothing is not the same as there being nothing - the
+    # lesson this add-on already learned from OpenSubtitles. Ktuvit may hold
+    # the film with no IMDb link at all, and the search found it *by name*.
+    #
+    # The year is what makes that safe rather than reckless: asked for The
+    # Odyssey (2026), Ktuvit answers with Star Quest: The Odyssey (2009),
+    # whose name passes and whose year does not.
+    named = _by_name(films, meta)
+    if named:
+        kodi.log("ktuvit had no IMDb match, taking %r by name and year"
+                 % str(named.get("EngName") or "")[:40])
+        return str(named.get("ID") or ""), cookie
     if wanted:
         kodi.log("ktuvit returned no title with the requested IMDb id")
         return "", cookie
 
-    first = films[0] if isinstance(films[0], dict) else {}
+    first = films[0] if films else {}
     return str(first.get("ID") or ""), cookie
+
+
+def _by_name(films, meta):
+    """A search result whose name *and* year both match what is playing."""
+    from ...utils import release
+
+    year = int(meta.get("year") or 0)
+    title = meta.get("show_title") or meta.get("title") or ""
+    if not year or not title:
+        return None
+    for film in films:
+        for key in ("EngName", "HebName"):
+            if not release.mentions(str(film.get(key) or ""), title):
+                continue
+            stated = re.search(r"(19|20)\d\d", str(film.get("ReleaseDate")
+                                                   or film.get("Year") or ""))
+            if stated and abs(int(stated.group(0)) - year) <= 1:
+                return film
+    return None
 
 
 def _versions(meta, film_id, cookie):
