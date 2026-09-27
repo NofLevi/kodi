@@ -349,9 +349,19 @@ def test_automatic_search_keeps_primary_language_request_bounded(pipeline):
 
 
 
-def test_optional_timing_evidence_is_one_non_hash_language(
+def test_timing_evidence_asks_enough_languages_to_prove_a_timeline(
         monkeypatch, settings_module):
-    """The fallback cannot repeat six serial REST requests behind one deadline."""
+    """Two agreeing non-target languages, or the proof cannot be made.
+
+    It used to ask for `missing[:1]` out of ("en", "es"), which with
+    subs.languages he,en is exactly one language - Spanish. Cross-language
+    verification needs *two* independent timelines to compare, so it could
+    never run: one short by construction.
+
+    Still bounded, which is the other half of the contract - it cannot become
+    six serial REST requests behind one deadline - and none of them carries
+    the hash, because the primary search already used it.
+    """
     from pinky.subs import auto
     from pinky.subs.providers import opensubtitles_rest
 
@@ -363,7 +373,25 @@ def test_optional_timing_evidence_is_one_non_hash_language(
 
     monkeypatch.setattr(opensubtitles_rest, "search", search)
     auto.search_timing_evidence(MOVIE, ["he", "en"], "file-hash")
-    assert calls == [(["es"], "", 0)]
+
+    asked = [languages[0] for languages, _hash, _size in calls]
+    assert len(asked) == auto.EVIDENCE_LANGUAGES_ASKED
+    assert len(asked) >= 2, "one language can never agree with another"
+    assert "en" not in asked and "he" not in asked, "already searched"
+    assert all(video_hash == "" for _l, video_hash, _s in calls)
+    assert asked[0] == "ar", "widest coverage first"
+
+
+def test_timing_evidence_is_skipped_when_it_has_nothing_to_add(
+        monkeypatch, settings_module):
+    """A viewer who already reads all of them needs no extra request."""
+    from pinky.subs import auto
+    from pinky.subs.providers import opensubtitles_rest
+
+    monkeypatch.setattr(opensubtitles_rest, "search",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("asked")))
+    assert auto.search_timing_evidence(
+        MOVIE, ["he"] + list(auto.TIMING_EVIDENCE_LANGUAGES), "") == []
 
 
 def test_two_other_languages_verify_and_retime_the_requested_subtitle(

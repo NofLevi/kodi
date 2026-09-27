@@ -42,9 +42,32 @@ MAX_CANDIDATES = 3
 # proof entirely, so weak devices keep the same bounded evidence budget.
 LOW_MEMORY_CANDIDATES = 3
 
-# Above this the name is decisive on its own - an identical release name or a
-# verified hash - and spending two more downloads to confirm it is waste.
-DECISIVE_SCORE = 90
+# What the comment above always meant, said in a number that means it.
+#
+# Decisive is *identity*: `matcher.rate` returns exactly 100 for a verified
+# hash and for an identical release name, and caps everything additive at
+# `ADDITIVE_CEILING` - 99. So 100 is the whole of "we know which file this
+# is", and nothing else can reach it.
+#
+# It used to be 90, which was an accumulation rather than an identity, and
+# raising `WEIGHT_EPISODE` to 30 showed why that is not the same thing.
+# Measured over twenty titles: six scored 90-99 with no identity match at all
+# and so skipped verification, on reasons like "source" and "resolution" -
+# which is the ladder's *70* rung, "the right title, same source and
+# resolution, a different group". Mushoku Tensei reached 91 as 85 plus a
+# download-count nudge, and how many people downloaded a subtitle says
+# nothing whatever about whether it is in time.
+#
+# The consensus docstring above is the argument against trusting any of that:
+# score 77 with a fit of 0.33 and an offset of 176 seconds, score 66 with a
+# fit of 0.13. A name that agrees about resolution has not agreed about which
+# cut of the episode it was typed against.
+#
+# The cost is bounded and was measured before it was spent: all six of those
+# titles had a second candidate to corroborate against, so each pays up to
+# two more subtitle downloads - tens of kilobytes - inside the same
+# `budget()` of three that already capped this.
+DECISIVE_SCORE = 100
 
 # Two subtitles agree when correlating them scores at least this and the shift
 # between them is small. `sync.MIN_CONFIDENCE` is 0.45 for applying a

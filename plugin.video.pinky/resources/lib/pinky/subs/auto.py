@@ -100,30 +100,63 @@ def translation_source_languages(meta, already=()):
     if original in FOREIGN_SOURCE_LANGUAGES and original not in wanted:
         wanted.append(original)
     return [code for code in wanted if code not in already]
-TIMING_EVIDENCE_LANGUAGES = ("en", "es")
+# Languages asked for purely as a clock, ordered by measured coverage rather
+# than by preference: nobody is going to read these, they exist so that two
+# independent timelines can be compared.
+#
+# It was ("en", "es"), and with `subs.languages` set to he,en that left
+# exactly one language to ask for - Spanish. `consensus.timeline_reference`
+# needs **two** agreeing non-target languages before it will call a timeline
+# proved, so the cross-language proof could never run at all. It was one
+# language short by construction, and the `missing[:1]` below made sure of it.
+#
+# Arabic leads because it is the widest, which is also why it leads the
+# translation sources. Measured over five titles: ar 32, en 29, pl 26, es 20,
+# ru 20, fr 18. And over eight anime episodes, seven had candidates in three
+# or more of these - so the proof is reachable for anime, which is where the
+# timing is least trustworthy and a hash almost never exists.
+TIMING_EVIDENCE_LANGUAGES = ("ar", "es", "pl", "fr", "ru")
+
+# Two would be the minimum that can agree; three gives the proof somewhere to
+# go when one of them comes back empty, which for anime is common.
+EVIDENCE_LANGUAGES_ASKED = 3
 
 
 def search_timing_evidence(meta, languages, video_hash=""):
-    """Optional third-language evidence under its own disposable deadline.
+    """Independent timelines to check the chosen subtitle against.
+
+    Only ever asked when `consensus.wanted` says there is nothing better -
+    no hash, and a name that is not an identity - so this costs nothing on a
+    title that is already settled.
 
     The primary search has already completed before this runs, so a slow
     evidence request can be dropped without losing a usable Hebrew result.
-    Hash search is deliberately omitted: this asks one cheap title query for
-    the one missing language, while the primary languages already used hash.
+    Hash search is deliberately omitted: these are cheap title queries, while
+    the primary languages already used the hash.
+
+    Two workers rather than three, against one host that has been seen to
+    rate-limit: the deadline can drop the third and the proof still has the
+    two it needs.
     """
     missing = [language for language in TIMING_EVIDENCE_LANGUAGES
-               if language not in languages]
+               if language not in languages][:EVIDENCE_LANGUAGES_ASKED]
     if not missing:
         return []
     from .providers import opensubtitles_rest
 
-    def search():
-        return opensubtitles_rest.search(meta, matcher.target_from(meta),
-                                         missing[:1], "", 0)
+    target = matcher.target_from(meta)
 
-    found = http.run_parallel([("timing-evidence", search)], workers=1,
-                              deadline=4.0)
-    return found.get("timing-evidence") or []
+    def asking(code):
+        def search():
+            return opensubtitles_rest.search(meta, target, [code], "", 0)
+        return search
+
+    found = http.run_parallel([(code, asking(code)) for code in missing],
+                              workers=2, deadline=5.0)
+    evidence = []
+    for code in missing:
+        evidence.extend(found.get(code) or [])
+    return evidence
 
 
 
@@ -1160,6 +1193,73 @@ def hash_reference(candidates, downloads, skip=None):
     return []
 
 
+# How many other-language files may be fetched to prove a timeline when there
+# is no hash. Two, because two is what `consensus.timeline_reference` needs to
+# call anything proved and a third buys nothing at this point.
+TRANSLATION_REFERENCES = 2
+
+
+def translation_reference(candidates, downloads, skip=None):
+    """A timeline to put the translation source in, hash or no hash.
+
+    This is the gap that matters for anime. What reaches the screen there is
+    a *translation* of an English or Arabic file, so the timing the viewer
+    sees is that file's timing - and `hash_reference` accepts a hash match
+    and nothing else. Measured: a hash exists for about a fifth of titles and
+    for anime almost never, so for the content whose timing is least
+    trustworthy there was no ruler at all and the source was translated
+    exactly as it arrived.
+
+    `consensus` has been able to prove a timeline without a hash since it was
+    written - two independent languages that agree cannot both be wrong in
+    the same way - and it was only ever asked about the *target* language.
+    For anime there is no target-language candidate, so it was never asked at
+    all. It is asked here instead, about the file being translated.
+
+    Costs nothing when a hash exists, and at most two more subtitle downloads
+    when one does not - inside the same `_DownloadBudget` that already caps
+    this, and only on a title that is about to spend minutes in a model.
+    """
+    found = hash_reference(candidates, downloads, skip)
+    if found:
+        return found
+
+    source_language = (skip or {}).get("language") or ""
+    others = []
+    languages = set()
+    for candidate in candidates or []:
+        language = candidate.get("language") or ""
+        if candidate is skip or not language or language == source_language:
+            continue
+        if language in languages:
+            continue          # one per language: two uploads are not two opinions
+        languages.add(language)
+        others.append(candidate)
+        if len(others) >= TRANSLATION_REFERENCES:
+            break
+    if len(others) < 2:
+        return []
+
+    from . import consensus
+    fetched = []
+    for candidate in others:
+        cues = downloads.fetch(candidate)
+        if cues:
+            fetched.append((candidate, cues))
+    if len(fetched) < 2:
+        return []
+    _candidate, reference, evidence = consensus.timeline_reference(
+        fetched, source_language)
+    if reference:
+        kodi.log("no hash, but %s and %s agree on the timeline, so the "
+                 "translation source is measured against it"
+                 % (fetched[0][0].get("language"), fetched[1][0].get("language")))
+    else:
+        kodi.log("no timing reference for the translation source: %s"
+                 % evidence.get("reason", "none"))
+    return reference or []
+
+
 def retimed_for_translation(cues, reference, language=""):
     """Put the source subtitle in time *before* it is translated.
 
@@ -1279,9 +1379,16 @@ def translate_fallback(meta, winners, languages, report, player=None,
     cues = downloads.fetch(candidate)
     if not cues:
         return "", report
-    cues = retimed_for_translation(
-        cues, reference_cues(winners, languages, downloads, skip=candidate),
-        language)
+    # The hash first, then two agreeing languages. Same reason as the picker's
+    # path: for anime there is no hash and the translation's timing is the
+    # source file's timing, so without this the source is translated exactly
+    # as it arrived and nothing ever looks at it again.
+    reference = reference_cues(winners, languages, downloads, skip=candidate)
+    if not reference:
+        reference = translation_reference(
+            [winner for winner in winners.values() if winner],
+            downloads, skip=candidate)
+    cues = retimed_for_translation(cues, reference, language)
 
     translated = _translate_progressively(cues, meta, languages[0], player,
                                           cancelled=stopped,
@@ -1401,7 +1508,7 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
         kodi.log("translating the %s subtitle %r into %s"
                  % (language, (candidate.get("release") or "")[:60], target))
         cues = retimed_for_translation(
-            cues, hash_reference(candidates, downloads, skip=candidate),
+            cues, translation_reference(candidates, downloads, skip=candidate),
             language)
         translated = _translate_progressively(cues, meta, target, player,
                                               variant=VARIANT_AI,

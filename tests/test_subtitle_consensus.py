@@ -25,11 +25,27 @@ def test_a_trustworthy_reference_makes_it_unnecessary(settings_module):
     assert not consensus.wanted(55, has_reference=True)
 
 
-def test_a_decisive_name_makes_it_unnecessary(settings_module):
-    """An identical release name or a verified hash needs no second opinion."""
-    from pinky.subs import consensus
+def test_only_an_identity_match_makes_it_unnecessary(settings_module):
+    """An identical release name or a verified hash needs no second opinion.
+
+    Nothing else does. `matcher.rate` returns exactly 100 for those two and
+    caps everything additive at 99, so 100 is the whole of "we know which
+    file this is". 95 is an accumulation - "group, source, resolution" - and
+    the module docstring is a list of high-scoring names that were minutes
+    out of time.
+    """
+    from pinky.subs import consensus, matcher
     assert not consensus.wanted(100, has_reference=False)
-    assert not consensus.wanted(95, has_reference=False)
+    assert consensus.wanted(95, has_reference=False),         "a strong name is not an identity"
+    assert consensus.wanted(matcher.ADDITIVE_CEILING, has_reference=False),         "the best possible accumulation is still not an identity"
+
+
+def test_nothing_additive_can_reach_the_decisive_score():
+    """The two constants have to stay in step or 100 stops meaning identity."""
+    from pinky.subs import consensus, matcher
+    assert matcher.ADDITIVE_CEILING < consensus.DECISIVE_SCORE
+    assert matcher.WEIGHT_HASH >= consensus.DECISIVE_SCORE
+    assert matcher.WEIGHT_EXACT_NAME >= consensus.DECISIVE_SCORE
 
 
 def test_a_weak_score_is_exactly_the_case_for_it(settings_module):
@@ -381,3 +397,103 @@ def test_one_other_language_is_not_proof_of_the_video_timeline():
     candidate, cues, report = consensus.timeline_reference(fetched, "he")
     assert candidate is None and cues == []
     assert report["supported"] == 0
+
+
+# --------------------------------------------------------------------------
+# a ruler for the translation source, where no hash exists
+# --------------------------------------------------------------------------
+
+
+def _timeline(count, offset=0.0, step=3.0):
+    from pinky.subs import srt
+    return [srt.Cue(i + 1, offset + i * step, offset + i * step + 2.0, "line %d" % i)
+            for i in range(count)]
+
+
+class _Downloads(object):
+    """A download budget that answers from a table and counts fetches."""
+
+    def __init__(self, table):
+        self.table = table
+        self.fetched = []
+
+    def fetch(self, candidate):
+        self.fetched.append(candidate.get("release"))
+        return self.table.get(candidate.get("release")) or []
+
+
+def _candidate(release, language, reason="title", uploader=None):
+    """One candidate. The uploader matters: `_independent` will not treat two
+    files from one provider as two opinions unless different people put them
+    there, which is the point of the whole exercise."""
+    return {"release": release, "language": language, "reason": reason,
+            "provider": "opensubtitles_rest",
+            "uploader": uploader if uploader is not None else release}
+
+
+def test_a_hash_still_wins_and_costs_nothing_extra():
+    from pinky.subs import auto
+
+    source = _candidate("src", "ar")
+    hashed = _candidate("hashed", "en", reason="hash")
+    other = _candidate("other", "pl")
+    downloads = _Downloads({"hashed": _timeline(40), "other": _timeline(40)})
+
+    assert auto.translation_reference([source, hashed, other], downloads,
+                                      skip=source)
+    assert downloads.fetched == ["hashed"], "no extra downloads when a hash exists"
+
+
+def test_two_agreeing_languages_prove_a_timeline_without_a_hash():
+    """This is the anime case: no hash exists and none ever will.
+
+    What reaches the screen is a translation of an Arabic or English file, so
+    the timing the viewer sees is that file's timing - and nothing used to
+    look at it. Two independent languages that agree cannot both be wrong in
+    the same way.
+    """
+    from pinky.subs import auto
+
+    source = _candidate("src", "ar")
+    # Near, not identical: two people typing the same episode land within a
+    # fraction of a second of each other, and `_same_timeline` correctly
+    # collapses byte-identical cues as one file wearing two names.
+    downloads = _Downloads({"en-file": _timeline(60),
+                            "pl-file": _timeline(60, offset=0.3)})
+
+    reference = auto.translation_reference(
+        [source, _candidate("en-file", "en"), _candidate("pl-file", "pl")],
+        downloads, skip=source)
+    assert reference, "two agreeing languages are a timeline"
+
+
+def test_one_other_language_is_not_a_second_opinion():
+    from pinky.subs import auto
+
+    source = _candidate("src", "ar")
+    downloads = _Downloads({"en-file": _timeline(60)})
+    assert auto.translation_reference(
+        [source, _candidate("en-file", "en")], downloads, skip=source) == []
+    assert downloads.fetched == [], "nothing is fetched for a proof that cannot be made"
+
+
+def test_two_uploads_in_one_language_are_not_two_opinions():
+    """The point is independence, not count."""
+    from pinky.subs import auto
+
+    source = _candidate("src", "ar")
+    downloads = _Downloads({"en-a": _timeline(60), "en-b": _timeline(60)})
+    assert auto.translation_reference(
+        [source, _candidate("en-a", "en"), _candidate("en-b", "en")],
+        downloads, skip=source) == []
+
+
+def test_the_source_language_is_never_its_own_ruler():
+    from pinky.subs import auto
+
+    source = _candidate("src", "ar")
+    downloads = _Downloads({"ar-other": _timeline(60), "en-file": _timeline(60)})
+    auto.translation_reference(
+        [source, _candidate("ar-other", "ar"), _candidate("en-file", "en")],
+        downloads, skip=source)
+    assert "ar-other" not in downloads.fetched

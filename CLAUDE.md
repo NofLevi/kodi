@@ -430,6 +430,47 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   costs nothing when the hash is quick because the wait ends the moment it
   lands, and the other nine providers are being asked throughout.
 
+  **Two things were switching the timing checks off, and both were mine.**
+
+  `consensus.wanted` skips verification when the top score is "decisive", and
+  decisive was **90**. Raising `WEIGHT_EPISODE` to 30 moved scores up, so
+  combinations that are not identity matches began clearing it: measured over
+  twenty titles, six scored 90-99 with no identity match at all and skipped
+  the only check available without a hash, on reasons like "source" and
+  "resolution" - which is the ladder's *70* rung. Mushoku Tensei reached 91
+  as 85 plus a **download-count nudge**, and how many people downloaded a
+  subtitle says nothing about whether it is in time.
+
+  Decisive now means 100, which is exactly identity: `matcher.rate` returns
+  100 for a hash and for an identical release name and caps everything
+  additive at `ADDITIVE_CEILING`, 99. A test pins the two constants together,
+  because if they ever cross again this silently stops meaning anything. All
+  six of those titles had a partner to corroborate against, so the cost is
+  bounded and was measured before it was spent.
+
+  `TIMING_EVIDENCE_LANGUAGES` was `("en", "es")` and only the languages
+  *missing* from `subs.languages` were asked - which for he,en is Spanish,
+  one language. `consensus.timeline_reference` needs **two** agreeing
+  non-target languages before it calls a timeline proved, so the
+  cross-language proof could never run: one short by construction, and
+  `missing[:1]` made sure of it. It is now the five with measured coverage,
+  Arabic first, three asked in parallel under the same disposable deadline.
+
+  **And for anime none of that was ever going to help, because the thing
+  whose timing matters there is not a Hebrew subtitle.** There is no Hebrew
+  subtitle. What reaches the screen is a *translation* of an Arabic or
+  English file, so the timing the viewer sees is that file's timing - and
+  `hash_reference` accepted a hash and nothing else, which for anime is
+  never. `consensus` has been able to prove a timeline without a hash since
+  it was written, and was only ever asked about the *target* language, which
+  for anime has no candidates at all, so it was never asked.
+
+  `translation_reference` asks it about the file being translated instead:
+  the hash first, then two independent languages that agree. Measured on four
+  anime episodes, where hash reach is effectively zero - Mushoku Tensei and
+  Frieren both got a reference, and Frieren's source was **1.10 s out** and
+  was corrected. Two of four, where it had been none of four.
+
   **A translation inherits its source's timing, and nothing re-read it.**
   Both translation paths said in so many words that timings come from the
   source subtitle and are never touched, and that was the whole of it: a
