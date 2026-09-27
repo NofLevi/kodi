@@ -293,3 +293,30 @@ def test_a_request_in_flight_cannot_hold_kodis_shutdown():
         assert not held, "%d worker threads would still be joined at exit" % len(held)
     finally:
         release.set()
+
+
+def test_every_plugin_invocation_lets_go_of_the_worker_threads():
+    """`close_parallel` was only ever called by the service, and each plugin
+    invocation is its own interpreter with its own pool. The invocation that
+    holds a window runs for as long as the window is open, so on quit Kodi
+    logged "script didn't stop in 5 seconds - let's kill it" for main.py,
+    force-killed the interpreter and then wedged - the process stayed alive
+    holding its files and the next Kodi would not start at all.
+
+    Read from the source because there is no way to run main.py under the
+    stubs: it is the entry point Kodi calls, and it is the one place that
+    covers every route at once.
+    """
+    import io
+    import os
+
+    from conftest import ROOT
+
+    with io.open(os.path.join(ROOT, "plugin.video.pinky", "main.py"),
+                 encoding="utf-8") as handle:
+        source = handle.read()
+
+    assert "finally:" in source, "dispatch must not be able to skip the release"
+    assert "close_parallel()" in source, \
+        "the invocation must let go of the shared workers before it ends"
+    assert source.index("finally:") < source.index("close_parallel()")
