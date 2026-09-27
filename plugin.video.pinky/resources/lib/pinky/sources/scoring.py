@@ -148,14 +148,37 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
             return "below the resolution limit"
 
     size = source.get("size") or 0
-    if prefs.max_size and size > prefs.max_size:
+    # A flat ceiling and a per-hour expectation both measure a release
+    # against one episode's runtime - and neither should, once the release
+    # names a batch. Measured on Naruto 2x54: the only other genuine
+    # (non-Boruto, non-Shippuuden) release Torrentio had was a 13.2 GB batch
+    # of episodes 53-106. Against an 8 GB ceiling built for one file it was
+    # refused outright; against the per-hour range built for one ~24 minute
+    # episode it was also "implausibly large" by the same mistake one check
+    # further down. 13.2 GB over 54 episodes is 244 MB an episode - entirely
+    # ordinary - and both checks were punishing it purely for being a batch.
+    #
+    # `episode_range` is the only batch marker with an actual count attached;
+    # a bare season pack ("Naruto Season 2 COMPLETE") states no number of
+    # episodes and is measured exactly as before, because there is nothing
+    # here to divide by.
+    # `runtime_hours` is already the single target *episode's* duration, not
+    # a batch's total - "so an episode is not judged like a film" is its own
+    # docstring - so only `size` needs dividing down to what one episode of
+    # the batch actually weighs; the runtime side of the comparison is
+    # unchanged.
+    span = release.parse(source.get("title", "")).get("episode_range")
+    episodes = (span[1] - span[0] + 1) if span and span[1] > span[0] else 1
+    per_episode_size = size / float(episodes) if episodes > 1 else size
+
+    if prefs.max_size and per_episode_size > prefs.max_size:
         return "larger than the size limit"
 
     if size:
         low, high = SIZE_RANGE_PER_HOUR.get(source.get("quality"), (0, 0))
-        if low and size < low * runtime_hours * 0.35:
+        if low and per_episode_size < low * runtime_hours * 0.35:
             return "far too small for its claimed quality"
-        if high and size > high * runtime_hours * 2.5:
+        if high and per_episode_size > high * runtime_hours * 2.5:
             return "implausibly large"
 
     if prefs.cached_only and not source.get("cached"):

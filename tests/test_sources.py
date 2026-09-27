@@ -858,3 +858,74 @@ def test_a_different_rejection_is_still_honoured_on_the_second_pass(
                                    limit=0)
 
     assert len(kept) == 1, "the cam came back in with the 480p ones"
+
+
+# --------------------------------------------------------------------------
+# a batch is not one oversized file
+# --------------------------------------------------------------------------
+
+
+def test_a_batchs_size_is_measured_per_episode(settings_module):
+    """Naruto 2x54: the only genuine (non-Boruto, non-Shippuuden) release
+    Torrentio had beyond the single cached episode was a 13.2 GB batch of
+    episodes 53-106, refused whole against an 8 GB ceiling built for one
+    file. 13.2 GB over 54 episodes is 244 MB an episode - entirely ordinary -
+    and the flat ceiling was punishing it purely for being a batch."""
+    from pinky.sources import scoring
+
+    settings_module.set_many({"sources.max_size_gb": "8",
+                              "sources.cached_only": "false",
+                              "sources.min_resolution": "sd",
+                              "sources.max_resolution": "2160p"})
+    prefs = scoring.Preferences()
+
+    batch = _at("480p", 1,
+               title="Naruto Episodes 53-106 Dual Audio DVDrip [DarkDream]",
+               size=int(13.2 * 1024 ** 3))
+    assert scoring.rejection_reason(batch, prefs) == ""
+
+
+def test_a_batch_whose_average_is_still_oversized_is_still_refused(
+        settings_module):
+    """Scaling by episode count is not a loophole - a genuinely bloated
+    batch still has to clear the ceiling per episode."""
+    from pinky.sources import scoring
+
+    settings_module.set_many({"sources.max_size_gb": "8",
+                              "sources.min_resolution": "sd",
+                              "sources.max_resolution": "2160p"})
+    prefs = scoring.Preferences()
+
+    batch = _at("1080p", 2, title="Show - 01-02 [1080p]",
+               size=int(20 * 1024 ** 3))  # 10 GB an episode
+    assert scoring.rejection_reason(batch, prefs) == "larger than the size limit"
+
+
+def test_a_bare_season_pack_with_no_episode_count_keeps_the_flat_ceiling(
+        settings_module):
+    """A season marker with no numeric range - "Season 2 COMPLETE" - states
+    no episode count, so there is nothing to divide by and it stays on the
+    ceiling exactly as before."""
+    from pinky.sources import scoring
+
+    settings_module.set_many({"sources.max_size_gb": "8",
+                              "sources.min_resolution": "sd",
+                              "sources.max_resolution": "2160p"})
+    prefs = scoring.Preferences()
+
+    pack = _at("1080p", 3, title="Show.S01.COMPLETE.1080p.WEB-DL",
+              size=int(60 * 1024 ** 3))
+    assert scoring.rejection_reason(pack, prefs) == "larger than the size limit"
+
+
+def test_a_single_oversized_file_is_unaffected(settings_module):
+    from pinky.sources import scoring
+
+    settings_module.set_many({"sources.max_size_gb": "8",
+                              "sources.min_resolution": "sd",
+                              "sources.max_resolution": "2160p"})
+    prefs = scoring.Preferences()
+
+    huge = _at("2160p", 4, title="Movie.2024.2160p.BluRay.x265-GRP",
+              size=int(13.2 * 1024 ** 3))
+    assert scoring.rejection_reason(huge, prefs) == "larger than the size limit"
