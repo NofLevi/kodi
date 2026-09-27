@@ -369,8 +369,8 @@ msgid "Search again"
 msgstr "חפש שוב"
 
 msgctxt "#32341"
-msgid "Show all sources"
-msgstr "הצג את כל המקורות"
+msgid "%d more sources"
+msgstr "עוד %d מקורות"
 
 msgctxt "#32342"
 msgid "Show the best only"

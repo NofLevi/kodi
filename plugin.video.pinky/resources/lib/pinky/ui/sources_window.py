@@ -42,8 +42,25 @@ class SourcesWindow(xbmcgui.WindowXML):
         self.setProperty("pinky.sources.title", _heading(self.meta))
         self.setProperty("pinky.sources.status",
                          _status(self._visible(), self.showing_all, self.meta))
+        self._paint_toggle()
+
+    def _paint_toggle(self):
+        """Name the button after what pressing it will show, and hide it when
+        that is nothing.
+
+        A button that says "show all sources" when everything is already on
+        screen is one the viewer presses to find out it does nothing. The
+        count is in the label for the same reason the details screen names the
+        episode it will play: pressing to discover is not a design.
+        """
+        rest = len(self._rest())
+        # Shown while the rest is up as well, or the way back would be hidden
+        # by the press that got you there.
+        self.setProperty("pinky.sources.more",
+                         "1" if (self.showing_all or rest) else "")
         self.setProperty("pinky.sources.toggle",
-                         kodi.localize(32342 if self.showing_all else 32341))
+                         kodi.localize(32342) if self.showing_all
+                         else kodi.localize(32341, rest))
 
     def onInit(self):
         if self.ready:
@@ -75,7 +92,27 @@ class SourcesWindow(xbmcgui.WindowXML):
     # -- rendering ---------------------------------------------------------
 
     def _visible(self):
-        return self.full if self.showing_all else self.short
+        return self._rest() if self.showing_all else self.short
+
+    def _rest(self):
+        """Everything the first page is not already showing.
+
+        It used to be the whole list, and the whole list begins with the rows
+        that are already on the screen: measured on Toy Story 5, **nine of the
+        first ten were the same release in the same order**, because the first
+        page ranks by best Hebrew subtitle and when every release has one at
+        78% or better that ordering collapses back onto the source ranking. So
+        the press swapped 25 rows for 107 and changed nothing anybody could
+        see, which reads as a button that does not work.
+
+        This add-on has fixed this exact bug once before, when "show all"
+        returned the same eight rows it was toggling away from. The first page
+        stopped being the top eight and became the three subtitle lists, and
+        nothing told the other half.
+        """
+        shown = set(_identity(source) for source in self.short)
+        return [source for source in self.full
+                if _identity(source) not in shown]
 
     def _render(self):
         """Fill the list.
@@ -114,8 +151,7 @@ class SourcesWindow(xbmcgui.WindowXML):
             kodi.log_exception("could not render the source list")
 
         self.setProperty("pinky.sources.status", _status(entries, self.showing_all, self.meta))
-        self.setProperty("pinky.sources.toggle",
-                         kodi.localize(32342 if self.showing_all else 32341))
+        self._paint_toggle()
 
     def _choose(self):
         entries = self._visible()
@@ -126,6 +162,16 @@ class SourcesWindow(xbmcgui.WindowXML):
         if 0 <= position < len(entries):
             self.chosen = entries[position]
             self.close()
+
+
+def _identity(source):
+    """What makes two rows the same release: the infohash where there is one.
+
+    Falling back to the name rather than comparing the objects, because the
+    first page is built from `full` through the outlook split and a row there
+    may be a copy of the one in `full` rather than the same dict.
+    """
+    return (source.get("hash") or "").lower() or (source.get("title") or "")
 
 
 def _list_item(source, outlook=None):

@@ -160,7 +160,11 @@
                  and then its opposite - "show all sources" going one way,
                  "show only the best" coming back - and the second is the
                  longer of the two. At 260 it read "...ג את הטובים בלבד". -->
+            <!-- Gone when there is nothing behind it. On a title whose every
+                 release is on the first page the button had nothing to show,
+                 and a grouplist skips a hidden child, so nothing is stranded. -->
             <control type="button" id="9020">
+                <visible>!String.IsEmpty(Window.Property(pinky.sources.more))</visible>
                 <width>340</width>
                 <height>56</height>
                 <font>font13</font>

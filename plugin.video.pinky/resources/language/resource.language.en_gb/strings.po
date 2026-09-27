@@ -369,7 +369,7 @@ msgid "Search again"
 msgstr ""
 
 msgctxt "#32341"
-msgid "Show all sources"
+msgid "%d more sources"
 msgstr ""
 
 msgctxt "#32342"

@@ -15,7 +15,12 @@ from pinky.ui import sources_window
 
 
 def source(title, **kwargs):
-    entry = {"title": title, "hash": "a" * 40, "provider": "torrentio",
+    # A hash per title. They all used to be "a" * 40, which is what three
+    # copies of one torrent look like - and the picker now merges those.
+    import hashlib
+    entry = {"title": title,
+             "hash": hashlib.sha1(title.encode("utf-8")).hexdigest(),
+             "provider": "torrentio",
              "providers": ["torrentio"], "quality": "1080p",
              "size": 8 * 1024 ** 3, "seeders": 42, "languages": [],
              "hdr": [], "audio": "unknown", "cached": False, "cached_by": ""}
@@ -31,7 +36,8 @@ PLAIN = source("Film.2024.720p.WEB-DL-OTHER", quality="720p")
 def picker():
     window = sources_window.SourcesWindow()
     window.short = [CACHED, PLAIN]
-    window.full = [CACHED, PLAIN, source("Film.2024.2160p-THIRD")]
+    THIRD = source("Film.2024.2160p-THIRD")
+    window.full = [CACHED, PLAIN, THIRD]
     window.meta = {"type": "movie", "title": "Film", "year": 2024}
     window.prepare()
     window.onInit()
@@ -199,10 +205,38 @@ def test_an_episode_heading_says_which_episode():
     assert "2x05" in heading
 
 
-def test_showing_all_switches_the_list(picker):
+def test_showing_all_shows_what_the_first_page_did_not(picker):
+    """It used to show the whole list, which begins with the rows already on
+    the screen. Measured on Toy Story 5: nine of the first ten were the same
+    release in the same order, so the press changed nothing anybody could
+    see."""
     assert picker.getControl(sources_window.LIST_SOURCES).size() == 2
     picker.onClick(sources_window.BUTTON_TOGGLE)
-    assert picker.getControl(sources_window.LIST_SOURCES).size() == 3
+
+    control = picker.getControl(sources_window.LIST_SOURCES)
+    assert control.size() == 1, "only the one the first page left out"
+    assert control.getListItem(0).getLabel() == "Film.2024.2160p-THIRD"
+
+
+def test_the_button_names_how_many_are_behind_it(picker):
+    assert "1" in picker.getProperty("pinky.sources.toggle")
+
+
+def test_the_button_is_hidden_when_it_would_show_nothing():
+    """A button that says "show all sources" with everything already on screen
+    is one the viewer presses to discover it does nothing."""
+    window = sources_window.SourcesWindow()
+    window.short = [CACHED, PLAIN]
+    window.full = [CACHED, PLAIN]
+    window.meta = {"type": "movie", "title": "Film", "year": 2024}
+    window.prepare()
+
+    assert window.getProperty("pinky.sources.more") == ""
+
+
+def test_the_way_back_is_not_hidden_by_the_press_that_got_you_there(picker):
+    picker.onClick(sources_window.BUTTON_TOGGLE)
+    assert picker.getProperty("pinky.sources.more"), "no way back to the top"
 
 
 def test_choosing_a_row_returns_that_source(picker):
