@@ -726,10 +726,13 @@
             <texturefocus border="2">special://home/addons/plugin.video.pinky/resources/media/button-focus.png</texturefocus>
             <texturenofocus border="2">special://home/addons/plugin.video.pinky/resources/media/button.png</texturenofocus>
         </control>
+        <!-- 300, not 196. "Speak from your phone" is four words and was
+             drawn as "Speak from ...", which names neither what it does nor
+             where. The row has the space: the key grid ends at 646. -->
         <control type="button" id="3905">
             <left>494</left>
             <top>588</top>
-            <width>196</width>
+            <width>300</width>
             <height>62</height>
             <onleft>3904</onleft>
             <onright>5100</onright>

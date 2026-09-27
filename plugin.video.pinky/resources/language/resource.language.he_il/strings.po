@@ -1578,8 +1578,8 @@ msgid "השוואת כתוביות לפני הבחירה"
 msgstr ""
 
 msgctxt "#32522"
-msgid "Speak from your phone"
-msgstr "דברו מהטלפון"
+msgid "Speak"
+msgstr "דברו"
 
 msgctxt "#32523"
 msgid "Search by voice"

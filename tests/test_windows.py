@@ -374,10 +374,18 @@ def test_search_starts_with_recent_queries(search):
     assert control.items[0].getLabel() == "dune"
 
 
-def test_the_key_grid_is_labelled_for_the_current_charset(search):
+def test_the_switch_reaches_the_other_alphabet_in_one_press(search):
+    """It used to be a fixed cycle - Hebrew, Latin, digits - so the first
+    press from Latin opened the number pad. An English interface over a
+    Hebrew catalogue, which is this household, pressed twice to type a
+    Hebrew title while the button said "123"."""
     assert search.getProperty("pinky.key0") == "a"
     search.onClick(search_window.BUTTON_CHARSET)
-    assert search.getProperty("pinky.key0") == "0", "expected digits"
+    assert search.getProperty("pinky.key0") == "א", "expected Hebrew"
+    search.onClick(search_window.BUTTON_CHARSET)
+    assert search.getProperty("pinky.key0") == "0", "then digits"
+    search.onClick(search_window.BUTTON_CHARSET)
+    assert search.getProperty("pinky.key0") == "a", "and back round"
     search.onClick(search_window.BUTTON_CHARSET)
     assert search.getProperty("pinky.key0") == u"א", "expected Hebrew alef"
 
@@ -1512,3 +1520,28 @@ def test_the_quit_watcher_stops_when_the_window_closes_normally(monkeypatch):
     stop.set()
     thread.join(2.0)
     assert not thread.is_alive(), "the watcher outlived its window"
+
+
+def test_the_search_history_survives_the_cache_being_cleared(settings_module):
+    """It was a cache row with a ninety day expiry, and the cache is
+    size-capped with LRU eviction - so a busy evening of artwork and source
+    lists could drop somebody's searches to make room. Everything else in
+    there can be fetched again; this is the only copy."""
+    from pinky import cache
+    from pinky.search import unified
+
+    unified.remember("hikaru no go")
+    unified.remember(u"רמזור")
+    cache.clear()
+
+    assert unified.recent()[:2] == [u"רמזור", "hikaru no go"]
+
+
+def test_a_repeated_search_moves_to_the_front_rather_than_doubling(settings_module):
+    from pinky.search import unified
+
+    unified.remember("black lagoon")
+    unified.remember("top gun")
+    unified.remember("BLACK LAGOON")
+    assert unified.recent()[0] == "BLACK LAGOON"
+    assert len([q for q in unified.recent() if q.lower() == "black lagoon"]) == 1

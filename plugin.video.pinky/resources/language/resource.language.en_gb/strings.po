@@ -1618,7 +1618,7 @@ msgid "Compare subtitles before choosing one"
 msgstr ""
 
 msgctxt "#32522"
-msgid "Speak from your phone"
+msgid "Speak"
 msgstr ""
 
 msgctxt "#32523"

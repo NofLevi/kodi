@@ -4,6 +4,8 @@ Search fans out to TMDB, AniList and the Israeli VOD index at the same time,
 under the shared worker cap. Results keep their source grouping so the UI can
 show "Movies / Shows / Anime / Israeli" without a second round trip.
 """
+import io
+
 from .. import cache, http, kodi
 from ..meta import items as meta_items
 
@@ -158,15 +160,48 @@ def invalidate_index():
     cache.delete(INDEX_KEY)
 
 
+def _history_path():
+    import os
+    from .. import kodi
+    return os.path.join(kodi.profile_path(), "searches.json")
+
+
 def recent():
-    return cache.get(RECENT_KEY) or []
+    """What was searched for before, newest first.
+
+    A file beside `bookmarks.json`, not a cache row. It was a cache row with
+    a ninety day expiry, and the cache is the wrong home for it twice over:
+    it is size-capped with LRU eviction, so a busy evening of artwork and
+    source lists can drop somebody's search history to make room, and
+    anything that clears the cache - a schema change, a tidy-up, a developer
+    testing - takes it with it. Everything else in the cache can be fetched
+    again. This cannot: it is the only copy.
+    """
+    import json
+    try:
+        with io.open(_history_path(), encoding="utf-8") as handle:
+            found = json.load(handle)
+    except (IOError, OSError, ValueError):
+        return []
+    if not isinstance(found, list):
+        return []
+    return [q for q in found if isinstance(q, str)][:RECENT_MAX]
 
 
 def remember(query):
     """Keep the last few searches so they show up as instant suggestions."""
+    import json
     query = (query or "").strip()
     if not query:
         return
     history = [q for q in recent() if q.lower() != query.lower()]
     history.insert(0, query)
-    cache.set(RECENT_KEY, history[:RECENT_MAX], 90 * 24 * 3600)
+    history = history[:RECENT_MAX]
+    try:
+        with io.open(_history_path(), "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(history, ensure_ascii=False))
+    except (IOError, OSError):
+        kodi.log_exception("could not keep the search history")
+    return history
+
+

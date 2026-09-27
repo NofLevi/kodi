@@ -32,9 +32,26 @@ nobody asked to act on would be the picker charging for being opened.
 from .. import kodi, http
 
 # Per release, because the answer is the torrent's and the torrent does not
-# change. Kept for the session rather than written down: it is a fact about
-# somebody's debrid account, not about the catalogue.
-_KNOWN = {}
+# change. Written down, not just held in memory: the background pass runs
+# inside a plugin invocation, and Kodi tears that down the moment the picker
+# closes - so what it learned died with it and the mark never appeared at
+# all. A month is safe because the contents of a torrent are fixed.
+_TTL = 30 * 24 * 3600
+
+
+def _key(info_hash):
+    from .. import cache
+    return cache.make_key("sources", "bundled", info_hash)
+
+
+def _remember(info_hash, languages):
+    from .. import cache
+    cache.set(_key(info_hash), languages, _TTL)
+
+
+def _recall(info_hash):
+    from .. import cache
+    return cache.get(_key(info_hash))
 
 SUBTITLE_EXTENSIONS = (".srt", ".ass", ".ssa", ".vtt", ".sub")
 
@@ -111,8 +128,9 @@ def annotate(sources):
         info_hash = (source.get("hash") or "").lower()
         if not info_hash or not source.get("cached"):
             continue
-        if info_hash in _KNOWN:
-            source["bundled_subs"] = _KNOWN[info_hash]
+        known = _recall(info_hash)
+        if known is not None:
+            source["bundled_subs"] = known
             continue
         asking.append((info_hash, source))
 
@@ -137,7 +155,7 @@ def _learn_later(asking):
         marked = 0
         for info_hash, _source in asking:
             languages = answers.get(info_hash) or []
-            _KNOWN[info_hash] = languages
+            _remember(info_hash, languages)
             marked += 1 if languages else 0
         if marked:
             kodi.log("%d of %d releases carry their own subtitles"
@@ -150,4 +168,5 @@ def _learn_later(asking):
 
 def forget():
     """Drop what is known, for a test or a changed account."""
-    _KNOWN.clear()
+    from .. import cache
+    cache.clear()

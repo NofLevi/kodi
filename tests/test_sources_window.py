@@ -376,7 +376,7 @@ def test_what_is_known_is_applied_at_once(monkeypatch, no_network):
     from pinky.sources import bundled
 
     bundled.forget()
-    bundled._KNOWN["d" * 40] = ["he", "en"]
+    bundled._remember("d" * 40, ["he", "en"])
     monkeypatch.setattr(bundled, "_learn_later",
                         lambda rows: (_ for _ in ()).throw(
                             AssertionError("asked about something already known")))
@@ -402,9 +402,40 @@ def test_the_background_pass_fills_what_the_draw_will_use(monkeypatch, no_networ
     bundled.forget()
     monkeypatch.setattr(bundled, "_ask", lambda source: ["he"])
     bundled._learn_later([("e" * 40, {"hash": "e" * 40, "cached": True})])
-    for _ in range(50):
-        if "e" * 40 in bundled._KNOWN:
+    import time
+    for _ in range(60):
+        if bundled._recall("e" * 40) is not None:
             break
-        import time
         time.sleep(0.05)
-    assert bundled._KNOWN.get("e" * 40) == ["he"]
+    assert bundled._recall("e" * 40) == ["he"],         "written down, because the invocation that learned it is already gone"
+
+
+def test_what_was_learned_outlives_the_invocation(monkeypatch, no_network):
+    """The background pass runs inside a plugin invocation, and Kodi tears
+    that down the moment the picker closes. Held in memory, everything it
+    learned died with it and the mark never appeared at all."""
+    from pinky.sources import bundled
+
+    bundled.forget()
+    bundled._remember("f" * 40, ["he"])
+
+    # A fresh dict would be empty here; the cache is not.
+    sources = [{"hash": "f" * 40, "cached": True}]
+    monkeypatch.setattr(bundled, "_learn_later",
+                        lambda rows: (_ for _ in ()).throw(
+                            AssertionError("asked about something written down")))
+    bundled.annotate(sources)
+    assert sources[0]["bundled_subs"] == ["he"]
+
+
+def test_an_empty_answer_is_remembered_too(monkeypatch, no_network):
+    """Otherwise every draw asks again about a release that carries nothing,
+    which is most of them."""
+    from pinky.sources import bundled
+
+    bundled.forget()
+    bundled._remember("g" * 40, [])
+    asked = []
+    monkeypatch.setattr(bundled, "_learn_later", lambda rows: asked.extend(rows))
+    bundled.annotate([{"hash": "g" * 40, "cached": True}])
+    assert asked == []

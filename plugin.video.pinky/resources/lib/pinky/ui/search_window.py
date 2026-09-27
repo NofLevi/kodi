@@ -109,6 +109,29 @@ def initial_charset():
         return LATIN
 
 
+def next_charset(current):
+    """Which set the switch moves to, from this one.
+
+    The other alphabet first, digits last, because the alphabets are what
+    somebody switches between and digits are what they reach for once a
+    month. It used to be a fixed cycle - Hebrew, Latin, digits - which meant
+    the *first* press from Latin opened the number pad: an English interface
+    over a Hebrew catalogue, which is this household, had to press twice to
+    type a Hebrew title and the button said "123" while they did it.
+
+    Asymmetric by nature: three sets on one button cannot give every pair a
+    single press. This spends the single press on the pair that gets used,
+    whichever alphabet the interface starts on.
+    """
+    start = initial_charset()
+    other = LATIN if start == HEBREW else HEBREW
+    if current == start:
+        return other
+    if current == other:
+        return DIGITS
+    return start
+
+
 def _typed_character(action):
     """The printable character an action carries, if this Kodi exposes one.
 
@@ -212,7 +235,7 @@ class SearchWindow(xbmcgui.WindowXML):
                 self._append(keys[index])
             return
         if control_id == BUTTON_CHARSET:
-            self.charset = (self.charset + 1) % len(CHARSETS)
+            self.charset = next_charset(self.charset)
             self._paint_keys()
         elif control_id == BUTTON_SPACE:
             self._append(" ")
@@ -254,8 +277,7 @@ class SearchWindow(xbmcgui.WindowXML):
         # The switch button names the set it will move to, not all three at
         # once. "ABC / Hebrew / 123" did not fit the button and was truncated
         # to "ABC / Hebr...", which named nothing useful.
-        self.setProperty("pinky.search.charset",
-                         CHARSET_NAMES[(self.charset + 1) % len(CHARSETS)])
+        self.setProperty("pinky.search.charset", CHARSET_NAMES[next_charset(self.charset)])
 
     def _append(self, char):
         self._set_text(self.text + char)
