@@ -34,6 +34,13 @@ SOURCES = [
     ("cam", r"\b(hdtc|hqcam|camrip|tsrip|pre-?hd|pre-?dvd|dvd-?scr|hdtelesync)\b"),
     ("cam", r"\b(eng|multi|hq|hd)[-_. ]?line\b"),
     ("cam", r"\bhq[-_. ]?pre\b"),
+    # A telesync that also says WEB.DL, which is a claim about where the
+    # sound came from rather than the picture. Measured on The Odyssey:
+    # `The-Odyssey-2026-1080p-TS-V2-WEB.DL-GP-M-NLsubs.mp4` was drawn in
+    # the picker with cam releases switched off, because bare `ts` sits
+    # below `web` in this table and `web` matched first. A versioned TS
+    # is unambiguous, where a bare "TS" can be a release group.
+    ("cam", r"\bts[-_. ]?v\d+\b"),
     ("bluray", r"\b(blu-?ray|bdrip|brrip|bdremux|remux|bd25|bd50)\b"),
     ("web", r"\b(web-?dl|webrip|web|amzn|nf|dsnp|hmax|atvp|hulu|itunes)\b"),
     ("hdtv", r"\b(hdtv|pdtv|dsr)\b"),
@@ -41,10 +48,17 @@ SOURCES = [
     ("cam", r"\b(cam|camrip|ts|telesync|tc|telecine|hdts|hdcam|scr|screener)\b"),
 ]
 
+# `h ?26x`, not `h\.?26x`. These are matched against a *normalised*
+# name and normalising flattens every separator to a space, so "H.264" -
+# which is how most releases write it - arrives as "h 264" and the
+# optional dot never matched. Measured:
+# `Silo.S01E01.1080p.WEB-DL.DDP5.1.H.264-NTb`, an entirely ordinary name,
+# parsed with no codec at all: a term the subtitle matcher cannot score
+# and a fact the HEVC filter cannot see.
 CODECS = [
     ("av1", r"\b(av1)\b"),
-    ("h265", r"\b(x265|h\.?265|hevc)\b"),
-    ("h264", r"\b(x264|h\.?264|avc)\b"),
+    ("h265", r"\b(x ?265|h ?265|hevc)\b"),
+    ("h264", r"\b(x ?264|h ?264|avc)\b"),
     ("xvid", r"\b(xvid|divx)\b"),
 ]
 

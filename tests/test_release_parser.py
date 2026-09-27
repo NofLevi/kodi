@@ -317,3 +317,46 @@ def test_the_picker_says_which_one_it_is():
     assert "DUB" in model.label(dubbed)
     assert "SUB" in model.label(subbed)
     assert model.label(dubbed) != model.label(subbed)
+
+
+# --------------------------------------------------------------------------
+# patterns matched against a name whose separators are already spaces
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name,codec", [
+    # "H.264" is how most releases write it, and `normalise` flattens the dot
+    # to a space before any pattern runs - so `h\.?264` never matched and an
+    # entirely ordinary name parsed with no codec at all. That is a term the
+    # subtitle matcher cannot score and a fact the HEVC filter cannot see.
+    ("Silo.S01E01.1080p.WEB-DL.DDP5.1.H.264-NTb", "h264"),
+    ("The.Odyssey.2026.1080p.AMZN.WEB-DL.DDP5.1.H.264-BYNDR", "h264"),
+    ("Movie.2024.2160p.WEB-DL.H.265-GRP", "h265"),
+    ("Movie.2024.1080p.BluRay.x264-GRP", "h264"),
+    ("Movie.2024.1080p.BluRay.x265-RARBG", "h265"),
+    ("Movie 2024 1080p WEB-DL AVC-GRP", "h264"),
+    ("Movie.2024.1080p.WEB-DL.AV1-GRP", "av1"),
+    ("Movie.2024.1080p.WEB-DL-GRP", "unknown"),
+    # A number that happens to be 264 or 265 is not a codec.
+    ("Ocean's 265 Heist 2024 1080p BluRay-GRP", "unknown"),
+])
+def test_the_codec_survives_normalisation(name, codec):
+    from pinky.utils import release
+
+    assert release.parse(name)["codec"] == codec
+
+
+@pytest.mark.parametrize("name,source", [
+    # A telesync that also says WEB.DL - a claim about where the sound came
+    # from, not the picture. It was drawn in the picker with cam releases
+    # switched off, because bare `ts` sits below `web` in the table.
+    ("The-Odyssey-2026-1080p-TS-V2-WEB.DL-GP-M-NLsubs.mp4", "cam"),
+    ("Film.2026.1080p.TS.V3.WEB-DL.x264", "cam"),
+    # A bare "TS" can be a release group, so it stays where it was.
+    ("Film.2024.1080p.BluRay.x264-TS", "bluray"),
+    ("Film.2024.1080p.WEB-DL.x264-TSV", "web"),
+])
+def test_a_versioned_telesync_is_a_cam(name, source):
+    from pinky.utils import release
+
+    assert release.parse(name)["source"] == source
