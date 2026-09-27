@@ -1740,3 +1740,15 @@ msgstr ""
 msgctxt "#32546"
 msgid "A translation is already running"
 msgstr ""
+
+msgctxt "#32547"
+msgid "Looking for %s subtitles"
+msgstr ""
+
+msgctxt "#32548"
+msgid "Downloading: %s"
+msgstr ""
+
+msgctxt "#32549"
+msgid "Translating with AI, this takes a while"
+msgstr ""

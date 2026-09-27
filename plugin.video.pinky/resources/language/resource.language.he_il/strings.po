@@ -1700,3 +1700,15 @@ msgstr "לא נמצאו מקורות. לצפות ב-%s דרך %s?"
 msgctxt "#32546"
 msgid "A translation is already running"
 msgstr "תרגום כבר רץ"
+
+msgctxt "#32547"
+msgid "Looking for %s subtitles"
+msgstr "מחפש כתוביות %s"
+
+msgctxt "#32548"
+msgid "Downloading: %s"
+msgstr "מוריד: %s"
+
+msgctxt "#32549"
+msgid "Translating with AI, this takes a while"
+msgstr "מתרגם באמצעות AI, זה לוקח זמן"

@@ -100,64 +100,49 @@ def translation_source_languages(meta, already=()):
     if original in FOREIGN_SOURCE_LANGUAGES and original not in wanted:
         wanted.append(original)
     return [code for code in wanted if code not in already]
-# Languages asked for purely as a clock, ordered by measured coverage rather
-# than by preference: nobody is going to read these, they exist so that two
-# independent timelines can be compared.
-#
-# It was ("en", "es"), and with `subs.languages` set to he,en that left
-# exactly one language to ask for - Spanish. `consensus.timeline_reference`
-# needs **two** agreeing non-target languages before it will call a timeline
-# proved, so the cross-language proof could never run at all. It was one
-# language short by construction, and the `missing[:1]` below made sure of it.
-#
-# Arabic leads because it is the widest, which is also why it leads the
-# translation sources. Measured over five titles: ar 32, en 29, pl 26, es 20,
-# ru 20, fr 18. And over eight anime episodes, seven had candidates in three
-# or more of these - so the proof is reachable for anime, which is where the
-# timing is least trustworthy and a hash almost never exists.
-TIMING_EVIDENCE_LANGUAGES = ("ar", "es", "pl", "fr", "ru")
-
-# Two would be the minimum that can agree; three gives the proof somewhere to
-# go when one of them comes back empty, which for anime is common.
-EVIDENCE_LANGUAGES_ASKED = 3
-
-
 def search_timing_evidence(meta, languages, video_hash=""):
     """Independent timelines to check the chosen subtitle against.
 
-    Only ever asked when `consensus.wanted` says there is nothing better -
-    no hash, and a name that is not an identity - so this costs nothing on a
-    title that is already settled.
+    One request, every language. It used to be one request *per* language out
+    of a short list, and that was wrong twice over: five requests against a
+    host that rate-limits, and it still missed the languages nobody had put
+    on the list. Dropping the language filter returns them all at once -
+    Hikaru no Go 1x33 three, Black Lagoon 1x04 seventeen, Naruto 1x27
+    twenty-three - and the ones it adds are exactly the ones that were
+    deliberately excluded elsewhere.
 
-    The primary search has already completed before this runs, so a slow
-    evidence request can be dropped without losing a usable Hebrew result.
-    Hash search is deliberately omitted: these are cheap title queries, while
-    the primary languages already used the hash.
+    That exclusion was right for its own purpose and wrong here. Japanese,
+    Korean and Chinese are kept out of `AI_SOURCE_LANGUAGES` because they
+    drop the subject and leave the model guessing gender. None of that
+    applies to a clock: a Chinese subtitle says when somebody speaks exactly
+    as well as an Arabic one. Hikaru no Go 2x03 is the case that proves it -
+    three subtitles exist in the world, the Chinese one is the third, and
+    without it there are only two and the proof is one short.
 
-    Two workers rather than three, against one host that has been seen to
-    rate-limit: the deadline can drop the third and the proof still has the
-    two it needs.
+    Only ever asked when `consensus.wanted` says there is nothing better, so
+    this costs nothing on a title that is already settled. The primary search
+    has completed by then, so a slow request is dropped rather than delaying
+    a usable result, and the hash is deliberately omitted: these are cheap
+    title queries and the primary search already used it.
     """
-    missing = [language for language in TIMING_EVIDENCE_LANGUAGES
-               if language not in languages][:EVIDENCE_LANGUAGES_ASKED]
-    if not missing:
-        return []
     from .providers import opensubtitles_rest
 
-    target = matcher.target_from(meta)
+    def search():
+        return opensubtitles_rest.search_any_language(
+            meta, matcher.target_from(meta))
 
-    def asking(code):
-        def search():
-            return opensubtitles_rest.search(meta, target, [code], "", 0)
-        return search
-
-    found = http.run_parallel([(code, asking(code)) for code in missing],
-                              workers=2, deadline=5.0)
-    evidence = []
-    for code in missing:
-        evidence.extend(found.get(code) or [])
+    found = http.run_parallel([("timing-evidence", search)], workers=1,
+                              deadline=5.0)
+    evidence = found.get("timing-evidence") or []
+    known = set(languages or [])
+    fresh = [candidate for candidate in evidence
+             if candidate.get("language") not in known]
+    if evidence:
+        kodi.log("timing evidence: %d files in %d languages, %d of them in "
+                 "languages nobody searched"
+                 % (len(evidence),
+                    len({c.get("language") for c in evidence}), len(fresh)))
     return evidence
-
 
 
 def _subs_mode(meta):
@@ -242,6 +227,7 @@ def on_playback_started(player, meta, cancelled=None):
         return
 
     kodi.log("looking for %s subtitles" % wanted)
+    kodi.notify(kodi.localize(32547, _language_name(wanted)))
 
     def embedded_track(code):
         return _embedded_track(code, player, generation, is_cancelled)
@@ -275,6 +261,12 @@ def on_playback_started(player, meta, cancelled=None):
 # uses. Keeping one implementation matters: two copies of "find the Hebrew
 # track in this file" would answer differently the moment either changed.
 # --------------------------------------------------------------------------
+
+
+def _language_name(code):
+    """"Hebrew" rather than "he", because this goes on a television."""
+    from .embedded import LANGUAGE_NAMES
+    return LANGUAGE_NAMES.get((code or "").lower(), (code or "").upper())
 
 
 def _readable_languages(languages):
@@ -742,6 +734,20 @@ def video_hash_for(meta):
     return value
 
 
+def announce_download(candidate):
+    """Say which subtitle is being fetched, while it is being fetched.
+
+    Every other Kodi subtitle add-on does this and it was the one thing
+    missing: the search, the download and the translation all happen behind a
+    playing film with nothing on screen, so a viewer with no subtitles cannot
+    tell a slow provider from a broken add-on and waits without knowing what
+    for. Only for a file meant to be shown - a timing reference or a clock is
+    machinery and announcing it would be noise.
+    """
+    name = (candidate or {}).get("release") or (candidate or {}).get("name") or ""
+    kodi.notify(kodi.localize(32548, name[:48]))
+
+
 def download_candidate(candidate, expect_language=None, outcome=None):
     """Fetch one subtitle and turn it into cues.
 
@@ -850,12 +856,14 @@ class _DownloadBudget(object):
         provider = candidate.get("provider") or ""
         return self.failed_by_provider.get(provider, 0) >= self.PROVIDER_FAILURES
 
-    def fetch(self, candidate, expect_language=None):
+    def fetch(self, candidate, expect_language=None, announce=False):
         key = self._key(candidate, expect_language)
         if key in self.cache:
             return self.cache[key]
         if self.remaining() <= 0 or self.exhausted(candidate):
             return []
+        if announce:
+            announce_download(candidate)
         outcome = {}
         cues = download_candidate(candidate, expect_language=expect_language,
                                   outcome=outcome)
@@ -902,7 +910,8 @@ def _first_usable(candidates, wanted, downloads, minimum_score=MIN_USABLE_SCORE,
             continue
         if skip and matcher.candidate_key(candidate) in skip:
             continue
-        cues = downloads.fetch(candidate, expect_language=wanted)
+        cues = downloads.fetch(candidate, expect_language=wanted,
+                               announce=True)
         if cues:
             return candidate, cues
         if downloads.remaining() <= 0:
@@ -1148,7 +1157,8 @@ def _verified_fallback(candidates, rejected, wanted, winners, languages,
                 or candidate.get("score", 0) < minimum_score
                 or downloads._key(candidate, wanted) == rejected_key):
             continue
-        cues = downloads.fetch(candidate, expect_language=wanted)
+        cues = downloads.fetch(candidate, expect_language=wanted,
+                               announce=True)
         if not cues:
             if downloads.remaining() <= 0:
                 break
@@ -1376,7 +1386,7 @@ def translate_fallback(meta, winners, languages, report, player=None,
     language, candidate = source
     if stopped():
         return "", report
-    cues = downloads.fetch(candidate)
+    cues = downloads.fetch(candidate, announce=True)
     if not cues:
         return "", report
     # The hash first, then two agreeing languages. Same reason as the picker's
@@ -1502,11 +1512,12 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
     for language, candidate in sources:
         if stopped():
             return ""
-        cues = downloads.fetch(candidate)
+        cues = downloads.fetch(candidate, announce=True)
         if not cues:
             continue
         kodi.log("translating the %s subtitle %r into %s"
                  % (language, (candidate.get("release") or "")[:60], target))
+        kodi.notify(kodi.localize(32549))
         cues = retimed_for_translation(
             cues, translation_reference(candidates, downloads, skip=candidate),
             language)

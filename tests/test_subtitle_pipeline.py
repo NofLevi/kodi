@@ -349,49 +349,46 @@ def test_automatic_search_keeps_primary_language_request_bounded(pipeline):
 
 
 
-def test_timing_evidence_asks_enough_languages_to_prove_a_timeline(
+def test_timing_evidence_is_one_request_for_every_language(
         monkeypatch, settings_module):
-    """Two agreeing non-target languages, or the proof cannot be made.
+    """Asking per language was five requests and still missed languages.
 
-    It used to ask for `missing[:1]` out of ("en", "es"), which with
-    subs.languages he,en is exactly one language - Spanish. Cross-language
-    verification needs *two* independent timelines to compare, so it could
-    never run: one short by construction.
-
-    Still bounded, which is the other half of the contract - it cannot become
-    six serial REST requests behind one deadline - and none of them carries
-    the hash, because the primary search already used it.
+    Dropping the filter returns them all at once, and the ones it adds are
+    the ones deliberately excluded elsewhere: Japanese, Korean and Chinese
+    are kept out of AI_SOURCE_LANGUAGES because they leave the model guessing
+    gender, which has nothing to do with when somebody speaks. Hikaru no Go
+    2x03 has three subtitles in the world and the Chinese one is the third.
     """
     from pinky.subs import auto
     from pinky.subs.providers import opensubtitles_rest
 
     calls = []
 
-    def search(meta, target, languages, video_hash="", video_size=0):
-        calls.append((list(languages), video_hash, video_size))
-        return []
+    def any_language(meta, target):
+        calls.append(target)
+        return [{"language": "zh", "release": "chinese", "evidence": True},
+                {"language": "pl", "release": "polish", "evidence": True}]
 
-    monkeypatch.setattr(opensubtitles_rest, "search", search)
-    auto.search_timing_evidence(MOVIE, ["he", "en"], "file-hash")
+    monkeypatch.setattr(opensubtitles_rest, "search_any_language", any_language)
+    found = auto.search_timing_evidence(MOVIE, ["he", "en"], "file-hash")
 
-    asked = [languages[0] for languages, _hash, _size in calls]
-    assert len(asked) == auto.EVIDENCE_LANGUAGES_ASKED
-    assert len(asked) >= 2, "one language can never agree with another"
-    assert "en" not in asked and "he" not in asked, "already searched"
-    assert all(video_hash == "" for _l, video_hash, _s in calls)
-    assert asked[0] == "ar", "widest coverage first"
+    assert len(calls) == 1, "one request, not one per language"
+    assert {c["language"] for c in found} == {"zh", "pl"}
 
 
-def test_timing_evidence_is_skipped_when_it_has_nothing_to_add(
-        monkeypatch, settings_module):
-    """A viewer who already reads all of them needs no extra request."""
-    from pinky.subs import auto
-    from pinky.subs.providers import opensubtitles_rest
+def test_a_clock_is_never_translated_from(settings_module):
+    """The language-less query returns whatever the episode has.
 
-    monkeypatch.setattr(opensubtitles_rest, "search",
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("asked")))
-    assert auto.search_timing_evidence(
-        MOVIE, ["he"] + list(auto.TIMING_EVIDENCE_LANGUAGES), "") == []
+    That is what makes it a good ruler and exactly what nobody wants
+    translated into Hebrew on their behalf.
+    """
+    from pinky.subs.ai import context
+
+    clock = {"language": "vi", "release": "vietnamese", "score": 90,
+             "evidence": True}
+    readable = {"language": "en", "release": "english", "score": 40}
+    ranked = context.rank_translation_candidates([clock, readable], "he")
+    assert [language for language, _c in ranked] == ["en"]
 
 
 def test_two_other_languages_verify_and_retime_the_requested_subtitle(
@@ -1187,3 +1184,46 @@ def test_a_forced_track_is_recognised_in_its_own_language():
         assert embedded.is_partial(name), name
     for name in ("English", "English (Full)", "Hebrew", "Dialogue"):
         assert not embedded.is_partial(name), name
+
+
+# --------------------------------------------------------------------------
+# saying what is happening while it happens
+# --------------------------------------------------------------------------
+
+
+def test_a_subtitle_meant_for_the_screen_is_announced(monkeypatch):
+    """The search, the download and the translation all happen behind a
+    playing film. Without this a viewer with no subtitles cannot tell a slow
+    provider from a broken add-on, and waits without knowing what for."""
+    from pinky import kodi
+    from pinky.subs import auto
+
+    said = []
+    monkeypatch.setattr(kodi, "notify", lambda message, *a, **k: said.append(message))
+    monkeypatch.setattr(auto, "download_candidate", lambda *a, **k: ["cue"])
+
+    budget = auto._DownloadBudget(3)
+    budget.fetch({"release": "Some.Release.1080p", "provider": "p"}, announce=True)
+    assert any("Some.Release.1080p" in line for line in said), said
+
+
+def test_a_timing_reference_is_not_announced(monkeypatch):
+    """A clock is machinery. Announcing it would be noise about a file the
+    viewer will never see."""
+    from pinky import kodi
+    from pinky.subs import auto
+
+    said = []
+    monkeypatch.setattr(kodi, "notify", lambda message, *a, **k: said.append(message))
+    monkeypatch.setattr(auto, "download_candidate", lambda *a, **k: ["cue"])
+
+    budget = auto._DownloadBudget(3)
+    budget.fetch({"release": "a-clock", "provider": "p"})
+    assert said == []
+
+
+def test_the_language_is_named_for_a_person():
+    from pinky.subs import auto
+    assert auto._language_name("he") == "Hebrew"
+    assert auto._language_name("en") == "English"
+    assert auto._language_name("zz") == "ZZ", "never a bare code lowercased"

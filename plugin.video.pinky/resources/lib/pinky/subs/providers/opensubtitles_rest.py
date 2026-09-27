@@ -54,9 +54,67 @@ THREE_LETTER = {
 
 MAX_PER_LANGUAGE = 12
 
+# The reverse of THREE_LETTER, for a query that asks for no language at all
+# and has to read each row's own.
+TWO_LETTER = dict((three, two) for two, three in THREE_LETTER.items())
+
+# A clock needs two independent timelines, not a library. Two rows per
+# language is enough to find an independent pair and keeps a popular title -
+# Naruto answers a language-less query with a hundred rows in twenty-three
+# languages - from becoming a hundred parsed subtitles on a projector.
+EVIDENCE_PER_LANGUAGE = 2
+MAX_EVIDENCE = 12
+
 
 def supports(language):
     return language in THREE_LETTER
+
+
+def search_any_language(meta, target):
+    """Every language this episode has, in one request, purely as a clock.
+
+    Asking per language is what the rest of this file does, and for timing
+    evidence it is the wrong shape: five languages is five requests against a
+    host that rate-limits, and it still misses the ones nobody thought to
+    list. Dropping `sublanguageid` returns them all at once - measured on 27
+    September 2026: Hikaru no Go 1x33 answers with three languages, Black
+    Lagoon 1x04 with seventeen, Naruto 1x27 with twenty-three, each in a
+    single request.
+
+    That matters because a language which is a poor *translation* source is
+    a perfectly good *clock*. Japanese, Korean and Chinese are kept out of
+    `AI_SOURCE_LANGUAGES` because they drop the subject and leave the model
+    guessing gender, which has nothing whatever to do with when somebody
+    speaks. Hikaru no Go 2x03 is the case: three subtitles exist in the
+    world, and the Chinese one is the third - without it there are only two
+    and the cross-language proof is one short.
+
+    Every row is marked `evidence`, because these are a ruler and not a
+    subtitle: nothing may translate from them or put them on screen.
+    """
+    numberings = common.episode_numberings(meta) or [None]
+    rows = []
+    for numbering in numberings:
+        asked = meta if numbering is None else dict(
+            meta, season=numbering[0], episode=numbering[1])
+        rows.extend(_search_one(asked, None, None))
+        if rows:
+            break
+
+    per_language = {}
+    evidence = []
+    for candidate in rows:
+        language = candidate.get("language") or ""
+        if not language:
+            continue
+        if per_language.get(language, 0) >= EVIDENCE_PER_LANGUAGE:
+            continue
+        per_language[language] = per_language.get(language, 0) + 1
+        candidate["evidence"] = True
+        evidence.append(candidate)
+        if len(evidence) >= MAX_EVIDENCE:
+            break
+    return evidence
 
 
 def search(meta, target, languages, video_hash="", video_size=0):
@@ -151,7 +209,8 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
     if meta.get("type") == "episode":
         parts.append("episode-%d" % int(meta.get("episode") or 1))
         parts.append("season-%d" % int(meta.get("season") or 1))
-    parts.append("sublanguageid-%s" % code)
+    if code:
+        parts.append("sublanguageid-%s" % code)
 
     if imdb:
         found = _fetch(meta, language, parts + ["imdbid-%s" % imdb])
@@ -223,8 +282,13 @@ def _fetch(meta, language, parts, hash_query=False, video_size=0,
                           == int(video_size))
         except (TypeError, ValueError):
             exact_size = False
+        row_language = language or TWO_LETTER.get(
+            str(entry.get("SubLanguageID") or "").strip().lower(),
+            str(entry.get("SubLanguageID") or "").strip().lower())
+        if not row_language:
+            continue
         results.append(common.candidate(
-            NAME, language,
+            NAME, row_language,
             entry.get("MovieReleaseName") or entry.get("SubFileName") or "",
             link,
             downloads=_number(entry.get("SubDownloadsCnt")),

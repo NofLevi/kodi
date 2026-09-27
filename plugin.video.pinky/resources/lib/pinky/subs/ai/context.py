@@ -134,6 +134,12 @@ def rank_translation_candidates(candidates, target):
         language = candidate.get("language", "")
         if not language or language == target:
             continue
+        if candidate.get("evidence"):
+            # A clock, not a subtitle. The language-less timing query returns
+            # whatever the episode has - Vietnamese, Indonesian, Persian -
+            # which is exactly what makes it a good ruler and exactly what
+            # nobody wants translated into Hebrew on their behalf.
+            continue
         identity = matcher.candidate_key(candidate, language)
         if identity and identity in seen:
             continue
