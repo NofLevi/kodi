@@ -546,3 +546,23 @@ def test_no_hebrew_is_not_a_dead_end_while_ai_can_translate(monkeypatch):
         [dict(CACHED, subs_mode="llm", subs_fit=100)],
         {"type": "episode", "title": "Attack on Titan", "year": 2013})
     assert note == kodi.localize(32555)
+
+
+def test_hebrew_for_another_show_does_not_count_as_hebrew(monkeypatch):
+    """On The Odyssey all twelve Hebrew candidates were for other shows -
+    Doctor Odyssey, The Odyssey 1997, The Simpsons - and every one scored zero
+    as the wrong title. The line then read "Hebrew subtitles exist but none
+    fits these releases", which is a statement about the wrong twelve files."""
+    from pinky import kodi
+    from pinky.subs import outlook
+
+    monkeypatch.setattr(outlook, "candidates", lambda meta, **k: [
+        {"language": "he", "release": "Doctor.Odyssey.S01E18.1080p.WEB-DL"},
+        {"language": "he", "release": "The.Simpsons.S01E03.1080p.DSNP.WEB-DL"},
+    ])
+    note = sources_window._hebrew_note(
+        [dict(CACHED, subs_mode="llm", subs_fit=66)],
+        {"type": "movie", "title": "The Odyssey", "year": 2026})
+
+    assert note == kodi.localize(32555), \
+        "candidates for other shows are not Hebrew for this film"

@@ -559,3 +559,79 @@ def test_without_an_anime_address_everything_is_asked_once(monkeypatch):
     aggregator._run_providers([("a", Provider()), ("b", Provider())],
                               {"type": "episode", "episode": 3}, quiet=True)
     assert asked == [3, 3]
+
+
+# --------------------------------------------------------------------------
+# a deadline is not an answer
+# --------------------------------------------------------------------------
+
+
+def test_nothing_plus_a_provider_still_working_is_asked_again(monkeypatch,
+                                                              settings_module):
+    """Measured on Mortal Kombat II: TorrentsDB was cooling down after a 429
+    and Comet and MediaFusion refused for want of configuration, so Torrentio
+    was the only provider that could answer and it was cut off at ten
+    seconds. The viewer was told "no playable sources found" for a film that
+    has 191. There is nothing else in flight to wait behind, so the second
+    ask costs a viewer who was about to be told no."""
+    from pinky.sources import aggregator
+
+    calls = []
+
+    def fake_run(providers, meta, quiet=False, also=None, dropped=None,
+                 deadline=None):
+        calls.append(deadline)
+        if len(calls) == 1:
+            if dropped is not None:
+                dropped.append("torrentio")
+            return []
+        return [{"title": "Film.2026.1080p.WEB-DL-GRP", "hash": "a" * 40,
+                 "provider": "torrentio", "quality": "1080p", "seeders": 9,
+                 "size": 2 * 1024 ** 3}]
+
+    monkeypatch.setattr(aggregator, "_run_providers", fake_run)
+    monkeypatch.setattr(aggregator, "_check_debrid_cache", lambda merged: None)
+    monkeypatch.setattr(aggregator, "_apply_subtitles", lambda merged, meta: None)
+
+    found = aggregator.find(META, force=True)
+    assert len(calls) == 2, "it gave up on the first deadline"
+    assert calls[1] == aggregator._PATIENT_DEADLINE
+    assert found, "the second ask found what the first never waited for"
+
+
+def test_a_deadline_is_not_remembered_as_no_sources(monkeypatch, settings_module):
+    """Five minutes of "no sources" for a film that has them is the same
+    failure twice."""
+    from pinky import cache
+    from pinky.sources import aggregator
+
+    def fake_run(providers, meta, quiet=False, also=None, dropped=None,
+                 deadline=None):
+        if dropped is not None:
+            dropped.append("torrentio")
+        return []
+
+    monkeypatch.setattr(aggregator, "_run_providers", fake_run)
+    written = []
+    monkeypatch.setattr(cache, "volatile_set",
+                        lambda key, value, ttl: written.append((key, value)))
+
+    assert aggregator.find(META, force=True) == []
+    assert not any(value == [] for _key, value in written), \
+        "a timeout was cached as though it were an answer"
+
+
+def test_a_genuine_blank_is_still_remembered(monkeypatch, settings_module):
+    """Nothing dropped means every provider answered and answered nothing,
+    which is worth not asking again for five minutes."""
+    from pinky import cache
+    from pinky.sources import aggregator
+
+    monkeypatch.setattr(aggregator, "_run_providers",
+                        lambda *a, **k: [])
+    written = []
+    monkeypatch.setattr(cache, "volatile_set",
+                        lambda key, value, ttl: written.append((key, value)))
+
+    assert aggregator.find(META, force=True) == []
+    assert any(value == [] for _key, value in written)

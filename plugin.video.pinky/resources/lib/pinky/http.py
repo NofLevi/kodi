@@ -430,7 +430,7 @@ def _host(url):
 # --------------------------------------------------------------------------
 
 
-def run_parallel(tasks, workers=4, deadline=12.0, on_result=None):
+def run_parallel(tasks, workers=4, deadline=12.0, on_result=None, dropped=None):
     """Run a batch on the process-wide bounded executor until its deadline."""
     tasks = list(tasks)
     if not tasks:
@@ -484,6 +484,11 @@ def run_parallel(tasks, workers=4, deadline=12.0, on_result=None):
         unfinished = list(pending.values())
         kodi.log("deadline hit after %.1fs, dropped: %s"
                  % (time.time() - started, ", ".join(unfinished)))
+        if dropped is not None:
+            # The caller may need to tell "nothing came back" from "we stopped
+            # waiting", which are different answers and deserve different
+            # treatment.
+            dropped.extend(unfinished)
         for future in pending:
             future.cancel()
     return results

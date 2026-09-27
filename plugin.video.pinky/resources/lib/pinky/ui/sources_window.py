@@ -428,6 +428,16 @@ def _hebrew_note(entries, meta):
         if auto.normalise_language(meta.get("original_language")) == "he":
             return ""
         found = outlook.candidates(meta)
+        if found:
+            # Only the ones that are for *this* title. `candidates` returns
+            # whatever the providers answered, and on The Odyssey all twelve
+            # were for other shows - Doctor Odyssey, The Odyssey 1997, The
+            # Simpsons - every one of them scored zero as the wrong title. The
+            # line then read "Hebrew subtitles exist but none fits these
+            # releases", which is a statement about the wrong twelve files.
+            from ..subs import matcher
+            target = matcher.target_from(meta)
+            found = [c for c in found if matcher.rate(c, target)[0] > 0]
     except Exception:
         return ""
     if found is None:

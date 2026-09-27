@@ -22,6 +22,12 @@ from . import model, scoring
 TTL_RESULTS = 20 * 60          # a source list stays useful for a short while
 TTL_EMPTY = 5 * 60             # remember failures briefly, but not for long
 
+# The second ask, when the first came back with nothing and a provider was
+# still working. Longer than the ordinary deadline because there is nothing
+# queued behind it - the whole point of the ten second rule is that somebody
+# is waiting on the *other* providers, and by here there are none.
+_PATIENT_DEADLINE = 25
+
 # Providers that only make sense for anime, and are skipped otherwise.
 ANIME_PROVIDERS = ("nyaa", "animetosho")
 
@@ -123,8 +129,30 @@ def _ranked(meta, prefetch=False, force=False):
     # Together rather than one after the other, because two rounds is two
     # deadlines and the viewer waits through both: measured on Bleach 2x46 at
     # 3598 ms against 904 ms for a series needing only one address.
+    dropped = []
     raw = _run_providers(providers, meta, quiet=prefetch,
-                         also=_anime_address(meta, "arc"))
+                         also=_anime_address(meta, "arc"), dropped=dropped)
+
+    if not raw and dropped:
+        # Nothing came back and somebody was still working: that is "we
+        # stopped waiting", not "there is nothing". Measured on Mortal Kombat
+        # II - TorrentsDB was cooling down after a 429 and Comet and
+        # MediaFusion refused for want of configuration, so Torrentio was the
+        # only provider that could answer and it was cut off at ten seconds.
+        # The viewer was told "no playable sources found" for a film with
+        # plenty.
+        #
+        # Asked once more, and only in this case: there is nothing else in
+        # flight to wait behind, so the second deadline costs a viewer who was
+        # about to be told no.
+        kodi.log("nothing came back and %s was still working, so asking again"
+                 % ", ".join(dropped))
+        retry = [(name, module) for name, module in providers
+                 if name in set(dropped)]
+        if retry:
+            raw = _run_providers(retry, meta, quiet=prefetch,
+                                 also=_anime_address(meta, "arc"),
+                                 deadline=_PATIENT_DEADLINE)
 
     if not raw:
         # The plain shape, where TMDB's address usually works and paying for a
@@ -135,6 +163,12 @@ def _ranked(meta, prefetch=False, force=False):
             raw = _run_providers(_by_id(providers), season, quiet=prefetch)
 
     if not raw:
+        if dropped:
+            # Do not remember a deadline as an answer. Five minutes of "no
+            # sources" for a film that has them is the same failure twice.
+            kodi.log("no sources, but %s never answered - not remembering it"
+                     % ", ".join(dropped))
+            return []
         cache.volatile_set(key, [], TTL_EMPTY)
         return []
 
@@ -234,7 +268,8 @@ def _by_id(providers):
             if not getattr(module, "BY_NAME", False)]
 
 
-def _run_providers(providers, meta, quiet=False, also=None):
+def _run_providers(providers, meta, quiet=False, also=None, dropped=None,
+                   deadline=None):
     """Fan out under the shared cap, showing progress unless prefetching.
 
     `also` is a second description of the same episode - the anime address -
@@ -244,7 +279,8 @@ def _run_providers(providers, meta, quiet=False, also=None):
     wall clock.
     """
     workers = max(1, settings.get_int("sources.workers"))
-    deadline = max(4, settings.get_int("sources.timeout"))
+    if deadline is None:
+        deadline = max(4, settings.get_int("sources.timeout"))
 
     progress = None
     if not quiet:
@@ -282,7 +318,7 @@ def _run_providers(providers, meta, quiet=False, also=None):
 
     try:
         http.run_parallel(tasks, workers=workers, deadline=deadline,
-                          on_result=on_result)
+                          on_result=on_result, dropped=dropped)
     finally:
         if progress is not None:
             progress.close()
