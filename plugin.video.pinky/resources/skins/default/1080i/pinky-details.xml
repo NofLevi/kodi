@@ -148,8 +148,8 @@
                  cursor stays where the viewer left it - and on a vertical
                  list neither of them does anything else, so nothing is
                  taken away by using them. -->
-            <onright>9101</onright>
-            <onleft>9101</onleft>
+            <onright>9100</onright>
+            <onleft>9100</onleft>
             <orientation>vertical</orientation>
             <scrolltime tween="sine">180</scrolltime>
             <preloaditems>2</preloaditems>

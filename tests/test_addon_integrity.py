@@ -821,3 +821,38 @@ def test_the_screen_shows_the_version_kodi_installed():
     skin = open(os.path.join(SKIN_DIR, "pinky-home.xml"), encoding="utf-8").read()
     assert "Window.Property(pinky.version)" in skin, \
         "the home skin no longer draws the version"
+
+
+def test_no_window_navigates_to_a_control_that_does_not_exist():
+    """Kodi derives navigation only inside a list or grouplist, so for
+    absolutely positioned controls whatever the skin declares is all there is.
+    A dangling id is silently nothing: the key does not move, and the only
+    symptom is a direction that "does not work".
+
+    It had already happened. The details window's episode list pointed left
+    and right at 9101, the "Choose a source" button - deleted when autoplay
+    was removed. So the one press that was supposed to leave the list
+    sideways, keeping the cursor where the viewer left it, did nothing, and
+    the only way back to the buttons was pressing Up once per episode, which
+    walks the selection up with it. That is the exact bug the onleft/onright
+    were added to fix, undone by a change three screens away.
+    """
+    import xml.etree.ElementTree as ET
+
+    skins = SKIN_DIR
+    dangling = []
+    for name in sorted(os.listdir(skins)):
+        if not name.endswith(".xml"):
+            continue
+        root = ET.parse(os.path.join(skins, name)).getroot()
+        ids = set(c.get("id") for c in root.iter("control") if c.get("id"))
+        for control in root.iter("control"):
+            for nav in ("onup", "ondown", "onleft", "onright", "onback"):
+                target = (control.findtext(nav) or "").strip()
+                if target.isdigit() and target not in ids:
+                    dangling.append("%s: control %s %s -> %s"
+                                    % (name, control.get("id") or "?", nav, target))
+        default = (root.findtext("defaultcontrol") or "").strip()
+        if default.isdigit() and default not in ids:
+            dangling.append("%s: defaultcontrol -> %s" % (name, default))
+    assert not dangling, "navigation to controls that do not exist: %s" % dangling
