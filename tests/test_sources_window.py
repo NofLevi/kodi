@@ -483,3 +483,51 @@ def test_the_plain_list_still_shows_a_release_once(picker):
     """Where there is no comparison to draw there is nothing to repeat."""
     rows = sources_window._plain([CACHED], [CACHED, PLAIN])
     assert [r["title"] for r in rows] == [CACHED["title"], PLAIN["title"]]
+
+
+def test_it_says_when_no_hebrew_subtitle_exists(monkeypatch):
+    """An empty NATIVE list reads exactly like a failed search, and the two
+    are different. Measured on The Odyssey (2026): OpenSubtitles holds 74
+    subtitles for it - Arabic 7, Greek 7, Albanian 6 - and none in Hebrew."""
+    from pinky import kodi
+    from pinky.subs import outlook
+
+    monkeypatch.setattr(outlook, "candidates", lambda meta, **k: [])
+    note = sources_window._hebrew_note(
+        [dict(CACHED, subs_mode="llm")],
+        {"type": "movie", "title": "The Odyssey", "year": 2026})
+    assert note == kodi.localize(32553)
+
+
+def test_it_says_when_hebrew_exists_but_fits_nothing(monkeypatch):
+    """A different answer pointing at a different remedy: choose another
+    release, or translate."""
+    from pinky import kodi
+    from pinky.subs import outlook
+
+    monkeypatch.setattr(outlook, "candidates",
+                        lambda meta, **k: [{"language": "he", "release": "Other"}])
+    note = sources_window._hebrew_note(
+        [dict(CACHED, subs_mode="llm")],
+        {"type": "movie", "title": "A Film", "year": 2024})
+    assert note == kodi.localize(32554)
+
+
+def test_a_hebrew_title_is_not_told_it_has_no_hebrew(monkeypatch):
+    """Its audio is Hebrew; the picker already says so and does not search."""
+    from pinky.subs import outlook
+
+    monkeypatch.setattr(outlook, "candidates", lambda meta, **k: [])
+    assert sources_window._hebrew_note(
+        [dict(CACHED, subs_mode="llm")],
+        {"type": "movie", "title": "Fauda", "original_language": "he"}) == ""
+
+
+def test_nothing_is_said_when_there_is_a_hebrew_row(monkeypatch):
+    from pinky.subs import outlook
+
+    monkeypatch.setattr(outlook, "candidates",
+                        lambda meta, **k: pytest.fail("asked with a native row up"))
+    assert sources_window._hebrew_note(
+        [dict(CACHED, subs_mode="native", subs_fit=100)],
+        {"type": "movie", "title": "Toy Story 5"}) == ""

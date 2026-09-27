@@ -1709,3 +1709,11 @@ msgctxt "#32552"
 msgid "The translation did not finish"
 msgstr "התרגום לא הושלם"
 
+msgctxt "#32553"
+msgid "No Hebrew subtitle exists for this title"
+msgstr "לא קיימת כתובית בעברית לכותר הזה"
+
+msgctxt "#32554"
+msgid "Hebrew subtitles exist but none fits these releases"
+msgstr "יש כתוביות בעברית אך אף אחת לא מתאימה למקורות האלה"
+

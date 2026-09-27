@@ -373,6 +373,9 @@ def _status(entries, meta=None):
         note = _why_hidden(entries, meta)
         if note:
             parts.append(note)
+        hebrew = _hebrew_note(entries, meta)
+        if hebrew:
+            parts.append(hebrew)
     return "   ".join(parts)
 
 
@@ -403,6 +406,33 @@ def _reason_label(reason):
         return reason           # a reason nobody has translated yet
     text = kodi.localize(string_id)
     return text if text and text != str(string_id) else reason
+
+
+def _hebrew_note(entries, meta):
+    """Say why there is no Hebrew block, because absent looks like broken.
+
+    An empty NATIVE list reads exactly like a failed search, and the two are
+    different things. Measured on The Odyssey (2026): OpenSubtitles holds 74
+    subtitles for it - Arabic 7, Greek 7, Albanian 6 - and **none in Hebrew**;
+    Ktuvit does not have the film; Wizdom answers nothing for its id. There
+    was no Hebrew subtitle to find, and nothing on the screen said so.
+
+    The other half matters too. When Hebrew exists but fits none of these
+    releases, that is a different answer and points at a different remedy -
+    choose another release, or translate.
+    """
+    if any(row.get("subs_mode") == "native" for row in entries):
+        return ""
+    try:
+        from ..subs import outlook, auto
+        if auto.normalise_language(meta.get("original_language")) == "he":
+            return ""
+        found = outlook.candidates(meta)
+    except Exception:
+        return ""
+    if found is None:
+        return ""
+    return kodi.localize(32553 if not found else 32554)
 
 
 def _why_hidden(entries, meta):
