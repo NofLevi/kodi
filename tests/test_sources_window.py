@@ -258,3 +258,75 @@ def test_no_dub_claim_adds_nothing():
 
     badge = sources_window._badge({"quality": "1080p", "dub": ""})
     assert badge == "1080P", badge
+
+
+# --------------------------------------------------------------------------
+# saying which release carries its own subtitles
+# --------------------------------------------------------------------------
+
+
+def test_a_release_that_ships_subtitles_says_so(settings_module):
+    """It is the best row on the page and looked like the seven either side.
+
+    A subtitle typed against that exact cut is in time by construction - no
+    hash, no correlation, no translation - and the picker had no way to say
+    which one it was.
+    """
+    from pinky.ui import sources_window
+
+    marked = sources_window._subtitle_badge(
+        {"title": "A.Release-GRP", "subs_mode": "native", "subs_fit": 99,
+         "bundled_subs": 1})
+    plain = sources_window._subtitle_badge(
+        {"title": "A.Release-GRP", "subs_mode": "native", "subs_fit": 99})
+    assert marked != plain
+    assert "SUBS IN FILE" in marked or "בקובץ" in marked
+
+
+def test_a_row_nobody_could_ask_about_looks_as_it_did(settings_module):
+    from pinky.ui import sources_window
+    assert sources_window._bundled_mark({"bundled_subs": 0}) == ""
+    assert sources_window._bundled_mark({}) == ""
+
+
+def test_only_cached_rows_are_asked_about(monkeypatch, no_network):
+    """`_find` adds a torrent that is not there and uncached adds are capped
+    at sixty an hour. Spending that to decorate a list nobody asked to act on
+    would be the picker charging for being opened."""
+    from pinky.sources import bundled
+
+    bundled.forget()
+    asked = []
+    monkeypatch.setattr(bundled, "_ask", lambda source: asked.append(source) or 1)
+
+    sources = [{"hash": "a" * 40, "cached": False},
+               {"hash": "b" * 40, "cached": True}]
+    bundled.annotate(sources)
+    assert [s["hash"] for s in asked] == ["b" * 40]
+    assert sources[1]["bundled_subs"] == 1
+    assert "bundled_subs" not in sources[0]
+
+
+def test_the_answer_is_remembered_per_release(monkeypatch, no_network):
+    from pinky.sources import bundled
+
+    bundled.forget()
+    calls = []
+    monkeypatch.setattr(bundled, "_ask", lambda source: calls.append(1) or 3)
+
+    first = [{"hash": "c" * 40, "cached": True}]
+    second = [{"hash": "c" * 40, "cached": True}]
+    bundled.annotate(first)
+    bundled.annotate(second)
+    assert len(calls) == 1, "the torrent does not change between two draws"
+    assert second[0]["bundled_subs"] == 3
+
+
+def test_only_the_rows_on_screen_are_asked_about(monkeypatch, no_network):
+    from pinky.sources import bundled
+
+    bundled.forget()
+    asked = []
+    monkeypatch.setattr(bundled, "_ask", lambda source: asked.append(1) or 0)
+    bundled.annotate([{"hash": "%040d" % n, "cached": True} for n in range(40)])
+    assert len(asked) == bundled.MAX_ROWS

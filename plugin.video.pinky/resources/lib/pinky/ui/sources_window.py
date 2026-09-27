@@ -87,6 +87,15 @@ class SourcesWindow(xbmcgui.WindowXML):
         blank toggle and an empty list, and nothing on screen said why.
         """
         entries = self._visible()
+        # Which of these ship their own subtitles, before the rows are built,
+        # because the mark is part of the row. One debrid lookup per cached
+        # row under a four second ceiling, answers remembered per infohash,
+        # and a row that does not answer is drawn exactly as it was before.
+        try:
+            from ..sources import bundled
+            bundled.annotate(entries)
+        except Exception:
+            kodi.log_exception("could not tell which releases carry subtitles")
         try:
             control = self.getControl(LIST_SOURCES)
             control.reset()
@@ -197,7 +206,7 @@ def _subtitle_badge(source, outlook=None):
 
     mode = source.get("subs_mode")
     if mode in MODE_COLOURS:
-        return _mode_line(source, mode)
+        return _bundled_mark(source) + _mode_line(source, mode)
 
     kind = source.get("subs_kind")
     if not kind:
@@ -219,6 +228,22 @@ def _subtitle_badge(source, outlook=None):
 # a plain one, and the label carries a black shadow for a bright frame behind.
 MODE_COLOURS = {"native": "FF6CB8FF", "llm": "FFFFD23F", "english": "FFFF7373"}
 MODE_TAGS = {"native": 32539, "llm": 32540, "english": 32543}
+
+
+def _bundled_mark(source):
+    """A release that ships its own subtitles, said before anything else.
+
+    It is the best row on the page and looked exactly like the seven either
+    side of it: a subtitle typed against that exact cut is in time by
+    construction, needs no hash, no correlation and no translation, and the
+    picker had no way to say which one that was.
+
+    Empty for every row we could not ask about in time, which is how the list
+    looked before, so a slow account costs nothing but the mark.
+    """
+    if not source.get("bundled_subs"):
+        return ""
+    return "[COLOR FF9BE38A][B]%s[/B][/COLOR]   " % kodi.localize(32550)
 
 
 def _mode_line(source, mode):

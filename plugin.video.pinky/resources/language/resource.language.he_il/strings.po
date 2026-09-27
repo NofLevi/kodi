@@ -1716,3 +1716,7 @@ msgstr "מתרגם באמצעות AI, זה לוקח זמן"
 msgctxt "#30324"
 msgid "Subtitles inside the release"
 msgstr "כתוביות שבתוך הקובץ"
+
+msgctxt "#32550"
+msgid "SUBS IN FILE"
+msgstr "כתוביות בקובץ"

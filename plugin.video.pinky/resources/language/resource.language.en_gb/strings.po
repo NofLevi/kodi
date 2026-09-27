@@ -1756,3 +1756,7 @@ msgstr ""
 msgctxt "#30324"
 msgid "Subtitles inside the release"
 msgstr ""
+
+msgctxt "#32550"
+msgid "SUBS IN FILE"
+msgstr ""
