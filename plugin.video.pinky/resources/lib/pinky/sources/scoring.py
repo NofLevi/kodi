@@ -11,7 +11,7 @@ the difference between watching something and giving up.
 import math
 import re
 
-from .. import cache, settings
+from .. import cache, kodi, settings
 from ..utils import release
 
 # Sane byte ranges per resolution, used to spot mislabelled and bloated files.
@@ -407,6 +407,12 @@ def preferred_hashes(meta):
         return set()
 
 
+# Enough sources for the picker to be a choice rather than a list of one.
+# The page is ten native rows, ten AI and five English, all drawn from this
+# pool, so ten releases is what filling it takes.
+ENOUGH_TO_CHOOSE_FROM = 10
+
+
 def rank(sources, meta=None, runtime_hours=2.0, limit=None):
     """Filter, score and sort. Returns (kept, rejection counts)."""
     prefs = Preferences()
@@ -423,6 +429,7 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
 
     kept = []
     rejected = {}
+    already = set()
     for source in sources:
         reason = (rejection_reason(source, prefs, runtime_hours)
                   or _another_production(source, meta)
@@ -432,7 +439,35 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
             continue
         source["score"] = score(source, prefs, runtime_hours, remembered,
                                 preferred)
+        already.add(id(source))
         kept.append(source)
+
+    if len(kept) < ENOUGH_TO_CHOOSE_FROM and rejected.get("below the resolution limit"):
+        # A floor that leaves nothing to choose between is not a floor, it is
+        # a wall. Measured on Naruto 2x54: a 2002 anime is natively 480p, so
+        # demanding 720p asks for an upscale that mostly does not exist, and
+        # four of its releases were refused for being exactly what the show
+        # is - leaving one row on the screen.
+        #
+        # The minimum is there to stop a 480p rip being offered *instead of*
+        # something better. With a full page of better ones it does that and
+        # stays; with less than a page it is answering a question nobody
+        # asked, and the answer is an empty screen.
+        kodi.log("only %d sources cleared the %s floor, so it stands aside"
+                 % (len(kept), settings.get("sources.min_resolution")))
+        prefs.min_rank = -1
+        rejected.pop("below the resolution limit", None)
+        for source in sources:
+            if id(source) in already:
+                continue
+            reason = (rejection_reason(source, prefs, runtime_hours)
+                      or _another_production(source, meta)
+                      or _a_different_film(source, meta))
+            if reason:
+                continue
+            source["score"] = score(source, prefs, runtime_hours, remembered,
+                                    preferred)
+            kept.append(source)
 
     kept.sort(key=lambda s: sort_key(s, prefs))
     if limit is None:

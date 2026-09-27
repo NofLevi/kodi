@@ -780,3 +780,81 @@ def test_a_release_of_a_different_film_is_dropped(meta, name, rejected):
     from pinky.sources import scoring
 
     assert bool(scoring._a_different_film({"title": name}, meta)) is rejected
+
+
+# --------------------------------------------------------------------------
+# a floor that leaves nothing to choose between
+# --------------------------------------------------------------------------
+
+
+def _at(resolution, index, **extra):
+    entry = {"title": "Show.S01E01.%s.WEB-DL.x264-GRP%d" % (resolution, index),
+             "hash": "%040d" % index, "provider": "torrentio",
+             "quality": resolution, "size": 900 * 1024 ** 2, "seeders": 20,
+             "languages": [], "hdr": [], "audio": "unknown",
+             "cached": True, "cached_by": "torbox"}
+    entry.update(extra)
+    return entry
+
+
+def test_the_resolution_floor_stands_aside_when_the_page_cannot_be_filled(
+        settings_module):
+    """Naruto 2x54 is a 2002 anime, natively 480p, so demanding 720p asks for
+    an upscale that mostly does not exist - four of its releases were refused
+    for being exactly what the show is, leaving one row on the screen.
+
+    Measured after: Hikaru no Go 1x02 went from 8 kept to 9, 2x02 from 8 to
+    9, One Piece 1x40 from 2 to 3.
+    """
+    from pinky.sources import scoring
+
+    settings_module.set("sources.min_resolution", "720p")
+    sources = [_at("480p", n) for n in range(6)] + [_at("1080p", 90)]
+    kept, rejected = scoring.rank(sources, {"type": "episode", "title": "Show"},
+                                  limit=0)
+
+    assert len(kept) == 7, "one row is not a choice"
+    assert "below the resolution limit" not in rejected
+
+
+def test_it_stays_put_when_there_is_a_page_of_better_ones(settings_module):
+    """The minimum is there to stop a 480p rip being offered instead of
+    something better. With a full page of better ones it does that."""
+    from pinky.sources import scoring
+
+    settings_module.set("sources.min_resolution", "720p")
+    sources = [_at("1080p", n) for n in range(scoring.ENOUGH_TO_CHOOSE_FROM)]
+    sources += [_at("480p", 90), _at("480p", 91)]
+    kept, rejected = scoring.rank(sources, {"type": "episode", "title": "Show"},
+                                  limit=0)
+
+    assert len(kept) == scoring.ENOUGH_TO_CHOOSE_FROM
+    assert rejected.get("below the resolution limit") == 2
+
+
+def test_nothing_is_counted_twice_when_the_floor_stands_aside(settings_module):
+    from pinky.sources import scoring
+
+    settings_module.set("sources.min_resolution", "720p")
+    sources = [_at("1080p", 1), _at("480p", 2)]
+    kept, _rejected = scoring.rank(sources, {"type": "episode", "title": "Show"},
+                                   limit=0)
+
+    assert len(kept) == 2
+    assert len({id(s) for s in kept}) == 2
+
+
+def test_a_different_rejection_is_still_honoured_on_the_second_pass(
+        settings_module):
+    """Standing aside is about the floor and nothing else - a cam is still a
+    cam."""
+    from pinky.sources import scoring
+
+    settings_module.set("sources.min_resolution", "720p")
+    settings_module.set("sources.allow_cam", "false")
+    sources = [_at("480p", 1),
+               _at("480p", 2, title="Show.S01E01.480p.HDTC.x264-GRP")]
+    kept, _rejected = scoring.rank(sources, {"type": "episode", "title": "Show"},
+                                   limit=0)
+
+    assert len(kept) == 1, "the cam came back in with the 480p ones"
