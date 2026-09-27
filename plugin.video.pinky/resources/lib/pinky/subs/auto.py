@@ -160,6 +160,12 @@ def on_playback_started(player, meta, cancelled=None):
     languages = settings.subtitle_languages()
     if not languages:
         return
+    if meta.get("broadcaster"):
+        # Israeli television, streamed by the broadcaster. It is in Hebrew, it
+        # has no id to search by, and it is not ours to caption.
+        kodi.log("%s is a broadcaster stream, so no subtitle is searched for"
+                 % (meta.get("title") or "this programme"))
+        return
     if _subs_mode(meta) == "english":
         # Chosen from the picker's English rows: English, whatever the
         # configured languages say, and whatever language the film is in.

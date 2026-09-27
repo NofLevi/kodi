@@ -520,3 +520,62 @@ def test_accounts_is_still_a_directory_when_it_has_one(monkeypatch,
 
     assert xbmcplugin.ITEMS, "no rows were added to the directory"
     assert xbmcplugin.ENDED, "the directory was left hanging"
+
+
+# --------------------------------------------------------------------------
+# the search has to find every kind, and only the kind that was asked for
+# --------------------------------------------------------------------------
+
+
+def test_the_anime_catalogue_does_not_pad_a_search_that_is_not_about_anime(
+        monkeypatch, no_network):
+    """AniList is down and Kitsu's search is fuzzy, so every search was being
+    padded: "Inception" came back with Sword Art Online, Keijo!!!!!!!! and
+    Romeo x Juliet; "Breaking Bad" with Ali Baba. Measured after, the anime
+    rows for those two queries went from 20 and 3 to none, while Attack on
+    Titan kept all 18 and "hikaru" all 12."""
+    from pinky.meta import anime
+    from pinky.search import unified
+
+    monkeypatch.setattr(anime, "search", lambda query, limit=20, page=1: [
+        {"title": "Sword Art Online the Movie", "type": "show"},
+        {"title": "Keijo!!!!!!!!", "type": "show"},
+        {"title": "Romeo x Juliet", "type": "show"},
+    ])
+    assert unified._anilist_search("Inception") == []
+
+
+def test_an_anime_search_still_finds_anime(monkeypatch, no_network):
+    from pinky.meta import anime
+    from pinky.search import unified
+
+    monkeypatch.setattr(anime, "search", lambda query, limit=20, page=1: [
+        {"title": "Attack on Titan", "type": "show"},
+        {"title": "Attack on Titan Final Season", "type": "show"},
+        {"title": "Sword Art Online", "type": "show"},
+    ])
+    kept = unified._anilist_search("Attack on Titan")
+    assert [row["title"] for row in kept] == ["Attack on Titan",
+                                              "Attack on Titan Final Season"]
+
+
+def test_one_word_is_enough_to_find_a_show(monkeypatch, no_network):
+    """The rule is generous on purpose: "hikaru" has to find Hikaru no Go."""
+    from pinky.meta import anime
+    from pinky.search import unified
+
+    monkeypatch.setattr(anime, "search", lambda query, limit=20, page=1: [
+        {"title": "Hikaru no Go", "type": "show"},
+    ])
+    assert unified._anilist_search("hikaru")
+
+
+def test_a_japanese_title_is_matched_on_its_own_name(monkeypatch, no_network):
+    from pinky.meta import anime
+    from pinky.search import unified
+
+    monkeypatch.setattr(anime, "search", lambda query, limit=20, page=1: [
+        {"title": "Attack on Titan", "original_title": "Shingeki no Kyojin",
+         "type": "show"},
+    ])
+    assert unified._anilist_search("Shingeki no Kyojin")

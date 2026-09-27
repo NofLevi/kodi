@@ -207,6 +207,16 @@ def play(handle, request, force_picker=False):
         if stream:
             listing.resolve_failed(handle)
             if _still_wanted(ticket):
+                # Say what this is before it starts. A broadcaster stream has
+                # no id of any kind - not one of the 2,810 entries in the VOD
+                # catalogue carries a TMDB or IMDb id - so every subtitle
+                # provider can only answer nothing, and the programme is in
+                # Hebrew already. Without this the subtitle dialog fell back
+                # to Kodi's info labels and ran the whole search anyway, then
+                # offered to translate Hebrew into Hebrew.
+                from . import player as _player
+                _player.set_now_playing(dict(meta, stream_url=stream,
+                                             broadcaster=True))
                 kodi.run_builtin("PlayMedia(%s)" % stream)
             return
 

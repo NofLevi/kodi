@@ -102,12 +102,33 @@ def _tmdb_search(query):
 
 
 def _anilist_search(query):
-    """Anime search, from whichever catalogue is answering today."""
+    """Anime search, from whichever catalogue is answering today.
+
+    Filtered on the way out, because Kitsu's search is fuzzy and AniList is
+    the one that is down. Measured: "Inception" came back with Sword Art
+    Online, Keijo!!!!!!!! and Romeo x Juliet; "Breaking Bad" with Ali Baba and
+    My Next Life as a Villainess. Every search that was not about anime was
+    being padded with twenty titles that had nothing to do with it - and they
+    are merged after TMDB's, so the effect is a long tail of noise under the
+    right answer rather than a wrong first row.
+
+    A result has to carry the words that were typed. `release.mentions` is the
+    same two-thirds rule the source filter uses, and it is generous on
+    purpose: "hikaru" finds Hikaru no Go.
+    """
     try:
         from ..meta import anime
+        from ..utils import release
     except ImportError:
         return []
-    return anime.search(query, limit=MAX_PER_SOURCE)
+    found = anime.search(query, limit=MAX_PER_SOURCE) or []
+    kept = [item for item in found
+            if release.mentions(item.get("title") or "", query)
+            or release.mentions(item.get("original_title") or "", query)]
+    if found and not kept:
+        kodi.log("anime catalogue answered %d titles for %r and none of them "
+                 "carry the words" % (len(found), query[:40]))
+    return kept
 
 
 def _vod_search(query):

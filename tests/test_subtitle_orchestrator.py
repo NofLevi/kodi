@@ -691,3 +691,65 @@ def test_subsource_stops_asking_once_it_has_been_refused(monkeypatch, no_network
 
     assert len(asked) == 1, "asked %d times after being refused once" % len(asked)
     subsource._refused.clear()
+
+
+# --------------------------------------------------------------------------
+# a broadcaster stream is not ours to caption
+# --------------------------------------------------------------------------
+
+
+def test_a_broadcaster_stream_searches_no_provider(monkeypatch, no_network):
+    """Israeli television, streamed by the broadcaster. It has no id any
+    provider could search by - not one of the 2,810 entries in the VOD
+    catalogue carries a TMDB or IMDb id - and it is in Hebrew already.
+
+    The dialog used to fall back to Kodi's info labels, run the whole provider
+    search against a Hebrew title with no id, and then offer to translate
+    Hebrew into Hebrew.
+    """
+    from pinky.subs import service, auto, embedded
+
+    monkeypatch.setattr(service, "_current_meta",
+                        lambda: {"title": u"רמזור",
+                                 "broadcaster": True, "ids": {}})
+    monkeypatch.setattr(auto, "search_candidates",
+                        lambda *a, **k: pytest.fail("asked a provider for a VOD stream"))
+    monkeypatch.setattr(embedded, "candidates",
+                        lambda languages: [{"name": "Hebrew", "language": "he",
+                                            "embedded": True, "index": 0}])
+    added = []
+    monkeypatch.setattr(service, "_add",
+                        lambda handle, position, candidate: added.append(candidate))
+
+    service._search(1, {})
+    assert len(added) == 1, "only the tracks inside the file"
+    assert added[0].get("embedded")
+
+
+def test_a_broadcaster_stream_is_offered_no_translation(monkeypatch, no_network):
+    """An offer to translate Hebrew into Hebrew is an offer to waste minutes."""
+    from pinky.subs import service, auto, embedded
+
+    monkeypatch.setattr(service, "_current_meta",
+                        lambda: {"title": u"רמזור",
+                                 "broadcaster": True, "ids": {}})
+    monkeypatch.setattr(auto, "search_candidates", lambda *a, **k: [])
+    monkeypatch.setattr(embedded, "candidates", lambda languages: [])
+    monkeypatch.setattr(service, "ai_targets",
+                        lambda: pytest.fail("offered to translate a VOD stream"))
+    added = []
+    monkeypatch.setattr(service, "_add",
+                        lambda handle, position, candidate: added.append(candidate))
+
+    service._search(1, {})
+    assert added == []
+
+
+def test_the_automatic_path_leaves_a_broadcaster_stream_alone(monkeypatch,
+                                                              settings_module):
+    from pinky.subs import auto
+
+    monkeypatch.setattr(auto, "search_candidates",
+                        lambda *a, **k: pytest.fail("searched for a VOD stream"))
+    auto.on_playback_started(None, {"title": u"רמזור",
+                                    "broadcaster": True, "ids": {}})

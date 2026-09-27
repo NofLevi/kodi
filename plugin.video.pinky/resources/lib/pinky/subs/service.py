@@ -106,6 +106,13 @@ def _search(handle, params):
     Kodi has already demuxed the file it is playing.
     """
     meta = _current_meta()
+    if meta.get("broadcaster"):
+        # A broadcaster stream carries whatever subtitles it carries. There is
+        # no id to search by, the programme is in Hebrew, and an offer to
+        # translate Hebrew into Hebrew is an offer to waste minutes.
+        kodi.log("broadcaster stream: listing only the tracks inside it")
+        _list_embedded_only(handle, meta)
+        return
     languages = _search_languages(params)
 
     inside = embedded.candidates(languages)
@@ -128,6 +135,28 @@ def _search(handle, params):
         return
 
     for position, candidate in enumerate(entries[:40]):
+        _add(handle, position, candidate)
+
+
+def _list_embedded_only(handle, meta):
+    """The tracks inside the file and nothing else.
+
+    For a broadcaster stream that is the whole of what can be offered: it has
+    no id any provider could search by - not one of the 2,810 entries in the
+    VOD catalogue carries a TMDB or IMDb id - and it is Israeli television, so
+    it is in Hebrew already. Listing the tracks costs nothing, because Kodi
+    has demuxed the file it is playing.
+
+    Without this the dialog fell back to Kodi's info labels, ran the whole
+    provider search against a Hebrew title with no id, and then offered to
+    translate Hebrew into Hebrew.
+    """
+    del meta
+    inside = embedded.candidates(settings.subtitle_languages())
+    if not inside:
+        kodi.notify(kodi.localize(32336))
+        return
+    for position, candidate in enumerate(inside[:40]):
         _add(handle, position, candidate)
 
 
