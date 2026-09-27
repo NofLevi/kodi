@@ -126,6 +126,24 @@ def source_bonus(language):
     return 0
 
 
+# How far behind the best-fitting file a candidate may be and still have its
+# language count for anything. The bonus is documented as winning a close
+# call without overriding a clearly better match, and at 25 it was doing the
+# opposite: measured on Attack on Titan 1x12, an Arabic file fitting 87 was
+# chosen over an English one fitting **99**, and on Jujutsu Kaisen an Arabic
+# 91 over a Russian 96. Twenty-five is larger than a whole rung of the
+# matcher's ladder - 70 to 85 is fifteen - so it could jump one.
+#
+# A translation inherits its source's timing exactly. Well-gendered Hebrew
+# that is out by a rung is worse than plainly-gendered Hebrew that fits.
+CLOSE_CALL = 10
+
+
+def eligible_for_bonus(score, best_score):
+    """May this candidate's language count, given the best fit available?"""
+    return int(score or 0) >= int(best_score or 0) - CLOSE_CALL
+
+
 def rank_translation_candidates(candidates, target):
     """Rank individual files so one dead link cannot hide its same-language peer."""
     ranked = []
@@ -145,12 +163,20 @@ def rank_translation_candidates(candidates, target):
             continue
         if identity:
             seen.add(identity)
-        bonus = source_bonus(language) if target == "he" else 0
-        ranked.append((_exact(candidate), (candidate.get("score") or 0) + bonus,
-                       -position, language, candidate))
-    ranked.sort(key=lambda row: (-row[0], -row[1], -row[2]))
+        ranked.append([_exact(candidate), candidate.get("score") or 0,
+                       language, -position, candidate])
+    # The bonus is applied afterwards, because it needs to know what the best
+    # fit on offer is before it can tell a close call from a clearly better
+    # match.
+    best_score = max([row[1] for row in ranked] or [0])
+    for row in ranked:
+        bonus = (source_bonus(row[2])
+                 if target == "he" and eligible_for_bonus(row[1], best_score)
+                 else 0)
+        row[1] = row[1] + bonus
+    ranked.sort(key=lambda row: (-row[0], -row[1], -row[3]))
     return [(language, candidate)
-            for _exact_file, _score, _position, language, candidate in ranked]
+            for _exact_file, _score, language, _position, candidate in ranked]
 
 
 def _exact(candidate):

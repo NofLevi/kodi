@@ -198,3 +198,63 @@ def test_turkish_french_italian_spanish_are_ordinary_sources():
         == context.source_bonus("es") == context.GENDER_BONUS
     assert context.source_bonus("tr") == 0
 
+
+
+# --------------------------------------------------------------------------
+# a bonus, not a strict order
+# --------------------------------------------------------------------------
+
+
+def test_a_language_bonus_does_not_outrank_a_clearly_better_fit():
+    """Measured on Attack on Titan 1x12: an Arabic file fitting 87 was chosen
+    over an English one fitting 99, because the Arabic bonus is 25 and a whole
+    rung of the matcher's ladder is 15 - so it could jump one.
+
+    A translation inherits its source's timing exactly, so well-gendered
+    Hebrew that is out by a rung is worse than plainly-gendered Hebrew that
+    fits.
+    """
+    from pinky.subs.ai import context
+
+    candidates = [
+        {"language": "ar", "score": 87, "release": "AoT.S01E12.ARABIC"},
+        {"language": "en", "score": 99, "release": "AnimeRG.Attack.on.Titan.S01E12"},
+    ]
+    ranked = context.rank_translation_candidates(candidates, "he")
+    assert ranked[0][0] == "en", "87 + 25 must not beat 99"
+
+
+def test_it_still_wins_a_close_call():
+    """Which is what it is for. Jujutsu Kaisen: Arabic 91 against Russian 96,
+    a five point gap, and Arabic carries gender through for free."""
+    from pinky.subs.ai import context
+
+    candidates = [
+        {"language": "ru", "score": 96, "release": "Jujutsu.Kaisen.S01E01.RUS"},
+        {"language": "ar", "score": 91, "release": "Jujutsu.Kaisen.S01.BluRay"},
+    ]
+    ranked = context.rank_translation_candidates(candidates, "he")
+    assert ranked[0][0] == "ar"
+
+
+@pytest.mark.parametrize("score,best,eligible", [
+    (99, 99, True), (90, 99, True), (89, 99, True), (88, 99, False),
+    (87, 99, False), (100, 100, True),
+])
+def test_the_close_call_band(score, best, eligible):
+    from pinky.subs.ai import context
+
+    assert context.eligible_for_bonus(score, best) is eligible
+
+
+def test_a_hash_match_still_beats_everything():
+    """The bonus exists to choose between guesses, not to overrule a
+    certainty - and a hash match is a certainty."""
+    from pinky.subs.ai import context
+
+    candidates = [
+        {"language": "ar", "score": 99, "release": "Film.ARABIC"},
+        {"language": "en", "score": 40, "release": "Film.ENGLISH", "reason": "hash"},
+    ]
+    ranked = context.rank_translation_candidates(candidates, "he")
+    assert ranked[0][0] == "en"

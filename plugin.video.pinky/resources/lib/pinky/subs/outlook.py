@@ -250,14 +250,21 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
                                 subs_fit=_as_percent(native_fit))))
         if hebrew_title:
             continue
-        best = None
+        fits = []
         for candidate in llm_found:
             fit = matcher.rate(candidate, target)[0]
-            if fit <= 0:
-                continue
-            preference = fit + context.source_bonus(candidate.get("language"))
-            if best is None or preference > best[0]:
-                best = (preference, fit, candidate.get("language", ""))
+            if fit > 0:
+                fits.append((fit, candidate.get("language", "")))
+        # The same close-call rule the translation source uses: a language
+        # bonus may break a tie and may not outrank a clearly better fit,
+        # because a translation inherits its source's timing exactly.
+        best = None
+        top = max([fit for fit, _lang in fits] or [0])
+        for fit, language in fits:
+            bonus = (context.source_bonus(language)
+                     if context.eligible_for_bonus(fit, top) else 0)
+            if best is None or fit + bonus > best[0]:
+                best = (fit + bonus, fit, language)
         if best is not None:
             llm.append((_order(source, best[1], index),
                         dict(source, subs_mode="llm",
