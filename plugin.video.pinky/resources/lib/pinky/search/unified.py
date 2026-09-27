@@ -72,11 +72,33 @@ def suggest(query, limit=12):
 # --------------------------------------------------------------------------
 
 
+HEBREW_LETTERS = set(range(0x0590, 0x0600))
+
+
+def query_language(query):
+    """The language to ask TMDB in, read off the query rather than the menus.
+
+    Type in Hebrew and the answers should come back in Hebrew. They did not:
+    the language was `tmdb.language()`, which follows the interface, so on an
+    English interface a Hebrew query returned a list of English titles - the
+    right films under names the person who typed the query had not used.
+
+    Only Hebrew is decided here, because Hebrew is the one script this
+    catalogue is half written in and the one the viewer types. Anything else
+    keeps the interface's language, which is the right default and the one
+    TMDB has the best coverage for.
+    """
+    for char in query or "":
+        if ord(char) in HEBREW_LETTERS:
+            return "he-IL"
+    return None
+
+
 def _tmdb_search(query):
     from ..meta import tmdb
     if not tmdb.has_key():
         return []
-    return tmdb.search(query)[:MAX_PER_SOURCE]
+    return tmdb.search(query, language=query_language(query))[:MAX_PER_SOURCE]
 
 
 def _anilist_search(query):

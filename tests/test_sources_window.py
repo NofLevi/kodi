@@ -35,9 +35,13 @@ PLAIN = source("Film.2024.720p.WEB-DL-OTHER", quality="720p")
 @pytest.fixture
 def picker():
     window = sources_window.SourcesWindow()
-    window.short = [CACHED, PLAIN]
     THIRD = source("Film.2024.2160p-THIRD")
     window.full = [CACHED, PLAIN, THIRD]
+    # What pick_source assigns: the composed page, not the top-K. `_visible`
+    # draws it verbatim, because the three subtitle lists are allowed to name
+    # one release more than once and collapsing that is what hid the ENGLISH
+    # rows behind the LLM ones.
+    window.short = sources_window._plain([CACHED, PLAIN], window.full)
     window.meta = {"type": "movie", "title": "Film", "year": 2024}
     window.prepare()
     window.onInit()
@@ -460,3 +464,22 @@ def test_a_release_on_the_first_page_is_not_listed_again(picker):
     labels = [picker.getControl(sources_window.LIST_SOURCES).getListItem(i).getLabel()
               for i in range(picker.getControl(sources_window.LIST_SOURCES).size())]
     assert len(labels) == len(set(labels))
+
+
+def test_a_release_may_hold_more_than_one_row(picker):
+    """NATIVE, LLM and ENGLISH are three answers to "how does this release get
+    Hebrew", so a release with two of them earns two rows. Deduplicating here
+    left one row per release: on Hikaru no Go every row read LLM while English
+    subtitles fitting at 100% sat in a list that had been discarded."""
+    same = dict(CACHED, subs_mode="llm", subs_fit=70)
+    picker.short = [dict(CACHED, subs_mode="native", subs_fit=90), same]
+    picker._render()
+
+    assert picker.getControl(sources_window.LIST_SOURCES).size() == 2, \
+        "one release, two routes, two rows"
+
+
+def test_the_plain_list_still_shows_a_release_once(picker):
+    """Where there is no comparison to draw there is nothing to repeat."""
+    rows = sources_window._plain([CACHED], [CACHED, PLAIN])
+    assert [r["title"] for r in rows] == [CACHED["title"], PLAIN["title"]]

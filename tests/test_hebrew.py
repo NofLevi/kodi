@@ -695,3 +695,35 @@ def test_a_title_with_no_language_is_left_alone(settings_module):
     unknown = {"type": "movie", "title": "Something", "year": 2020,
                "original_title": "Etwas", "original_language": ""}
     assert items.label(unknown) == "Something (2020)"
+
+
+def test_a_hebrew_query_asks_tmdb_in_hebrew(monkeypatch):
+    """Type in Hebrew and the answers should come back in Hebrew. The language
+    was the interface's, so on an English interface a Hebrew query returned
+    the right films under names the person who typed it had not used."""
+    from pinky.meta import tmdb
+    from pinky.search import unified
+
+    asked = {}
+    monkeypatch.setattr(tmdb, "has_key", lambda: True)
+    monkeypatch.setattr(tmdb, "search",
+                        lambda q, media_type="multi", page=1, language=None:
+                        asked.setdefault("language", language) or [])
+
+    unified._tmdb_search(u"רמזור")
+    assert asked["language"] == "he-IL"
+
+
+def test_a_latin_query_keeps_the_interface_language(monkeypatch):
+    """English is the right default and what TMDB covers best, so nothing is
+    overridden for a query that says nothing about itself."""
+    from pinky.search import unified
+
+    assert unified.query_language("hikaru no go") is None
+    assert unified.query_language("") is None
+
+
+def test_one_hebrew_letter_in_a_latin_query_is_enough(monkeypatch):
+    from pinky.search import unified
+
+    assert unified.query_language(u"Fauda פאודה") == "he-IL"

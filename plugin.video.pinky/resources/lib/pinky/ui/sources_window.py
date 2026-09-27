@@ -68,30 +68,17 @@ class SourcesWindow(xbmcgui.WindowXML):
     # -- rendering ---------------------------------------------------------
 
     def _visible(self):
-        """One list, already in the order it should be drawn.
+        """What to draw, in order. `_first_page` has already built it.
 
-        There used to be a "show all sources" button with the rest behind it,
-        and twice it was reported as showing the same thing - fairly, because
-        the whole list begins with the rows already on the screen. Measured on
-        Toy Story 5, nine of the first ten were the same release in the same
-        order: the first page ranks by best Hebrew subtitle, and where every
-        release has one at 78% or better that ordering collapses back onto the
-        source ranking, so the first page *is* the top of the full list.
-
-        `_first_page` returns the tail as well now, so there is nothing to
-        toggle and nothing hidden. The duplicate guard stays because the three
-        subtitle lists may each name the same release, which is the point of
-        them.
+        This briefly deduplicated by infohash, and that was wrong: the three
+        subtitle lists are *supposed* to name the same release more than once.
+        That is the comparison - NATIVE, LLM and ENGLISH are three answers to
+        "how does this release get Hebrew", and a release with two of them
+        earns two rows. Collapsing them left one row per release, so on
+        Hikaru no Go every row read LLM while English subtitles fitting at
+        100% sat in a list that had been thrown away.
         """
-        seen = set()
-        ordered = []
-        for source in list(self.short) + list(self.full):
-            key = _identity(source)
-            if key in seen:
-                continue
-            seen.add(key)
-            ordered.append(source)
-        return ordered
+        return list(self.short)
 
     def _render(self):
         """Fill the list.
@@ -421,6 +408,25 @@ def _why_hidden(entries, meta):
     return kodi.localize(32470, found, hidden, biggest)
 
 
+def _plain(short, full):
+    """The ordinary list, for a title with no subtitle comparison to make.
+
+    A Hebrew title, or a search where no release has a subtitle of either
+    kind. Here a release means one row, so this is the one place the rows are
+    deduplicated - by infohash, because two providers reporting one torrent
+    agree on that and can differ on the name.
+    """
+    seen = set()
+    ordered = []
+    for source in list(short or []) + list(full or []):
+        key = _identity(source)
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(source)
+    return ordered
+
+
 def _first_page(meta, short, full):
     """The whole list: ten NATIVE, ten LLM, five ENGLISH, then the rest.
 
@@ -443,9 +449,9 @@ def _first_page(meta, short, full):
                                                         want_rest=True)
     except Exception:
         kodi.log_exception("could not split the sources into native and AI")
-        return list(short)
+        return _plain(short, full)
     if not native and not llm and not english:
-        return list(short)
+        return _plain(short, full)
     kodi.log("sources picker: %d native rows, %d AI rows, %d English rows, "
              "%d others" % (len(native), len(llm), len(english), len(rest)))
     return native + llm + english + rest

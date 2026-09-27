@@ -384,11 +384,18 @@ def find_by_name(title, media_type="tv", year=0, alternatives=()):
     return 0
 
 
-def search(query, media_type="multi", page=1):
+def search(query, media_type="multi", page=1, language=None):
+    """Search TMDB. `language` overrides the interface's own.
+
+    It is an override because the question a query asks is not always the one
+    the interface asks. Somebody typing in Hebrew wants the Hebrew titles
+    back, whatever language the buttons are in - see `unified.query_language`.
+    """
     if not query:
         return []
+    extra = {"language": language} if language else {}
     payload = _call("/search/%s" % media_type, ttl=TTL_SEARCH, page=page,
-                    query=query, include_adult="false")
+                    query=query, include_adult="false", **extra)
     return _results(payload, None if media_type == "multi" else media_type)
 
 
