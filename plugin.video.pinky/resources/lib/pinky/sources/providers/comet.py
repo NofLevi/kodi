@@ -13,4 +13,4 @@ BASE = "https://comet.elfhosted.com"
 def search(meta):
     config = settings.get("sources.comet.config", "").strip()
     return stremio.fetch(settings.get("sources.comet.url", BASE),
-                         config, meta, NAME)
+                         config, meta, NAME, needs_config=True)

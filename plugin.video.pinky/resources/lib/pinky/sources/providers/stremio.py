@@ -61,8 +61,33 @@ def stream_id(meta):
     return "", ""
 
 
-def fetch(base_url, config, meta, provider_name, timeout=(4, 9)):
-    """Query one Stremio stream addon and return normalised sources."""
+_SAID = set()
+
+
+def fetch(base_url, config, meta, provider_name, timeout=(4, 9),
+          needs_config=False):
+    """Query one Stremio stream addon and return normalised sources.
+
+    `needs_config` is the ones whose whole answer is the blob their own web
+    UI produces. Asked without it they are not merely empty, they are a
+    wasted worker: Comet answers **403** and MediaFusion **200 with zero
+    streams**, every search, for up to nine seconds each. Measured on the
+    box this is written for, comet, mediafusion, zilean and external were all
+    switched on with no configuration between them, against a pool of two
+    workers and a ten second deadline - which is what
+    `deadline hit after 10.0s, dropped: ktuvit` was really about.
+
+    So it is refused here and said once, which is what this add-on does
+    everywhere else rather than shipping a provider that is on and silently
+    contributes nothing.
+    """
+    if needs_config and not config:
+        if provider_name not in _SAID:
+            _SAID.add(provider_name)
+            kodi.log("%s is switched on with no configuration, so it can only "
+                     "answer nothing; paste its config or switch it off"
+                     % provider_name)
+        return []
     kind, identifier = stream_id(meta)
     if not identifier:
         return []

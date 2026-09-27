@@ -150,3 +150,46 @@ def test_file_index_zero_is_kept():
     """Zero is a real index, and the falsy-check bug is easy to reintroduce."""
     source = stremio._parse_stream(stream(fileIdx=0), "torrentio")
     assert source["file_index"] == 0
+
+
+def test_a_config_only_provider_with_no_config_asks_nobody(monkeypatch, no_network):
+    """Comet answers 403 without its blob and MediaFusion 200 with zero
+    streams, every search, for up to nine seconds each. Measured on the box
+    this is written for, comet, mediafusion, zilean and external were all
+    switched on with no configuration between them, against a pool of two
+    workers and a ten second deadline - which is what "deadline hit after
+    10.0s, dropped: ktuvit" was really about."""
+    from pinky.sources.providers import comet, mediafusion, stremio
+
+    stremio._SAID.clear()
+    monkeypatch.setattr(stremio.http, "get_json",
+                        lambda *a, **k: pytest.fail("asked a provider that cannot answer"))
+
+    meta = {"type": "movie", "ids": {"imdb": "tt0137523"}, "title": "Film"}
+    assert comet.search(meta) == []
+    assert mediafusion.search(meta) == []
+
+
+def test_it_says_so_once_rather_than_every_search(monkeypatch, no_network):
+    from pinky.sources.providers import comet, stremio
+
+    stremio._SAID.clear()
+    said = []
+    monkeypatch.setattr(stremio.kodi, "log", lambda message, *a, **k: said.append(message))
+    meta = {"type": "movie", "ids": {"imdb": "tt0137523"}, "title": "Film"}
+    for _ in range(3):
+        comet.search(meta)
+    assert len(said) == 1, "a provider that cannot answer must not fill the log"
+
+
+def test_a_configured_provider_is_still_asked(monkeypatch, no_network):
+    from pinky.sources.providers import comet, stremio
+
+    stremio._SAID.clear()
+    asked = []
+    monkeypatch.setattr(stremio.http, "get_json",
+                        lambda url, **k: asked.append(url) or {"streams": []})
+    monkeypatch.setattr(comet.settings, "get",
+                        lambda key, default="": "someblob" if "config" in key else default)
+    comet.search({"type": "movie", "ids": {"imdb": "tt0137523"}, "title": "Film"})
+    assert asked and "someblob" in asked[0]

@@ -13,4 +13,4 @@ BASE = "https://mediafusion.elfhosted.com"
 def search(meta):
     config = settings.get("sources.mediafusion.config", "").strip()
     return stremio.fetch(settings.get("sources.mediafusion.url", BASE),
-                         config, meta, NAME)
+                         config, meta, NAME, needs_config=True)
