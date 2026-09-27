@@ -147,6 +147,90 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   `DEVICE_CODE_NOT_USED` from `ITEM_NOT_FOUND`, so `post_json` cannot be used
   there - it turns every 400 into the default, and the body of the 400 is the
   entire answer.
+* **A subtitle that came back from a search for this title is not
+  necessarily for it.** `WEIGHT_TITLE` was granted to every candidate on
+  exactly that reasoning, and the providers do not honour it. Asked for **The
+  Odyssey (2026)**, the best Hebrew subtitle in the list was
+  `Doctor.Odyssey.S01E18.The.Wave.Part.2` - a television series - scored 70%
+  for agreeing on source and resolution, and the translation source was
+  `The.Martian.2015`. Both drew as "Hebrew subtitle, 70% fit". The Doctor
+  Odyssey one was then thrown out at playback for ending an hour before the
+  film does, so the row promised Hebrew and the film played in English.
+
+  `matcher._contradicts_title` takes only what a name *states*: an episode
+  when what is playing is a film, which needs no second opinion; or a year
+  nowhere near ours on a name that does not carry our title's words, which
+  needs both halves. Either half alone destroys real subtitles - a year
+  rejects **1917**, whose title is a year, and missing words rejects every
+  translated title, `O Ultimo Tiro Certo` being One Last Shot. Silence stays
+  silence: a name stating neither is left to the evidence below it.
+
+  Swept over 17 titles and **526 Hebrew candidates: 12 rejected, all 12
+  genuinely for other shows**, and zero false positives - Blade Runner 2049
+  kept 37 and 1917 kept 30.
+
+* **Kodi cannot read a subtitle that does not say what it is.** Three files
+  were checked byte for byte and were correct UTF-8 Hebrew, and the screen
+  showed mojibake anyway. `locale.charset` is `DEFAULT`, which means *detect
+  it*, and there was nothing to detect: every Hebrew letter is 0xD7 and a
+  second byte, and 0xD7 alone is a perfectly good character in cp1252 and
+  cp1255, so it decoded one byte at a time. `srt.write` uses `utf-8-sig`.
+  Three bytes end the guessing, and `decode` has read the mark first since it
+  was written.
+
+* **The picker is ten native, ten AI, five English - a ladder, not a
+  scoreboard.** Drawing everything that passed the filters was tried: 118
+  rows on Toy Story 5, with the three lists that are the whole point of the
+  page buried inside them. Sorting the page by fit was tried too, and put
+  three LLM rows at 76% above seven NATIVE rows at 70%, which reads as
+  "translate this" on a film that has a Hebrew subtitle somebody made. Hebrew
+  beats a translation beats English whatever the fits say; the fit orders the
+  rungs and does not reorder the ladder. Deduplicating the rows was also
+  tried and is the worst of the three - the three lists are *supposed* to
+  name one release once per route it has, and collapsing them left every row
+  on Hikaru no Go reading LLM while English subtitles fitting at 100% sat in
+  a list that had been thrown away.
+
+* **A film still in cinemas is uploaded under words the cam filter had never
+  heard.** The table knew `cam`, `ts`, `tc` and `telecine`; the names in the
+  wild are `PREHD`, `HQ Pre`, `HDTC` and `LiNE`, all of which parsed as
+  `unknown` and walked past a filter that was switched on. They are checked
+  *before* `web`, because one upload claims both - `1080p.D.WEBRip` and
+  `720p_V4_HDTC_Multi_LiNE` are the same file and the second half is the true
+  one. LiNE is line audio and is matched only beside a language or quality
+  word, because The Thin Red Line is a film. Measured: Spider-Man: Brand New
+  Day drops 35 of 55 rather than 32, The Odyssey 16 of 38 rather than 15.
+
+  The same search also offered `Marvel Studios Iron Man 2008`.
+  `_another_production` cannot catch that - it reads the year directly after
+  the title and that name does not begin with the title at all - so
+  `scoring._a_different_film` asks the same two-signal question the subtitle
+  matcher does.
+
+* **A provider that cannot answer must not be asked.** `deadline hit after
+  10.0s, dropped: ktuvit` was not about Ktuvit: comet, mediafusion, zilean
+  and external were all switched on with no configuration between them, and
+  their whole answer is the blob their own web UI produces. Probed live,
+  Comet answers **403** and MediaFusion **200 with zero streams** - each up
+  to nine seconds on a pool of two workers. A config-only provider with no
+  config is refused before the request and says so once.
+
+* **A 429 was bought again on every search.** TorrentsDB refuses in 0.15s
+  with no `Retry-After`, so the cost was never the request - it was the 0.6
+  second sleep the retry paid before being refused again. A host whose retry
+  is also refused is left alone for thirty seconds; the same search then runs
+  1.53s and 0.21s and returns the same eighty sources either way. Thirty and
+  not longer, because TorrentsDB finds about a quarter more than Torrentio
+  alone. It is throttling rather than gone: its manifest answers 200 and says
+  `configurationRequired: false`.
+
+* **What the other multi-source add-ons have that this does not is two API
+  keys, not a technique.** a4kSubtitles - which is open, where DarkSubs is
+  not - carries Addic7ed, BSPlayer, OpenSubtitles, Podnadpisi, SubDL and
+  SubSource. SubDL answers **403** anonymously and SubSource now wants
+  `X-API-Key`, which is this file's own note about SubSource going behind a
+  login, confirmed from the other side.
+
 * **An IMDb id that finds nothing is not the same as there being nothing.**
   This is the one to carry elsewhere. `rest.opensubtitles.org` files an upload
   against an id only if whoever uploaded it said so, and for a long-running
@@ -801,7 +885,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-1964 tests, all running against Kodi stubs, so no Kodi install is needed:
+2073 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
