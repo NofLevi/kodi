@@ -444,3 +444,74 @@ def test_a_cancelled_translation_does_not_move_to_the_next_engine(monkeypatch):
     with pytest.raises(translator.TranslationCancelled):
         translator.translate([srt.Cue(1, 0.0, 1.0, "line")], "he")
     assert "second" not in asked, "the viewer stopped it; do not start again"
+
+
+# --------------------------------------------------------------------------
+# a service that will not serve us, as opposed to a chunk it cannot manage
+# --------------------------------------------------------------------------
+
+
+def test_an_exhausted_quota_stops_rather_than_splitting(monkeypatch):
+    """Splitting is for a chunk the model could not manage. A service out of
+    quota refuses the halves too, and every split doubles the requests:
+    measured on The Invite, 50 became 25 became 12 became 6 over two and a
+    half minutes, every one a 429, while the film played."""
+    from pinky.subs.ai import translator
+
+    calls = []
+
+    class Exhausted(object):
+        def complete(self, system_prompt, prompt):
+            calls.append(prompt)
+            raise RuntimeError("HTTP 429 quota exceeded")
+
+    cues = [srt.Cue(n + 1, n * 2.0, n * 2.0 + 1.5, "line %d" % n)
+            for n in range(60)]
+    monkeypatch.setattr(translator, "engines", lambda: [Exhausted()])
+
+    with pytest.raises(translator.TranslationError):
+        translator.translate(cues, "he")
+
+    assert len(calls) <= translator.MAX_RETRIES + 1, \
+        "it split a doomed chunk %d times" % len(calls)
+
+
+@pytest.mark.parametrize("error,refusing", [
+    (RuntimeError("HTTP 429"), True),
+    (RuntimeError("HTTP 503 Service Unavailable"), True),
+    (RuntimeError("RESOURCE_EXHAUSTED"), True),
+    (RuntimeError("reply was not JSON"), False),
+    (ValueError("could not parse"), False),
+])
+def test_it_tells_a_refusal_from_a_difficult_chunk(error, refusing):
+    from pinky.subs.ai import translator
+
+    assert translator._service_is_refusing(error) is refusing
+
+
+def test_an_unreadable_source_leaves_a_gap_rather_than_spanish(settings_module):
+    """Measured on The Invite: Gemini was out of quota, the source was
+    Spanish, and `Si. Gracias. Esto lo solucionara todo.` reached the screen
+    in a Hebrew household. A gap says the line was not translated; Spanish
+    says the add-on is broken."""
+    from pinky.subs.ai import translator
+
+    settings_module.set("subs.languages", "he,en")
+    cues = [srt.Cue(1, 0.0, 1.0, "uno"), srt.Cue(2, 2.0, 3.0, "dos"),
+            srt.Cue(3, 4.0, 5.0, "tres")]
+    merged = translator._merge(cues, {"1": u"שתיים"}, "es")
+
+    assert [cue.text for cue in merged] == [u"שתיים"]
+    assert [cue.index for cue in merged] == [1], "the numbering has to close up"
+
+
+def test_an_english_source_is_still_left_in_place(settings_module):
+    """English is a language this household reads, which is the whole reason
+    the rule was unconditional in the first place."""
+    from pinky.subs.ai import translator
+
+    settings_module.set("subs.languages", "he,en")
+    cues = [srt.Cue(1, 0.0, 1.0, "one"), srt.Cue(2, 2.0, 3.0, "two")]
+    merged = translator._merge(cues, {"1": u"שתיים"}, "en")
+
+    assert [cue.text for cue in merged] == ["one", u"שתיים"]

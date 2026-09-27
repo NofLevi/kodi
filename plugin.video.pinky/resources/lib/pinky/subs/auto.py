@@ -1407,6 +1407,7 @@ def translate_fallback(meta, winners, languages, report, player=None,
     cues = retimed_for_translation(cues, reference, language)
 
     translated = _translate_progressively(cues, meta, languages[0], player,
+                                          source_language=language,
                                           cancelled=stopped,
                                           generation=generation)
     if stopped():
@@ -1529,6 +1530,7 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
             language)
         translated = _translate_progressively(cues, meta, target, player,
                                               variant=VARIANT_AI,
+                                              source_language=language,
                                               cancelled=stopped,
                                               generation=generation)
         if translated:
@@ -1553,6 +1555,7 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
 
 
 def _translate_progressively(cues, meta, language, player, variant="",
+                             source_language=None,
                              cancelled=None, generation=None):
     """Translate, showing each finished chunk as it arrives.
 
@@ -1620,7 +1623,7 @@ def _translate_progressively(cues, meta, language, player, variant="",
     try:
         slots[:] = _partial_slots(meta, language, variant, generation)
         kwargs = {"on_progress": on_progress, "meta": meta,
-                  "cancelled": stopped}
+                  "cancelled": stopped, "source_language": source_language}
         return translator.translate(cues, language, **kwargs)
     except translator.TranslationError:
         kodi.log_exception("AI translation failed")

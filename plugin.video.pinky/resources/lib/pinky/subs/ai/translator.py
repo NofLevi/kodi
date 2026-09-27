@@ -142,7 +142,7 @@ def chunk_size():
 
 
 def translate(cues, target_language="he", on_progress=None, meta=None,
-              cancelled=None):
+              cancelled=None, source_language=None):
     """Translate cues, returning new cues with the original timings.
 
     on_progress(done, total, cues_so_far) is called after each chunk. The third
@@ -160,7 +160,7 @@ def translate(cues, target_language="he", on_progress=None, meta=None,
     for position, backend in enumerate(backends):
         try:
             return _translate_with(backend, cues, target_language, on_progress,
-                                   meta, cancelled)
+                                   meta, cancelled, source_language)
         except TranslationCancelled:
             raise
         except TranslationError as error:
@@ -178,7 +178,7 @@ def translate(cues, target_language="he", on_progress=None, meta=None,
 
 
 def _translate_with(backend, cues, target_language, on_progress, meta,
-                    cancelled):
+                    cancelled, source_language=None):
     """One engine's attempt at the whole file."""
     language = LANGUAGE_NAMES.get(target_language, target_language)
     context = _context_block(meta)
@@ -223,7 +223,7 @@ def _translate_with(backend, cues, target_language, on_progress, meta,
             kodi.log_exception("chunk starting at %d failed" % start)
         if on_progress is not None:
             try:
-                on_progress(end, total, _merge(cues, translated))
+                on_progress(end, total, _merge(cues, translated, source_language))
             except TypeError:
                 # Callers that only want the counts.
                 on_progress(end, total)
@@ -256,24 +256,57 @@ def _translate_with(backend, cues, target_language, on_progress, meta,
     if budget["cancelled"]():
         raise TranslationCancelled("translation cancelled")
 
-    result = _merge(cues, translated)
-    unchanged = sum(1 for source, target in zip(cues, result)
-                    if " ".join(source.text.split()) == " ".join(target.text.split()))
+    result = _merge(cues, translated, source_language)
+    # Against the translated positions rather than against `result`, which no
+    # longer lines up with `cues` when an unreadable source leaves gaps.
+    unchanged = sum(1 for position, cue in enumerate(cues)
+                    if " ".join((translated.get(str(position)) or "").split())
+                    == " ".join(cue.text.split()))
     if float(unchanged) / total >= MAX_UNCHANGED_RATIO:
         raise TranslationError("translation repeated the source text")
     return result
 
 
-def _merge(cues, translated):
+def readable_source(language):
+    """Would the viewer be able to read the source if it were left in place?
+
+    The same question `readable_fallback` asks, and the same answer, because
+    it is the same mistake in two places.
+    """
+    if not language:
+        return False
+    try:
+        from ... import settings
+        readable = [code.lower() for code in settings.subtitle_languages() or []]
+    except Exception:
+        readable = ["he", "en"]
+    return language.lower() in readable
+
+
+def _merge(cues, translated, source_language=None):
     """Overlay the translated text onto the original cues.
 
-    Untranslated positions keep their original text, so a partial result is a
-    playable subtitle rather than a file full of gaps.
+    An untranslated position keeps its original text **only when the viewer
+    could read it**. That was unconditional, and the reasoning - "a partial
+    result is a playable subtitle rather than a file full of gaps" - holds
+    exactly as long as the source is English. Measured on The Invite: Gemini
+    was out of quota, the source was Spanish, and what reached the screen was
+    `Sí. Gracias. Esto lo solucionará todo.` in a Hebrew household.
+
+    A gap is the honest answer there. It says the line was not translated,
+    where Spanish says the add-on is broken.
     """
+    keep = source_language is None or readable_source(source_language)
     out = []
+    number = 0
     for position, cue in enumerate(cues):
         text = translated.get(str(position), "")
-        out.append(srt.Cue(position + 1, cue.start, cue.end, text or cue.text))
+        if not text:
+            if not keep:
+                continue
+            text = cue.text
+        number += 1
+        out.append(srt.Cue(number, cue.start, cue.end, text))
     return out
 
 
@@ -288,6 +321,24 @@ def _context_block(meta):
         kodi.log_exception("could not build the translation context")
         return ""
     return CAST_BLOCK.format(cast=note) if note else ""
+
+
+# What a service says when it will not serve us at all, as opposed to when
+# one chunk was too much for it. Matched on the class and then on the text,
+# because each backend names these differently and the message is all some of
+# them give.
+_REFUSING = ("ModelUnavailable", "ModelRetired", "InvalidKey",
+             "EngineUnavailable", "TranslationBudgetExceeded")
+_REFUSING_TEXT = ("429", "503", "quota", "rate limit", "resource_exhausted",
+                  "too many requests")
+
+
+def _service_is_refusing(error):
+    """Is this the service refusing us, rather than this chunk being hard?"""
+    if type(error).__name__ in _REFUSING:
+        return True
+    message = str(error).lower()
+    return any(token in message for token in _REFUSING_TEXT)
 
 
 def _translate_batch(backend, batch, language, offset, context="", depth=0,
@@ -323,6 +374,14 @@ def _translate_batch(backend, batch, language, offset, context="", depth=0,
             # Backend exceptions may embed Authorization headers, API keys, or
             # signed endpoint URLs. The class is enough to explain retry/split.
             last_error = type(error).__name__
+            if _service_is_refusing(error):
+                # Splitting is for a chunk the model could not manage. A
+                # service that is out of quota will refuse the halves too, and
+                # every split doubles the number of requests: measured on The
+                # Invite, 50 became 25 became 12 became 6 over two and a half
+                # minutes, every one of them a 429, while the film played.
+                raise TranslationError("the engine is refusing requests (%s)"
+                                       % last_error)
             continue
         parsed = _parse_reply(reply)
         if parsed is None:
