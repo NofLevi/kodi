@@ -9,7 +9,21 @@ import pytest
 from conftest import ROOT
 
 # The whole point of the project is that it stays small on a weak device.
-MAX_ZIP_KB = 600
+#
+# 700, raised from 600 deliberately and recorded here rather than nudged when
+# it next goes red. The number was set when the zip was 424 KB and it did its
+# job: it caught the growth to 614. What it caught is not waste, though -
+# measured member by member, the add-on is 385 KB of Python and 137 KB of the
+# Israeli VOD catalogue, every field of which is drawn on a screen, and the
+# largest single image is now 260x260 because that is the size it is shown at.
+#
+# What the limit is really protecting is not disk on an 8 GB box. It is the
+# read: Kodi opens a zip by its central directory and then seeks to each
+# member, so a big archive on a host that ignores ranged reads is a download
+# per seek. That is why Cloudflare had to go. GitHub answers 206, so the
+# ceiling can move - but it stays a ceiling, because nothing else notices an
+# add-on growing a megabyte at a time.
+MAX_ZIP_KB = 700
 
 
 @pytest.fixture(scope="module")
@@ -37,7 +51,17 @@ def built(tmp_path_factory):
 
 def test_the_addon_zip_stays_small(built):
     kilobytes = os.path.getsize(built) / 1024.0
-    assert kilobytes < MAX_ZIP_KB, "the add-on grew to %.0f KB" % kilobytes
+    if kilobytes >= MAX_ZIP_KB:
+        import zipfile
+
+        with zipfile.ZipFile(built) as archive:
+            biggest = sorted(archive.infolist(),
+                             key=lambda entry: -entry.compress_size)[:5]
+        where = ", ".join("%s %.0f KB" % (entry.filename.split("/")[-1],
+                                          entry.compress_size / 1024.0)
+                          for entry in biggest)
+        raise AssertionError("the add-on grew to %.0f KB; biggest: %s"
+                             % (kilobytes, where))
 
 
 def test_the_zip_contains_no_build_junk(built):
