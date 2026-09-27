@@ -231,25 +231,32 @@ MODE_TAGS = {"native": 32539, "llm": 32540, "english": 32543}
 
 
 def _bundled_mark(source):
-    """A release that ships subtitle files, and in which languages.
+    """A release that brings its own subtitles, in a language you read.
 
-    Beside the video rather than inside it - a `Subs/` folder next to the
-    `.mp4` - which is worth saying plainly, because "in the file" would be a
-    claim about the container and this is not one.
+    Only in a language you read, which is the whole of the rule. A YTS
+    release of Toy Story 5 ships French and Portuguese, and printing
+    "FR/PT" beside a Hebrew percentage told a Hebrew household nothing,
+    invited the two to be compared - they are about different subtitles -
+    and was long enough to push the Hebrew figure off the end of the line,
+    so the one number that decides anything read "Hebrew sub...".
 
-    The languages are the point. RARBG ships `Subs/4_English.srt` and
-    `Subs/5_English.srt`, so "two subtitle files" and "English" are the same
-    fact and only the second tells a Hebrew household whether the row is
-    worth taking over the one above it.
-
-    Empty for every row we could not ask about in time, which is how the list
-    looked before, so a slow account costs nothing but the mark.
+    So the mark appears when the release carries Hebrew or English, and
+    nothing otherwise. A subtitle nobody here can read is not a reason to
+    take one release over another.
     """
     languages = source.get("bundled_subs") or []
     if not languages:
         return ""
+    try:
+        from .. import settings
+        readable = [code.lower() for code in settings.subtitle_languages() or []]
+    except Exception:
+        readable = ["he", "en"]
+    useful = [code for code in languages if code in readable]
+    if not useful:
+        return ""
     return "[COLOR FF9BE38A][B]%s %s[/B][/COLOR]   " % (
-        kodi.localize(32550), "/".join(code.upper() for code in languages[:3]))
+        kodi.localize(32550), "/".join(code.upper() for code in useful[:2]))
 
 
 def _mode_line(source, mode):

@@ -289,10 +289,31 @@ def test_a_row_nobody_could_ask_about_looks_as_it_did(settings_module):
     assert sources_window._bundled_mark({}) == ""
 
 
-def test_the_mark_names_every_language_it_found(settings_module):
+def test_the_mark_names_the_languages_you_read(settings_module):
+    settings_module.set("subs.languages", "he,en")
     from pinky.ui import sources_window
     mark = sources_window._bundled_mark({"bundled_subs": ["he", "en"]})
     assert "HE" in mark and "EN" in mark
+
+
+def test_a_language_nobody_here_reads_is_not_worth_a_mark(settings_module):
+    """A YTS release of Toy Story 5 ships French and Portuguese.
+
+    "FR/PT" beside a Hebrew percentage told a Hebrew household nothing,
+    invited the two to be compared when they are about different subtitles,
+    and was long enough to push the Hebrew figure off the end of the line -
+    so the one number that decides anything read "Hebrew sub...".
+    """
+    settings_module.set("subs.languages", "he,en")
+    from pinky.ui import sources_window
+    assert sources_window._bundled_mark({"bundled_subs": ["fr", "pt"]}) == ""
+
+
+def test_one_readable_language_among_several_still_earns_the_mark(settings_module):
+    settings_module.set("subs.languages", "he,en")
+    from pinky.ui import sources_window
+    mark = sources_window._bundled_mark({"bundled_subs": ["fr", "he", "pt"]})
+    assert "HE" in mark and "FR" not in mark
 
 
 def test_rarbg_subs_folder_is_read_as_english():

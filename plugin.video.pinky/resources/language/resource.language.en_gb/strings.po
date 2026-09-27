@@ -1758,5 +1758,5 @@ msgid "Subtitles inside the release"
 msgstr ""
 
 msgctxt "#32550"
-msgid "SUBS INCLUDED"
+msgid "EMBEDDED"
 msgstr ""

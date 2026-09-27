@@ -1718,5 +1718,5 @@ msgid "Subtitles inside the release"
 msgstr "כתוביות שבתוך הקובץ"
 
 msgctxt "#32550"
-msgid "SUBS INCLUDED"
-msgstr "כתוביות מצורפות"
+msgid "EMBEDDED"
+msgstr "כתוביות מוטמעות"
