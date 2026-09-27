@@ -56,7 +56,7 @@ LOW_MEMORY = {
     "sources.workers": "2",
     "sources.timeout": "10",
     "sources.results": "6",
-    "sources.cached_only": "true",
+    "sources.cached_only": "false",
     "sources.prefetch_next": "false",
 
     # A 720p panel gains nothing from 4K, and decoding it costs everything.
@@ -91,7 +91,7 @@ BALANCED = {
     "sources.workers": "4",
     "sources.timeout": "12",
     "sources.results": "8",
-    "sources.cached_only": "true",
+    "sources.cached_only": "false",
     "sources.prefetch_next": "true",
 
     "sources.max_resolution": "1080p",

@@ -264,8 +264,13 @@ def test_no_dub_claim_adds_nothing():
     """
     from pinky.ui import sources_window
 
-    badge = sources_window._badge({"quality": "1080p", "dub": ""})
-    assert badge == "1080P", badge
+    with_empty_dub = sources_window._badge(
+        {"quality": "1080p", "dub": "", "cached": True})
+    without_dub_at_all = sources_window._badge(
+        {"quality": "1080p", "cached": True})
+    for label in ("DUB", "SUB", "DUAL"):
+        assert label not in with_empty_dub, with_empty_dub
+    assert with_empty_dub == without_dub_at_all
 
 
 # --------------------------------------------------------------------------

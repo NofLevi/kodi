@@ -305,6 +305,12 @@ def _badge(source, outlook=None):
         # whole list. The picker was empty for anyone who opened it.
         bits.append(("%s %s" % (kodi.localize(32330),
                                 _service_label(source.get("cached_by")))).strip())
+    else:
+        # Said, not implied. An uncached source is perfectly playable - the
+        # debrid service fetches it and it is there a moment later - so the
+        # row belongs on the page. What it must not do is look identical to
+        # one that starts instantly.
+        bits.append(kodi.localize(32556))
     if "he" in (source.get("languages") or []):
         bits.append(kodi.localize(32344))
 

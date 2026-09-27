@@ -121,6 +121,21 @@ def test_a_named_season_and_episode_still_wins():
     assert release.matches_episode(parsed, 1, 46, 46)
 
 
+def test_a_bare_number_before_a_pixel_dimension_is_the_episode():
+    """`[Tsuki]_One_Piece_638_[848x480]` carried no episode number at all
+    under the old list, which only recognised the "480p" shorthand - so
+    episode 638 was offered for a request asking for episode 40 as freely as
+    the real thing, and nothing downstream ever knew to refuse it. Some
+    fansub groups write the raw dimensions instead."""
+    parsed = release.parse("[Tsuki]_One_Piece_638_[848x480][A40D75D0].avi")
+    assert parsed["absolute"] == 638
+    assert not release.matches_episode(parsed, 1, 40, 40)
+
+    wanted = release.parse("[Tsuki]_One_Piece_040_[848x480][B1234567].avi")
+    assert wanted["absolute"] == 40
+    assert release.matches_episode(wanted, 1, 40, 40)
+
+
 def test_season_one_counted_to_the_end_is_the_absolute_number():
     """Netflix and Jimaku file Hikaru no Go's TMDB 3x06 as S01E66."""
     parsed = release.parse("ヒカルの碁.S01E66.WEBRip.Netflix.ja[cc]")

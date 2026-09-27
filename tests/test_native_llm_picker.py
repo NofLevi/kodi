@@ -305,3 +305,31 @@ def test_the_page_is_ten_ten_and_five_and_no_more(found):
     assert counts["llm"] == outlook.SPLIT_ROWS
     assert counts["english"] == outlook.ENGLISH_ROWS
     assert len(page) == outlook.SPLIT_ROWS * 2 + outlook.ENGLISH_ROWS
+
+
+def test_a_better_fit_outranks_a_worse_cached_one():
+    """Cached used to lead, absolute, so an uncached release with a 100% fit
+    sorted below a cached one at 40% - on a page whose whole purpose is
+    showing which release gets Hebrew right. Measured after: fit decides
+    first, cached only breaks a tie."""
+    from pinky.subs import outlook
+
+    worse_cached = {"cached": True, "quality": "1080p", "size": 1}
+    better_uncached = {"cached": False, "quality": "1080p", "size": 1}
+
+    key_worse = outlook._order(worse_cached, 40, 0)
+    key_better = outlook._order(better_uncached, 100, 1)
+
+    assert key_better < key_worse, "the better fit has to sort first"
+
+
+def test_cached_still_breaks_a_tie_on_equal_fit():
+    from pinky.subs import outlook
+
+    cached = {"cached": True, "quality": "1080p", "size": 1}
+    uncached = {"cached": False, "quality": "1080p", "size": 1}
+
+    key_cached = outlook._order(cached, 70, 0)
+    key_uncached = outlook._order(uncached, 70, 1)
+
+    assert key_cached < key_uncached, "an equal fit still starts sooner cached"

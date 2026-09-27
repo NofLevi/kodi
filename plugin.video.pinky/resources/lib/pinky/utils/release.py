@@ -209,10 +209,17 @@ _ABSOLUTE_EPISODE = re.compile(r"\s-\s(\d{1,4})(?:\s|$|v\d)")
 # why years are refused outright - and no anime has run for nineteen hundred
 # episodes, so nothing real is lost.
 _AFTER_EPISODE = (
-    r"\d{3,4}p|4k|uhd|hd|sd|x26[45]|h\.?26[45]|hevc|avc|av1|xvid|divx"
+    r"\d{3,4}p|\d{3,4}x\d{3,4}|4k|uhd|hd|sd|x26[45]|h\.?26[45]|hevc|avc|av1|xvid|divx"
     r"|web|webrip|web-dl|bluray|blu-ray|bdrip|brrip|bdremux|remux|hdtv"
     r"|dvdrip|aac|ac3|eac3|ddp|dts|truehd|atmos|flac|opus|multi|dual"
     r"|batch|complete|10bit|8bit|v\d")
+# A pixel dimension - "848x480", "1280x720" - is what some fansub groups
+# write instead of the "480p" shorthand: [Tsuki]_One_Piece_638_[848x480]
+# carried no episode number at all under the old list, so nothing downstream
+# ever knew episode 638 was not episode 40, and it was offered for the
+# request as freely as the real one. The digit count on both sides keeps it
+# out of `_SEASON_EPISODE`'s own \d{1,2}x\d{1,3} pattern, which only ever
+# reads a season this small.
 _BARE_EPISODE = re.compile(
     r"\b(\d{1,4})\s+(?:%s)\b" % _AFTER_EPISODE, re.I)
 # Audio layouts survive normalisation as bare numbers ("DD5.1" -> "dd5 1"),

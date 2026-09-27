@@ -1761,3 +1761,7 @@ msgctxt "#32555"
 msgid "No Hebrew subtitle exists, so AI will translate one"
 msgstr ""
 
+msgctxt "#32556"
+msgid "Uncached"
+msgstr ""
+

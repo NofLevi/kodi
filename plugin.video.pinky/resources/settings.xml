@@ -292,7 +292,7 @@
 
             <group id="2" label="30025">
                 <setting id="sources.cached_only" type="boolean" label="30026">
-                    <level>0</level><default>true</default>
+                    <level>0</level><default>false</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.max_resolution" type="string" label="30027">

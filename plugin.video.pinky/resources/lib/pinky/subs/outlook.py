@@ -311,16 +311,25 @@ def english_candidates(meta, already=None):
 
 
 def _order(source, fit, index):
-    """Cached, then fit, then resolution, then the smaller file.
+    """Fit first, then cached, then resolution, then the smaller file.
 
-    Written out rather than left to the ranking's own order, because that
-    order also weighs the Hebrew outlook and a dozen other signals - so two
-    releases with the same fit and the same resolution came out in whichever
-    order those put them, and the 8 GB one could sit above the 2 GB one. With
-    everything that matters to the viewer equal, the smaller file is the
-    better answer on a box with little storage and a wifi connection.
+    Cached used to lead, absolute, so an uncached release with a 100% subtitle
+    match sorted *below* a cached one that only reached 40% - on a page whose
+    whole purpose is showing which release gets Hebrew right. The subtitle
+    fit is the question this row answers, and it has to answer it before
+    anything else does. Cached only breaks a tie now: with two releases
+    fitting equally well, the one that starts without a wait is still the
+    better answer, but it may not buy its way to the top by fitting worse.
+
+    Resolution and size stay after it for the same reason they always were:
+    written out rather than left to the ranking's own order, because that
+    order also weighs a dozen other signals - so two releases with the same
+    fit and the same resolution came out in whichever order those put them,
+    and the 8 GB one could sit above the 2 GB one. With everything that
+    matters to the viewer equal, the smaller file is the better answer on a
+    box with little storage and a wifi connection.
     """
-    return (0 if source.get("cached") else 1, -fit,
+    return (-fit, 0 if source.get("cached") else 1,
             -settings.resolution_rank(source.get("quality")),
             source.get("size") or 0, index)
 

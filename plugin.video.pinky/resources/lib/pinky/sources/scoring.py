@@ -221,6 +221,61 @@ def _says_the_title(name, meta):
                if meta.get(key))
 
 
+# Words that describe where an episode sits in its own show rather than
+# naming a different show. "Attack on Titan Final Season" is Attack on Titan;
+# "Naruto Shippuuden" is not Naruto.
+_STRUCTURAL = frozenset("""
+season seasons final part parts cour tv series episode episodes ova ovas
+special specials movie film complete batch box set volume vol arc saga
+uncut uncensored dub dubbed sub subbed remastered bd bdrip web hd sd
+""".split())
+
+
+def _a_different_series(source, meta):
+    """Does this release name a different show that shares a name with ours?
+
+    The trap is absolute numbering. Naruto 2x54 **is** absolute 106, and
+    `Naruto Shippuuden 106` is episode 106 of a different series - so
+    `matches_episode` says yes and is arithmetically right. The two
+    name-keyed providers search for "Naruto" and answer with Shippuuden,
+    Boruto and Next Generations; cached-only was hiding them, and listing
+    uncached sources put them on the screen.
+
+    This is the worst kind of wrong, because the file is exactly what it says
+    it is and nothing downstream can catch it: it plays, it is the right
+    length, and it is the wrong episode of the wrong show.
+
+    So the series part of the name - everything before the number - may not
+    carry a significant word that none of our own titles do. Words that place
+    an episode *within* a show are not significant: "Final Season", "Part 2",
+    "OVA" and "Box Set" all describe where we are, not what we are watching.
+    """
+    meta = meta or {}
+    if meta.get("type") != "episode":
+        return ""
+    known = set()
+    for key in ("title", "show_title", "original_title", "search_title",
+                "english_title"):
+        for word in release.normalise(meta.get(key) or "").split():
+            if len(word) >= 3:
+                known.add(word)
+    for alias in meta.get("aliases") or []:
+        for word in release.normalise(alias or "").split():
+            if len(word) >= 3:
+                known.add(word)
+    if not known:
+        return ""
+    name = release.normalise(
+        _LEADING_GROUP.sub("", release.strip_site_tags(source.get("title") or "")))
+    head = re.split(r"\b(?:s\d{1,2}e\d{1,3}|\d{1,4})\b", name, 1)[0]
+    extra = [word for word in head.split()
+             if len(word) >= 3 and word not in known
+             and word not in _STRUCTURAL and not word.isdigit()]
+    if extra:
+        return "another series of the same name"
+    return ""
+
+
 def _another_production(source, meta):
     """Is this release of a different production that shares the title?
 
@@ -433,6 +488,7 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
     for source in sources:
         reason = (rejection_reason(source, prefs, runtime_hours)
                   or _another_production(source, meta)
+                  or _a_different_series(source, meta)
                   or _a_different_film(source, meta))
         if reason:
             rejected[reason] = rejected.get(reason, 0) + 1
@@ -462,6 +518,7 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
                 continue
             reason = (rejection_reason(source, prefs, runtime_hours)
                       or _another_production(source, meta)
+                      or _a_different_series(source, meta)
                       or _a_different_film(source, meta))
             if reason:
                 continue

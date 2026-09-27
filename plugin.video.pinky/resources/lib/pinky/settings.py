@@ -58,7 +58,7 @@ DEFAULTS = {
     "sources.timeout": "10",
     "sources.workers": "2",
     "sources.results": "6",
-    "sources.cached_only": "true",
+    "sources.cached_only": "false",
     "sources.max_resolution": "1080p",
     # 720p rather than 480p. A 480p release on a 1080p panel looks like a
     # fault rather than a choice, and it is never the thing somebody wanted
@@ -192,9 +192,9 @@ def get_bool(key, default=None):
     This used to pass an empty string down as get()'s default, and get()
     returns any default that is not None *instead of* consulting DEFAULTS. So
     an unset boolean came back as "" and therefore False, whatever DEFAULTS
-    said. Every caller that relied on the registered default got the opposite:
-    cached_only, prefer_hebrew and source_memory all default
-    to true and all read as false.
+    said. Every caller that relied on the registered default got the
+    opposite: `cached_only` (true at the time), `prefer_hebrew` and
+    `source_memory` all defaulted to true and all read as false.
 
     Kodi itself hides this in normal use, because it writes every declared
     setting into its own settings.xml from the <default> in the XML, so the
