@@ -194,9 +194,26 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
     anime     15      31.2         2        97.9          10
 
   Anime's 31 is one fact and not many: ten of fifteen have no Hebrew subtitle
-  in existence. Its LLM route averages 98. The two levers left are both keys
-  somebody has to make - an engine for the translation route, and
-  OpenSubtitles.com for the search - and neither is a matter of code.
+  in existence. **And no Hebrew is not a failure while there is something to
+  translate**, which is the number that actually describes what a viewer
+  gets. Counting the best route on offer rather than the Hebrew one, the same
+  65 titles come out:
+
+    group      n   best route avg   at 100%
+    film      20        98.3          19
+    series    15       100.0          15
+    anime     15        97.9          12
+    foreign   15        99.9          14
+
+  **99.0 overall, 60 of 65 at 100%, 64 of 65 at 70% or better, and exactly
+  one title below 70** - The Odyssey, four days old, whose only subtitles in
+  any language were typed from a telesync. Anime moves from 31 to 98 on that
+  reading, which is the whole argument for the LLM route existing.
+
+  So the two levers left are both keys somebody has to make - an engine for
+  the translation route, and OpenSubtitles.com for the search - and neither
+  is a matter of code. The engine is the one that matters: it is what turns
+  anime's 98 from an arithmetic into a subtitle.
 
 * **A subtitle that came back from a search for this title is not
   necessarily for it.** `WEIGHT_TITLE` was granted to every candidate on

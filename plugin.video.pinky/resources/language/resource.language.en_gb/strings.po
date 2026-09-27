@@ -1757,3 +1757,7 @@ msgctxt "#32554"
 msgid "Hebrew subtitles exist but none fits these releases"
 msgstr ""
 
+msgctxt "#32555"
+msgid "No Hebrew subtitle exists, so AI will translate one"
+msgstr ""
+

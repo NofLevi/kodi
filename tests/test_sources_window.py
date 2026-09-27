@@ -494,7 +494,7 @@ def test_it_says_when_no_hebrew_subtitle_exists(monkeypatch):
 
     monkeypatch.setattr(outlook, "candidates", lambda meta, **k: [])
     note = sources_window._hebrew_note(
-        [dict(CACHED, subs_mode="llm")],
+        [dict(CACHED, subs_mode="english")],
         {"type": "movie", "title": "The Odyssey", "year": 2026})
     assert note == kodi.localize(32553)
 
@@ -531,3 +531,18 @@ def test_nothing_is_said_when_there_is_a_hebrew_row(monkeypatch):
     assert sources_window._hebrew_note(
         [dict(CACHED, subs_mode="native", subs_fit=100)],
         {"type": "movie", "title": "Toy Story 5"}) == ""
+
+
+def test_no_hebrew_is_not_a_dead_end_while_ai_can_translate(monkeypatch):
+    """Measured over 65 titles: counting the best route rather than the Hebrew
+    one, anime goes from an average of 31 to 98, and ten of its fifteen have
+    no Hebrew subtitle in existence. "None exists" describes the corpus, not
+    what the viewer is about to get."""
+    from pinky import kodi
+    from pinky.subs import outlook
+
+    monkeypatch.setattr(outlook, "candidates", lambda meta, **k: [])
+    note = sources_window._hebrew_note(
+        [dict(CACHED, subs_mode="llm", subs_fit=100)],
+        {"type": "episode", "title": "Attack on Titan", "year": 2013})
+    assert note == kodi.localize(32555)
