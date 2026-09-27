@@ -184,6 +184,48 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Japanese subtitle rated against eight releases, printed eight times and
   called a choice. A picker that offers one option eight times looks like a
   picker that is working.
+* **The best subtitle for a release is the one that shipped with it, and it
+  was in the torrent the whole time.** Measured on Hikaru no Go 2x03, the
+  source the picker had been offering all week:
+
+      Hikaru.No.Go.TV.EP33.BluRay.1080p.AC3.x264-CHD.mkv     the video
+      Hikaru.No.Go.TV.EP33.BluRay.1080p.AC3.x264-CHD.srt     25 KB, 356 cues
+
+  One hundred and fifty-two files in that torrent, seventy-six of them
+  subtitles, one per episode, named to match. Nothing here had ever looked.
+
+  It matters more than one more provider. A file that ships with the release
+  was typed against that exact cut, so it is in time **by construction** - no
+  hash, no cross-language proof, no correlation. That is the whole of the sync
+  problem for anime, where a hash almost never exists and the cross-language
+  proof is usually one language short, solved by not needing a ruler at all.
+  It is an ideal translation source for the same reason, because a translation
+  inherits its source's timing.
+
+  The matcher needs telling nothing. The subtitle's name *is* the release
+  name, so `_same_name` answers "identical release name" and 100, which is
+  what it deserves. Only TorBox can list the files inside a torrent, so
+  `registry.client_with_sidecars` asks rather than assumes, and only the file
+  chosen costs a `requestdl`: a season pack has seventy-six and the viewer
+  wants one.
+
+  Language comes from the filename where the release says - `.he.srt`,
+  `.eng.srt` - and is assumed English otherwise, which is what an unlabelled
+  subtitle beside a fansub release almost always is. The guess is safe
+  because `download_candidate` refuses cues whose script is not the language
+  asked for. A dual-language fansub file survives that check: measured on the
+  Hikaru file, whose cues carry English and Japanese on two lines,
+  `detect_script` answers `en`.
+
+* **Searching by a title's native name finds nothing**, tested rather than
+  assumed, because it looks like it ought to work. `rest.opensubtitles.org`
+  answers a query in Japanese or Hebrew script with zero rows where the same
+  query in English returns three, a hundred and a hundred: Hikaru no Go,
+  Attack on Titan and Naruto all return nothing under their Japanese names,
+  and Fauda, Tehran and two Israeli films nothing under their Hebrew ones.
+  Bleach is the only apparent exception and only because "BLEACH" is already
+  Latin. The index is Latin-only in practice, the same way the trackers are.
+
 * `subs/` picks one subtitle: embedded track, then file hash, then release
   correlation, then AI translation of the best English match. Wizdom and
   SubSource are anonymous; Ktuvit is a members' site, so it is off until an

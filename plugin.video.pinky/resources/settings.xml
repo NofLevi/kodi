@@ -545,6 +545,10 @@
             </group>
 
             <group id="2" label="30017">
+                <setting id="subs.provider.sidecar" type="boolean" label="30324">
+                    <level>2</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="subs.provider.wizdom" type="boolean" label="30060">
                     <level>2</level><default>true</default>
                     <control type="toggle"/>

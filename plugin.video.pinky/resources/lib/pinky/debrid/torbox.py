@@ -260,6 +260,41 @@ class TorBox(base.DebridService):
             base.record_selection(source, chosen)
         return link or ""
 
+    def sidecar_subtitles(self, source):
+        """The subtitle files inside this torrent, and how to get a link.
+
+        A release that ships its own subtitles is the best answer there is -
+        typed against that exact cut, so in time by construction. Measured on
+        Hikaru no Go 2x03: the torrent holds 152 files, 76 of them `.srt`,
+        one per episode, named to match the video. Nothing had ever looked.
+
+        Returns `(files, link_for)` rather than links for all of them,
+        because a season pack has seventy-six and the caller wants one: the
+        link costs a `requestdl` each and is only spent on the file chosen.
+        """
+        if not self.configured():
+            return [], lambda entry: ""
+        torrent = self._find(source)
+        if not torrent or not torrent.get("files"):
+            return [], lambda entry: ""
+        if not _claims_to_be_ready(torrent):
+            return [], lambda entry: ""
+
+        torrent_id = torrent.get("id")
+
+        def link_for(entry):
+            payload = http.get_json(
+                "%s/torrents/requestdl" % API,
+                params={"token": self.key(), "torrent_id": torrent_id,
+                        "file_id": entry.get("id"), "redirect": "false"},
+                timeout=base.timeout_for("resolve"), default=None)
+            link = (payload or {}).get("data")
+            if isinstance(link, dict):
+                link = link.get("url") or link.get("link")
+            return link or ""
+
+        return torrent["files"], link_for
+
     def _find(self, source):
         """The torrent to play, added if it is not already on the account.
 

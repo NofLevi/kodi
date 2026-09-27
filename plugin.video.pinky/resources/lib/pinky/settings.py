@@ -87,6 +87,8 @@ DEFAULTS = {
     "subs.hash_match": "true",
     "subs.threshold": "70",
     "subs.consensus": "true",
+    # The subtitles that ship inside the release. See sidecar.py.
+    "subs.provider.sidecar": "true",
     "subs.provider.wizdom": "true",
     "subs.provider.opensubtitles": "true",
     "subs.provider.opensubtitles_rest": "true",

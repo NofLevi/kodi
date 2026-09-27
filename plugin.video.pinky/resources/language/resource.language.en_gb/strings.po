@@ -1752,3 +1752,7 @@ msgstr ""
 msgctxt "#32549"
 msgid "Translating with AI, this takes a while"
 msgstr ""
+
+msgctxt "#30324"
+msgid "Subtitles inside the release"
+msgstr ""

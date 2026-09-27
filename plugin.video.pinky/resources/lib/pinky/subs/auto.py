@@ -311,8 +311,9 @@ _MODULES = {}
 def _modules():
     if not _MODULES:
         from .providers import (bsplayer, ktuvit, opensubtitles,
-                                opensubtitles_rest, subsource, wizdom)
-        _MODULES.update({"wizdom": wizdom, "opensubtitles": opensubtitles,
+                                opensubtitles_rest, sidecar, subsource, wizdom)
+        _MODULES.update({"sidecar": sidecar,
+                         "wizdom": wizdom, "opensubtitles": opensubtitles,
                          "opensubtitles_rest": opensubtitles_rest,
                          "bsplayer": bsplayer,
                          "subsource": subsource, "ktuvit": ktuvit})

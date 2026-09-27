@@ -92,6 +92,20 @@ def resolver_for(source):
     return preferred()
 
 
+def client_with_sidecars(source):
+    """The service for this source, if it can list the files inside a torrent.
+
+    Only TorBox implements `sidecar_subtitles` today. The others resolve a
+    single file and have no reason to know what else is in the torrent, so
+    this asks rather than assumes - a service that grows the ability later
+    needs no change here.
+    """
+    service = resolver_for(source)
+    if service is None or not hasattr(service, "sidecar_subtitles"):
+        return None
+    return service
+
+
 def account_summary():
     """One line per configured service, for the accounts screen."""
     rows = []
