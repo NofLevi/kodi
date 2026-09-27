@@ -537,3 +537,44 @@ def test_a_failed_translation_shows_nothing_in_a_language_nobody_reads(
     monkeypatch.setattr(translator, "translate", lambda *a, **k: [])
 
     assert auto.translate_now(MOVIE, "he", video_hash="") == ""
+
+
+def test_a_failed_translation_says_why(monkeypatch, settings_module):
+    """Without this the film plays with nothing on it and nobody watching can
+    tell "the model is out of quota" from "this add-on found no subtitles" -
+    and the second is what it looks like."""
+    from pinky import kodi
+    from pinky.subs import auto
+    from pinky.subs.ai import translator
+
+    said = []
+    monkeypatch.setattr(kodi, "notify", lambda message, *a, **k: said.append(message))
+    monkeypatch.setattr(auto, "_partial_slots", lambda *a, **k: [])
+    monkeypatch.setattr(translator, "translate", _raise(
+        translator.TranslationError("the engine is refusing requests (HTTP 429)")))
+
+    auto._translate_progressively([], {"title": "A Film"}, "he", None,
+                                  source_language="es")
+    assert said and said[-1] == kodi.localize(32551), \
+        "an exhausted quota has to say so, not go quiet"
+
+
+def test_an_ordinary_failure_says_something_different(monkeypatch, settings_module):
+    from pinky import kodi
+    from pinky.subs import auto
+    from pinky.subs.ai import translator
+
+    said = []
+    monkeypatch.setattr(kodi, "notify", lambda message, *a, **k: said.append(message))
+    monkeypatch.setattr(auto, "_partial_slots", lambda *a, **k: [])
+    monkeypatch.setattr(translator, "translate", _raise(
+        translator.TranslationError("only 3 of 900 cues were translated")))
+
+    auto._translate_progressively([], {"title": "A Film"}, "he", None)
+    assert said and said[-1] == kodi.localize(32552)
+
+
+def _raise(error):
+    def fail(*args, **kwargs):
+        raise error
+    return fail

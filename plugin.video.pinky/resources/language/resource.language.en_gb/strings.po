@@ -1740,3 +1740,12 @@ msgstr ""
 msgctxt "#32550"
 msgid "EMBEDDED"
 msgstr ""
+
+msgctxt "#32551"
+msgid "The AI service is out of quota, so nothing was translated"
+msgstr ""
+
+msgctxt "#32552"
+msgid "The translation did not finish"
+msgstr ""
+

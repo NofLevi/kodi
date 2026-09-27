@@ -17,6 +17,7 @@ exists, the chosen subtitle is verified and re-timed against it, which turns
 """
 import hashlib
 import os
+import sys
 import threading
 import time
 
@@ -1627,6 +1628,16 @@ def _translate_progressively(cues, meta, language, player, variant="",
         return translator.translate(cues, language, **kwargs)
     except translator.TranslationError:
         kodi.log_exception("AI translation failed")
+        # Say why. Without this the film simply plays with nothing on it and
+        # nobody watching can tell "the model is out of quota" from "this
+        # add-on found no subtitles" - and the second is what it looks like.
+        # `readable_fallback` makes the same point and only covers the case
+        # where the source is a language the viewer reads.
+        try:
+            refusing = translator._service_is_refusing(sys.exc_info()[1])
+        except Exception:
+            refusing = False
+        kodi.notify(kodi.localize(32551 if refusing else 32552))
         if player is not None and state["shown"]:
             def hide_rejected():
                 if cancelled is not None and cancelled():
