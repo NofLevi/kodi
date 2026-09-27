@@ -1021,3 +1021,21 @@ def test_the_first_attempt_ignores_the_memory(links_open, monkeypatch):
 
     play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
     assert asked and asked[0] is False,         "the first source is tried for real, memory or no memory"
+
+
+def test_the_playing_source_is_never_its_own_fallback():
+    """The picker hands back a copy - the three subtitle lists mark each
+    release with how it gets Hebrew, so what comes back is
+    `dict(source, subs_mode=...)` and never the dict that went in. `entry is
+    chosen` was therefore always false, so the fallback list began at index
+    zero and included the source now playing: one that would not open was
+    retried as its own replacement."""
+    sources = [
+        {"title": "A", "hash": "a" * 40, "cached": True, "cached_by": "torbox"},
+        {"title": "B", "hash": "b" * 40, "cached": True, "cached_by": "torbox"},
+        {"title": "C", "hash": "c" * 40, "cached": True, "cached_by": "torbox"},
+    ]
+    chosen = dict(sources[0], subs_mode="llm", subs_fit=70)
+
+    found = play._fallbacks_after(chosen, sources)
+    assert [f["title"] for f in found] == ["B", "C"]

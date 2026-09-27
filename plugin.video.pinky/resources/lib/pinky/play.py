@@ -351,8 +351,19 @@ def _fallbacks_after(chosen, sources):
     direct url is left out, because that url may be signed, and the hand-off
     is a window property any add-on on the box can read.
     """
+    # By infohash, not by identity. The picker's rows are copies - the three
+    # subtitle lists mark each release with how it gets Hebrew, so what comes
+    # back is `dict(source, subs_mode=...)` and never the dict that went in.
+    # `entry is chosen` was therefore always false, position -1, and every
+    # source became a fallback *including the one now playing*: a source that
+    # would not open was retried as its own replacement.
+    # `chosen` is None when nothing has been played yet, and then every
+    # source is still ahead of the viewer.
+    wanted = ((chosen or {}).get("hash") or "").lower()         or ((chosen or {}).get("title") or "")
     position = next((index for index, entry in enumerate(sources)
-                     if entry is chosen), -1)
+                     if entry is chosen
+                     or (wanted and ((entry.get("hash") or "").lower()
+                                     or (entry.get("title") or "")) == wanted)), -1)
     found = []
     for candidate in sources[position + 1:]:
         if len(found) >= MAX_FALLBACKS:
