@@ -274,7 +274,13 @@ class TorBox(base.DebridService):
         """
         if not self.configured():
             return [], lambda entry: ""
-        torrent = self._find(source)
+        # `source` here is the playback record, which calls the infohash
+        # `torrent_hash`; `_find` wants a search result, which calls it
+        # `hash`. One shape does not become the other by hoping.
+        info_hash = source.get("hash") or source.get("torrent_hash") or ""
+        if not info_hash:
+            return [], lambda entry: ""
+        torrent = self._find(dict(source, hash=info_hash))
         if not torrent or not torrent.get("files"):
             return [], lambda entry: ""
         if not _claims_to_be_ready(torrent):

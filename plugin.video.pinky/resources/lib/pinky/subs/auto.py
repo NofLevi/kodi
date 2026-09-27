@@ -323,7 +323,12 @@ def _modules():
 def _providers():
     """Enabled provider modules, in the order they should be asked.
 
-    Wizdom leads because it is Hebrew-only and fast. Then the two
+    The subtitles inside the release lead, because they are the only ones
+    that need no judgement at all: a file that shipped with the cut is in
+    time by construction, and asking costs one debrid lookup against a
+    torrent the viewer is already streaming.
+
+    Then Wizdom, because it is Hebrew-only and fast. Then the two
     OpenSubtitles: the anonymous legacy search first, because it needs no
     account and is the only thing standing between an English-language series
     and no subtitle at all, then the modern one, which can match on the file
@@ -334,8 +339,8 @@ def _providers():
     """
     modules = _modules()
     enabled = settings.enabled_subtitle_providers()
-    order = ["wizdom", "bsplayer", "opensubtitles_rest", "opensubtitles",
-             "ktuvit", "subsource"]
+    order = ["sidecar", "wizdom", "bsplayer", "opensubtitles_rest",
+             "opensubtitles", "ktuvit", "subsource"]
     return [(name, modules[name]) for name in order
             if name in enabled and name in modules]
 

@@ -92,3 +92,50 @@ def test_a_service_that_cannot_look_inside_a_torrent_is_not_asked(monkeypatch,
     monkeypatch.setattr(registry, "resolver_for", lambda source: object())
     assert sidecar.search({"source": {"torrent_hash": "a" * 40}}, None,
                           ["he"]) == []
+
+
+def test_the_provider_is_actually_asked(settings_module):
+    """It was written, registered in `_modules`, and left out of the ordered
+    list `_providers` iterates - so it was never asked once. The log said so
+    by saying nothing at all."""
+    from pinky.subs import auto
+
+    names = [name for name, _module in auto._providers()]
+    assert "sidecar" in names, names
+    assert names[0] == "sidecar", \
+        "it needs no judgement, so it is asked before anything that does"
+
+
+def test_the_playback_record_is_the_shape_that_gets_asked(monkeypatch):
+    """`source_record` calls the infohash `torrent_hash`; a search result
+    calls it `hash`. `_find` wanted the second and was handed the first, so
+    the provider raised, the exception was swallowed as "could not list", and
+    the whole feature was silently absent. One shape does not become the
+    other by hoping."""
+    from pinky.debrid import torbox
+
+    client = torbox.TorBox()
+    asked = {}
+
+    def find(source):
+        asked.update(source)
+        return {"id": 1, "cached": True, "download_finished": True,
+                "files": [{"id": 2, "name": "x.srt"}]}
+
+    monkeypatch.setattr(client, "_find", find)
+    monkeypatch.setattr(client, "configured", lambda: True)
+
+    files, _link_for = client.sidecar_subtitles({"torrent_hash": "b" * 40})
+    assert asked.get("hash") == "b" * 40
+    assert len(files) == 1
+
+
+def test_no_infohash_means_no_lookup(monkeypatch):
+    from pinky.debrid import torbox
+
+    client = torbox.TorBox()
+    monkeypatch.setattr(client, "configured", lambda: True)
+    monkeypatch.setattr(client, "_find",
+                        lambda source: (_ for _ in ()).throw(AssertionError("asked")))
+    files, _link = client.sidecar_subtitles({})
+    assert files == []
