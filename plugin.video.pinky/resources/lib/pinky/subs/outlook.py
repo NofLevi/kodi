@@ -216,11 +216,21 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
     from .ai import context
 
     hebrew = _hebrew_code()
-    if auto.normalise_language(meta.get("original_language")) == hebrew:
-        return [], [], []
+    # A Hebrew title still gets its Hebrew rows. It used to get none at all,
+    # on the reasoning that an Israeli film is already in Hebrew and a
+    # subtitle puts the dialogue on screen twice - which is true of a film
+    # that is wholly in Hebrew and false of the ones this household watches.
+    # **Fauda is half in Arabic**; Shtisel has Yiddish in it. Measured over 36
+    # titles, these were the only two where the picker drew less than what was
+    # available: Fauda had five Hebrew subtitles and a ceiling of 99, Shtisel
+    # two and a ceiling of 100, and both screens were empty.
+    #
+    # The other two lists are still skipped, because translating into Hebrew
+    # for a Hebrew show is work with no answer at the end of it.
+    hebrew_title = auto.normalise_language(meta.get("original_language")) == hebrew
     native_found = candidates(meta)
-    llm_found = translation_candidates(meta)
-    english_found = english_candidates(meta, llm_found)
+    llm_found = [] if hebrew_title else translation_candidates(meta)
+    english_found = [] if hebrew_title else english_candidates(meta, llm_found)
     native, llm, english = [], [], []
     for index, source in enumerate(sources):
         name = source.get("title") or ""
@@ -238,6 +248,8 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
             native.append((_order(source, native_fit, index),
                            dict(source, subs_mode="native",
                                 subs_fit=_as_percent(native_fit))))
+        if hebrew_title:
+            continue
         best = None
         for candidate in llm_found:
             fit = matcher.rate(candidate, target)[0]

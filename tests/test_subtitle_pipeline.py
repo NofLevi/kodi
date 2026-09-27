@@ -1227,3 +1227,53 @@ def test_the_language_is_named_for_a_person():
     assert auto._language_name("he") == "Hebrew"
     assert auto._language_name("en") == "English"
     assert auto._language_name("zz") == "ZZ", "never a bare code lowercased"
+
+
+def test_a_hebrew_row_chosen_by_hand_is_applied_to_a_hebrew_title(pipeline,
+                                                                  monkeypatch):
+    """"Already in Hebrew" is a statement about the metadata, not about what
+    is coming out of the speakers. Fauda is half in Arabic and Shtisel has
+    Yiddish in it, so a viewer who picked a Hebrew row in the picker has said
+    they want it - and the automatic path used to return before looking."""
+    from pinky.subs import auto
+
+    name = "Dune.Part.Two.2024.1080p.WEB-DL-GRP"
+    israeli = dict(MOVIE, original_language="he")
+    israeli["source"] = {"release": name, "subs_mode": "native"}
+    pipeline["candidates"] = [candidate(name)]
+    pipeline["downloads"][name] = srt_bytes()
+
+    path, report = auto.find_and_prepare(israeli, ["he", "en"])
+    assert path, "a Hebrew row the viewer picked has to be applied: %s" % (report,)
+
+
+def test_a_hebrew_title_left_alone_still_gets_no_subtitle(pipeline):
+    """Nothing chosen, so the old reasoning still stands: an Israeli film
+    wholly in Hebrew does not want its own dialogue on screen twice."""
+    from pinky.subs import auto
+
+    name = "Dune.Part.Two.2024.1080p.WEB-DL-GRP"
+    israeli = dict(MOVIE, original_language="he")
+    israeli.pop("source", None)
+    pipeline["candidates"] = [candidate(name)]
+    pipeline["downloads"][name] = srt_bytes()
+
+    # `on_playback_started` is where the rule lives, because it is a decision
+    # about whether to search at all rather than about what was found.
+    applied = []
+    auto.on_playback_started(_Recorder(applied), israeli)
+    assert applied == [], "an Israeli film does not want its own dialogue twice"
+
+
+class _Recorder(object):
+    def __init__(self, applied):
+        self._applied = applied
+
+    def setSubtitles(self, path):
+        self._applied.append(path)
+
+    def showSubtitles(self, on):
+        pass
+
+    def isPlaying(self):
+        return True

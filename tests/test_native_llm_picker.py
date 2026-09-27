@@ -71,9 +71,22 @@ def test_no_ai_rows_without_an_engine(found):
     assert native and llm == []
 
 
-def test_a_hebrew_title_is_not_split(found):
-    assert outlook.split_rows(dict(META, original_language="he"),
-                              [source(EXACT, 1)]) == ([], [], [])
+def test_a_hebrew_title_still_gets_its_hebrew_rows(found):
+    """It used to get no rows at all, on the reasoning that an Israeli film
+    is already in Hebrew and a subtitle puts the dialogue on screen twice -
+    true of a film wholly in Hebrew, false of the ones this household
+    watches. Fauda is half in Arabic; Shtisel has Yiddish in it.
+
+    Measured over 36 titles, these were the only two where the picker drew
+    less than what was there: Fauda had five Hebrew subtitles and a ceiling
+    of 99, Shtisel two and a ceiling of 100, and both screens were empty.
+    """
+    native, llm, english = outlook.split_rows(
+        dict(META, original_language="he"), [source(EXACT, 1)])
+
+    assert native, "the Hebrew rows are the whole point for an Israeli show"
+    assert llm == [], "translating into Hebrew for a Hebrew show answers nothing"
+    assert english == []
 
 
 ORDER = {"native": 0, "llm": 1, "english": 2}

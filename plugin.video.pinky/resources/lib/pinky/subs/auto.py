@@ -164,11 +164,17 @@ def on_playback_started(player, meta, cancelled=None):
         # Chosen from the picker's English rows: English, whatever the
         # configured languages say, and whatever language the film is in.
         languages = ["en"]
-    elif normalise_language(meta.get("original_language")) == languages[0]:
+    elif (normalise_language(meta.get("original_language")) == languages[0]
+            and _subs_mode(meta) != "native"):
         # An Israeli film is already in Hebrew. Searching for a Hebrew
         # subtitle costs a round of requests and, when one is found, puts the
         # dialogue on screen twice. The chooser still lists them for anybody
         # who wants one - hard of hearing, or a noisy room.
+        #
+        # Unless the viewer picked a Hebrew row in the source picker, which is
+        # them saying they want it. Fauda is half in Arabic and Shtisel has
+        # Yiddish in it, so "already in Hebrew" is a statement about the
+        # metadata rather than about what is coming out of the speakers.
         kodi.log("%s is in %s already, so no subtitle is applied"
                  % (meta.get("title") or "this title", languages[0]))
         return
