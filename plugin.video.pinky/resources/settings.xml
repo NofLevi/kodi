@@ -884,6 +884,14 @@
 
         <category id="interface" label="30091" help="30092">
             <group id="1" label="30093">
+                <!-- Bookkeeping rather than a preference, so it is not shown:
+                     whether Kodi's own keyboard layouts have been offered
+                     Hebrew yet. Asked once, so removing it again sticks. -->
+                <setting id="ui.keyboard_hebrew_done" type="boolean"
+                         label="30094" visible="false">
+                    <level>4</level><default>false</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="ui.window_home" type="boolean" label="30094">
                     <level>2</level><default>true</default>
                     <control type="toggle"/>

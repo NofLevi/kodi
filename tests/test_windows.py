@@ -1488,3 +1488,58 @@ def test_voice_input_is_the_platform_question(monkeypatch):
                         lambda cond: asked.append(cond) or True)
     assert kodi.has_voice_input() is True
     assert asked == ["System.Platform.Android"]
+
+
+def test_kodis_keyboard_is_offered_hebrew_once(monkeypatch, settings_module):
+    """Kodi ships English QWERTY alone, so the layout button cycled between
+    English and accented Latin - and a catalogue titled entirely in Hebrew
+    could not be typed in Hebrew at all. `hebrew.xml` is already in Kodi's own
+    system/keyboardlayouts; it is simply not enabled."""
+    import xbmc
+    from pinky import kodi
+
+    calls = []
+
+    def fake_rpc(request):
+        import json
+        sent = json.loads(request)
+        calls.append(sent)
+        if sent["method"] == "Settings.GetSettingValue":
+            return json.dumps({"result": {"value": ["English QWERTY"]}})
+        return json.dumps({"result": True})
+
+    monkeypatch.setattr(xbmc, "executeJSONRPC", fake_rpc)
+    assert kodi.ensure_hebrew_keyboard() is True
+    written = [c for c in calls if c["method"] == "Settings.SetSettingValue"]
+    assert written[0]["params"]["value"] == ["English QWERTY", "Hebrew QWERTY"], \
+        "additive - whatever else is configured has to survive"
+
+    calls[:] = []
+    assert kodi.ensure_hebrew_keyboard() is False
+    assert calls == [], "asked once, so removing it again sticks"
+
+
+def test_a_keyboard_that_already_has_hebrew_is_left_alone(monkeypatch,
+                                                          settings_module):
+    import xbmc
+    from pinky import kodi
+
+    def fake_rpc(request):
+        import json
+        sent = json.loads(request)
+        if sent["method"] == "Settings.GetSettingValue":
+            return json.dumps({"result": {"value": ["Hebrew QWERTY"]}})
+        raise AssertionError("wrote a layout list that needed no change")
+
+    monkeypatch.setattr(xbmc, "executeJSONRPC", fake_rpc)
+    assert kodi.ensure_hebrew_keyboard() is False
+
+
+def test_a_kodi_that_refuses_the_question_is_not_a_crash(monkeypatch,
+                                                         settings_module):
+    import xbmc
+    from pinky import kodi
+
+    monkeypatch.setattr(xbmc, "executeJSONRPC",
+                        lambda request: '{"error": {"message": "no"}}')
+    assert kodi.ensure_hebrew_keyboard() is False

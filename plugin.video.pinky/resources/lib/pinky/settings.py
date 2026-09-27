@@ -134,6 +134,9 @@ DEFAULTS = {
     # stays the lean one; profiles.set_rich_visuals is what turns it on and
     # makes it take effect.
     "ui.rich_visuals": "false",
+    # Bookkeeping, not a preference: whether Kodi's own keyboard layouts have
+    # been offered Hebrew yet. Asked once so that removing it again sticks.
+    "ui.keyboard_hebrew_done": "false",
     "ui.window_home": "true",
     "ui.window_search": "true",
     # Go straight into Pinky when Kodi starts. Off, because taking over

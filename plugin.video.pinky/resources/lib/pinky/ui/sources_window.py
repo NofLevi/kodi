@@ -68,7 +68,7 @@ class SourcesWindow(xbmcgui.WindowXML):
     # -- rendering ---------------------------------------------------------
 
     def _visible(self):
-        """One list: the first page, then everything it left out.
+        """One list, already in the order it should be drawn.
 
         There used to be a "show all sources" button with the rest behind it,
         and twice it was reported as showing the same thing - fairly, because
@@ -78,10 +78,10 @@ class SourcesWindow(xbmcgui.WindowXML):
         release has one at 78% or better that ordering collapses back onto the
         source ranking, so the first page *is* the top of the full list.
 
-        There is nothing to toggle now. The good ones still lead, which is
-        what the first page was for, and the rest follow instead of hiding
-        behind a press. These are text rows carrying no artwork, and artwork
-        is the budget that matters on a small device.
+        `_first_page` returns the tail as well now, so there is nothing to
+        toggle and nothing hidden. The duplicate guard stays because the three
+        subtitle lists may each name the same release, which is the point of
+        them.
         """
         seen = set()
         ordered = []
@@ -422,25 +422,33 @@ def _why_hidden(entries, meta):
 
 
 def _first_page(meta, short, full):
-    """Ten NATIVE Hebrew, ten LLM, five NATIVE English - or the plain list.
+    """The whole list: ten NATIVE, ten LLM, five ENGLISH, then the rest.
 
-    Asked for in so many words: the first page should put the two ways of
-    getting Hebrew side by side, so that which one works better is something
-    the viewer sees rather than something decided for them. The ordinary
-    short list comes back whenever there is nothing to split - a Hebrew
-    title, or a search where no release has a subtitle of either kind.
+    Asked for in so many words: the first rows should put the two ways of
+    getting Hebrew side by side, so which one works is something the viewer
+    sees rather than something decided for them.
+
+    The rest follow, and they carry their tag too. `split_rows` judges every
+    release three times and used to return only the rows it kept, so past the
+    cut the picker read "Subtitles 81% estimate" where the rows above read
+    NATIVE or LLM - the same question answered two ways on one screen. It
+    costs nothing to keep: the work was already done.
+
+    The ordinary short list comes back whenever there is nothing to split - a
+    Hebrew title, or a search where no release has a subtitle of either kind.
     """
     try:
         from ..subs import outlook
-        native, llm, english = outlook.split_rows(meta, full or short)
+        native, llm, english, rest = outlook.split_rows(meta, full or short,
+                                                        want_rest=True)
     except Exception:
         kodi.log_exception("could not split the sources into native and AI")
         return list(short)
     if not native and not llm and not english:
         return list(short)
-    kodi.log("sources picker: %d native rows, %d AI rows, %d English rows"
-             % (len(native), len(llm), len(english)))
-    return native + llm + english
+    kodi.log("sources picker: %d native rows, %d AI rows, %d English rows, "
+             "%d others" % (len(native), len(llm), len(english), len(rest)))
+    return native + llm + english + rest
 
 
 def pick_source(sources, meta, all_sources=None):

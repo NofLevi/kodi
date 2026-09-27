@@ -229,6 +229,62 @@ def select(options, heading=None, preselect=-1, use_details=False):
     )
 
 
+HEBREW_LAYOUT = "Hebrew QWERTY"
+
+
+def ensure_hebrew_keyboard():
+    """Put Hebrew among Kodi's own keyboard layouts, once.
+
+    Kodi's keyboard is where this add-on now sends anybody who wants to type
+    or talk, and it ships with **English QWERTY alone**: pressing the layout
+    button cycled between English and accented Latin, so a catalogue titled
+    entirely in Hebrew could not be searched in Hebrew at all. `hebrew.xml`
+    is already in Kodi's own `system/keyboardlayouts`; it is simply not
+    enabled.
+
+    Additive, and only ever additive: whatever else is configured stays, and
+    a viewer who removes Hebrew again is not overruled on the next start -
+    this only acts when the list has never contained it, which is why the
+    answer is remembered rather than the list re-checked.
+    """
+    from . import settings          # lazy: settings imports this module
+    if settings.get_bool("ui.keyboard_hebrew_done", False):
+        return False
+    settings.set("ui.keyboard_hebrew_done", True)
+    layouts = _setting_value("locale.keyboardlayouts")
+    if not isinstance(layouts, list) or HEBREW_LAYOUT in layouts:
+        return False
+    if not _set_setting_value("locale.keyboardlayouts",
+                              layouts + [HEBREW_LAYOUT]):
+        return False
+    log("added %s to Kodi's keyboard layouts" % HEBREW_LAYOUT)
+    return True
+
+
+def _rpc(method, params):
+    import json
+    try:
+        answer = json.loads(xbmc.executeJSONRPC(json.dumps({
+            "jsonrpc": "2.0", "id": 1, "method": method, "params": params})))
+    except Exception:
+        log_exception("JSON-RPC %s failed" % method)
+        return None
+    if isinstance(answer, dict) and "error" in answer:
+        log("JSON-RPC %s: %s" % (method, answer["error"]))
+        return None
+    return (answer or {}).get("result")
+
+
+def _setting_value(name):
+    result = _rpc("Settings.GetSettingValue", {"setting": name})
+    return result.get("value") if isinstance(result, dict) else None
+
+
+def _set_setting_value(name, value):
+    return _rpc("Settings.SetSettingValue",
+                {"setting": name, "value": value}) is True
+
+
 def has_voice_input():
     """Whether holding OK on the remote can dictate into Kodi's keyboard.
 

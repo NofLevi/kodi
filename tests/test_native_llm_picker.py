@@ -248,3 +248,39 @@ def test_resolution_still_comes_before_size(found):
     native, _llm, _english = outlook.split_rows(META, [small_720, big_1080])
     assert native[0]["hash"] == big_1080["hash"]
 
+
+
+def test_the_rows_past_the_first_page_still_say_how_they_get_hebrew():
+    """Every release is judged three times and the answers used to be thrown
+    away with the rows that did not fit, so past the cut the picker read
+    "Subtitles 81% estimate" where the rows above read NATIVE or LLM - one
+    screen answering the same question in two languages. Measured on Top Gun:
+    Maverick, five tagged rows and seventy-seven untagged."""
+    many = [source(EXACT, index) for index in range(outlook.SPLIT_ROWS + 4)]
+    native, llm, english, rest = outlook.split_rows(META, many, want_rest=True)
+
+    assert len(native) == outlook.SPLIT_ROWS, "the cut still happens"
+    assert rest, "and what it cut still exists"
+    assert all(row.get("subs_mode") for row in rest), \
+        "a row past the cut with no mode is the bug this is about"
+    first_page = set(id(r) for rows in (native, llm, english) for r in rows)
+    assert not any(id(r) in first_page for r in rest), "nothing listed twice"
+
+
+def test_a_release_shows_its_best_route_rather_than_the_first_one_found():
+    """Native beats LLM beats English at the same fit, because a Hebrew
+    subtitle somebody made beats one a model makes - but a poor Hebrew match
+    must not be sold as Hebrew over an excellent translatable one."""
+    poor = {"subs_mode": "native", "subs_fit": 40}
+    good = {"subs_mode": "llm", "subs_fit": 95}
+    assert outlook._best_mode([poor, good]) is good
+
+    same_native = {"subs_mode": "native", "subs_fit": 80}
+    same_llm = {"subs_mode": "llm", "subs_fit": 80}
+    assert outlook._best_mode([same_llm, same_native]) is same_native
+
+
+def test_a_hebrew_title_has_no_rest_either():
+    hebrew = dict(META, original_language="he")
+    assert outlook.split_rows(hebrew, [source(EXACT, 1)], want_rest=True) == \
+        ([], [], [], [])

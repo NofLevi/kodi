@@ -299,6 +299,16 @@ class Service(xbmc.Monitor):
         except Exception:
             kodi.log_exception("update tidy-up failed")
 
+        # Kodi's own keyboard is where this add-on sends anybody who wants to
+        # type or to talk, and it ships with English alone - so a catalogue
+        # titled entirely in Hebrew could not be searched in Hebrew. Here
+        # rather than in the search window because it is a once-per-install
+        # question about Kodi, not about a press.
+        try:
+            kodi.ensure_hebrew_keyboard()
+        except Exception:
+            kodi.log_exception("could not offer Kodi a Hebrew keyboard")
+
         while not self.abortRequested():
             # A fifth of a second only while we are still deciding whether to
             # open on start-up, because a one second tick is a second of
