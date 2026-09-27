@@ -415,13 +415,27 @@ def decode(raw, expected_language=None):
 
 
 def write(path, cues):
+    """Write a subtitle with a byte order mark, because Kodi has to guess.
+
+    `utf-8-sig`, not `utf-8`. The files here were always correct UTF-8 -
+    checked byte for byte on three of them - and Hebrew still reached the
+    screen as mojibake, which is what UTF-8 looks like read one byte at a
+    time. Kodi's `locale.charset` is DEFAULT, meaning *detect it*, and with
+    no mark to detect it falls back to a legacy codepage: every Hebrew letter
+    is 0xD7 and a second byte, and 0xD7 alone is a perfectly good character
+    in cp1252 and cp1255.
+
+    Three bytes at the front end the guessing, which is what every add-on
+    that renders Hebrew does. `decode` has read `utf-8-sig` first since it
+    was written, so nothing has to change to read them back.
+    """
     directory = os.path.dirname(path)
     if directory and not os.path.isdir(directory):
         os.makedirs(directory)
     fd, temporary = tempfile.mkstemp(prefix=".pinky-subtitle-", suffix=".tmp",
                                      dir=directory or ".")
     try:
-        with io.open(fd, "w", encoding="utf-8", newline="\n") as handle:
+        with io.open(fd, "w", encoding="utf-8-sig", newline="\n") as handle:
             handle.write(dump(cues))
         os.replace(temporary, path)
     except Exception:

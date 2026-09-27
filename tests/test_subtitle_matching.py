@@ -1,4 +1,6 @@
 """Candidate scoring decides which single subtitle gets downloaded."""
+import pytest
+
 import struct
 
 
@@ -515,3 +517,58 @@ def test_a_film_is_not_affected():
     score, _reason = matcher.rate(
         {"release": "Fight Club 1999", "language": "en"}, target)
     assert score < 70, "a title alone is still a title alone: %d" % score
+
+
+# --------------------------------------------------------------------------
+# a candidate that is for something else entirely
+# --------------------------------------------------------------------------
+
+ODYSSEY = {"type": "movie", "title": "The Odyssey", "year": 2026}
+ODYSSEY_SOURCE = {"release": "The.Odyssey.2026.1080p.WEBRip.x265-INFINITY.mp4",
+                  "quality": "1080p"}
+
+
+@pytest.mark.parametrize("name,wrong", [
+    # Measured, both of them, on one playback of The Odyssey (2026): the best
+    # Hebrew subtitle in the list and the source the translation was made
+    # from. Both scored 70% and read "Hebrew subtitle, 70% fit".
+    ("Doctor.Odyssey.S01E18.The.Wave.Part.2.1080p.AMZN.WEB-DL.DDP", True),
+    ("The.Martian.2015.720p.WEB-DL.XviD.AC3-RARBG", True),
+    ("The.Odyssey.2026.1080p.WEB-DL.x264-OTHER", False),
+    # A translated title shares no word with the English one, so the year is
+    # what has to save it.
+    ("A Odisseia 2026 1080p WEBRip", False),
+    # And a name that states no year states nothing to disagree with.
+    ("The Odyssey 1080p WEBRip", False),
+])
+def test_a_subtitle_for_a_different_title_scores_nothing(name, wrong):
+    """WEIGHT_TITLE is granted to every candidate on the grounds that it came
+    back from a search for this title, and the providers do not honour that.
+    The film then played in English, because the Hebrew row it promised was
+    thrown out at playback for ending an hour before the film does."""
+    from pinky.subs import matcher
+
+    target = matcher.target_from(ODYSSEY, ODYSSEY_SOURCE)
+    score, reason = matcher.rate({"release": name}, target)
+
+    assert (score == 0) is wrong, reason
+    if wrong:
+        assert reason == "wrong title"
+
+
+def test_a_film_has_no_episodes():
+    """A candidate naming S01E18 against a film needs no second opinion."""
+    from pinky.subs import matcher
+
+    target = matcher.target_from(ODYSSEY, ODYSSEY_SOURCE)
+    assert matcher.rate({"release": "Some.Show.S01E18.1080p.WEB"}, target)[0] == 0
+
+
+def test_an_episode_target_is_left_to_the_episode_check():
+    """The season and episode rules are their own thing and better at it."""
+    from pinky.subs import matcher
+
+    target = matcher.target_from(
+        {"type": "episode", "title": "Silo", "year": 2023, "season": 1, "episode": 1},
+        {"release": "Silo.S01E01.1080p.WEB-DL-NTb", "quality": "1080p"})
+    assert matcher.rate({"release": "Silo.S01E01.1080p.WEB-DL-GRP"}, target)[0] > 0

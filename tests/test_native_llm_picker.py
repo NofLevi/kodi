@@ -79,7 +79,7 @@ def test_a_hebrew_title_is_not_split(found):
 ORDER = {"native": 0, "llm": 1, "english": 2}
 
 
-def test_the_first_page_reads_best_fit_first(found):
+def test_the_first_page_is_hebrew_then_llm_then_english(found):
     """It used to be three lists end to end, and read like it: on The Odyssey
     the routes ran LLM, LLM, LLM, ENGLISH five times, then LLM again, so one
     release sat at row one and row seven with different labels and nothing in
@@ -88,21 +88,25 @@ def test_the_first_page_reads_best_fit_first(found):
     fits best" from the top down."""
     sources = [source(EXACT, 1), source(OTHER, 2)]
     page = sources_window._first_page(META, sources, sources)
-    fits = [row.get("subs_fit") or 0 for row in page]
+    modes = [row["subs_mode"] for row in page if row.get("subs_mode")]
 
-    assert fits == sorted(fits, reverse=True), "a better fit sits lower down"
-    assert set(row["subs_mode"] for row in page) == {"native", "llm", "english"}
+    assert modes == sorted(modes, key=ORDER.get), "the ladder, not a scoreboard"
+    assert set(modes) == {"native", "llm", "english"}
 
 
-def test_hebrew_wins_a_tie_against_a_translation(found):
-    """Where two rows fit equally well, a subtitle somebody made beats one a
-    model makes, and English is last for the same reason reversed."""
-    rows = [{"subs_mode": "english", "subs_fit": 70},
-            {"subs_mode": "llm", "subs_fit": 70},
+def test_hebrew_wins_even_when_a_translation_fits_better(found):
+    """Measured on The Odyssey: three LLM rows at 76% sat above seven NATIVE
+    rows at 70%, which reads as "translate this" on a film that has a Hebrew
+    subtitle somebody made. The fit orders the rungs of the ladder; it does
+    not reorder the ladder."""
+    rows = [{"subs_mode": "english", "subs_fit": 99},
+            {"subs_mode": "llm", "subs_fit": 76},
             {"subs_mode": "native", "subs_fit": 70},
             {"subs_mode": "llm", "subs_fit": 90}]
     ordered = sources_window._in_one_order(rows)
-    assert [r["subs_mode"] for r in ordered] == ["llm", "native", "llm", "english"]
+
+    assert [r["subs_mode"] for r in ordered] ==         ["native", "llm", "llm", "english"],         "a Hebrew subtitle at 70 still beats a translation at 90"
+    assert [r["subs_fit"] for r in ordered] == [70, 90, 76, 99],         "and the fit orders the rungs"
 
 
 def test_no_hebrew_anywhere_still_opens_on_llm_and_english(found):

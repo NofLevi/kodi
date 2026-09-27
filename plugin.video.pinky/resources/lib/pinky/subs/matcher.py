@@ -14,6 +14,7 @@ in order of how much they are trusted:
 Nothing here touches the network.
 """
 import functools
+import re
 
 from ..utils import release
 
@@ -139,6 +140,9 @@ def rate(candidate, target, video_hash=""):
     if _contradicts_episode(parsed, target):
         return 0, "wrong episode"
 
+    if _contradicts_title(parsed, name, target):
+        return 0, "wrong title"
+
     if candidate.get("hash_match") or (
             video_hash and candidate.get("moviehash") == video_hash):
         # A hash is the strongest evidence there is, and it still loses to a
@@ -220,6 +224,47 @@ def rate(candidate, target, video_hash=""):
             ", ".join(reasons) or "title only")
 
 
+_A_YEAR = re.compile(r"\b(19\d\d|20\d\d)\b")
+
+
+def _contradicts_title(parsed, name, target):
+    """Does this name state that it is for something else?
+
+    `WEIGHT_TITLE` is granted to every candidate on the grounds that it came
+    back from a search for this title - and providers do not honour that.
+    Asked for The Odyssey (2026) the best Hebrew subtitle in the list was
+    **Doctor.Odyssey.S01E18.The.Wave.Part.2**, a television series, scored at
+    70% for agreeing on source and resolution; the translation source was
+    **The.Martian.2015**. Both read as "Hebrew subtitle, 70% fit" in the
+    picker, and the first was then thrown out at playback for ending an hour
+    before the film does - so the row promised Hebrew and the film played in
+    English.
+
+    Two things a name can say, and only things it *states*:
+
+    * an episode, when what is playing is a film. A film has no S01E18, so
+      this needs no second opinion and catches Doctor Odyssey;
+    * a year nowhere near ours, on a name that does not carry our title's
+      words. Either alone throws real subtitles away - a year rejects *1917*,
+      whose title is a year, and missing words rejects every translated
+      title - so it has to be both.
+
+    Silence is not disagreement. A bare "Episode 2.srt" or an upload named
+    after nothing states neither, and is left to the evidence below.
+    """
+    if target.get("type") == "movie" and (parsed.get("season")
+                                          or parsed.get("episode")):
+        return True
+    year = int(target.get("year") or 0)
+    if not year or not target.get("title"):
+        return False
+    years = [int(found) for found in _A_YEAR.findall(release.normalise(name))
+             if int(found) <= year + 2]
+    if not years or any(abs(found - year) <= 2 for found in years):
+        return False
+    return not release.mentions(name, target["title"])
+
+
 def _contradicts_episode(parsed, target):
     """Does this name state an episode, and a different one from ours?
 
@@ -287,6 +332,8 @@ def target_from(meta, source=None):
         "resolution": source.get("quality") or parsed["resolution"],
         "codec": parsed["codec"],
         "editions": parsed["editions"],
+        "title": meta.get("title") or "",
+        "year": meta.get("year") or 0,
         "type": meta.get("type"),
         "season": meta.get("season"),
         "episode": meta.get("episode"),

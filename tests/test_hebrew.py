@@ -727,3 +727,23 @@ def test_one_hebrew_letter_in_a_latin_query_is_enough(monkeypatch):
     from pinky.search import unified
 
     assert unified.query_language(u"Fauda פאודה") == "he-IL"
+
+
+def test_a_written_subtitle_carries_a_byte_order_mark(tmp_path):
+    """The files were always correct UTF-8 - checked byte for byte - and
+    Hebrew still reached the screen as mojibake. Kodi's locale.charset is
+    DEFAULT, meaning detect it, and with nothing to detect it falls back to a
+    legacy codepage: every Hebrew letter is 0xD7 and a second byte, and 0xD7
+    on its own is a fine character in cp1252 and cp1255."""
+    from pinky.subs import srt
+
+    path = str(tmp_path / "hebrew.srt")
+    srt.write(path, srt.parse(
+        u"1\n00:00:01,000 --> 00:00:02,000\nשלום\n"))
+
+    with open(path, "rb") as handle:
+        raw = handle.read()
+    assert raw.startswith(b"\xef\xbb\xbf"), "Kodi has nothing to detect without it"
+    assert u"שלום" in srt.decode(raw)
+    assert srt.parse(srt.decode(raw))[0].text == u"שלום", \
+        "and the mark must not land inside the first cue"

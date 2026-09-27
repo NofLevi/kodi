@@ -116,7 +116,7 @@ def test_a_weak_hebrew_subtitle_comes_before_a_translation(
     makes. It used to be the other way round."""
     settings_module.set("subs.ai.enabled", "true")
     exact = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
-    weak = "Some.Unrelated.Release.2019.DVDRip-XYZ"
+    weak = "Dune.Part.Two.2024.DVDRip-XYZ"
     english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX.en"
     pipeline["candidates"] = [candidate(exact), candidate(weak),
                               candidate(english, language="en")]
@@ -164,8 +164,8 @@ def test_a_half_length_subtitle_is_replaced_by_a_whole_one(pipeline):
     subtitles, the best-ranked was a 710-cue half, and the film played with
     none.
     """
-    half = "Harry.Potter.2002.1080p.BluRay.x264-CD1"
-    whole = "Harry.Potter.2002.1080p.BluRay.x264-DOMiNiON"
+    half = "Dune.Part.Two.2024.1080p.BluRay.x264-CD1"
+    whole = "Dune.Part.Two.2024.1080p.BluRay.x264-DOMiNiON"
     pipeline["candidates"] = [candidate(half), candidate(whole)]
     # 30 cues four seconds apart reach 2 minutes; the film is an hour.
     pipeline["downloads"][half] = srt_bytes(count=30, text="half")
@@ -307,7 +307,7 @@ def test_no_candidates_is_reported_not_crashed(pipeline):
 
 
 def test_a_weak_match_is_still_used_as_a_last_resort(pipeline):
-    weak = "Some.Unrelated.Release.2019.DVDRip-XYZ"
+    weak = "Dune.Part.Two.2024.DVDRip-XYZ"
     pipeline["candidates"] = [candidate(weak)]
     pipeline["downloads"][weak] = srt_bytes()
 

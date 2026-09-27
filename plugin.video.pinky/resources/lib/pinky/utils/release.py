@@ -522,3 +522,22 @@ def size_label(size_bytes):
     if gigabytes >= 1:
         return "%.2f GB" % gigabytes
     return "%.0f MB" % (float(size_bytes) / (1024 ** 2))
+
+
+def mentions(name, title):
+    """Do a title's own words appear in this release name?
+
+    Words of three letters or more, because "of", "the" and "a" agree with
+    everything. Two thirds, so a release that drops a subtitle or a colon
+    still counts as naming the film.
+
+    Deliberately generous. It is only ever used *with* a second signal - a
+    year that disagrees - because on its own it rejects every release under a
+    translated title, and "O Ultimo Tiro Certo" really is One Last Shot.
+    """
+    words = [word for word in normalise(title or "").split() if len(word) >= 3]
+    if not words:
+        return True
+    text = normalise(name or "")
+    hits = sum(1 for word in words if word in text)
+    return hits * 3 >= len(words) * 2

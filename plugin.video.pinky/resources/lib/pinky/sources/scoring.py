@@ -215,21 +215,10 @@ def _a_different_film(source, meta):
 
 
 def _says_the_title(name, meta):
-    """Do the film's own words appear in this release name?
-
-    Words of three letters or more, because "of", "the" and "a" agree with
-    everything. Two thirds, so a release that drops a subtitle or a colon
-    still counts as naming the film.
-    """
-    for key in ("search_title", "title", "original_title"):
-        words = [word for word in release.normalise(meta.get(key) or "").split()
-                 if len(word) >= 3]
-        if not words:
-            continue
-        hits = sum(1 for word in words if word in name)
-        if hits * 3 >= len(words) * 2:
-            return True
-    return False
+    """Do any of the film's names appear in this release name?"""
+    return any(release.mentions(name, meta.get(key))
+               for key in ("search_title", "title", "original_title")
+               if meta.get(key))
 
 
 def _another_production(source, meta):

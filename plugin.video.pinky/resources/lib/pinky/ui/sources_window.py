@@ -477,18 +477,17 @@ _ROUTE_ORDER = {"native": 0, "llm": 1, "english": 2}
 
 
 def _in_one_order(rows):
-    """Read the first page as one list, best fit first.
+    """Hebrew first, then AI, then English - always, and by fit inside each.
 
-    It used to be three lists end to end, and that is how it read: on The
-    Odyssey the routes ran LLM, LLM, LLM, ENGLISH x5, then LLM again, so the
-    same release appeared at row one and row seven with different labels and
-    nothing about the sequence explained why. The comparison is still all
-    there - every route every release has, still its own row - but the page
-    now answers "which subtitle fits this film best" from the top down, which
-    is the question somebody scrolling it is asking.
+    Sorting the whole page by fit was tried and is wrong. On The Odyssey it
+    put three LLM rows at 76% above seven NATIVE rows at 70%, which reads as
+    "translate this" on a film that has a Hebrew subtitle somebody made. The
+    three lists are a ladder, not a scoreboard: a Hebrew subtitle beats a
+    translation of one, and a translation beats reading English, whatever the
+    fits say. The fit orders the rungs, it does not reorder the ladder.
     """
-    return sorted(rows, key=lambda row: (-(row.get("subs_fit") or 0),
-                                         _ROUTE_ORDER.get(row.get("subs_mode"), 3)))
+    return sorted(rows, key=lambda row: (_ROUTE_ORDER.get(row.get("subs_mode"), 3),
+                                         -(row.get("subs_fit") or 0)))
 
 
 def pick_source(sources, meta, all_sources=None):
