@@ -117,12 +117,14 @@ def test_the_playback_record_is_the_shape_that_gets_asked(monkeypatch):
     client = torbox.TorBox()
     asked = {}
 
-    def find(source):
+    def create(source):
         asked.update(source)
         return {"id": 1, "cached": True, "download_finished": True,
                 "files": [{"id": 2, "name": "x.srt"}]}
 
-    monkeypatch.setattr(client, "_find", find)
+    # `_create`, not `_find`: the expensive fallback downloads the whole
+    # account and this runs once per row of a picker somebody is waiting on.
+    monkeypatch.setattr(client, "_create", create)
     monkeypatch.setattr(client, "configured", lambda: True)
 
     files, _link_for = client.sidecar_subtitles({"torrent_hash": "b" * 40})
@@ -135,7 +137,21 @@ def test_no_infohash_means_no_lookup(monkeypatch):
 
     client = torbox.TorBox()
     monkeypatch.setattr(client, "configured", lambda: True)
-    monkeypatch.setattr(client, "_find",
+    monkeypatch.setattr(client, "_create",
                         lambda source: (_ for _ in ()).throw(AssertionError("asked")))
     files, _link = client.sidecar_subtitles({})
     assert files == []
+
+
+def test_the_account_list_is_never_downloaded_for_a_decoration(monkeypatch):
+    """`_find` falls back to `_existing`, which cannot ask about one hash and
+    so pulls the whole account - 466 KB and two to four seconds - and this
+    runs once per row of a picker somebody is waiting on."""
+    from pinky.debrid import torbox
+
+    client = torbox.TorBox()
+    monkeypatch.setattr(client, "configured", lambda: True)
+    monkeypatch.setattr(client, "_create", lambda source: None)
+    monkeypatch.setattr(client, "_existing",
+                        lambda h: (_ for _ in ()).throw(AssertionError("account list")))
+    assert client.sidecar_subtitles({"torrent_hash": "d" * 40})[0] == []

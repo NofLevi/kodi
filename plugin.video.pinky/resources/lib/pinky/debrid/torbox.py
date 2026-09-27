@@ -280,7 +280,15 @@ class TorBox(base.DebridService):
         info_hash = source.get("hash") or source.get("torrent_hash") or ""
         if not info_hash:
             return [], lambda entry: ""
-        torrent = self._find(dict(source, hash=info_hash))
+        # `_create` only, never `_find`. `_find` falls back to `_existing`,
+        # which has no way to ask about one hash and so downloads the whole
+        # account - 466 KB and two to four seconds - and this runs once per
+        # row of a picker somebody is waiting on. Measured before the change:
+        # eight rows spent the entire six second ceiling and the viewer paid
+        # it on every title. `_create` answers "Found Cached Torrent" in about
+        # half a second for anything already there, which is the only case
+        # this is asked about.
+        torrent = self._create(dict(source, hash=info_hash))
         if not torrent or not torrent.get("files"):
             return [], lambda entry: ""
         if not _claims_to_be_ready(torrent):

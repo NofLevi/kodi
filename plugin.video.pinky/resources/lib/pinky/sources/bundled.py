@@ -43,17 +43,10 @@ SUBTITLE_EXTENSIONS = (".srt", ".ass", ".ssa", ".vtt", ".sub")
 # than choosing, and every one is a request against somebody's account.
 MAX_ROWS = 8
 
-# Six, not four. Eight rows through four workers is two rounds, and a TorBox
-# lookup is half a second when the torrent is already there and longer when
-# it is not - so four dropped the second half of the list. Measured on Top
-# Gun: Maverick, whose two RARBG releases both ship English subtitles and sit
-# at rows seven and eight: at four seconds one of them was marked and the
-# other was not, which reads as arbitrary rather than as "not known yet".
-#
-# A row that still does not answer is drawn without the mark, exactly as the
-# whole list looked before this existed, and the answer is remembered - so a
-# redraw, which "show all" is, fills in what the first pass missed.
-DEADLINE = 6.0
+# Generous, because nobody is waiting on it any more - this runs on a
+# background thread and the draw never blocks. Still bounded, because the
+# work goes through the shared four-worker pool that everything else uses.
+DEADLINE = 8.0
 
 
 def _languages(files):
@@ -95,7 +88,24 @@ def _ask(source):
 
 
 def annotate(sources):
-    """Mark the rows whose torrent carries subtitle files, in place."""
+    """Mark what is already known, and go and find out the rest.
+
+    **Nothing waits for this.** It decorates a list, and a decoration may not
+    cost the list: measured on Top Gun: Maverick, blocking for it spent the
+    whole ceiling - six seconds, then three after the account listing was
+    removed - on every single picker open, against a search that already
+    takes eleven. Paying three seconds of somebody's evening for a mark on
+    one row is not a trade worth making.
+
+    So the draw uses what is remembered, which is instant, and a background
+    thread fills in the rest for the next one. "Show all" is a redraw, and so
+    is opening the picker again, which on a series happens every episode -
+    so the marks appear, just not necessarily the first time.
+
+    The thread is a daemon and its work is bounded by the shared pool. If the
+    window closes and the plugin invocation is torn down first, nothing is
+    lost that mattered: the list drew correctly without it.
+    """
     asking = []
     for source in (sources or [])[:MAX_ROWS]:
         info_hash = (source.get("hash") or "").lower()
@@ -106,22 +116,36 @@ def annotate(sources):
             continue
         asking.append((info_hash, source))
 
-    if not asking:
-        return sources
-
-    answers = http.run_parallel(
-        [(info_hash, (lambda s=source: _ask(s))) for info_hash, source in asking],
-        workers=4, deadline=DEADLINE)
-    for info_hash, source in asking:
-        languages = answers.get(info_hash) or []
-        _KNOWN[info_hash] = languages
-        source["bundled_subs"] = languages
-
-    marked = sum(1 for _h, source in asking if source.get("bundled_subs"))
-    if marked:
-        kodi.log("%d of %d releases carry their own subtitles"
-                 % (marked, len(asking)))
+    if asking:
+        _learn_later([(info_hash, dict(source)) for info_hash, source in asking])
     return sources
+
+
+def _learn_later(asking):
+    """Ask about these in the background, for the next time the list is drawn."""
+    import threading
+
+    def work():
+        try:
+            answers = http.run_parallel(
+                [(info_hash, (lambda s=source: _ask(s)))
+                 for info_hash, source in asking],
+                workers=4, deadline=DEADLINE)
+        except Exception:
+            kodi.log_exception("could not tell which releases carry subtitles")
+            return
+        marked = 0
+        for info_hash, _source in asking:
+            languages = answers.get(info_hash) or []
+            _KNOWN[info_hash] = languages
+            marked += 1 if languages else 0
+        if marked:
+            kodi.log("%d of %d releases carry their own subtitles"
+                     % (marked, len(asking)))
+
+    thread = threading.Thread(target=work, name="pinky-embedded")
+    thread.daemon = True
+    thread.start()
 
 
 def forget():
