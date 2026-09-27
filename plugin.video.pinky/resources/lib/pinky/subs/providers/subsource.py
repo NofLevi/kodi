@@ -67,7 +67,13 @@ def search(meta, target, languages):
     return results
 
 
+# Set once this process has been told, plainly, that there is no way in.
+_refused = set()
+
+
 def _find_title(meta):
+    if _refused:
+        return ""
     query = meta.get("title") or ""
     if not query:
         return ""
@@ -77,7 +83,11 @@ def _find_title(meta):
         return ""
     if response.status_code >= 400:
         # Said once and plainly, because the alternative is a provider that is
-        # switched on and silently contributes nothing.
+        # switched on and silently contributes nothing - and then *stopped*
+        # asking, because saying so every search still costs a request on one
+        # of four workers under a ten second deadline. It ships off; a profile
+        # that has it on from an older default should not pay for that.
+        _refused.add(True)
         kodi.log("SubSource is no longer answering anonymously (HTTP %s); the "
                  "API moved to /v1 and requires a login" % response.status_code)
         return ""

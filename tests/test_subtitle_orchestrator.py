@@ -665,3 +665,29 @@ def test_switching_it_on_says_why_nothing_comes_back(monkeypatch):
         assert bsplayer.search({}, None, ["en"], "abc", 123) == []
     warnings = [line for line in said if "stopped answering" in line]
     assert len(warnings) == 1, said
+
+
+def test_subsource_stops_asking_once_it_has_been_refused(monkeypatch, no_network):
+    """It ships off, but a profile that has it on from an older default was
+    paying a request per search on one of four workers under a ten second
+    deadline - to be told the same thing every time."""
+    from pinky.subs.providers import subsource
+
+    subsource._refused.clear()
+    asked = []
+
+    class Refused(object):
+        status_code = 404
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(subsource.http, "post",
+                        lambda *a, **k: asked.append(a) or Refused())
+    meta = {"title": "A Film", "year": 2020, "type": "movie"}
+
+    for _ in range(4):
+        subsource.search(meta, "he", ["he"])
+
+    assert len(asked) == 1, "asked %d times after being refused once" % len(asked)
+    subsource._refused.clear()
