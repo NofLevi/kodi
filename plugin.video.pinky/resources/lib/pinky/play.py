@@ -610,7 +610,16 @@ def _resolve_any(chosen, sources, force_picker):
     url = _resolve(chosen)
     if force_picker:
         return chosen, url
-    if url and _reachable(url):
+    # The first attempt of a playback ignores the dead-host memory. The
+    # memory exists to make the *fallbacks* cheap, and honouring it here is
+    # how it came to veto an entire playback: measured on Hikaru no Go 2x03,
+    # all ten sources resolved through torrentio.strem.fun, one stale note
+    # against that host skipped every one of them without opening anything,
+    # and the viewer got "that source would not open" with nothing tried. A
+    # note five minutes old is a guess about a host that may well be back,
+    # and one ranged request with an eight second ceiling is the cost of
+    # finding out.
+    if url and _reachable(url, honour_memory=False):
         return chosen, url
 
     limit = RESOLVE_ATTEMPTS if _uncached_allowed() else RESOLVE_ATTEMPTS_CACHED
@@ -658,7 +667,7 @@ def _dead_host_key(url):
     return ("debrid|deadhost|%s" % host) if host != "<unknown>" else ""
 
 
-def _reachable(url):
+def _reachable(url, honour_memory=True):
     """Does this URL actually give us a byte?
 
     A debrid service can hand back a link its own CDN will not serve. That is
@@ -681,7 +690,7 @@ def _reachable(url):
     from . import cache, http
 
     key = _dead_host_key(url)
-    if key and cache.get(key):
+    if honour_memory and key and cache.get(key):
         kodi.log("skipping %s, it was not answering a moment ago"
                  % http._host(url))
         return False

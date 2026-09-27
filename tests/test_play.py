@@ -407,7 +407,7 @@ def links_open(monkeypatch):
     rather than about what happens around it.
     """
     original = play._reachable
-    monkeypatch.setattr(play, "_reachable", lambda url: True)
+    monkeypatch.setattr(play, "_reachable", lambda url, honour_memory=True: True)
     return original
 
 
@@ -452,7 +452,7 @@ def test_a_link_that_will_not_open_falls_through_to_the_next(film,
                         lambda s: "https://dead/%s" % s["title"][:4]
                         if s["title"] == "Best 1080p" else "https://cdn/ok")
     monkeypatch.setattr(play, "_reachable",
-                        lambda url: not url.startswith("https://dead/"))
+                        lambda url, honour_memory=True: not url.startswith("https://dead/"))
 
     chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
     assert url == "https://cdn/ok"
@@ -466,7 +466,7 @@ def test_a_link_the_viewer_picked_is_handed_over_without_a_probe(film,
     probed = []
     monkeypatch.setattr(play, "_resolve", lambda s: "https://cdn/a")
     monkeypatch.setattr(play, "_reachable",
-                        lambda url: probed.append(url) or True)
+                        lambda url, honour_memory=True: probed.append(url) or True)
 
     _chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=True)
     assert url == "https://cdn/a"
@@ -982,3 +982,42 @@ def test_the_newest_press_cancels_the_one_still_resolving():
     second = play._take_ticket()
     assert play._still_wanted(second)
     assert not play._still_wanted(first)
+
+
+def test_a_dead_host_note_never_vetoes_the_whole_playback(links_open, monkeypatch):
+    """Measured on Hikaru no Go 2x03: every source went through one host.
+
+    All ten resolved through torrentio.strem.fun, one stale note against that
+    host skipped every one of them without opening anything, and the viewer
+    got "that source would not open" with nothing tried at all. The memory is
+    there to make the fallbacks cheap, not to end a playback before it starts.
+    """
+    from pinky import cache
+
+    reachable = links_open
+    cache.set(play._dead_host_key("https://onehost/x"), True, 300)
+    from pinky import http
+    opened = []
+    monkeypatch.setattr(http, "get",
+                        lambda url, **kw: opened.append(url) or None)
+
+    assert reachable("https://onehost/x") is False, "a fallback is skipped free"
+    assert opened == [], "and costs no request"
+
+    assert reachable("https://onehost/x", honour_memory=False) is False
+    assert opened == ["https://onehost/x"],         "but the first attempt of a playback is actually made"
+
+
+def test_the_first_attempt_ignores_the_memory(links_open, monkeypatch):
+    """`_resolve_any` must open the chosen source even against a black mark."""
+    from pinky import cache
+
+    asked = []
+    monkeypatch.setattr(play, "_resolve", lambda s: "https://onehost/a")
+    monkeypatch.setattr(play, "_reachable",
+                        lambda url, honour_memory=True:
+                        asked.append(honour_memory) or True)
+    cache.set(play._dead_host_key("https://onehost/a"), True, 300)
+
+    play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
+    assert asked and asked[0] is False,         "the first source is tried for real, memory or no memory"
