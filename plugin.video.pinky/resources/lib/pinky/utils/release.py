@@ -19,6 +19,21 @@ RESOLUTIONS = [
 ]
 
 SOURCES = [
+    # Checked *before* `web`, and that is the whole point of them being
+    # here. A film still in cinemas is uploaded as "1080p.D.WEBRip" and as
+    # "720p_V4_HDTC_Multi_LiNE", and the second half of the name is the
+    # true one - so a tag from this list beats a WEBRip claim rather than
+    # losing to it. Measured on Spider-Man: Brand New Day, where the
+    # picker offered ten rows with `cam releases` switched off and every
+    # one was a cinema recording: PREHD, HQ Pre, HDTC and LiNE all parsed
+    # as `unknown`, so the filter never saw them.
+    #
+    # LiNE is line audio - a cinema picture with the sound taken from the
+    # house feed - and it is matched only beside a language or quality
+    # word, because "The Thin Red Line" is a film.
+    ("cam", r"\b(hdtc|hqcam|camrip|tsrip|pre-?hd|pre-?dvd|dvd-?scr|hdtelesync)\b"),
+    ("cam", r"\b(eng|multi|hq|hd)[-_. ]?line\b"),
+    ("cam", r"\bhq[-_. ]?pre\b"),
     ("bluray", r"\b(blu-?ray|bdrip|brrip|bdremux|remux|bd25|bd50)\b"),
     ("web", r"\b(web-?dl|webrip|web|amzn|nf|dsnp|hmax|atvp|hulu|itunes)\b"),
     ("hdtv", r"\b(hdtv|pdtv|dsr)\b"),

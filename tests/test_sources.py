@@ -718,3 +718,65 @@ def test_a_series_in_its_own_language_is_not_foreign_for_an_episode():
                                     "item": {"original_language": ""}}, 1.0, limit=0)
     assert kept[0]["score"] > blind[0]["score"]
 
+
+
+# --------------------------------------------------------------------------
+# a film in cinemas: cam releases, and releases of something else entirely
+# --------------------------------------------------------------------------
+
+SPIDEY = {"type": "movie", "title": "Spider-Man: Brand New Day", "year": 2026}
+
+
+@pytest.mark.parametrize("name", [
+    "SpiderMan-Brand.New.Day.2026.1080p.PREHD ENG-LiNE.x264.AAC-1-Vegamovies.tw.mkv",
+    "Spider-Man- Brand New Day 2026.1080p.HQ Pre.Multi.AAC 2.0.x264.mkv",
+    "SpiderMan_Brand_New_Day_2026_720p_V4_HDTC_Multi_LiNE_x264_HDHub4u",
+    "Some.Film.2026.1080p.HDTC.WEBRip.x264",
+])
+def test_the_cam_family_is_recognised_as_a_cam(name):
+    """A film still in cinemas is uploaded under every one of these and the
+    picker offered ten of them with `cam releases` switched off - PREHD, HQ
+    Pre, HDTC and LiNE all parsed as `unknown`, so the filter never saw them.
+    The last one also claims WEBRip, and the cam tag has to win."""
+    from pinky.utils import release
+
+    assert release.parse(name)["source"] == "cam"
+
+
+@pytest.mark.parametrize("name", [
+    "The.Thin.Red.Line.1998.1080p.BluRay.x264-AMIABLE",
+    "Multi.Lines.Documentary.2020.1080p.WEB-DL",
+])
+def test_a_film_with_line_in_its_name_is_not_a_cam(name):
+    """LiNE is line audio, and it is matched only beside a language or
+    quality word, because The Thin Red Line is a film."""
+    from pinky.utils import release
+
+    assert release.parse(name)["source"] != "cam"
+
+
+@pytest.mark.parametrize("meta,name,rejected", [
+    (SPIDEY, "Marvel Studios Iron Man 2008 1080p MA WEB-DL DDP5 1 H 264-SARVO.mkv", True),
+    (SPIDEY, "Spider-Man.Brand.New.Day.2026.1080p", False),
+    (SPIDEY, "SpiderMan-BrandNewDay-1080p-English.mp4", False),
+    ({"type": "movie", "title": "Top Gun: Maverick", "year": 2022},
+     "Top.Gun.1986.1080p.BluRay.x264-AMIABLE", True),
+    # A translated title shares no word with the English one - measured in
+    # the picker, this is One Last Shot - so the year is what saves it.
+    ({"type": "movie", "title": "One Last Shot", "year": 2026},
+     "O Ultimo Tiro Certo 2026 WEB-DL 1080p x264 DUAL 5.1.mkv", False),
+    # A title that is itself a year, with no release year beside it. The
+    # year test alone rejects this one, which is why there are two.
+    ({"type": "movie", "title": "1917", "year": 2019},
+     "1917.BluRay.1080p.x264-GRP", False),
+    ({"type": "movie", "title": "Blade Runner 2049", "year": 2017},
+     "Blade.Runner.2049.1080p.BluRay.x264", False),
+])
+def test_a_release_of_a_different_film_is_dropped(meta, name, rejected):
+    """Asked for Spider-Man: Brand New Day, Torrentio answered with Iron Man
+    2008 under the right film's address. `_another_production` cannot catch
+    it: that reads the year directly after the title and this name does not
+    begin with the title at all."""
+    from pinky.sources import scoring
+
+    assert bool(scoring._a_different_film({"title": name}, meta)) is rejected

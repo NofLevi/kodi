@@ -172,6 +172,66 @@ _YEAR_FIRST = re.compile(r"(19\d{2}|20\d{2})\b ?(.*)")
 _MONTH_DAY = re.compile(r"(?:0[1-9]|1[0-2]) (?:0[1-9]|[12]\d|3[01])\b")
 
 
+# Every four-digit year in a name, so a film can be checked too.
+_ANY_YEAR = re.compile(r"\b(19\d{2}|20\d{2})\b")
+
+
+def _a_different_film(source, meta):
+    """Is this film release something else entirely?
+
+    Asked for Spider-Man: Brand New Day (2026), Torrentio answered with
+    "Marvel Studios Iron Man 2008 1080p MA WEB-DL DDP5 1 H 264-SARVO.mkv" -
+    a different film, under the right film's address. `_another_production`
+    could not catch it: that one reads the year *directly after the title*,
+    and this name does not begin with the title at all.
+
+    Two weak signals together rather than one strong one, because either
+    alone throws away real releases:
+
+    * a year that is nowhere near the film's. Alone this rejects **1917**,
+      whose title is a year and whose uploads often carry no other;
+    * the film's own words being absent. Alone this rejects every release
+      under a translated title - "O Ultimo Tiro Certo" is One Last Shot,
+      measured in the picker on the same evening, and shares no word with it.
+
+    A release has to fail both to be dropped. A name with no year at all is
+    kept, because there is then nothing to disagree with.
+    """
+    meta = meta or {}
+    year = int(meta.get("year") or 0)
+    if not year or meta.get("type") not in ("movie", ""):
+        return ""
+    name = release.normalise(
+        _LEADING_GROUP.sub("", release.strip_site_tags(source.get("title") or "")))
+    # A title may itself be a year - Blade Runner 2049 - so anything past next
+    # year is a name rather than a date.
+    years = [int(found) for found in _ANY_YEAR.findall(name)
+             if int(found) <= year + 2]
+    if not years or any(abs(found - year) <= 2 for found in years):
+        return ""
+    if _says_the_title(name, meta):
+        return ""
+    return "another production of the same name"
+
+
+def _says_the_title(name, meta):
+    """Do the film's own words appear in this release name?
+
+    Words of three letters or more, because "of", "the" and "a" agree with
+    everything. Two thirds, so a release that drops a subtitle or a colon
+    still counts as naming the film.
+    """
+    for key in ("search_title", "title", "original_title"):
+        words = [word for word in release.normalise(meta.get(key) or "").split()
+                 if len(word) >= 3]
+        if not words:
+            continue
+        hits = sum(1 for word in words if word in name)
+        if hits * 3 >= len(words) * 2:
+            return True
+    return False
+
+
 def _another_production(source, meta):
     """Is this release of a different production that shares the title?
 
@@ -376,7 +436,8 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
     rejected = {}
     for source in sources:
         reason = (rejection_reason(source, prefs, runtime_hours)
-                  or _another_production(source, meta))
+                  or _another_production(source, meta)
+                  or _a_different_film(source, meta))
         if reason:
             rejected[reason] = rejected.get(reason, 0) + 1
             continue

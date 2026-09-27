@@ -79,12 +79,30 @@ def test_a_hebrew_title_is_not_split(found):
 ORDER = {"native": 0, "llm": 1, "english": 2}
 
 
-def test_the_first_page_is_hebrew_then_llm_then_english(found):
+def test_the_first_page_reads_best_fit_first(found):
+    """It used to be three lists end to end, and read like it: on The Odyssey
+    the routes ran LLM, LLM, LLM, ENGLISH five times, then LLM again, so one
+    release sat at row one and row seven with different labels and nothing in
+    the sequence said why. Every route every release has is still its own
+    row - the comparison is the point - but the page answers "which subtitle
+    fits best" from the top down."""
     sources = [source(EXACT, 1), source(OTHER, 2)]
     page = sources_window._first_page(META, sources, sources)
-    modes = [row["subs_mode"] for row in page]
-    assert modes == sorted(modes, key=ORDER.get)
-    assert set(modes) == {"native", "llm", "english"}
+    fits = [row.get("subs_fit") or 0 for row in page]
+
+    assert fits == sorted(fits, reverse=True), "a better fit sits lower down"
+    assert set(row["subs_mode"] for row in page) == {"native", "llm", "english"}
+
+
+def test_hebrew_wins_a_tie_against_a_translation(found):
+    """Where two rows fit equally well, a subtitle somebody made beats one a
+    model makes, and English is last for the same reason reversed."""
+    rows = [{"subs_mode": "english", "subs_fit": 70},
+            {"subs_mode": "llm", "subs_fit": 70},
+            {"subs_mode": "native", "subs_fit": 70},
+            {"subs_mode": "llm", "subs_fit": 90}]
+    ordered = sources_window._in_one_order(rows)
+    assert [r["subs_mode"] for r in ordered] == ["llm", "native", "llm", "english"]
 
 
 def test_no_hebrew_anywhere_still_opens_on_llm_and_english(found):

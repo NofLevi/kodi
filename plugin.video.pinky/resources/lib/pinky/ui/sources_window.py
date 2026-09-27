@@ -352,6 +352,20 @@ def _status(entries, meta=None):
     """
     if not entries:
         return kodi.localize(32283)
+    # Rows are not sources. The three subtitle lists name one release once per
+    # route it has, so The Odyssey drew 34 rows from 22 releases and the line
+    # read "34 sources ... of 38, 4 hidden (15 camera recordings, 1 above the
+    # resolution limit)" - 15 and 1 do not make 4, because 34 was a row count
+    # being subtracted from a source count.
+    unique = []
+    seen = set()
+    for source in entries:
+        key = _identity(source)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(source)
+    entries = unique
     cached = sum(1 for s in entries if s.get("cached"))
     parts = [kodi.localize(32332, len(entries)),
              kodi.localize(32345, cached)]
@@ -454,7 +468,27 @@ def _first_page(meta, short, full):
         return _plain(short, full)
     kodi.log("sources picker: %d native rows, %d AI rows, %d English rows, "
              "%d others" % (len(native), len(llm), len(english), len(rest)))
-    return native + llm + english + rest
+    return _in_one_order(native + llm + english) + rest
+
+
+# Hebrew first where two rows fit equally well, because a subtitle somebody
+# made beats one a model makes, and English last for the same reason reversed.
+_ROUTE_ORDER = {"native": 0, "llm": 1, "english": 2}
+
+
+def _in_one_order(rows):
+    """Read the first page as one list, best fit first.
+
+    It used to be three lists end to end, and that is how it read: on The
+    Odyssey the routes ran LLM, LLM, LLM, ENGLISH x5, then LLM again, so the
+    same release appeared at row one and row seven with different labels and
+    nothing about the sequence explained why. The comparison is still all
+    there - every route every release has, still its own row - but the page
+    now answers "which subtitle fits this film best" from the top down, which
+    is the question somebody scrolling it is asking.
+    """
+    return sorted(rows, key=lambda row: (-(row.get("subs_fit") or 0),
+                                         _ROUTE_ORDER.get(row.get("subs_mode"), 3)))
 
 
 def pick_source(sources, meta, all_sources=None):
