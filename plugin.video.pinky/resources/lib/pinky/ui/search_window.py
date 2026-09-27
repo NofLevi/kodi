@@ -1,8 +1,16 @@
-"""Search with live, non-forcing autocomplete.
+"""Search, with suggestions as the query changes.
 
-Kodi's built-in keyboard is modal, so it cannot show suggestions while the user
-types. This window therefore owns its own input, the way a TV app does: a key
-grid on the left, suggestions on the right, updated as characters arrive.
+This used to draw its own thirty-key grid, so that suggestions could appear
+while somebody typed - Kodi's keyboard is modal and cannot show them. The grid
+was the wrong trade and it cost the one thing a television actually has: **the
+microphone**. Kodi's own keyboard on Android hands its field to the system IME,
+and holding OK there starts Android's dictation; that is what every add-on's
+"voice search" is, the POV IL build included. A grid of buttons never sees any
+of it.
+
+So the entry points are Kodi's keyboard and the edit field, and what is left
+here is the part worth keeping: the results, drawn in this window rather than
+handed to Kodi's video browser, which is what keeps the source picker.
 
 Two properties of the suggestions matter and are deliberate:
 
@@ -33,22 +41,19 @@ ACTION_BACKSPACE = 110
 ACTION_ENTER = 135
 ACTION_SELECT_ITEM = 7
 
-KEY_BASE = 4000
-KEY_COUNT = 30
-BUTTON_CHARSET = 3900
-BUTTON_SPACE = 3901
-BUTTON_BACKSPACE = 3902
-BUTTON_CLEAR = 3903
 BUTTON_SEARCH = 3904
 
-# There is no microphone here, and there cannot be: Kodi's Python API exposes
-# no audio capture at all, and on Android an add-on cannot reach the system
-# speech recogniser either. What it can do is borrow the microphone that is
-# already in the room. `pastebox` serves a one-field page on the local
-# network, the phone opens it, and the phone's own keyboard has a dictation
-# key - so the words are spoken into the phone and arrive here as text. The
-# same mechanism already carries debrid keys, for the same reason: nothing
-# should have to be typed on a television.
+# The microphone is real and it is Kodi's, not ours. Kodi's Python API exposes
+# no audio capture, but Kodi's *own* keyboard dialog on Android hands the field
+# to the system IME, and holding OK on the remote there starts Android's
+# dictation. That is what every other add-on's voice search is, including the
+# POV IL build's: no API, just Kodi's keyboard on a platform that has voice
+# typing behind it. Our key grid is a grid of buttons, so it never sees any of
+# it - which is why this button exists, to hand the field back to Kodi for as
+# long as somebody wants to talk to it.
+#
+# It needs Kodi to hold Android's RECORD_AUDIO permission. That is granted in
+# Android's own settings and there is nothing here that can ask for it.
 BUTTON_VOICE = 3905
 LIST_RESULTS = 5100
 
@@ -58,78 +63,6 @@ EDIT_QUERY = 3100
 
 DEBOUNCE_SECONDS = 0.25
 MIN_QUERY = 2
-
-# Every charset is padded to exactly KEY_COUNT. That is not cosmetic: the key
-# buttons used to be hidden while their character property was empty, and a
-# hidden control cannot take focus, so opening the window logged "Control 4000
-# has been asked to focus, but it can't" and the grid was left with nothing
-# focused. Filling every slot means every key is always there to focus.
-#
-# Hebrew first and Latin second, so one press of the switch moves between the
-# two *alphabets*. The order used to be Latin, Hebrew, digits, which meant a
-# Hebrew interface - the one this opens on - offered the number pad as its
-# next set and reached English only on the second press. Somebody looking for
-# English pressed once, got digits, and reasonably concluded there was none.
-CHARSETS = [
-    list("\u05d0\u05d1\u05d2\u05d3\u05d4\u05d5\u05d6\u05d7\u05d8\u05d9"
-         "\u05db\u05dc\u05de\u05e0\u05e1\u05e2\u05e4\u05e6\u05e7\u05e8"
-         "\u05e9\u05ea") + ["\u05da", "\u05dd", "\u05df", "\u05e3", "\u05e5",
-                            "-", "'", "."],
-    list("abcdefghijklmnopqrstuvwxyz") + ["-", "'", ":", "."],
-    list("0123456789") + ["&", "+", "!", "?", ",", "(", ")", "-", "'", ":",
-                          ".", "/", "#", "@", "*", "%", "=", "_", "\"", ";"],
-]
-
-assert all(len(charset) == KEY_COUNT for charset in CHARSETS), \
-    "every charset has to fill the key grid exactly"
-
-# Written in the script each one is, so the button reads as itself in any
-# interface language.
-CHARSET_NAMES = ["אבג", "ABC", "123"]
-
-HEBREW, LATIN, DIGITS = 0, 1, 2
-
-
-def initial_charset():
-    """Which keyboard to open on.
-
-    A Hebrew interface opened on the Latin keyboard, which is the wrong way
-    round for an add-on whose live TV and on-demand catalogue are titled
-    entirely in Hebrew: every one of those searches began with a trip to the
-    charset button.
-
-    The language question is answered by tmdb.language(), which already reads
-    the ui.language setting and falls back to Kodi's own. A second opinion on
-    "is this interface Hebrew" would be one more thing to keep in step.
-    """
-    try:
-        from ..meta import tmdb
-        return HEBREW if tmdb.language().startswith("he") else LATIN
-    except Exception:
-        return LATIN
-
-
-def next_charset(current):
-    """Which set the switch moves to, from this one.
-
-    The other alphabet first, digits last, because the alphabets are what
-    somebody switches between and digits are what they reach for once a
-    month. It used to be a fixed cycle - Hebrew, Latin, digits - which meant
-    the *first* press from Latin opened the number pad: an English interface
-    over a Hebrew catalogue, which is this household, had to press twice to
-    type a Hebrew title and the button said "123" while they did it.
-
-    Asymmetric by nature: three sets on one button cannot give every pair a
-    single press. This spends the single press on the pair that gets used,
-    whichever alphabet the interface starts on.
-    """
-    start = initial_charset()
-    other = LATIN if start == HEBREW else HEBREW
-    if current == start:
-        return other
-    if current == other:
-        return DIGITS
-    return start
 
 
 def _typed_character(action):
@@ -155,7 +88,6 @@ class SearchWindow(xbmcgui.WindowXML):
     def __init__(self, *args, **kwargs):
         super(SearchWindow, self).__init__()
         self.text = ""
-        self.charset = initial_charset()
         self.entries = []
         self.generation = 0
         self.submitted = None
@@ -165,21 +97,24 @@ class SearchWindow(xbmcgui.WindowXML):
     # -- lifecycle ---------------------------------------------------------
 
     def prepare(self):
-        """Label the key grid before the window is shown, so it can take focus."""
-        self._paint_keys()
+        """Set the properties before the window is shown, so it can take focus.
+
+        A control Kodi has not yet decided is visible cannot be focused, which
+        is why this is not done in onInit.
+        """
         self.setProperty("pinky.search.text", "")
+        self.setProperty("pinky.search.status", "")
 
     def onInit(self):
         if self.ready:
             return
         self.ready = True
-        self._paint_keys()
         self._set_text("")
         self._show_recent()
-        # The field, not the grid. Someone at a keyboard just starts typing,
-        # and with the grid focused those keys run Kodi's keymap instead -
-        # Backspace is Back, and four of them walked out of search and out of
-        # Pinky. A remote is one press Down from the grid.
+        # The field. Someone at a keyboard just starts typing, and a letter
+        # pressed anywhere else runs whatever Kodi's keymap binds it to - one
+        # of them opens the PVR channel list. A remote presses OK on it and
+        # gets Kodi's keyboard, which is where the microphone is.
         self.setFocusId(EDIT_QUERY)
 
     def onAction(self, action):
@@ -228,23 +163,7 @@ class SearchWindow(xbmcgui.WindowXML):
             # reports what it returned.
             self._sync_from_field()
             return
-        if KEY_BASE <= control_id < KEY_BASE + KEY_COUNT:
-            keys = CHARSETS[self.charset]
-            index = control_id - KEY_BASE
-            if index < len(keys):
-                self._append(keys[index])
-            return
-        if control_id == BUTTON_CHARSET:
-            self.charset = next_charset(self.charset)
-            self._paint_keys()
-        elif control_id == BUTTON_SPACE:
-            self._append(" ")
-        elif control_id == BUTTON_BACKSPACE:
-            self._backspace()
-        elif control_id == BUTTON_CLEAR:
-            self._set_text("")
-            self._show_recent()
-        elif control_id == BUTTON_SEARCH:
+        if control_id == BUTTON_SEARCH:
             self._submit()
         elif control_id == BUTTON_VOICE:
             self._speak()
@@ -252,32 +171,31 @@ class SearchWindow(xbmcgui.WindowXML):
             self._open_selected()
 
     def _speak(self):
-        """Take the query from a phone on the same network.
+        """Hand the field to Kodi's keyboard, where the microphone lives.
 
-        Returns without touching anything if the viewer backs out or the
-        page times out - an abandoned dictation must not clear what was
-        already typed.
+        It used to serve a page on the local network and draw a QR code, so
+        that a phone could do the dictating. That was written from the belief
+        that a television has no microphone this add-on can reach, and the
+        belief was wrong: the remote has one, Android has the recogniser, and
+        Kodi's own keyboard is the door to both.
+
+        Off Android there is no such door - no IME, no dictation - so the
+        button says so rather than opening a keyboard that cannot listen. The
+        viewer is at a desktop with a real keyboard in that case anyway.
+
+        Returns without touching anything if the viewer backs out: an
+        abandoned dictation must not clear what was already typed.
         """
-        from .signin import receive_key
-
-        spoken = receive_key(kodi.localize(32523),
-                             placeholder=kodi.localize(32524))
+        if not kodi.has_voice_input():
+            kodi.notify(kodi.localize(32524))
+            return
+        spoken = kodi.keyboard(self.text, kodi.localize(32523))
         if not spoken:
             return
         self._set_text(spoken.strip())
         self._submit()
 
     # -- text entry --------------------------------------------------------
-
-    def _paint_keys(self):
-        keys = CHARSETS[self.charset]
-        for index in range(KEY_COUNT):
-            self.setProperty("pinky.key%d" % index,
-                             keys[index] if index < len(keys) else "")
-        # The switch button names the set it will move to, not all three at
-        # once. "ABC / Hebrew / 123" did not fit the button and was truncated
-        # to "ABC / Hebr...", which named nothing useful.
-        self.setProperty("pinky.search.charset", CHARSET_NAMES[next_charset(self.charset)])
 
     def _append(self, char):
         self._set_text(self.text + char)

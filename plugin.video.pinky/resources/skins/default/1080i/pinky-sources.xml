@@ -5,7 +5,7 @@
          focus: "Control 5200 has been asked to focus, but it can't", logged on
          every open. onInit focuses the list itself once it has rows. Same
          reasoning as the home window. -->
-    <defaultcontrol always="true">9020</defaultcontrol>
+    <defaultcontrol always="true">9021</defaultcontrol>
     <controls>
 
         <control type="image">
@@ -50,7 +50,7 @@
                  demonstration as any. Left still works. -->
             <onup>5200</onup>
             <ondown>9019</ondown>
-            <onleft>9020</onleft>
+            <onleft>9021</onleft>
             <onright>5200</onright>
             <orientation>vertical</orientation>
             <scrolltime tween="sine">180</scrolltime>
@@ -156,25 +156,6 @@
             <itemgap>12</itemgap>
             <onup>5200</onup>
             <ondown>5200</ondown>
-            <!-- Wide enough for both of its labels. The button says one thing
-                 and then its opposite - "show all sources" going one way,
-                 "show only the best" coming back - and the second is the
-                 longer of the two. At 260 it read "...ג את הטובים בלבד". -->
-            <!-- Gone when there is nothing behind it. On a title whose every
-                 release is on the first page the button had nothing to show,
-                 and a grouplist skips a hidden child, so nothing is stranded. -->
-            <control type="button" id="9020">
-                <visible>!String.IsEmpty(Window.Property(pinky.sources.more))</visible>
-                <width>340</width>
-                <height>56</height>
-                <font>font13</font>
-                <textcolor>white</textcolor>
-                <focusedcolor>FF141414</focusedcolor>
-                <align>center</align>
-                <label>$INFO[Window.Property(pinky.sources.toggle)]</label>
-                <texturefocus border="2">special://home/addons/plugin.video.pinky/resources/media/button-focus.png</texturefocus>
-                <texturenofocus border="2">special://home/addons/plugin.video.pinky/resources/media/button.png</texturenofocus>
-            </control>
             <control type="button" id="9021">
                 <width>260</width>
                 <height>56</height>

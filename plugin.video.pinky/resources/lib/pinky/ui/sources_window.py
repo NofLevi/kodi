@@ -14,7 +14,6 @@ ACTION_PREVIOUS_MENU = 10
 ACTION_NAV_BACK = 92
 
 LIST_SOURCES = 5200
-BUTTON_TOGGLE = 9020
 BUTTON_REFRESH = 9021
 
 
@@ -24,7 +23,6 @@ class SourcesWindow(xbmcgui.WindowXML):
         self.short = []
         self.full = []
         self.meta = {}
-        self.showing_all = False
         self.chosen = None
         self.refresh_requested = False
         self.ready = False
@@ -41,26 +39,7 @@ class SourcesWindow(xbmcgui.WindowXML):
         """
         self.setProperty("pinky.sources.title", _heading(self.meta))
         self.setProperty("pinky.sources.status",
-                         _status(self._visible(), self.showing_all, self.meta))
-        self._paint_toggle()
-
-    def _paint_toggle(self):
-        """Name the button after what pressing it will show, and hide it when
-        that is nothing.
-
-        A button that says "show all sources" when everything is already on
-        screen is one the viewer presses to find out it does nothing. The
-        count is in the label for the same reason the details screen names the
-        episode it will play: pressing to discover is not a design.
-        """
-        rest = len(self._rest())
-        # Shown while the rest is up as well, or the way back would be hidden
-        # by the press that got you there.
-        self.setProperty("pinky.sources.more",
-                         "1" if (self.showing_all or rest) else "")
-        self.setProperty("pinky.sources.toggle",
-                         kodi.localize(32342) if self.showing_all
-                         else kodi.localize(32341, rest))
+                         _status(self._visible(), self.meta))
 
     def onInit(self):
         if self.ready:
@@ -82,9 +61,6 @@ class SourcesWindow(xbmcgui.WindowXML):
         kodi.log("sources picker: control %s clicked" % control_id)
         if control_id == LIST_SOURCES:
             self._choose()
-        elif control_id == BUTTON_TOGGLE:
-            self.showing_all = not self.showing_all
-            self._render()
         elif control_id == BUTTON_REFRESH:
             self.refresh_requested = True
             self.close()
@@ -92,27 +68,30 @@ class SourcesWindow(xbmcgui.WindowXML):
     # -- rendering ---------------------------------------------------------
 
     def _visible(self):
-        return self._rest() if self.showing_all else self.short
+        """One list: the first page, then everything it left out.
 
-    def _rest(self):
-        """Everything the first page is not already showing.
+        There used to be a "show all sources" button with the rest behind it,
+        and twice it was reported as showing the same thing - fairly, because
+        the whole list begins with the rows already on the screen. Measured on
+        Toy Story 5, nine of the first ten were the same release in the same
+        order: the first page ranks by best Hebrew subtitle, and where every
+        release has one at 78% or better that ordering collapses back onto the
+        source ranking, so the first page *is* the top of the full list.
 
-        It used to be the whole list, and the whole list begins with the rows
-        that are already on the screen: measured on Toy Story 5, **nine of the
-        first ten were the same release in the same order**, because the first
-        page ranks by best Hebrew subtitle and when every release has one at
-        78% or better that ordering collapses back onto the source ranking. So
-        the press swapped 25 rows for 107 and changed nothing anybody could
-        see, which reads as a button that does not work.
-
-        This add-on has fixed this exact bug once before, when "show all"
-        returned the same eight rows it was toggling away from. The first page
-        stopped being the top eight and became the three subtitle lists, and
-        nothing told the other half.
+        There is nothing to toggle now. The good ones still lead, which is
+        what the first page was for, and the rest follow instead of hiding
+        behind a press. These are text rows carrying no artwork, and artwork
+        is the budget that matters on a small device.
         """
-        shown = set(_identity(source) for source in self.short)
-        return [source for source in self.full
-                if _identity(source) not in shown]
+        seen = set()
+        ordered = []
+        for source in list(self.short) + list(self.full):
+            key = _identity(source)
+            if key in seen:
+                continue
+            seen.add(key)
+            ordered.append(source)
+        return ordered
 
     def _render(self):
         """Fill the list.
@@ -150,8 +129,7 @@ class SourcesWindow(xbmcgui.WindowXML):
         except Exception:
             kodi.log_exception("could not render the source list")
 
-        self.setProperty("pinky.sources.status", _status(entries, self.showing_all, self.meta))
-        self._paint_toggle()
+        self.setProperty("pinky.sources.status", _status(entries, self.meta))
 
     def _choose(self):
         entries = self._visible()
@@ -376,22 +354,21 @@ def _heading(meta):
     return "%s (%d)" % (title, year) if year else title
 
 
-def _status(entries, showing_all, meta=None):
+def _status(entries, meta=None):
     """The line under the title: how many, how many cached, and what was cut.
 
     The last part is the one that was missing. "8 sources" for a film with
     sixty-four releases reads as a broken picker; "8 of 64, 40 camera
     recordings hidden" reads as the filters doing their job, which is what
-    was happening. The reason is only shown while everything is on screen -
-    with the short list up, the number that is missing is mostly the short
-    list's own doing and saying otherwise would be misleading.
+    was happening. Everything that passed the filters is now on screen, so what
+    is missing really is the filters' doing and the note is always true.
     """
     if not entries:
         return kodi.localize(32283)
     cached = sum(1 for s in entries if s.get("cached"))
     parts = [kodi.localize(32332, len(entries)),
              kodi.localize(32345, cached)]
-    if showing_all and meta:
+    if meta:
         note = _why_hidden(entries, meta)
         if note:
             parts.append(note)

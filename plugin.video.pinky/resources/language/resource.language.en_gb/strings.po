@@ -224,18 +224,6 @@ msgctxt "#32291"
 msgid "ABC / Hebrew / 123"
 msgstr ""
 
-msgctxt "#32292"
-msgid "Space"
-msgstr ""
-
-msgctxt "#32293"
-msgid "Delete"
-msgstr ""
-
-msgctxt "#32294"
-msgid "Clear"
-msgstr ""
-
 msgctxt "#32295"
 msgid "Search"
 msgstr ""
@@ -366,14 +354,6 @@ msgstr ""
 
 msgctxt "#32340"
 msgid "Search again"
-msgstr ""
-
-msgctxt "#32341"
-msgid "%d more sources"
-msgstr ""
-
-msgctxt "#32342"
-msgid "Show the best only"
 msgstr ""
 
 msgctxt "#32343"
@@ -1622,11 +1602,11 @@ msgid "Speak"
 msgstr ""
 
 msgctxt "#32523"
-msgid "Search by voice"
+msgid "Hold OK on the remote to speak"
 msgstr ""
 
 msgctxt "#32524"
-msgid "Open this on your phone and use its microphone key"
+msgid "No microphone found"
 msgstr ""
 
 msgctxt "#32525"

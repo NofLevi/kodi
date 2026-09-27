@@ -229,6 +229,23 @@ def select(options, heading=None, preselect=-1, use_details=False):
     )
 
 
+def has_voice_input():
+    """Whether holding OK on the remote can dictate into Kodi's keyboard.
+
+    Android only, and it is Android doing it rather than Kodi: Kodi's keyboard
+    dialog hands the field to the system IME, and the IME is what listens. No
+    other platform Kodi runs on has that, so the answer is the platform.
+
+    It cannot see whether Kodi actually holds the RECORD_AUDIO permission - a
+    refused permission shows up as a recogniser that opens and hears nothing,
+    which only Android's own settings can fix.
+    """
+    try:
+        return bool(xbmc.getCondVisibility("System.Platform.Android"))
+    except Exception:
+        return False
+
+
 def keyboard(default="", heading=None, hidden=False):
     """Modal text entry. Returns None when the user cancels."""
     kb = xbmc.Keyboard(default, heading or "Pinky", hidden)

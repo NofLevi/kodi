@@ -224,18 +224,6 @@ msgctxt "#32291"
 msgid "ABC / Hebrew / 123"
 msgstr "ABC / אבג / 123"
 
-msgctxt "#32292"
-msgid "Space"
-msgstr "רווח"
-
-msgctxt "#32293"
-msgid "Delete"
-msgstr "מחק"
-
-msgctxt "#32294"
-msgid "Clear"
-msgstr "נקה"
-
 msgctxt "#32295"
 msgid "Search"
 msgstr "חפש"
@@ -367,14 +355,6 @@ msgstr "לא נמצאו כתוביות"
 msgctxt "#32340"
 msgid "Search again"
 msgstr "חפש שוב"
-
-msgctxt "#32341"
-msgid "%d more sources"
-msgstr "עוד %d מקורות"
-
-msgctxt "#32342"
-msgid "Show the best only"
-msgstr "הצג את הטובים בלבד"
 
 msgctxt "#32343"
 msgid "%d seeders"
@@ -1582,12 +1562,12 @@ msgid "Speak"
 msgstr "דברו"
 
 msgctxt "#32523"
-msgid "Search by voice"
-msgstr "חיפוש קולי"
+msgid "Hold OK on the remote to speak"
+msgstr "החזיקו OK בשלט כדי לדבר"
 
 msgctxt "#32524"
-msgid "Open this on your phone and use its microphone key"
-msgstr "פתחו בטלפון והשתמשו במקש המיקרופון"
+msgid "No microphone found"
+msgstr "לא נמצא מיקרופון"
 
 msgctxt "#32525"
 msgid "Remove from Trakt watchlist"

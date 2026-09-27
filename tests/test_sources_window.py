@@ -58,7 +58,7 @@ def test_a_cached_source_does_not_crash_the_badge():
 
 def test_the_list_actually_fills(picker):
     control = picker.getControl(sources_window.LIST_SOURCES)
-    assert control.size() == 2, "the picker rendered nothing at all before"
+    assert control.size() == 3, "the picker rendered nothing at all before"
 
 
 # --------------------------------------------------------------------------
@@ -187,15 +187,15 @@ def test_a_known_quality_is_shown():
 # --------------------------------------------------------------------------
 
 
-def test_the_title_and_toggle_are_set_before_the_window_is_shown():
-    """The toggle button's whole label is a property; unset it renders blank."""
+def test_the_title_is_set_before_the_window_is_shown():
+    """A control Kodi has not decided is visible cannot take focus, so these
+    are set in prepare rather than onInit."""
     window = sources_window.SourcesWindow()
     window.short = [CACHED]
     window.meta = {"type": "movie", "title": "Film", "year": 2024}
     window.prepare()
 
     assert window.getProperty("pinky.sources.title") == "Film (2024)"
-    assert window.getProperty("pinky.sources.toggle"), "the button would be blank"
     assert window.getProperty("pinky.sources.status")
 
 
@@ -205,38 +205,8 @@ def test_an_episode_heading_says_which_episode():
     assert "2x05" in heading
 
 
-def test_showing_all_shows_what_the_first_page_did_not(picker):
-    """It used to show the whole list, which begins with the rows already on
-    the screen. Measured on Toy Story 5: nine of the first ten were the same
-    release in the same order, so the press changed nothing anybody could
-    see."""
-    assert picker.getControl(sources_window.LIST_SOURCES).size() == 2
-    picker.onClick(sources_window.BUTTON_TOGGLE)
-
-    control = picker.getControl(sources_window.LIST_SOURCES)
-    assert control.size() == 1, "only the one the first page left out"
-    assert control.getListItem(0).getLabel() == "Film.2024.2160p-THIRD"
 
 
-def test_the_button_names_how_many_are_behind_it(picker):
-    assert "1" in picker.getProperty("pinky.sources.toggle")
-
-
-def test_the_button_is_hidden_when_it_would_show_nothing():
-    """A button that says "show all sources" with everything already on screen
-    is one the viewer presses to discover it does nothing."""
-    window = sources_window.SourcesWindow()
-    window.short = [CACHED, PLAIN]
-    window.full = [CACHED, PLAIN]
-    window.meta = {"type": "movie", "title": "Film", "year": 2024}
-    window.prepare()
-
-    assert window.getProperty("pinky.sources.more") == ""
-
-
-def test_the_way_back_is_not_hidden_by_the_press_that_got_you_there(picker):
-    picker.onClick(sources_window.BUTTON_TOGGLE)
-    assert picker.getProperty("pinky.sources.more"), "no way back to the top"
 
 
 def test_choosing_a_row_returns_that_source(picker):
@@ -473,3 +443,20 @@ def test_an_empty_answer_is_remembered_too(monkeypatch, no_network):
     monkeypatch.setattr(bundled, "_learn_later", lambda rows: asked.extend(rows))
     bundled.annotate([{"hash": "g" * 40, "cached": True}])
     assert asked == []
+
+
+def test_the_whole_list_is_on_screen_with_the_best_first(picker):
+    """Reported twice as "show all shows the same thing", and fairly: the
+    whole list begins with the rows already up. Measured on Toy Story 5, nine
+    of the first ten were the same release in the same order. There is no
+    toggle now - the good ones lead and the rest follow."""
+    control = picker.getControl(sources_window.LIST_SOURCES)
+    assert control.size() == 3, "the first page and everything it left out"
+    assert control.getListItem(0).getLabel() == CACHED["title"], "best first"
+    assert control.getListItem(2).getLabel() == "Film.2024.2160p-THIRD"
+
+
+def test_a_release_on_the_first_page_is_not_listed_again(picker):
+    labels = [picker.getControl(sources_window.LIST_SOURCES).getListItem(i).getLabel()
+              for i in range(picker.getControl(sources_window.LIST_SOURCES).size())]
+    assert len(labels) == len(set(labels))

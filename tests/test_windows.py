@@ -374,27 +374,6 @@ def test_search_starts_with_recent_queries(search):
     assert control.items[0].getLabel() == "dune"
 
 
-def test_the_switch_reaches_the_other_alphabet_in_one_press(search):
-    """It used to be a fixed cycle - Hebrew, Latin, digits - so the first
-    press from Latin opened the number pad. An English interface over a
-    Hebrew catalogue, which is this household, pressed twice to type a
-    Hebrew title while the button said "123"."""
-    assert search.getProperty("pinky.key0") == "a"
-    search.onClick(search_window.BUTTON_CHARSET)
-    assert search.getProperty("pinky.key0") == "א", "expected Hebrew"
-    search.onClick(search_window.BUTTON_CHARSET)
-    assert search.getProperty("pinky.key0") == "0", "then digits"
-    search.onClick(search_window.BUTTON_CHARSET)
-    assert search.getProperty("pinky.key0") == "a", "and back round"
-    search.onClick(search_window.BUTTON_CHARSET)
-    assert search.getProperty("pinky.key0") == u"א", "expected Hebrew alef"
-
-
-def test_pressing_a_key_appends_to_the_query(search):
-    search.onClick(search_window.KEY_BASE)
-    search.onClick(search_window.KEY_BASE + 1)
-    assert search.text == "ab"
-    assert search.getProperty("pinky.search.text") == "ab"
 
 
 def _type_into_field(search, text, action_id=0):
@@ -448,15 +427,6 @@ def test_ok_on_an_empty_field_leaves_kodis_keyboard_open(search):
     assert search.closed is not True
 
 
-def test_the_key_grid_writes_into_the_same_field(search):
-    """One query, whichever way it was typed: the grid and the keyboard have
-    to be able to finish each other's words."""
-    _type_into_field(search, "du")
-    search.setFocusId(search_window.KEY_BASE)
-    search.onClick(search_window.KEY_BASE + 13)          # n
-    assert search.text == "dun"
-    assert search.getControl(search_window.EDIT_QUERY).getText() == "dun"
-
 
 def test_typing_survives_a_kodi_with_no_getUnicode(search):
     """Kodi 21's Action has no getUnicode, and calling it threw on every key.
@@ -468,41 +438,22 @@ def test_typing_survives_a_kodi_with_no_getUnicode(search):
     search.onAction(Kodi21Action())
     assert search.text == "", "an undecodable action types nothing"
 
-    search.onClick(search_window.KEY_BASE)
-    assert search.text == "a", "the grid must still work"
+    _type_into_field(search, "a")
+    assert search.text == "a", "the field must still work"
 
-
-def test_every_charset_fills_the_key_grid(search):
-    """A key with no character used to be hidden, and hidden cannot be focused."""
-    for index, charset in enumerate(search_window.CHARSETS):
-        assert len(charset) == search_window.KEY_COUNT, \
-            "charset %d has %d keys, not %d" % (index, len(charset),
-                                                search_window.KEY_COUNT)
-    for index in range(search_window.KEY_COUNT):
-        assert search.getProperty("pinky.key%d" % index), \
-            "key %d has no character, so it cannot take focus" % index
 
 
 def test_a_physical_keyboard_also_types(search):
-    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
+    search.setFocusId(search_window.BUTTON_SEARCH)  # not the field
     search.onAction(FakeAction(unicode_char="d"))
     search.onAction(FakeAction(unicode_char="u"))
     assert search.text == "du"
 
 
-def test_backspace_and_clear(search):
-    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
-    search.onAction(FakeAction(unicode_char="d"))
-    search.onAction(FakeAction(unicode_char="x"))
-    search.onClick(search_window.BUTTON_BACKSPACE)
-    assert search.text == "d"
-    search.onClick(search_window.BUTTON_CLEAR)
-    assert search.text == ""
-
 
 def test_suggestions_never_overwrite_what_was_typed(search):
     """Autocomplete offers, it does not complete for you."""
-    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
+    search.setFocusId(search_window.BUTTON_SEARCH)  # not the field
     for char in "dun":
         search.onAction(FakeAction(unicode_char=char))
     search._schedule_suggestions()
@@ -518,7 +469,7 @@ def test_submitting_searches_here_rather_than_handing_kodi_the_query(search):
     search could not reach the source picker at all - while picking a
     *suggestion* could, because that path comes back through our own window.
     So the feature looked fine and failed only when somebody searched."""
-    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
+    search.setFocusId(search_window.BUTTON_SEARCH)  # not the field
     for char in "dune":
         search.onAction(FakeAction(unicode_char=char))
     search.onClick(search_window.BUTTON_SEARCH)
@@ -527,7 +478,7 @@ def test_submitting_searches_here_rather_than_handing_kodi_the_query(search):
 
 
 def test_a_query_that_is_too_short_is_not_submitted(search):
-    search.setFocusId(search_window.KEY_BASE)   # the getUnicode path is the grid's
+    search.setFocusId(search_window.BUTTON_SEARCH)  # not the field
     search.onAction(FakeAction(unicode_char="d"))
     search.onClick(search_window.BUTTON_SEARCH)
     assert search.submitted is None
@@ -546,74 +497,10 @@ def test_choosing_a_recent_query_reruns_it(search):
 # --------------------------------------------------------------------------
 
 
-def test_a_hebrew_interface_opens_on_the_hebrew_keyboard(settings_module):
-    """Live TV and the on-demand catalogue are titled entirely in Hebrew.
-
-    Opening on the Latin keyboard meant every one of those searches began
-    with a trip to the charset button.
-    """
-    from pinky.ui import search_window
-
-    settings_module.set("ui.language", "he")
-    assert search_window.initial_charset() == search_window.HEBREW
-    assert search_window.SearchWindow().charset == search_window.HEBREW
 
 
-def test_an_english_interface_opens_on_the_latin_keyboard(settings_module):
-    from pinky.ui import search_window
-
-    settings_module.set("ui.language", "en")
-    assert search_window.initial_charset() == search_window.LATIN
-    assert search_window.SearchWindow().charset == search_window.LATIN
 
 
-def test_the_charset_button_still_names_where_it_goes_next(settings_module):
-    """It names the set it will move to, not the one you are on."""
-    from pinky.ui import search_window
-
-    settings_module.set("ui.language", "he")
-    window = search_window.SearchWindow()
-    window.prepare()
-    assert window.getProperty("pinky.search.charset") == "ABC"
-
-    window.onClick(search_window.BUTTON_CHARSET)
-    assert window.getProperty("pinky.search.charset") == "123"
-
-
-def test_english_is_one_press_away_from_hebrew(settings_module):
-    """The order used to be Latin, Hebrew, digits, so a Hebrew interface -
-    the one this opens on - offered the number pad as its next set and
-    reached English only on the second press. Somebody looking for English
-    pressed once, got digits, and reasonably concluded there was none."""
-    from pinky.ui import search_window
-
-    settings_module.set("ui.language", "he")
-    window = search_window.SearchWindow()
-    window.prepare()
-    assert window.charset == search_window.HEBREW
-
-    window.onClick(search_window.BUTTON_CHARSET)
-
-    assert window.charset == search_window.LATIN
-    assert window.getProperty("pinky.key0") == "a"
-
-
-def test_the_switch_moves_between_the_alphabets_before_the_digits():
-    from pinky.ui import search_window
-
-    order = [search_window.CHARSET_NAMES[i]
-             for i in (search_window.HEBREW, search_window.LATIN,
-                       search_window.DIGITS)]
-    assert order == ["אבג", "ABC", "123"]
-
-
-def test_every_charset_fills_the_grid(settings_module):
-    """A key with no character used to be hidden, and a hidden control cannot
-    take focus, which left the grid with nothing focused at all."""
-    from pinky.ui import search_window
-
-    for charset in search_window.CHARSETS:
-        assert len(charset) == search_window.KEY_COUNT
 
 
 def test_a_home_with_nothing_in_it_is_still_navigable(monkeypatch,
@@ -1292,34 +1179,19 @@ def test_a_group_opens_another_list_rather_than_a_directory(monkeypatch,
     assert "action=tools" not in ran[0], "a group must not be run as a directory"
 
 
-def test_pressing_ok_on_a_key_does_not_run_a_search(search):
-    """ACTION_SELECT_ITEM is 7, and it was named ACTION_ENTER here - so every
-    press on the key grid submitted as well as typing. `_submit` wants two
-    characters, so you could type exactly two and the *third* key closed the
-    window and searched for the fragment. The keyboard looked broken because
-    it was."""
-    search.setFocusId(search_window.KEY_BASE)       # OK on a key: the grid has focus
-    for _ in range(4):
-        search.onAction(Kodi21Action(7))            # ACTION_SELECT_ITEM
-        search.onClick(search_window.KEY_BASE)
-
-    assert search.submitted is None, "OK on a letter ran a search"
-    assert search.text == "aaaa"
-
 
 def test_enter_still_submits(search):
     """135 is Kodi's real ACTION_ENTER. A physical keyboard's Return, measured
     on Kodi 21, sends 7 instead - see the Select test beside the field ones."""
-    search.onClick(search_window.KEY_BASE)
-    search.onClick(search_window.KEY_BASE)
+    _type_into_field(search, "aa")
+    search.setFocusId(search_window.BUTTON_SEARCH)
     search.onAction(Kodi21Action(search_window.ACTION_ENTER))
 
     assert search.submitted == "aa"
 
 
 def test_the_search_button_still_submits(search):
-    search.onClick(search_window.KEY_BASE)
-    search.onClick(search_window.KEY_BASE)
+    _type_into_field(search, "aa")
     search.onClick(search_window.BUTTON_SEARCH)
 
     assert search.submitted == "aa"
@@ -1545,3 +1417,74 @@ def test_a_repeated_search_moves_to_the_front_rather_than_doubling(settings_modu
     unified.remember("BLACK LAGOON")
     assert unified.recent()[0] == "BLACK LAGOON"
     assert len([q for q in unified.recent() if q.lower() == "black lagoon"]) == 1
+
+
+# --------------------------------------------------------------------------
+# the microphone, which is Kodi's rather than ours
+# --------------------------------------------------------------------------
+
+
+def test_speak_hands_the_field_to_kodis_own_keyboard(search, monkeypatch):
+    """The grid was written believing a television has no microphone this
+    add-on can reach, so it served a page on the local network and drew a QR
+    code for a phone to dictate into. The belief was wrong: Kodi's keyboard
+    on Android hands its field to the system IME, and holding OK there starts
+    Android's dictation. There is no API for it - there is only Kodi's
+    keyboard, which a grid of buttons never opens."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "has_voice_input", lambda: True)
+    asked = {}
+
+    def fake_keyboard(default="", heading=None, hidden=False):
+        asked["default"], asked["heading"] = default, heading
+        return "hikaru no go"
+
+    monkeypatch.setattr(kodi, "keyboard", fake_keyboard)
+    _type_into_field(search, "hik")
+    search.onClick(search_window.BUTTON_VOICE)
+
+    assert asked["default"] == "hik", "it must carry on from what was typed"
+    assert asked["heading"], "the heading is where 'hold OK to speak' is said"
+    assert search.submitted == "hikaru no go"
+
+
+def test_cancelling_the_keyboard_keeps_what_was_already_typed(search, monkeypatch):
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "has_voice_input", lambda: True)
+    monkeypatch.setattr(kodi, "keyboard", lambda *a, **k: None)
+    _type_into_field(search, "dune")
+    search.onClick(search_window.BUTTON_VOICE)
+
+    assert search.text == "dune", "an abandoned dictation must not clear it"
+    assert search.submitted is None
+
+
+def test_off_android_it_says_there_is_no_microphone(search, monkeypatch):
+    """Voice typing is Android's, not Kodi's, so no other platform has it.
+    Opening a keyboard that cannot listen would be the button lying."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "has_voice_input", lambda: False)
+    monkeypatch.setattr(kodi, "keyboard",
+                        lambda *a, **k: pytest.fail("opened a deaf keyboard"))
+    said = []
+    monkeypatch.setattr(kodi, "notify", lambda msg, *a, **k: said.append(msg))
+    search.onClick(search_window.BUTTON_VOICE)
+
+    assert said and said[0] == kodi.localize(32524)
+
+
+def test_voice_input_is_the_platform_question(monkeypatch):
+    """It cannot see whether Kodi holds RECORD_AUDIO - a refused permission
+    is a recogniser that opens and hears nothing, which only Android's own
+    settings can fix."""
+    import xbmc
+    from pinky import kodi
+
+    asked = []
+    monkeypatch.setattr(xbmc, "getCondVisibility",
+                        lambda cond: asked.append(cond) or True)
+    assert kodi.has_voice_input() is True
+    assert asked == ["System.Platform.Android"]
