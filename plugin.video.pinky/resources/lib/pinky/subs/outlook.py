@@ -185,7 +185,7 @@ SPLIT_ROWS = 10
 ENGLISH_ROWS = 5
 
 
-def split_rows(meta, sources, limit=SPLIT_ROWS, want_rest=False):
+def split_rows(meta, sources, limit=SPLIT_ROWS):
     """The picker's first page: the best releases for Hebrew, and for AI.
 
     Every release is judged twice - by its best-fitting Hebrew subtitle, and by
@@ -217,7 +217,7 @@ def split_rows(meta, sources, limit=SPLIT_ROWS, want_rest=False):
 
     hebrew = _hebrew_code()
     if auto.normalise_language(meta.get("original_language")) == hebrew:
-        return ([], [], [], []) if want_rest else ([], [], [])
+        return [], [], []
     native_found = candidates(meta)
     llm_found = translation_candidates(meta)
     english_found = english_candidates(meta, llm_found)
@@ -260,61 +260,10 @@ def split_rows(meta, sources, limit=SPLIT_ROWS, want_rest=False):
     native.sort(key=lambda row: row[0])
     llm.sort(key=lambda row: row[0])
     english.sort(key=lambda row: row[0])
-    top = ([row for _key, row in native[:limit]],
-           [row for _key, row in llm[:limit]],
-           [row for _key, row in english[:ENGLISH_ROWS]])
-    if not want_rest:
-        return top
-    return top + (_rest(sources, top, native, llm, english),)
+    return ([row for _key, row in native[:limit]],
+            [row for _key, row in llm[:limit]],
+            [row for _key, row in english[:ENGLISH_ROWS]])
 
-
-def _best_mode(marked):
-    """Which of a release's three judgements to show, when only one fits.
-
-    Native first, because a Hebrew subtitle somebody made beats one a model
-    makes, and English last for the same reason in reverse. Within that the
-    fit decides, so a release with a poor Hebrew match and an excellent
-    translatable one is not sold as Hebrew.
-    """
-    ranked = sorted(marked, key=lambda row: (-(row.get("subs_fit") or 0),
-                                             _MODE_ORDER.index(row["subs_mode"])))
-    return ranked[0]
-
-
-_MODE_ORDER = ["native", "llm", "english"]
-
-
-def _rest(sources, top, native, llm, english):
-    """Every release the first page left out, still saying how it gets Hebrew.
-
-    Each one was judged three times above and the answers were thrown away
-    with the rows, so past the cut the picker read "Subtitles 81% estimate"
-    where the rows above read NATIVE or LLM - one screen answering the same
-    question in two languages. Nothing is recomputed here: this is the work
-    already done, kept rather than dropped.
-    """
-    on_first_page = set(_name(row) for rows in top for row in rows)
-    judged = {}
-    for _key, row in list(native) + list(llm) + list(english):
-        judged.setdefault(_name(row), []).append(row)
-    rest = []
-    for source in sources:
-        name = _name(source)
-        if name in on_first_page:
-            continue
-        marked = judged.get(name)
-        rest.append(_best_mode(marked) if marked else source)
-    return rest
-
-
-def _name(source):
-    """What makes two rows the same release: the infohash where there is one.
-
-    The name alone is not it. Two providers reporting one torrent agree on the
-    hash and can differ on the name, and a season pack re-uploaded under a
-    different name is a different release with the same episode in it.
-    """
-    return (source.get("hash") or "").lower() or (source.get("title") or "")
 
 
 def english_candidates(meta, already=None):

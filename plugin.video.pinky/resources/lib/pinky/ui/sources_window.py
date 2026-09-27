@@ -442,33 +442,33 @@ def _plain(short, full):
 
 
 def _first_page(meta, short, full):
-    """The whole list: ten NATIVE, ten LLM, five ENGLISH, then the rest.
+    """Ten NATIVE, ten LLM, five ENGLISH. Twenty-five rows, and no more.
 
     Asked for in so many words: the first rows should put the two ways of
     getting Hebrew side by side, so which one works is something the viewer
     sees rather than something decided for them.
 
-    The rest follow, and they carry their tag too. `split_rows` judges every
-    release three times and used to return only the rows it kept, so past the
-    cut the picker read "Subtitles 81% estimate" where the rows above read
-    NATIVE or LLM - the same question answered two ways on one screen. It
-    costs nothing to keep: the work was already done.
+    Asked for in so many words, and the cap is part of it. Everything that
+    passed the filters was shown for a while, tagged, and it was worse: 118
+    rows on Toy Story 5, most of them a release nobody would choose, with the
+    three lists that are the whole point of the page buried inside them. The
+    page is a comparison between three ways of getting Hebrew, and twenty-five
+    rows is what a comparison is.
 
     The ordinary short list comes back whenever there is nothing to split - a
     Hebrew title, or a search where no release has a subtitle of either kind.
     """
     try:
         from ..subs import outlook
-        native, llm, english, rest = outlook.split_rows(meta, full or short,
-                                                        want_rest=True)
+        native, llm, english = outlook.split_rows(meta, full or short)
     except Exception:
         kodi.log_exception("could not split the sources into native and AI")
         return _plain(short, full)
     if not native and not llm and not english:
         return _plain(short, full)
-    kodi.log("sources picker: %d native rows, %d AI rows, %d English rows, "
-             "%d others" % (len(native), len(llm), len(english), len(rest)))
-    return _in_one_order(native + llm + english) + rest
+    kodi.log("sources picker: %d native rows, %d AI rows, %d English rows"
+             % (len(native), len(llm), len(english)))
+    return _in_one_order(native + llm + english)
 
 
 # Hebrew first where two rows fit equally well, because a subtitle somebody
