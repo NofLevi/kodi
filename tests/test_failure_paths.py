@@ -320,3 +320,59 @@ def test_every_plugin_invocation_lets_go_of_the_worker_threads():
     assert "close_parallel()" in source, \
         "the invocation must let go of the shared workers before it ends"
     assert source.index("finally:") < source.index("close_parallel()")
+
+
+def test_a_host_that_is_still_rate_limiting_is_left_alone(monkeypatch):
+    """TorrentsDB answers 429 in 0.15s with no Retry-After, every search.
+    The cost is not the request, it is the 0.6s sleep the retry pays before
+    being refused again - on one of four shared workers, for an answer we
+    already have."""
+    from pinky import http
+
+    http.forget_rate_limits()
+    asked = []
+
+    class Refused(object):
+        status_code = 429
+        headers = {}
+
+        def close(self):
+            pass
+
+    class Session(object):
+        def request(self, method, url, **kwargs):
+            asked.append(url)
+            return Refused()
+
+    monkeypatch.setattr(http, "session", lambda: Session())
+    monkeypatch.setattr(http.time, "sleep", lambda seconds: None)
+
+    first_answer = http.request("GET", "https://throttled.example/one")
+    assert first_answer.status_code == 429, "a 429 is still handed back as one"
+    first = len(asked)
+    assert first >= 2, "it must try, and retry, before giving up on a host"
+
+    assert http.request("GET", "https://throttled.example/two") is None,         "and the second search gets the answer without paying for it"
+    assert len(asked) == first, "the second search must not ask again"
+    assert http.rate_limited("throttled.example")
+    http.forget_rate_limits()
+    assert not http.rate_limited("throttled.example")
+
+
+def test_another_host_is_not_punished_for_it(monkeypatch):
+    from pinky import http
+
+    http.forget_rate_limits()
+    http._start_cooldown("throttled.example", 30.0)
+    assert http.rate_limited("throttled.example")
+    assert not http.rate_limited("fine.example")
+    http.forget_rate_limits()
+
+
+def test_a_cooldown_expires(monkeypatch):
+    from pinky import http
+
+    real_time = http.time.time          # captured first, or the patch recurses
+    http._start_cooldown("throttled.example", 30.0)
+    monkeypatch.setattr(http.time, "time", lambda: real_time() + 31)
+    assert not http.rate_limited("throttled.example"), "30 seconds, not for ever"

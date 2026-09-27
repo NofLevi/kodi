@@ -161,6 +161,44 @@ def _shared_pool():
         return _parallel_pool
 
 
+# How long a host that is still rate limiting after its retry is left alone.
+# Short on purpose: TorrentsDB finds about a quarter more than Torrentio does
+# alone, so skipping it is a real loss and the point is only to stop paying
+# for an answer we already know.
+RATE_LIMIT_COOLDOWN = 30.0
+_cooling = {}
+_cooling_lock = threading.Lock()
+
+
+def rate_limited(host):
+    """Is this host still inside a cooldown we gave it?"""
+    with _cooling_lock:
+        until = _cooling.get(host)
+        if until is None:
+            return False
+        if until <= time.time():
+            del _cooling[host]
+            return False
+        return True
+
+
+def _start_cooldown(host, seconds):
+    with _cooling_lock:
+        already = _cooling.get(host, 0)
+        until = time.time() + seconds
+        if until <= already:
+            return False
+        _cooling[host] = until
+    kodi.log("%s is rate limiting; leaving it alone for %.0fs" % (host, seconds))
+    return True
+
+
+def forget_rate_limits():
+    """Drop every cooldown, for a test or a new session."""
+    with _cooling_lock:
+        _cooling.clear()
+
+
 def request(method, url, retries=1, backoff=0.6, timeout=None, raise_for_status=False,
             **kwargs):
     """Perform an HTTP request with a timeout and bounded retries.
@@ -174,11 +212,25 @@ def request(method, url, retries=1, backoff=0.6, timeout=None, raise_for_status=
     kwargs.setdefault("timeout", timeout or DEFAULT_TIMEOUT)
     if not caller_stream:
         kwargs["stream"] = True
+    host = _host(url)
+    if rate_limited(host):
+        # Nothing is lost by not asking. The last time we tried, the retry
+        # was refused too, so this is the answer we already have - without
+        # the 0.6s sleep on one of four shared workers that buying it costs.
+        if raise_for_status:
+            raise HttpError("rate limited", 429, url)
+        return None
     attempt = 0
     last_error = None
     while attempt <= retries:
         try:
             response = session().request(method, url, **kwargs)
+            if response.status_code == 429 and attempt >= retries:
+                # Its retry was refused as well, so this host is not having a
+                # moment - it is refusing us. Remember it rather than paying
+                # the same sleep on the next search.
+                _start_cooldown(host, _retry_after(response, RATE_LIMIT_COOLDOWN,
+                                                   0, floor=RATE_LIMIT_COOLDOWN))
             if response.status_code in (429, 500, 502, 503, 504) and attempt < retries:
                 delay = _retry_after(response, backoff, attempt)
                 kodi.log("HTTP %s from %s, retrying in %.1fs"
@@ -341,15 +393,22 @@ def _json_or(response, default):
         return default
 
 
-def _retry_after(response, backoff, attempt):
-    """Honour a Retry-After header when the server sends one."""
+def _retry_after(response, backoff, attempt, floor=0.0):
+    """Honour a Retry-After header when the server sends one.
+
+    Capped at ten seconds for a retry *inside* a request, because an hour-long
+    wait would freeze a search. `floor` is for the cooldown between requests,
+    where a server asking for longer than that is telling us something worth
+    hearing - it is bounded by the caller instead.
+    """
     header = response.headers.get("Retry-After")
     if header:
         try:
-            return min(10.0, float(header))
+            asked = float(header)
+            return max(floor, min(10.0, asked)) if not floor                 else max(floor, min(300.0, asked))
         except ValueError:
             pass
-    return backoff * (2 ** attempt)
+    return floor or backoff * (2 ** attempt)
 
 
 def _host(url):

@@ -102,3 +102,19 @@ def no_network(monkeypatch):
 
     monkeypatch.setattr(http, "request", blocked)
     return blocked
+
+
+@pytest.fixture(autouse=True)
+def _no_rate_limit_carried_over():
+    """A cooldown is process-wide and outlives the test that earned it.
+
+    Without this, one test answering 429 silences that host for every test
+    after it, and the failure lands somewhere unrelated - which is exactly
+    what happened the first time: four client-error cases broke because a
+    cooldown from a different test was still running.
+    """
+    from pinky import http
+
+    http.forget_rate_limits()
+    yield
+    http.forget_rate_limits()
