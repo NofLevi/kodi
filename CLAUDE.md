@@ -147,6 +147,57 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   `DEVICE_CODE_NOT_USED` from `ITEM_NOT_FOUND`, so `post_json` cannot be used
   there - it turns every 400 into the default, and the body of the 400 is the
   entire answer.
+* **There is no anonymous Hebrew subtitle source left that this add-on does
+  not already use.** Asked to read DarkSubs and find what we are missing, and
+  the answer turned out to be a map rather than a feature. Probed live on
+  27 September 2026:
+
+    | source | state | to us |
+    |---|---|---|
+    | Wizdom | 200 | already integrated |
+    | Ktuvit | 200 | already integrated |
+    | rest.opensubtitles.org | 200 | already integrated, anonymous |
+    | OpenSubtitles.com | 403 without a key | **provider written, no key** |
+    | SubDL | 403 without a key | needs a key |
+    | SubSource | wants `X-API-Key` | needs a key |
+    | Yify Subtitles | 200, anonymous | **no Hebrew where we are weak** |
+    | ScrewZira | no DNS | gone |
+    | Torec | 200, and it is a **parked domain** - every path answers a
+      stub that redirects to `/lander` | gone |
+    | Subscene | 403 | gone |
+    | Podnadpisi | no DNS | gone |
+    | BSPlayer | connection refused | gone, already recorded above |
+
+  DarkSubs itself is no longer distributed - `mrgsi.github.io/gsource` answers
+  404 - and the sources it listed were Ktuvit, Wizdom, Subscene,
+  OpenSubtitles and BSPlayer: three we have and two that are dead. The open
+  equivalent, a4kSubtitles, carries Addic7ed, BSPlayer, OpenSubtitles,
+  Podnadpisi, SubDL and SubSource, and what it has that we do not is **two
+  API keys**, not a technique.
+
+  Yify Subtitles is the one worth stating precisely, because it looks like a
+  find and is not: it is alive, anonymous, and really does carry Hebrew -
+  three Israeli rows for Inception. It answers **404 for anime and for
+  anything released this year**, and **zero Hebrew** for The Handmaiden,
+  Train to Busan and Parasite, which are the films this add-on actually
+  scores below 100 on. It would add depth to the titles that are already at
+  100 and nothing to the ones that are not.
+
+  So the ceiling is the corpus. Measured over 65 titles in four groups on the
+  same day, the picker draws the best score any source-subtitle pairing can
+  reach on **every one of them** - no gap anywhere - and the groups come out:
+
+    group      n   native avg   at 100%   llm avg   no Hebrew at all
+    film      20      95.0        19        98.3           0
+    series    15      99.8        12        99.9           0
+    foreign   15      97.7        12        86.6           0
+    anime     15      31.2         2        97.9          10
+
+  Anime's 31 is one fact and not many: ten of fifteen have no Hebrew subtitle
+  in existence. Its LLM route averages 98. The two levers left are both keys
+  somebody has to make - an engine for the translation route, and
+  OpenSubtitles.com for the search - and neither is a matter of code.
+
 * **A subtitle that came back from a search for this title is not
   necessarily for it.** `WEIGHT_TITLE` was granted to every candidate on
   exactly that reasoning, and the providers do not honour it. Asked for **The
