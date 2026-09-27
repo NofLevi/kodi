@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Which releases carry their own subtitles, for the picker to say so.
+"""Which releases ship subtitle files, for the picker to say so.
+
+Beside the video, not inside it - a `Subs/` folder next to the `.mp4`, which
+is what RARBG and most scene releases do. The tracks muxed *into* the
+container are a different question and are not answered here; see the note
+about cost below.
 
 A release that ships subtitles beside the video is the best row on the page
 and the picker had no way to say which one that was. Measured on Hikaru no
@@ -38,16 +43,41 @@ SUBTITLE_EXTENSIONS = (".srt", ".ass", ".ssa", ".vtt", ".sub")
 # than choosing, and every one is a request against somebody's account.
 MAX_ROWS = 8
 
-# Short, because this decorates a list rather than deciding anything. A row
-# that does not answer in time is drawn without the mark, which is exactly
-# what it looked like before.
-DEADLINE = 4.0
+# Six, not four. Eight rows through four workers is two rounds, and a TorBox
+# lookup is half a second when the torrent is already there and longer when
+# it is not - so four dropped the second half of the list. Measured on Top
+# Gun: Maverick, whose two RARBG releases both ship English subtitles and sit
+# at rows seven and eight: at four seconds one of them was marked and the
+# other was not, which reads as arbitrary rather than as "not known yet".
+#
+# A row that still does not answer is drawn without the mark, exactly as the
+# whole list looked before this existed, and the answer is remembered - so a
+# redraw, which "show all" is, fills in what the first pass missed.
+DEADLINE = 6.0
 
 
-def _subtitle_count(files):
-    return sum(1 for entry in files or []
-               if str(entry.get("name") or entry.get("short_name") or "")
-               .lower().endswith(SUBTITLE_EXTENSIONS))
+def _languages(files):
+    """Which languages the torrent ships, read off the filenames.
+
+    The count on its own decided nothing. RARBG ships `Subs/4_English.srt`
+    and `Subs/5_English.srt`, so "2 subtitle files" and "English" are the
+    same fact, and only the second one tells a Hebrew household whether the
+    row is worth taking.
+    """
+    from ..subs.providers import sidecar
+
+    found = []
+    for entry in files or []:
+        name = str(entry.get("name") or entry.get("short_name") or "")
+        if not name.lower().endswith(SUBTITLE_EXTENSIONS):
+            continue
+        # No default here: an unlabelled file beside a release is probably
+        # English, but "probably" is not something to print next to a
+        # language the viewer is deciding on.
+        code = sidecar.language_of(name, default="")
+        if code and code not in found:
+            found.append(code)
+    return found
 
 
 def _ask(source):
@@ -55,13 +85,13 @@ def _ask(source):
 
     client = registry.client_with_sidecars(source)
     if client is None:
-        return 0
+        return []
     try:
         files, _link_for = client.sidecar_subtitles(source)
     except Exception:
         kodi.log_exception("could not look inside %s" % source.get("hash", "")[:12])
-        return 0
-    return _subtitle_count(files)
+        return []
+    return _languages(files)
 
 
 def annotate(sources):
@@ -83,9 +113,9 @@ def annotate(sources):
         [(info_hash, (lambda s=source: _ask(s))) for info_hash, source in asking],
         workers=4, deadline=DEADLINE)
     for info_hash, source in asking:
-        count = answers.get(info_hash) or 0
-        _KNOWN[info_hash] = count
-        source["bundled_subs"] = count
+        languages = answers.get(info_hash) or []
+        _KNOWN[info_hash] = languages
+        source["bundled_subs"] = languages
 
     marked = sum(1 for _h, source in asking if source.get("bundled_subs"))
     if marked:

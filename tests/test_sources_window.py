@@ -276,17 +276,41 @@ def test_a_release_that_ships_subtitles_says_so(settings_module):
 
     marked = sources_window._subtitle_badge(
         {"title": "A.Release-GRP", "subs_mode": "native", "subs_fit": 99,
-         "bundled_subs": 1})
+         "bundled_subs": ["en"]})
     plain = sources_window._subtitle_badge(
         {"title": "A.Release-GRP", "subs_mode": "native", "subs_fit": 99})
     assert marked != plain
-    assert "SUBS IN FILE" in marked or "בקובץ" in marked
+    assert "EN" in marked, "the language is the part that decides anything"
 
 
 def test_a_row_nobody_could_ask_about_looks_as_it_did(settings_module):
     from pinky.ui import sources_window
-    assert sources_window._bundled_mark({"bundled_subs": 0}) == ""
+    assert sources_window._bundled_mark({"bundled_subs": []}) == ""
     assert sources_window._bundled_mark({}) == ""
+
+
+def test_the_mark_names_every_language_it_found(settings_module):
+    from pinky.ui import sources_window
+    mark = sources_window._bundled_mark({"bundled_subs": ["he", "en"]})
+    assert "HE" in mark and "EN" in mark
+
+
+def test_rarbg_subs_folder_is_read_as_english():
+    """`Subs/4_English.srt` and `Subs/5_English.srt` - two files, one fact."""
+    from pinky.sources import bundled
+
+    assert bundled._languages([
+        {"name": "Top.Gun-RARBG/Subs/4_English.srt"},
+        {"name": "Top.Gun-RARBG/Subs/5_English.srt"},
+        {"name": "Top.Gun-RARBG/Top.Gun-RARBG.mp4"}]) == ["en"]
+
+
+def test_an_unlabelled_file_is_not_given_a_language_it_may_not_have():
+    """Probably English is not something to print beside a language somebody
+    is deciding on."""
+    from pinky.sources import bundled
+
+    assert bundled._languages([{"name": "pack/Some.Release.srt"}]) == []
 
 
 def test_only_cached_rows_are_asked_about(monkeypatch, no_network):
@@ -297,13 +321,14 @@ def test_only_cached_rows_are_asked_about(monkeypatch, no_network):
 
     bundled.forget()
     asked = []
-    monkeypatch.setattr(bundled, "_ask", lambda source: asked.append(source) or 1)
+    monkeypatch.setattr(bundled, "_ask",
+                        lambda source: asked.append(source) or ["en"])
 
     sources = [{"hash": "a" * 40, "cached": False},
                {"hash": "b" * 40, "cached": True}]
     bundled.annotate(sources)
     assert [s["hash"] for s in asked] == ["b" * 40]
-    assert sources[1]["bundled_subs"] == 1
+    assert sources[1]["bundled_subs"] == ["en"]
     assert "bundled_subs" not in sources[0]
 
 
@@ -312,14 +337,15 @@ def test_the_answer_is_remembered_per_release(monkeypatch, no_network):
 
     bundled.forget()
     calls = []
-    monkeypatch.setattr(bundled, "_ask", lambda source: calls.append(1) or 3)
+    monkeypatch.setattr(bundled, "_ask",
+                        lambda source: calls.append(1) or ["he", "en"])
 
     first = [{"hash": "c" * 40, "cached": True}]
     second = [{"hash": "c" * 40, "cached": True}]
     bundled.annotate(first)
     bundled.annotate(second)
     assert len(calls) == 1, "the torrent does not change between two draws"
-    assert second[0]["bundled_subs"] == 3
+    assert second[0]["bundled_subs"] == ["he", "en"]
 
 
 def test_only_the_rows_on_screen_are_asked_about(monkeypatch, no_network):
@@ -327,6 +353,6 @@ def test_only_the_rows_on_screen_are_asked_about(monkeypatch, no_network):
 
     bundled.forget()
     asked = []
-    monkeypatch.setattr(bundled, "_ask", lambda source: asked.append(1) or 0)
+    monkeypatch.setattr(bundled, "_ask", lambda source: asked.append(1) or [])
     bundled.annotate([{"hash": "%040d" % n, "cached": True} for n in range(40)])
     assert len(asked) == bundled.MAX_ROWS

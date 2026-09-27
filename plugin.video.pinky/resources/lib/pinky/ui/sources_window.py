@@ -231,19 +231,25 @@ MODE_TAGS = {"native": 32539, "llm": 32540, "english": 32543}
 
 
 def _bundled_mark(source):
-    """A release that ships its own subtitles, said before anything else.
+    """A release that ships subtitle files, and in which languages.
 
-    It is the best row on the page and looked exactly like the seven either
-    side of it: a subtitle typed against that exact cut is in time by
-    construction, needs no hash, no correlation and no translation, and the
-    picker had no way to say which one that was.
+    Beside the video rather than inside it - a `Subs/` folder next to the
+    `.mp4` - which is worth saying plainly, because "in the file" would be a
+    claim about the container and this is not one.
+
+    The languages are the point. RARBG ships `Subs/4_English.srt` and
+    `Subs/5_English.srt`, so "two subtitle files" and "English" are the same
+    fact and only the second tells a Hebrew household whether the row is
+    worth taking over the one above it.
 
     Empty for every row we could not ask about in time, which is how the list
     looked before, so a slow account costs nothing but the mark.
     """
-    if not source.get("bundled_subs"):
+    languages = source.get("bundled_subs") or []
+    if not languages:
         return ""
-    return "[COLOR FF9BE38A][B]%s[/B][/COLOR]   " % kodi.localize(32550)
+    return "[COLOR FF9BE38A][B]%s %s[/B][/COLOR]   " % (
+        kodi.localize(32550), "/".join(code.upper() for code in languages[:3]))
 
 
 def _mode_line(source, mode):
