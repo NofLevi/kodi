@@ -221,6 +221,27 @@ class TorBox(base.DebridService):
                         torrent.get("download_state")))
             return ""
 
+        if not _claims_to_be_ready(torrent):
+            # A file list is not the same as a finished download, and this is
+            # what that difference looks like on a television: TorBox answers
+            # an unfinished torrent with a **placeholder clip** - a green card
+            # reading "Torrent is being downloaded to debrid..." - which plays
+            # perfectly, runs for seconds, and then trips the Up Next card for
+            # the following episode. Nothing about it looks like a failure
+            # from in here, and the viewer sees a green screen.
+            #
+            # `_claims_to_be_ready` was written for exactly this and was only
+            # ever asked in `_existing`, so a torrent added by `_create` a
+            # moment earlier walked straight past it. Refusing hands the
+            # decision back to `_resolve_any`, which tries the next source -
+            # and the download TorBox has now started will be there next time.
+            kodi.log("TorBox has a file list for %s but has not finished it "
+                     "(state %r, cached %r) - that would play the placeholder"
+                     % (source.get("hash", "")[:12],
+                        torrent.get("download_state"), torrent.get("cached")),
+                     kodi.LOG_INFO)
+            return ""
+
         chosen = self.pick_file(torrent["files"], source,
                                 source.get("extra", {}).get("meta"))
         if not chosen:

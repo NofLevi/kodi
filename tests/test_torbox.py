@@ -496,3 +496,51 @@ def test_the_expiry_becomes_a_countdown(monkeypatch):
     assert torbox._seconds_until("2099-01-01T00:00:00Z") == 1800
     assert torbox._seconds_until("") == 600
     assert torbox._seconds_until("not a timestamp") == 600
+
+
+# --------------------------------------------------------------------------
+# the placeholder clip
+# --------------------------------------------------------------------------
+
+
+def test_an_unfinished_torrent_is_not_played(monkeypatch, configured):
+    """TorBox answers an unfinished torrent with a placeholder clip.
+
+    A green card reading "Torrent is being downloaded to debrid...", which
+    plays perfectly, runs for seconds and then trips the Up Next card for the
+    following episode. Nothing about it looks like a failure from in here, so
+    the viewer just sees a green screen.
+
+    A file list is not a finished download. `_claims_to_be_ready` was written
+    for this and was only ever asked in `_existing`, so a torrent added by
+    `_create` a moment earlier walked straight past it.
+    """
+    from pinky.debrid import torbox
+
+    client = torbox.TorBox()
+    unfinished = {"id": 7, "hash": "a" * 40, "download_state": "downloading",
+                  "cached": False, "download_finished": False,
+                  "files": [{"id": 1, "name": "episode.mkv",
+                             "size": 700 * 1024 ** 2}]}
+    monkeypatch.setattr(client, "_find", lambda source: unfinished)
+    asked = []
+    monkeypatch.setattr(torbox.http, "get_json",
+                        lambda *a, **k: asked.append(a) or {"data": "https://x"})
+
+    assert client.resolve({"hash": "a" * 40, "extra": {}}) == ""
+    assert asked == [], "requestdl is not even asked for"
+
+
+def test_a_finished_torrent_still_plays(monkeypatch, configured):
+    from pinky.debrid import torbox
+
+    client = torbox.TorBox()
+    ready = {"id": 7, "hash": "a" * 40, "download_state": "cached",
+             "cached": True, "download_finished": True,
+             "files": [{"id": 1, "name": "episode.mkv",
+                        "size": 700 * 1024 ** 2}]}
+    monkeypatch.setattr(client, "_find", lambda source: ready)
+    monkeypatch.setattr(torbox.http, "get_json",
+                        lambda *a, **k: {"data": "https://cdn/file.mkv"})
+
+    assert client.resolve({"hash": "a" * 40, "extra": {}}) == "https://cdn/file.mkv"
