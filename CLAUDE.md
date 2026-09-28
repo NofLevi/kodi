@@ -160,7 +160,7 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
     | OpenSubtitles.com | 403 without a key | **provider written, no key** |
     | SubDL | 403 without a key | needs a key |
     | SubSource | wants `X-API-Key` | needs a key |
-    | Yify Subtitles | 200, anonymous | **no Hebrew where we are weak** |
+    | Yify Subtitles | 200, anonymous | **wired in - see below** |
     | ScrewZira | no DNS | gone |
     | Torec | 200, and it is a **parked domain** - every path answers a
       stub that redirects to `/lander` | gone |
@@ -175,13 +175,41 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Podnadpisi, SubDL and SubSource, and what it has that we do not is **two
   API keys**, not a technique.
 
-  Yify Subtitles is the one worth stating precisely, because it looks like a
-  find and is not: it is alive, anonymous, and really does carry Hebrew -
-  three Israeli rows for Inception. It answers **404 for anime and for
-  anything released this year**, and **zero Hebrew** for The Handmaiden,
-  Train to Busan and Parasite, which are the films this add-on actually
-  scores below 100 on. It would add depth to the titles that are already at
-  100 and nothing to the ones that are not.
+  **Yify Subtitles was measured wrong here once, and the wrong number stayed
+  in this file for a day.** The count above was `re.findall(r"flag-(\w+)", page)`
+  against the search page, and that pattern does not match a subtitle row at
+  all - every row's flag span is empty markup, `class="flag flag-"`, so what
+  the regex actually found was a handful of unrelated page furniture (a
+  language-picker dropdown in the site's own chrome) and reported it as
+  "three Israeli rows for Inception" and "zero Hebrew" for three other films.
+  Neither was a measurement of what the page held.
+
+  The language a row actually states lives in a `sub-lang` span next to it,
+  and casing is not consistent between pages - `english` on one, `Arabic` on
+  another - which is exactly the kind of thing a case-sensitive scan misses
+  silently. Read correctly: The Handmaiden carries **one** Hebrew subtitle,
+  which the wrong count reported as none, and English alone runs into the
+  hundreds for a popular film - Train to Busan 211, Parasite 218 - none of
+  which the old number saw either.
+
+  It is also 404-for-anime as stated, because it is film-only by construction
+  - it is the subtitle half of the YTS torrent site, and YTS never releases a
+  show. And the obvious domain, `yifysubtitles.ch`, answers search cleanly and
+  then refuses every download with Cloudflare's bot challenge - 403,
+  `Cf-Mitigated: challenge`, unreachable from a Python 3.8 add-on with no way
+  to run the JavaScript it wants run. `yts-subs.com` carries the identical
+  catalogue with no such wall, and turned out to need no extra request per
+  candidate at all: its download URL is the search page's own slug, moved to
+  a second subdomain with `.zip` appended, worked out once by decoding a
+  base64 `data-link` attribute rather than fetching it.
+
+  So it is wired in - `subs/providers/yify.py` - not for Hebrew, which is
+  rare on it, but for the translation route: English and Arabic in volume,
+  named to match a real YTS release rather than an uploader's own guess at
+  one, which is what a large share of this add-on's own sources already are.
+  Measured on Train to Busan: 236 candidates against opensubtitles_rest's 52
+  in the same languages, and where a played release is itself a YTS one, a
+  Yify subtitle for it scores 100, identical release name, by construction.
 
   So the ceiling is the corpus. Measured over 65 titles in four groups on the
   same day, the picker draws the best score any source-subtitle pairing can

@@ -1733,3 +1733,7 @@ msgctxt "#32558"
 msgid "No seeders"
 msgstr "אין מפיצים"
 
+msgctxt "#30325"
+msgid "YIFY Subtitles (films, no account needed)"
+msgstr "כתוביות YIFY (סרטים, ללא חשבון)"
+

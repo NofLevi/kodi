@@ -92,6 +92,7 @@ DEFAULTS = {
     "subs.provider.wizdom": "true",
     "subs.provider.opensubtitles": "true",
     "subs.provider.opensubtitles_rest": "true",
+    "subs.provider.yify": "true",
     # Off: every host stopped answering. See bsplayer.py.
     "subs.provider.bsplayer": "false",
     "subs.provider.subsource": "false",

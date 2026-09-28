@@ -324,10 +324,12 @@ _MODULES = {}
 def _modules():
     if not _MODULES:
         from .providers import (bsplayer, ktuvit, opensubtitles,
-                                opensubtitles_rest, sidecar, subsource, wizdom)
+                                opensubtitles_rest, sidecar, subsource, wizdom,
+                                yify)
         _MODULES.update({"sidecar": sidecar,
                          "wizdom": wizdom, "opensubtitles": opensubtitles,
                          "opensubtitles_rest": opensubtitles_rest,
+                         "yify": yify,
                          "bsplayer": bsplayer,
                          "subsource": subsource, "ktuvit": ktuvit})
     return _MODULES
@@ -341,18 +343,22 @@ def _providers():
     time by construction, and asking costs one debrid lookup against a
     torrent the viewer is already streaming.
 
-    Then Wizdom, because it is Hebrew-only and fast. Then the two
-    OpenSubtitles: the anonymous legacy search first, because it needs no
-    account and is the only thing standing between an English-language series
-    and no subtitle at all, then the modern one, which can match on the file
-    hash but needs a key whose free tier is five downloads a day. Ktuvit is
-    last of the Hebrew sources despite having the best catalogue, because it
-    is the only one that needs a signed-in session and so the only one that
-    can be slow for a reason the user cannot see.
+    Then Wizdom, because it is Hebrew-only and fast. Then the anonymous
+    legacy OpenSubtitles search, because it needs no account and is the only
+    thing standing between an English-language series and no subtitle at all.
+    Then Yify, right beside it for the same reason - anonymous, one request,
+    films only - and rarely a Hebrew source itself but a rich one for the
+    English and Arabic the translation route asks for next, named to match a
+    real release rather than an uploader's own guess at one. Then the modern
+    OpenSubtitles, which can match on the file hash but needs a key whose free
+    tier is five downloads a day. Ktuvit is last of the Hebrew sources despite
+    having the best catalogue, because it is the only one that needs a
+    signed-in session and so the only one that can be slow for a reason the
+    user cannot see.
     """
     modules = _modules()
     enabled = settings.enabled_subtitle_providers()
-    order = ["sidecar", "wizdom", "bsplayer", "opensubtitles_rest",
+    order = ["sidecar", "wizdom", "bsplayer", "opensubtitles_rest", "yify",
              "opensubtitles", "ktuvit", "subsource"]
     return [(name, modules[name]) for name in order
             if name in enabled and name in modules]

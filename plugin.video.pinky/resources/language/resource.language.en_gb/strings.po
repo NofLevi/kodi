@@ -1773,3 +1773,7 @@ msgctxt "#32558"
 msgid "No seeders"
 msgstr ""
 
+msgctxt "#30325"
+msgid "YIFY Subtitles (films, no account needed)"
+msgstr ""
+

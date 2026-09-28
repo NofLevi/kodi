@@ -567,6 +567,10 @@
                     <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="subs.provider.yify" type="boolean" label="30325">
+                    <level>2</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="subs.provider.opensubtitles" type="boolean" label="30061">
                     <level>2</level><default>true</default>
                     <control type="toggle"/>
