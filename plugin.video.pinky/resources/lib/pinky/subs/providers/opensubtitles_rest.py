@@ -212,9 +212,16 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
     if code:
         parts.append("sublanguageid-%s" % code)
 
+    anime = bool((meta.get("extra") or {}).get("anime"))
+    found = []
     if imdb:
         found = _fetch(meta, language, parts + ["imdbid-%s" % imdb])
-        if found:
+        # Anime is asked by name as well, not only when the id finds nothing.
+        # An anime upload is filed against an id so rarely that a non-empty
+        # answer is usually the wrong half of the corpus: Naruto Shippuden
+        # 3x55 answered with two rows, "055_LEG" and "155_LEG", and that was
+        # enough to stop the name query that finds the fansub releases.
+        if found and not anime:
             return found
         # An id query that finds nothing is not the same as there being
         # nothing. Measured on Hikaru no Go 2x02, which is S01E32 to everyone
@@ -228,12 +235,16 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
         # Only after the id query comes back empty, so it costs one request in
         # exactly the case that currently returns nothing, and none at all in
         # the common one.
-    results = []
+    results = list(found)
+    seen = set(row.get("download") for row in results)
     for name in _by_name(meta):
-        results.extend(_fetch(
-            meta, language,
-            parts + ["query-%s" % urllib.parse.quote(name.lower())],
-            by_name=True))
+        for row in _fetch(
+                meta, language,
+                parts + ["query-%s" % urllib.parse.quote(name.lower())],
+                by_name=True):
+            if row.get("download") not in seen:
+                seen.add(row.get("download"))
+                results.append(row)
     return results
 
 

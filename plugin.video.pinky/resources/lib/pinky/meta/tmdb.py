@@ -4,6 +4,8 @@ Every response goes through the SQLite cache, so a warmed home screen makes no
 network calls at all. Discovery lists get a short TTL because they change
 daily; details get a long one because they effectively never change.
 """
+import re
+
 from .. import cache, http, settings
 from . import items
 
@@ -342,38 +344,61 @@ def translations(media_type, tmdb_id):
     return pairs
 
 
-def romaji_titles(media_type, tmdb_id):
-    """The Latin-script Japanese titles a show is also released under.
+# An alternative title TMDB labels as belonging to another part of the show -
+# "series 2 title", "second series", "OAD title", "season 4 title" - is a
+# different production's name, and knowing it would let that production's
+# releases through: Digimon's "Digimon Adventure 02" is the sequel series.
+_ANOTHER_PART = re.compile(
+    r"series|season|oad|ova|movie|film|sequel|part|chapter|special|arc|cour"
+    r"|incorrect|initialism", re.I)
 
-    `original_title` is no help here either - TMDB's own is native script,
-    "進撃の巨人" for Attack on Titan - and fansub and raw releases routinely
-    use the *other* Latin name instead of the English one: "Shingeki no
-    Kyojin", "Boku no Hero Academia", "Kimetsu no Yaiba". `_a_different_series`
-    only ever knew the English title, so every one of those was scored as a
-    different show sharing the name - measured live across 30 popular anime,
-    that was the largest single cause left after the macron and long-vowel
-    fold, catching real releases from Erai-raws, SubsPlease and DBD-Raws
-    alike on titles as ordinary as Attack on Titan and My Hero Academia.
 
-    TMDB's `alternative_titles` carries these tagged `type: "romaji"` under
-    `iso_3166_1: "JP"` - not the native-script entry beside it, and not the
-    "initialism" one ("SNK", "AOT"), which is too short to be worth the
-    collision risk. One extra call, cached like every other, only for anime.
+def _latin(text):
+    return all(ord(char) < 0x250 for char in text)
+
+
+def anime_titles(media_type, tmdb_id):
+    """The Latin-script names an anime is released under, romaji first.
+
+    `original_title` is native script - "進撃の巨人" for Attack on Titan - and
+    fansub and raw releases use a Latin name that is often not TMDB's English
+    one: "Shingeki no Kyojin", "Boku no Hero Academia", and for Digimon
+    "Digimon Adventure", where TMDB's English name is the dub's "Digimon:
+    Digital Monsters". Only JP-tagged "romaji" entries were taken at first,
+    and Digimon has none - its release name is tagged US and IT - so 26 of
+    its 34 releases were hidden as another show.
+
+    Every Latin-script alternative title is taken, romaji first so the
+    subtitle search, which asks under the first two, asks the right ones -
+    except those TMDB labels as another part of the show (`_ANOTHER_PART`)
+    and the initialisms ("SNK", "AOT"), too short to be worth the collision.
+    One extra call, cached like every other, only for anime.
     """
     if not tmdb_id:
         return []
-    path = "/movie/%s/alternative_titles" if media_type == "movie" \
-        else "/tv/%s/alternative_titles"
+    path = "/movie/%s/alternative_titles" if media_type == "movie"         else "/tv/%s/alternative_titles"
     payload = _call(path % tmdb_id, ttl=TTL_DETAILS)
     entries = payload.get("titles") or payload.get("results") or []
-    seen = []
+    romaji, others = [], []
     for entry in entries:
-        if entry.get("iso_3166_1") != "JP":
+        title = (entry.get("title") or "").strip()
+        kind = (entry.get("type") or "").lower()
+        if not title or not _latin(title):
             continue
-        if "romaji" not in (entry.get("type") or "").lower():
-            continue
-        title = entry.get("title") or ""
-        if title and title not in seen:
+        # Every Japanese romaji name is kept, arc names included: on TMDB an
+        # arc is a season of this same show, so "Kimetsu no Yaiba: Hashira
+        # Geiko-hen" is Demon Slayer's season 4 and must stay known. A label
+        # naming another part only rules out the *other* Latin names, whose
+        # labels are free text TMDB editors write in a dozen languages and
+        # cannot be tied to a season reliably - naming per season is what
+        # an anime list does properly, and is the next step here.
+        if entry.get("iso_3166_1") == "JP" and "romaji" in kind:
+            romaji.append(title)
+        elif not _ANOTHER_PART.search(kind):
+            others.append(title)
+    seen = []
+    for title in romaji + others:
+        if title.lower() not in [t.lower() for t in seen]:
             seen.append(title)
     return seen
 
@@ -391,6 +416,16 @@ def absolute_episode(tmdb_id, season, episode):
     season = int(season or 0)
     episode = int(episode or 0)
     if season <= 1 or not tmdb_id:
+        return episode
+    # Some shows TMDB already numbers absolutely inside each season: Naruto
+    # Shippuden's season 3 is episodes 54 to 71, so "3x55" *is* 55. Adding
+    # the earlier seasons on top made it 108, and the picker then offered
+    # episode 108's subtitle at 71% for episode 55. A season that does not
+    # start at 1 says so. This is the same cached call `episodes()` makes.
+    numbers = [int(row.get("episode_number") or 0) for row in
+               _call("/tv/%s/season/%s" % (tmdb_id, season),
+                     ttl=TTL_DETAILS).get("episodes") or []]
+    if numbers and min(numbers) > 1:
         return episode
     payload = _call("/tv/%s" % tmdb_id, ttl=TTL_DETAILS)
     total = 0

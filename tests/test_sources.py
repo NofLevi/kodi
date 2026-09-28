@@ -280,6 +280,32 @@ def test_a_split_episode_suffix_is_recognised():
     assert scoring._a_different_series(source, meta) == ""
 
 
+DIGIMON = {"type": "episode", "extra": ANIME, "year": 1999,
+           "title": "Digimon: Digital Monsters",
+           "aliases": ["Digimon Adventure", "Digimon Digital Monsters"]}
+
+
+def test_an_anime_version_suffix_ends_the_show_name():
+    """"02v3" is a fansub group's corrected re-release of episode 2."""
+    source = {"title": "[Keyword] Digimon Adventure 02v3 [BD][720p][10bit].mkv"}
+    assert scoring._a_different_series(source, DIGIMON) == ""
+
+
+def test_an_anime_episode_word_in_another_language_is_not_a_show_name():
+    source = {"title": "Digimon_Adventure_Jakso_02.avi"}
+    assert scoring._a_different_series(source, DIGIMON) == ""
+
+
+def test_an_anime_reboot_is_caught_under_its_release_name():
+    """Knowing "Digimon Adventure" must not let the 2020 reboot through:
+    its name says 2020 straight after the title, and the 1999 series'."""
+    source = {"title": "Digimon Adventure (2020) - S01E02 - War Game.mkv"}
+    assert scoring._another_production(source, DIGIMON) ==         "another production of the same name"
+    assert scoring._another_production(
+        {"title": "Digimon Adventure - S01E02 - The Birth of Greymon.mkv"},
+        DIGIMON) == ""
+
+
 # The engine for everything that is not anime. Real releases from Torrentio
 # and TorrentsDB, with metadata built the way a Hebrew interface builds it.
 GOT = {"type": "episode", "title": u"משחקי הכס", "show_title": u"משחקי הכס",

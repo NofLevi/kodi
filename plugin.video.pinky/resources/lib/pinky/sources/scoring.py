@@ -282,6 +282,7 @@ season seasons final part parts cour tv series episode episodes cap ova ovas
 oad oads special specials movie film complete batch box set volume vol arc
 saga uncut uncensored dub dubbed sub subbed multi multisub remastered
 hybrid proper repack
+jakso episodio capitulo odcinek folge
 """.split())
 
 # Ordinary television is uploaded in every language it airs in, and the
@@ -368,6 +369,11 @@ def _a_different_western_series(source, meta):
     return ""
 
 
+_ANIME_NUMBER = r"\d{1,4}(?:v\d{1,2}|[a-z])?"
+_ANIME_MARKER = re.compile(
+    r"\b(?:s\d{1,2}e%s|(?:episode|ep)\s*%s|e%s|%s)\b" % ((_ANIME_NUMBER,) * 4))
+
+
 def _a_different_anime_series(source, meta):
     """The anime check.
 
@@ -413,8 +419,9 @@ def _a_different_anime_series(source, meta):
     # letter is SubsPlease's own convention for an episode split in two -
     # "01A", "01B" - which glues on with no space and so never had a
     # boundary to split at either.
-    head = re.split(r"\b(?:s\d{1,2}e\d{1,4}[a-z]?|(?:episode|ep)\s*\d{1,4}[a-z]?|"
-                    r"e\d{1,4}[a-z]?|\d{1,4}[a-z]?)\b", name, 1)[0]
+    # And a version suffix, "02v3" and "01v2", which is how a fansub group
+    # marks a corrected re-release and glues on the same way.
+    head = _ANIME_MARKER.split(name, 1)[0]
     extra = [word for word in _words(head)
              if word not in known and word not in _STRUCTURAL
              and not word.isdigit()]
@@ -446,6 +453,11 @@ def _another_production(source, meta):
     titles = {release.normalise(meta.get(key) or "")
               for key in ("search_title", "original_title", "title",
                           "show_title")}
+    # Anime's other names, which only anime carries: "Digimon Adventure
+    # (2020)" is the reboot, and it says so under the name the 1999 series is
+    # released as rather than TMDB's "Digimon: Digital Monsters".
+    titles.update(release.normalise(alias or "")
+                  for alias in meta.get("aliases") or [])
     for title in sorted((t for t in titles if t), key=len, reverse=True):
         if not name.startswith(title + " "):
             continue

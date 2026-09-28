@@ -152,39 +152,91 @@ def test_a_stated_season_has_to_agree_with_a_bare_number():
     assert not release.matches_episode(release.parse("[Grp] Show S1 - 11"), 3, 11, 35)
 
 
-def test_romaji_titles_keeps_only_the_japanese_latin_spelling(monkeypatch):
-    """The native-script entry, the initialism and every other region's
-    translation are not what a fansub release is named after."""
+def test_anime_titles_puts_romaji_first_and_keeps_every_latin_name(monkeypatch):
+    """Romaji first, because the subtitle search asks under the first two.
+    Then every other Latin-script name: Digimon's release name, "Digimon
+    Adventure", is tagged US and IT, not JP romaji, and requiring JP romaji
+    hid 26 of its 34 releases. Native script and initialisms stay out."""
     from pinky.meta import tmdb
     monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
         "results": [
             {"iso_3166_1": "JP", "title": "進撃の巨人", "type": "title"},
-            {"iso_3166_1": "JP", "title": "Shingeki no Kyojin", "type": "romaji"},
-            {"iso_3166_1": "JP", "title": "SNK", "type": "initialism"},
             {"iso_3166_1": "US", "title": "Attack on Titan: Shingeki no Kyojin",
              "type": "english and japanese title"},
+            {"iso_3166_1": "JP", "title": "Shingeki no Kyojin", "type": "romaji"},
+            {"iso_3166_1": "JP", "title": "SNK", "type": "initialism"},
             {"iso_3166_1": "BR", "title": "Ataque dos Titãs", "type": "title"},
         ]})
-    assert tmdb.romaji_titles("show", "1429") == ["Shingeki no Kyojin"]
+    assert tmdb.anime_titles("show", "1429") == [
+        "Shingeki no Kyojin", "Attack on Titan: Shingeki no Kyojin",
+        "Ataque dos Titãs"]
 
 
-def test_romaji_titles_reads_the_movie_shaped_response_too(monkeypatch):
+def test_anime_titles_leaves_out_what_tmdb_calls_another_part(monkeypatch):
+    """"Digimon Adventure 02" is TMDB's "alt series 2 title" - the sequel.
+    Knowing it would let the sequel's releases through as this show."""
+    from pinky.meta import tmdb
+    monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
+        "results": [
+            {"iso_3166_1": "US", "title": "Digimon Adventure",
+             "type": "title used on streaming services"},
+            {"iso_3166_1": "US", "title": "Digimon Adventure 02",
+             "type": "alt series 2 title"},
+            {"iso_3166_1": "US", "title": "Digimon Adventure Zero Two",
+             "type": "series 2 title"},
+        ]})
+    assert tmdb.anime_titles("show", "31654") == ["Digimon Adventure"]
+
+
+def test_anime_titles_keeps_every_romaji_arc_name(monkeypatch):
+    """An arc is a season of the same TMDB show: "Kimetsu no Yaiba: Hashira
+    Geiko-hen" is Demon Slayer season 4, and dropping it hid that season's
+    own releases - which the engine gate caught before this shipped."""
+    from pinky.meta import tmdb
+    monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
+        "results": [
+            {"iso_3166_1": "JP", "title": "Kimetsu no Yaiba", "type": "romaji"},
+            {"iso_3166_1": "JP", "title": "Kimetsu no Yaiba: Hashira Geiko-hen",
+             "type": "season 4 romaji"},
+        ]})
+    assert tmdb.anime_titles("show", "85937") == [
+        "Kimetsu no Yaiba", "Kimetsu no Yaiba: Hashira Geiko-hen"]
+
+
+def test_three_by_fifty_five_is_fifty_five_when_tmdb_already_counts(monkeypatch):
+    """TMDB numbers Naruto Shippuden absolutely inside each season - season
+    3 is episodes 54 to 71 - so adding the earlier seasons made 3x55 into
+    108, and the picker offered episode 108's subtitle at 71% for 55."""
+    from pinky.meta import tmdb
+
+    def call(path, ttl=None, **kw):
+        if "/season/" in path:
+            return {"episodes": [{"episode_number": n} for n in range(54, 72)]}
+        return {"seasons": [{"season_number": 1, "episode_count": 32},
+                            {"season_number": 2, "episode_count": 21},
+                            {"season_number": 3, "episode_count": 18}]}
+
+    monkeypatch.setattr(tmdb, "_call", call)
+    assert tmdb.absolute_episode("31910", 3, 55) == 55
+
+
+def test_anime_titles_reads_the_movie_shaped_response_too(monkeypatch):
     """A movie's alternative_titles keys the list "titles", not "results"."""
     from pinky.meta import tmdb
     monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
         "titles": [{"iso_3166_1": "JP", "title": "Kimi no Na wa.",
                    "type": "romaji"}]})
-    assert tmdb.romaji_titles("movie", "372058") == ["Kimi no Na wa."]
+    assert tmdb.anime_titles("movie", "372058") == ["Kimi no Na wa."]
 
 
-def test_romaji_titles_costs_nothing_with_no_tmdb_id(monkeypatch):
+def test_anime_titles_costs_nothing_with_no_tmdb_id(monkeypatch):
     from pinky.meta import tmdb
 
     def explode(*args, **kwargs):
         raise AssertionError("asked TMDB with no id")
 
     monkeypatch.setattr(tmdb, "_call", explode)
-    assert tmdb.romaji_titles("show", "") == []
+    assert tmdb.anime_titles("show", "") == []
 
 
 # --------------------------------------------------------------------------
@@ -240,7 +292,7 @@ def anime_meta(monkeypatch):
     monkeypatch.setattr(tmdb, "english_title", lambda kind, tmdb_id: "REBORN!")
     monkeypatch.setattr(tmdb, "absolute_episode",
                         lambda tmdb_id, season, episode: 203)
-    monkeypatch.setattr(tmdb, "romaji_titles",
+    monkeypatch.setattr(tmdb, "anime_titles",
                         lambda kind, tmdb_id: ["Katekyo Hitman Reborn!"])
     return play.build_meta({"type": "episode", "tmdb": "45857",
                             "season": 8, "episode": 14})

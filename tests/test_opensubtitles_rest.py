@@ -619,3 +619,26 @@ def test_a_series_asks_by_its_english_name_not_its_hebrew_one(
         "show_title": u"משחק הדיונון", "english_title": "Squid Game",
         "season": 1, "episode": 1, "ids": {"imdb": "tt10919420"}}, None, ["en"])
     assert "query-squid%20game" in urls[1]
+
+
+def test_anime_is_asked_by_name_even_when_the_id_answered(monkeypatch, provider):
+    """Naruto Shippuden 3x55: the id query answered "055_LEG" and "155_LEG",
+    and that stopped the name query that finds the fansub releases."""
+    urls = _asked_many(monkeypatch, provider,
+                       [[_row(parent="988824")],
+                        [dict(_row(), SubDownloadLink="https://x/b.gz")]])
+    found = provider.search({
+        "type": "episode", "extra": {"anime": True},
+        "title": "Naruto Shippuden", "search_title": "Naruto Shippuden",
+        "season": 1, "episode": 55, "ids": {"imdb": "tt0988824"}}, None, ["en"])
+    assert len(urls) == 2 and "query-naruto%20shippuden" in urls[1]
+    assert len(found) == 2, "the id answer is kept, the name answer added"
+
+
+def test_a_series_still_stops_at_an_id_answer(monkeypatch, provider):
+    """Only anime pays for the name query when the id already answered."""
+    urls = _asked_many(monkeypatch, provider, [[_row(parent="903747")]])
+    provider.search({"type": "episode", "title": "Breaking Bad",
+                     "season": 1, "episode": 1,
+                     "ids": {"imdb": "tt0903747"}}, None, ["en"])
+    assert len(urls) == 1

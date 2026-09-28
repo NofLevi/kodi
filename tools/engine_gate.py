@@ -9,6 +9,11 @@ tree's, with metadata built the way a Hebrew interface builds it, so any
 difference is the code and not the day's Torrentio answer. A change to one
 engine should leave the other two identical; a row marked REGRESSION kept
 fewer releases than before.
+
+Metadata is modelled here rather than built by each ref's own code: series
+carry their translations on both sides, and anime's "before" names are the
+Japanese-romaji rule, its "after" names the working tree's `anime_titles`.
+When the metadata code changes, change the model with it.
 """
 import importlib.util, json, os, subprocess, sys, time, urllib.parse, urllib.request
 
@@ -16,6 +21,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REF = sys.argv[1] if len(sys.argv) > 1 else "HEAD"
 sys.path.insert(0, os.path.join(ROOT, "plugin.video.pinky/resources/lib"))
 sys.path.insert(0, os.path.join(ROOT, "tests/stubs"))
+import tempfile  # noqa: E402
+import xbmcaddon  # noqa: E402
+_PROFILE = os.path.join(tempfile.gettempdir(), "pinky-engine-gate")
+os.makedirs(_PROFILE, exist_ok=True)
+xbmcaddon.reset(_PROFILE, os.path.join(ROOT, "plugin.video.pinky"))
 import pinky.sources  # noqa: E402
 from pinky.sources import scoring as new  # noqa: E402
 
@@ -31,7 +41,7 @@ from pinky.meta import tmdb as _tmdb  # noqa: E402
 KEY = _tmdb.BUNDLED_KEY
 MOVIES = [603, 27205, 496243, 872585, 693134, 155, 550, 680]
 SERIES = [1399, 1396, 66732, 95396, 94997, 100088, 93405, 71446, 88040, 70523, 1668, 60059]
-ANIME = [31910, 1429, 37854, 85937, 65930, 13916, 95479, 120089, 46260, 30984, 65942, 94605]
+ANIME = [31654, 31910, 1429, 37854, 85937, 65930, 13916, 95479, 120089, 46260, 30984, 65942, 94605]
 
 def get(url):
     req = urllib.request.Request(url, headers={"User-Agent": "pinky-gate/1.0"})
@@ -86,14 +96,16 @@ def build(kind, tv, anime):
         before["search_title"] = en.get(name_key) or ""
         before["aliases"] = [a["title"] for a in alt if a.get("iso_3166_1") == "JP"
                              and "romaji" in (a.get("type") or "").lower()][:4]
-    after = dict(before)
-    if kind != "movie" and not anime:  # what the new build_meta adds
+    if kind != "movie" and not anime:  # shipped: translations for series
         tr = tmdb(path + "/translations").get("translations") or []
         pairs = [(t.get("iso_639_1"), ((t.get("data") or {}).get("name") or "").strip()) for t in tr]
-        after["translated_titles"] = [n for _l, n in pairs if n]
+        before["translated_titles"] = [n for _l, n in pairs if n]
         en = [n for l, n in pairs if l == "en" and n]
-        after["english_title"] = en[0] if en else (
-            after["original_title"] if after["original_language"] == "en" else "")
+        before["english_title"] = en[0] if en else (
+            before["original_title"] if before["original_language"] == "en" else "")
+    after = dict(before)
+    if anime:  # the working tree's anime names
+        after["aliases"] = _tmdb.anime_titles("show", tv)
     return before, after, ext.get("imdb_id"), (tmdb(path, language="en-US").get(name_key) or "")
 
 totals = {}

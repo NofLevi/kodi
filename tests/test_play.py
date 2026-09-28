@@ -1085,7 +1085,7 @@ def test_anime_and_films_are_not_asked_for_translations(monkeypatch):
 
     monkeypatch.setattr(tmdb, "translations", explode)
     monkeypatch.setattr(tmdb, "english_title", lambda kind, tmdb_id: "X")
-    monkeypatch.setattr(tmdb, "romaji_titles", lambda kind, tmdb_id: [])
+    monkeypatch.setattr(tmdb, "anime_titles", lambda kind, tmdb_id: [])
     monkeypatch.setattr(tmdb, "absolute_episode", lambda *a: 1)
     monkeypatch.setattr(tmdb, "seasons", lambda tmdb_id: [])
     _show(monkeypatch, anime=True)

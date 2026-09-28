@@ -144,7 +144,7 @@ def _name_it_the_way_the_indexes_do(meta, tmdb_id):
     # naming a real release under its other title from being scored as a
     # different show sharing the name.
     try:
-        meta["aliases"] = tmdb.romaji_titles(meta.get("type"), tmdb_id)
+        meta["aliases"] = tmdb.anime_titles(meta.get("type"), tmdb_id)
     except Exception:
         meta["aliases"] = []
     if meta.get("type") == "episode":
