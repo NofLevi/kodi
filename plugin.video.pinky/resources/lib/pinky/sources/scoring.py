@@ -269,16 +269,30 @@ def _says_the_title(name, meta):
 # tables already recognise; duplicating a handful of them here is cheaper
 # than importing that machinery into a function that never parses a size or
 # a codec, only asks "have I seen this word before".
-_STRUCTURAL = frozenset("""
-season seasons final part parts cour tv series episode episodes cap ova ovas
-oad oads special specials movie film complete batch box set volume vol arc
-saga uncut uncensored dub dubbed sub subbed multi multisub remastered
-hybrid proper repack
+_TECHNICAL = frozenset("""
 480p 576p 720p 1080p 2160p 4k uhd fullhd fhd sd hdtv web webdl webrip
 bluray brrip bdrip dvdrip hdrip
 x264 x265 h264 h265 hevc avc av1 xvid divx hi10 hi10p 8bit 10bit
 aac ac3 eac3 dts flac opus mp3 truehd atmos
 bd hd
+""".split())
+
+_STRUCTURAL = _TECHNICAL | frozenset("""
+season seasons final part parts cour tv series episode episodes cap ova ovas
+oad oads special specials movie film complete batch box set volume vol arc
+saga uncut uncensored dub dubbed sub subbed multi multisub remastered
+hybrid proper repack
+""".split())
+
+# Ordinary television is uploaded in every language it airs in, and the
+# season word comes with it: "Stranger Things Stagione 1", "Separacion -
+# Temporada 1". None of these name a show.
+_WESTERN_STRUCTURAL = _TECHNICAL | frozenset("""
+season seasons series episode episodes part parts complete final special
+specials extra extras minisode minisodes proper repack remastered hybrid
+uncut multi dub dubbed sub subbed subs
+stagione temporada temporadas saison staffel sezon sezona seizoen
+capitolo capitulo cap episodio folge
 """.split())
 
 # A colon, an apostrophe or a bare hyphen glues onto the letter beside it
@@ -299,6 +313,63 @@ def _words(text):
 
 def _a_different_series(source, meta):
     """Does this release name a different show that shares a name with ours?
+
+    Anime and ordinary television fail this in different shapes, so each has
+    its own engine rather than one heuristic tuned to satisfy both. It used
+    to be one, and every fix for one broke the other: anime needed romaji
+    aliases and absolute numbers, ordinary television needed every language
+    the show is sold in - and on a Hebrew interface the title is Hebrew, so
+    before that Squid Game lost 98 of its 99 releases here. Films never come
+    through this at all; `_a_different_film` is theirs.
+    """
+    meta = meta or {}
+    if meta.get("type") != "episode":
+        return ""
+    if (meta.get("extra") or {}).get("anime"):
+        return _a_different_anime_series(source, meta)
+    return _a_different_western_series(source, meta)
+
+
+# Where the show's name ends in an ordinary release: "S01E01", "S01.E01",
+# "1x01", "S01x01", "Ep. 07", a bare "S05" ahead of "01", or an absolute
+# number. The bare season marker and the "1x01" form are what a Spanish,
+# Italian or Czech upload uses, and without them the episode's own title -
+# "Capitolo Uno La Scomparsa Di Will Byers" - was read as a second show.
+_WESTERN_MARKER = re.compile(
+    r"\b(?:s\d{1,2}\s*(?:ep|e|x)\s*\d{1,4}|s?\d{1,2}x\d{1,4}|s\d{1,2}"
+    r"|(?:episode|ep)\s*\d{1,4}|e\d{1,4}|\d{1,4})\b")
+
+
+def _a_different_western_series(source, meta):
+    """The check for everything that is not anime.
+
+    The show is known by every name it has been sold under, because a
+    release is named in the language of whoever uploaded it: "Juego de
+    Tronos", "Il Trono di Spade" and "Hra o trůny" are all Game of Thrones.
+    `translated_titles` is TMDB's list of those, and `english_title` covers a
+    Hebrew interface, where `title` is Hebrew and `original_title` for a
+    Korean drama is Korean - neither of which any release carries.
+    """
+    known = set()
+    for key in ("title", "show_title", "original_title", "english_title"):
+        known.update(_words(meta.get(key) or ""))
+    for name in meta.get("translated_titles") or []:
+        known.update(_words(name or ""))
+    if not known:
+        return ""
+    name = release.normalise(
+        _LEADING_GROUP.sub("", release.strip_site_tags(source.get("title") or "")))
+    head = _WESTERN_MARKER.split(name, 1)[0]
+    extra = [word for word in _words(head)
+             if word not in known and word not in _WESTERN_STRUCTURAL
+             and not word.isdigit()]
+    if extra:
+        return "another series of the same name"
+    return ""
+
+
+def _a_different_anime_series(source, meta):
+    """The anime check.
 
     The trap is absolute numbering. Naruto 2x54 **is** absolute 106, and
     `Naruto Shippuuden 106` is episode 106 of a different series - so

@@ -387,13 +387,10 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   the tracker search and was sitting unread by this file; it is now asked
   first, ahead of a title that might not be answerable at all.
 
-  What is not fixed, because it is a different and larger question: every
-  *non-anime* title still asks under `title`/`show_title` alone, so the same
-  Hebrew-query dead end applies to any show on a Hebrew UI whose id lookup
-  fails - which `english_title` is never called for outside anime today.
-  Measuring how often that actually happens, and whether it is worth an
-  extra TMDB call on every playback rather than only anime's, is worth doing
-  next and has not been done.
+  A series that is not anime now has `english_title` too, from TMDB's
+  translations (see the three engines below), and it is asked ahead of
+  `show_title` for the same reason. Films still ask under `title`: their id
+  query almost never comes back empty, and they were left alone on purpose.
 
   What it looked like from the outside is worth recording, because it is why
   this went unnoticed: the picker drew eight sources all reading
@@ -878,6 +875,46 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Chinese script no Latin word-matcher can read, and a long enough tail of
   naming conventions that the next gap here is a question of diminishing
   returns rather than one more clean fix.
+* **Anime, series, films and VOD are four engines, not one heuristic.** The
+  "different show sharing our name" check was one function serving anime
+  and ordinary television alike, and every fix for one regressed the
+  other. `scoring._a_different_series` is now only a dispatcher on
+  `meta["extra"]["anime"]`:
+
+  * `_a_different_anime_series` - romaji aliases, absolute numbers, the
+    anime release vocabulary. Untouched by the split, so it could not move.
+  * `_a_different_western_series` - knows the show by every name it is
+    sold under. On a Hebrew interface `title` is Hebrew and a Korean
+    drama's `original_title` is Korean, and every release of Squid Game is
+    called "Squid Game": **98 of its 99 releases** were being rejected.
+    `play._name_it_in_every_language` puts TMDB's translations
+    (`translated_titles`, which carries "Juego de tronos", "Il Trono di
+    Spade", "Hra o trůny") and `english_title` on the meta - series only,
+    one cached call. It also has its own episode markers ("1x01",
+    "S01.E01", a bare "S05" before "01") and its own season words
+    ("Stagione", "Temporada", "Saison", "Staffel"), because a Spanish or
+    Italian upload uses them and anime's list never needed to.
+  * Films never reach either: `_a_different_film` is theirs.
+  * VOD is its own path entirely and has **no subtitles**: a broadcaster
+    stream is marked `broadcaster` and both `subs/auto.py` and
+    `subs/service.py` stop there, and a programme played from the VOD
+    screens never hands the player any metadata at all.
+    `test_a_broadcaster_stream_searches_no_provider` pins it.
+
+  Measured before and after on the same releases (HEAD's scoring against
+  the new one, Hebrew-interface metadata), 4,659 releases over 32 titles:
+
+    films    kept 1461 -> 1461    identical
+    series   kept  767 ->  983    "another series" 292 -> 76
+    anime    kept 1252 -> 1252    identical, by construction
+
+  Money Heist went from 31 to 57, Friends 78 to 93, Game of Thrones 76 to
+  97. What the series engine still rejects is mostly right - "The Game"
+  for Game of Thrones, Sealab 2021 for Stranger Things, Little House on
+  the Prairie ("La Casa De La Pradera") for Money Heist - and a test pins
+  each of those. **The rule from here: a change to one engine is gated by
+  that before/after run on all three, and the other two must come out
+  identical.**
 * `meta/seadex.py` is the exception to ranking by numbers. For anime the
   release group *is* the quality, and SeaDex publishes which group won. It
   returns infohashes, the aggregator already merges by infohash, so a
@@ -1096,7 +1133,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2174 tests, all running against Kodi stubs, so no Kodi install is needed:
+2185 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1118,11 +1155,11 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
 | `test_anime_numbering.py` | 60 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. And two found by testing a Japanese source: `S01E66` being the 66th episode (Hikaru no Go's 3x06), and a stated season having to agree - "Oshi no Ko S3 - 06" is not 1x06. Plus `tmdb.romaji_titles` reading only the JP-tagged "romaji" entries out of TMDB's `alternative_titles`, and `meta["aliases"]` actually carrying one out of `build_meta` into a real rejection check. |
 | `test_release_parser.py` | 85 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. Plus `normalise` folding a macron and a doubled long vowel to the same plain letter, live-measured against 1,605 real anime releases, and leaving Hebrew - which has no such decomposition - untouched. |
-| `test_sources.py` | 97 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. Plus every live-measured gap in `_a_different_series`: a macron, a romaji alias, punctuation gluing two words into one, a four-digit padded episode number, a bare "EP01" with no season, and SubsPlease's glued "01A"/"01B" split-episode suffix - each pinned to the real release that exposed it. |
+| `test_sources.py` | 103 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. Plus every live-measured gap in `_a_different_series`: a macron, a romaji alias, punctuation gluing two words into one, a four-digit padded episode number, a bare "EP01" with no season, and SubsPlease's glued "01A"/"01B" split-episode suffix - each pinned to the real release that exposed it. And the series engine on its own: a Korean drama on a Hebrew interface keeping its releases, a title in another language being the same show, every episode-numbering form, and "The Game", Sealab and Little House on the Prairie still being caught. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 30 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
-| `test_opensubtitles_rest.py` | 36 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
+| `test_opensubtitles_rest.py` | 37 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
 | `test_yify.py` | 11 | The one anonymous film subtitle source with no account and no key: a real captured row parsed into a candidate, the site's own inconsistent casing on the language name, films-only enforced without a request (a series IMDb id answers 404 live), and the slug-to-download-URL transform that needs no second page fetch. |
 | `test_subtitle_matching.py` | 22 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
@@ -1146,7 +1183,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_windows.py` | 55 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Pinky window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
 | `test_details_window.py` | 24 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. Plus the one button acting on the episode its label names, and falling back to the next unwatched one on the season list where the label names none. |
 | `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
-| `test_play.py` | 64 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. |
+| `test_play.py` | 71 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. Plus a series carrying its English and translated names, and anime and films not paying for them. |
 | `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
 | `test_signin.py` | 32 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
 | `test_profiles.py` | 26 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, **the shipped defaults being the lean profile key for key**, and the visual-polish switch raising artwork without ever lowering a richer profile. |
@@ -1488,6 +1525,10 @@ and is still outstanding.
                                       and what subtitle accuracy they have
     python tools/survey_sources.py --report
                                       summarise it, and list the edge cases
+    python tools/engine_gate.py       the same live releases scored by HEAD
+                                      and by the working tree, films, series
+                                      and anime - run it before committing a
+                                      change to any source engine
 
 `survey_sources.py` is the test that finds cases nobody thought of. The sample
 is **stratified rather than random**, which is the whole point: a thousand

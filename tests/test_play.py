@@ -1039,3 +1039,72 @@ def test_the_playing_source_is_never_its_own_fallback():
 
     found = play._fallbacks_after(chosen, sources)
     assert [f["title"] for f in found] == ["B", "C"]
+
+
+# --------------------------------------------------------------------------
+# a series is known by every name it is released under
+# --------------------------------------------------------------------------
+
+
+def _show(monkeypatch, anime=False, original_language="ko"):
+    monkeypatch.setattr(tmdb, "show", lambda tmdb_id: {
+        "ids": {"tmdb": tmdb_id, "imdb": "tt10919420"},
+        "title": u"משחק הדיונון", "original_title": u"오징어 게임",
+        "original_language": original_language, "year": 2021, "art": {},
+        "extra": {"anime": anime}})
+    monkeypatch.setattr(tmdb, "episodes", lambda tmdb_id, season: [])
+
+
+def test_a_series_carries_its_english_and_translated_names(monkeypatch):
+    """On a Hebrew interface `title` is Hebrew and a Korean drama's
+    `original_title` is Korean, and no release carries either."""
+    _show(monkeypatch)
+    monkeypatch.setattr(tmdb, "translations", lambda kind, tmdb_id: [
+        ("en", "Squid Game"), ("es", "El juego del calamar")])
+    meta = play.build_meta({"type": "episode", "tmdb": "93405",
+                            "season": 1, "episode": 1})
+    assert meta["english_title"] == "Squid Game"
+    assert "El juego del calamar" in meta["translated_titles"]
+
+
+def test_an_english_original_needs_no_english_translation(monkeypatch):
+    """TMDB leaves the English translation blank when it is the original."""
+    _show(monkeypatch, original_language="en")
+    monkeypatch.setattr(tmdb, "translations", lambda kind, tmdb_id: [
+        ("es", "Juego de tronos")])
+    meta = play.build_meta({"type": "episode", "tmdb": "1399",
+                            "season": 1, "episode": 1})
+    assert meta["english_title"] == meta["original_title"]
+
+
+def test_anime_and_films_are_not_asked_for_translations(monkeypatch):
+    """Anime has its own naming and films are checked differently - neither
+    reads these, so neither pays for them."""
+    def explode(*args, **kwargs):
+        raise AssertionError("asked TMDB for translations")
+
+    monkeypatch.setattr(tmdb, "translations", explode)
+    monkeypatch.setattr(tmdb, "english_title", lambda kind, tmdb_id: "X")
+    monkeypatch.setattr(tmdb, "romaji_titles", lambda kind, tmdb_id: [])
+    monkeypatch.setattr(tmdb, "absolute_episode", lambda *a: 1)
+    monkeypatch.setattr(tmdb, "seasons", lambda tmdb_id: [])
+    _show(monkeypatch, anime=True)
+    assert "translated_titles" not in play.build_meta(
+        {"type": "episode", "tmdb": "1", "season": 1, "episode": 1})
+
+    monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
+        "ids": {"tmdb": tmdb_id}, "title": "The Matrix", "year": 1999,
+        "art": {}, "extra": {"anime": False}})
+    assert "translated_titles" not in play.build_meta(
+        {"type": "movie", "tmdb": "603"})
+
+
+def test_translations_reads_both_shapes_and_skips_blank_names(monkeypatch):
+    monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
+        "translations": [
+            {"iso_639_1": "en", "data": {"name": ""}},
+            {"iso_639_1": "es", "data": {"name": "Juego de tronos"}},
+            {"iso_639_1": "it", "data": {"title": "Il Trono di Spade"}},
+        ]})
+    assert tmdb.translations("show", "1399") == [
+        ("es", "Juego de tronos"), ("it", "Il Trono di Spade")]

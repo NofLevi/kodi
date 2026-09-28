@@ -187,7 +187,8 @@ def test_an_unreadable_resolution_is_not_filtered_out():
         min_rank = 2      # 720p floor
 
     unreadable = {"title": "[Late] Bleach TYBW 46 v2 (Web, x264, 10b. EAC3)",
-                  "quality": "unknown", "codec": "h264", "hdr": [], "size": 0}
+                  "quality": "unknown", "codec": "h264", "hdr": [], "size": 0,
+                  "seeders": 10}
     assert scoring.rejection_reason(unreadable, Prefs()) == ""
 
     too_low = dict(unreadable, quality="480p")

@@ -254,6 +254,8 @@ def _by_name(meta):
     this reason - and because `title` can be Hebrew: `tmdb.language()`
     follows the UI language, so a Hebrew household's `meta["title"]` is a
     Hebrew string, and a Hebrew-script query to this index returns nothing.
+    A series that is not anime has `english_title` for the same reason, from
+    `play._name_it_in_every_language`.
 
     An anime release is as likely to be filed under its Japanese romaji name
     as its English one - fansub and raw groups both use it - and the two are
@@ -269,8 +271,8 @@ def _by_name(meta):
     total, only in the case that already costs one.
     """
     names = []
-    primary = meta.get("search_title") or meta.get("show_title") \
-        or meta.get("title") or ""
+    primary = meta.get("search_title") or meta.get("english_title") \
+        or meta.get("show_title") or meta.get("title") or ""
     if primary:
         names.append(primary)
     for alias in (meta.get("aliases") or [])[:2]:

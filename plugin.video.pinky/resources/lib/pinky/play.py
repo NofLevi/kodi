@@ -79,7 +79,37 @@ def build_meta(request):
     meta["duration"] = int((meta.get("item") or {}).get("duration") or 0)
 
     _name_it_the_way_the_indexes_do(meta, tmdb_id)
+    _name_it_in_every_language(meta, tmdb_id)
     return meta
+
+
+def _name_it_in_every_language(meta, tmdb_id):
+    """For a series that is not anime, every name it is released under.
+
+    `title` follows the interface language, so on a Hebrew one it is Hebrew,
+    and `original_title` for a Korean drama is Korean - and every release
+    of Squid Game is called "Squid Game". The check that stops a different
+    show sharing our name rejected 98 of its 99 releases for that reason.
+    TMDB's translations give the English name and every other one
+    ("Juego de tronos", "La casa di carta"), which is what uploaders use.
+
+    Series only, because films are checked differently and never read this;
+    anime has its own naming in `_name_it_the_way_the_indexes_do`.
+    """
+    from .meta import tmdb
+
+    if meta.get("type") != "episode" or (meta.get("extra") or {}).get("anime"):
+        return
+    try:
+        pairs = tmdb.translations(meta.get("type"), tmdb_id)
+    except Exception:
+        pairs = []
+    meta["translated_titles"] = [name for _language, name in pairs]
+    english = [name for language, name in pairs if language == "en"]
+    if english:
+        meta["english_title"] = english[0]
+    elif (meta.get("original_language") or "") == "en":
+        meta["english_title"] = meta.get("original_title") or ""
 
 
 def _name_it_the_way_the_indexes_do(meta, tmdb_id):

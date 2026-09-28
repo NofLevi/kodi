@@ -319,6 +319,29 @@ def english_title(media_type, tmdb_id):
     return payload.get("title") or payload.get("name") or ""
 
 
+def translations(media_type, tmdb_id):
+    """Every name TMDB has for a title, as (language, name) pairs.
+
+    A release is named in the language of whoever uploaded it - "Juego de
+    tronos", "Il Trono di Spade", "Hra o trůny" - and `alternative_titles`
+    does not carry those: TMDB keeps them here. A blank name means "the same
+    as the original" and is left out. One call, cached like every other.
+    """
+    if not tmdb_id:
+        return []
+    path = "/movie/%s/translations" if media_type == "movie" \
+        else "/tv/%s/translations"
+    payload = _call(path % tmdb_id, ttl=TTL_DETAILS)
+    pairs = []
+    for entry in payload.get("translations") or []:
+        data = entry.get("data") or {}
+        name = (data.get("name") or data.get("title") or "").strip()
+        pair = (entry.get("iso_639_1") or "", name)
+        if name and pair not in pairs:
+            pairs.append(pair)
+    return pairs
+
+
 def romaji_titles(media_type, tmdb_id):
     """The Latin-script Japanese titles a show is also released under.
 

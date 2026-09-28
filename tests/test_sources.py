@@ -175,6 +175,12 @@ def test_every_rejection_reason_has_a_label():
     assert not missing, "no label for %s" % sorted(missing)
 
 
+# The anime engine. Each of these is a real anime release that the
+# shared check used to reject; they are pinned to the anime engine so a
+# change to ordinary television cannot reach them.
+ANIME = {"anime": True}
+
+
 def test_a_macron_in_tmdbs_title_does_not_reject_the_real_series():
     """TMDB spells this show "Naruto Shippūden"; every release spells it
     "Shippuuden" or "Shippuden" in plain ASCII. Before `release.normalise`
@@ -182,7 +188,7 @@ def test_a_macron_in_tmdbs_title_does_not_reject_the_real_series():
     so `_a_different_series` treated every real Naruto Shippuden release as
     a different show sharing the name - live, 28 of 29 sources for Naruto
     Shippuden 12x244 were hidden this way, 17 of them by this exact reason."""
-    meta = {"type": "episode", "title": "Naruto Shippūden"}
+    meta = {"type": "episode", "extra": ANIME, "title": "Naruto Shippūden"}
     source = {"title": "[TorrentsDB] Naruto Shippuuden - 244 - "
                         "Killer Bee and Motoi"}
     assert scoring._a_different_series(source, meta) == ""
@@ -192,7 +198,7 @@ def test_a_genuinely_different_series_is_still_caught():
     """The fold only removes a diacritic mismatch - it must not blunt the
     check `_a_different_series` exists for: Shippuuden really is a different
     show from a plain "Naruto" query."""
-    meta = {"type": "episode", "title": "Naruto"}
+    meta = {"type": "episode", "extra": ANIME, "title": "Naruto"}
     source = {"title": "Naruto Shippuuden 106"}
     assert scoring._a_different_series(source, meta) == \
         "another series of the same name"
@@ -204,7 +210,7 @@ def test_a_romaji_alias_is_not_a_different_series():
     the same show under its other name, not a different one sharing this
     one. `meta["aliases"]` is where `play._name_it_the_way_the_indexes_do`
     puts that name for exactly this check to read."""
-    meta = {"type": "episode", "title": "Attack on Titan",
+    meta = {"type": "episode", "extra": ANIME, "title": "Attack on Titan",
            "aliases": ["Shingeki no Kyojin"]}
     source = {"title": "[Erai-raws] Shingeki no Kyojin - 01 "
                         "[1080p][Multiple Subtitle].mkv"}
@@ -217,11 +223,11 @@ def test_stray_punctuation_does_not_split_a_matching_word():
     "Boruto" (the release) were permanently different tokens, and "Re:ZERO"
     with no space collapsed into one token nothing could ever match against
     a release spelling it "Re Zero"."""
-    meta = {"type": "episode", "title": "Boruto: Naruto Next Generations"}
+    meta = {"type": "episode", "extra": ANIME, "title": "Boruto: Naruto Next Generations"}
     assert scoring._a_different_series(
         {"title": "[Judas] Boruto - 01.mkv"}, meta) == ""
 
-    meta = {"type": "episode", "title": "Re:ZERO -Starting Life "
+    meta = {"type": "episode", "extra": ANIME, "title": "Re:ZERO -Starting Life "
                                         "in Another World-"}
     assert scoring._a_different_series(
         {"title": "[Anime Time] Re Zero - 01.mkv"}, meta) == ""
@@ -232,7 +238,7 @@ def test_a_four_digit_episode_number_is_recognised():
     "S01E0001" has four digits after the E, one more than the marker used
     to allow, so it was never recognised as an episode number at all and
     the episode's own subtitle was read as the name of a second show."""
-    meta = {"type": "episode", "title": "One Piece", "aliases": ["One Piece"]}
+    meta = {"type": "episode", "extra": ANIME, "title": "One Piece", "aliases": ["One Piece"]}
     source = {"title": "One Piece - S01E0001 - I'm Luffy! The Man Who's "
                         "Gonna Be King of the Pirates!.mkv"}
     assert scoring._a_different_series(source, meta) == ""
@@ -243,7 +249,7 @@ def test_a_bare_episode_marker_with_no_season_is_recognised():
     front - ordinary on a single-season show - and neither used to split
     the name at all, so the episode's own title read as a second show's
     name: "Death Note - EP01 - Rebirth" flagged on the word "rebirth"."""
-    meta = {"type": "episode", "title": "Death Note"}
+    meta = {"type": "episode", "extra": ANIME, "title": "Death Note"}
     assert scoring._a_different_series(
         {"title": "Death Note - EP01 - Rebirth.mkv"}, meta) == ""
     assert scoring._a_different_series(
@@ -256,7 +262,7 @@ def test_a_resolution_or_codec_word_is_not_evidence_of_a_different_show():
     what a resolution or a codec looks like, both read as a second show's
     name - "cap" is Spanish release convention for "episode" and was the
     same kind of gap."""
-    meta = {"type": "episode", "title": "One Piece", "aliases": ["One Piece"]}
+    meta = {"type": "episode", "extra": ANIME, "title": "One Piece", "aliases": ["One Piece"]}
     source = {"title": "One Piece [HDTV 1080p][Cap.101](wolfmax4k.com).mkv"}
     assert scoring._a_different_series(source, meta) == ""
 
@@ -266,12 +272,93 @@ def test_a_split_episode_suffix_is_recognised():
     glued to the number with no space - which never had a boundary to
     split at, so the episode's own Japanese-romaji title following it read
     as a second show's name."""
-    meta = {"type": "episode", "title": "Re:ZERO -Starting Life in "
+    meta = {"type": "episode", "extra": ANIME, "title": "Re:ZERO -Starting Life in "
                                         "Another World-",
            "aliases": ["Re:Zero kara Hajimeru Isekai Seikatsu"]}
     source = {"title": "[SubsPlease] Re Zero kara Hajimeru Isekai Seikatsu "
                         "- 01A (1080p) [39286AC6].mkv"}
     assert scoring._a_different_series(source, meta) == ""
+
+
+# The engine for everything that is not anime. Real releases from Torrentio
+# and TorrentsDB, with metadata built the way a Hebrew interface builds it.
+GOT = {"type": "episode", "title": u"משחקי הכס", "show_title": u"משחקי הכס",
+       "original_title": "Game of Thrones", "english_title": "Game of Thrones",
+       "translated_titles": ["Juego de tronos", "Il Trono di Spade",
+                             u"Hra o trůny", "Gra o tron"]}
+
+
+def test_a_korean_drama_on_a_hebrew_interface_keeps_its_releases():
+    """`title` is Hebrew and `original_title` is Korean, and every release
+    of Squid Game is called "Squid Game": 98 of 99 were rejected as another
+    show until the English name was known."""
+    meta = {"type": "episode", "title": u"משחק הדיונון",
+            "show_title": u"משחק הדיונון", "original_title": u"오징어 게임",
+            "english_title": "Squid Game"}
+    source = {"title": "Squid.Game.S01E01.1080p.NF.WEB-DL.DDP5.1.x264-NTb.mkv"}
+    assert scoring._a_different_series(source, meta) == ""
+
+
+def test_a_release_named_in_another_language_is_the_same_show():
+    for name in ("Juego de Tronos 01x01 M1080.www.pctnew.com.mkv",
+                 "Trono.Di.Spade.S01EP01.L.Inverno.Sta.Arrivando.BDMux.1080p.mkv",
+                 u"Hra o trůny - 01x01 - Zima se blíží.mkv"):
+        assert scoring._a_different_series({"title": name}, GOT) == "", name
+
+
+def test_every_way_an_episode_is_numbered_ends_the_show_name():
+    """"1X01", "S01.E01", "S01.Ep01" and a bare "S05" ahead of "01" were not
+    recognised, so the episode's own title was read as a second show."""
+    stranger = {"type": "episode", "title": "Stranger Things"}
+    breaking = {"type": "episode", "title": "Breaking Bad"}
+    assert scoring._a_different_series({"title": "Stranger Things - 1X01 - "
+                                        "Chapter One The Vanishing Of Will "
+                                        "Byers.mkv"}, stranger) == ""
+    assert scoring._a_different_series(
+        {"title": "Breaking.Bad.S01.E01.BDRip.1080p-SOFCJ.mkv"}, breaking) == ""
+    assert scoring._a_different_series(
+        {"title": "Breaking Bad S05 01.mkv"}, breaking) == ""
+    assert scoring._a_different_series(
+        {"title": "Game.of.Thrones.S01.Ep01.1080p.BluRay.DTS.x264-ESiR.mkv"},
+        GOT) == ""
+
+
+def test_a_season_word_in_another_language_is_not_a_show_name():
+    stranger = {"type": "episode", "title": "Stranger Things"}
+    source = {"title": "Stranger Things Stagione 1 Ep. 07 Capitolo Sette 720p "
+                       "Ita Eng.mkv"}
+    assert scoring._a_different_series(source, stranger) == ""
+
+
+def test_a_genuinely_different_show_is_still_caught():
+    """Torrentio answers for Game of Thrones with "The Game", for Stranger
+    Things with Sealab 2021 and for Money Heist with Little House on the
+    Prairie. Knowing every translation must not let these through."""
+    assert scoring._a_different_series(
+        {"title": "The Game 2025 S01E01 1080p MY5 WEB-DL AAC2 0 H 264-RAWR"},
+        GOT) == "another series of the same name"
+    assert scoring._a_different_series(
+        {"title": "Sealab 2021 (2000) S01E01 - Radio Free Sealab.1080p.mkv"},
+        {"type": "episode", "title": "Stranger Things"}) == \
+        "another series of the same name"
+    heist = {"type": "episode", "title": "Money Heist",
+             "original_title": "La casa de papel",
+             "translated_titles": ["La casa di carta", "Dom z papieru"]}
+    assert scoring._a_different_series(
+        {"title": "La Casa De La Pradera (2026) [HDTV 1080p][Cap.101].mkv"},
+        heist) == "another series of the same name"
+
+
+def test_the_two_engines_do_not_share_their_name_lists():
+    """Anime's romaji aliases are the anime engine's alone, and a series'
+    translations the other's. Tuning one must never move the other."""
+    release_name = {"title": "Shingeki no Kyojin - 01 [1080p].mkv"}
+    western = {"type": "episode", "title": "Attack on Titan",
+               "aliases": ["Shingeki no Kyojin"]}
+    anime = dict(western, extra={"anime": True})
+    assert scoring._a_different_series(release_name, western) == \
+        "another series of the same name"
+    assert scoring._a_different_series(release_name, anime) == ""
 
 
 def test_cam_releases_are_rejected(prefs):

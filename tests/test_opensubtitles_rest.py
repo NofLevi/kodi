@@ -607,3 +607,15 @@ def test_no_more_than_two_aliases_are_ever_asked(monkeypatch, provider):
         "season": 1, "episode": 1, "ids": {"imdb": "tt1"}}, None, ["en"])
     assert len(urls) == 4, "the id, the name, and two aliases - not three"
     assert "alias%20three" not in urls[-1], "the third alias is never asked"
+
+
+def test_a_series_asks_by_its_english_name_not_its_hebrew_one(
+        monkeypatch, provider):
+    """Not anime, so no `search_title` - `english_title` is the name this
+    index can answer; the Hebrew `show_title` finds nothing."""
+    urls = _asked_many(monkeypatch, provider, [[], []])
+    provider.search({
+        "type": "episode", "title": u"משחק הדיונון",
+        "show_title": u"משחק הדיונון", "english_title": "Squid Game",
+        "season": 1, "episode": 1, "ids": {"imdb": "tt10919420"}}, None, ["en"])
+    assert "query-squid%20game" in urls[1]
