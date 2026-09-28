@@ -99,6 +99,15 @@ def _remote_size(url, timeout):
     return 0
 
 
+def read_range(url, start, end, timeout=(5, 15)):
+    """Bytes start..end of a remote file, or None - never the whole file.
+
+    A server that ignores Range and answers 200 is refused rather than read,
+    because that answer is the entire film.
+    """
+    return _range(url, start, end, timeout)
+
+
 def _range(url, start, end, timeout, expected_size=None):
     response = http.get(
         url, retries=1, timeout=timeout, stream=True,

@@ -237,7 +237,8 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
     native, llm, english = [], [], []
     for index, source in enumerate(sources):
         name = source.get("title") or ""
-        shipped = _shipped(source, anime)
+        files, inside = _shipped(source, anime)
+        shipped = files | inside
         target = matcher.target_from(meta, {
             "release": name,
             "group": source.get("group") or release.parse(name)["group"],
@@ -257,7 +258,9 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
             continue
         # A subtitle shipped with this release is in time by construction,
         # and playback asks for it first, so it fits at 100.
-        fits = [(100, language) for language in sorted(shipped & translatable)]
+        # Only a file, never a track inside the video: the translator needs
+        # a subtitle it can download, and Kodi keeps a muxed track to itself.
+        fits = [(100, language) for language in sorted(files & translatable)]
         for candidate in llm_found:
             fit = matcher.rate(candidate, target)[0]
             if fit > 0:
@@ -293,7 +296,10 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
 
 
 def _shipped(source, anime):
-    """The languages this release ships its own subtitle files in.
+    """The languages this release ships subtitles in: (files, inside).
+
+    Files beside the video, and full tracks muxed into it. Both are in time
+    by construction; only a file can be translated from.
 
     Known only once `sources.bundled` has looked inside the torrent - a
     background pass that remembers the answer for a month - and read here
@@ -305,11 +311,13 @@ def _shipped(source, anime):
     that is what a subtitle in a fansub torrent is.
     """
     from ..sources import bundled
-    languages = set(bundled.recall(source) or source.get("bundled_subs") or [])
-    if anime and bundled.UNLABELLED in languages:
-        languages.add("en")
-    languages.discard(bundled.UNLABELLED)
-    return languages
+    files = set(bundled.recall(source) or source.get("bundled_subs") or [])
+    inside = set(bundled.recall_inside(source) or source.get("inside_subs") or [])
+    for languages in (files, inside):
+        if anime and bundled.UNLABELLED in languages:
+            languages.add("en")
+        languages.discard(bundled.UNLABELLED)
+    return files, inside
 
 
 def english_candidates(meta, already=None):

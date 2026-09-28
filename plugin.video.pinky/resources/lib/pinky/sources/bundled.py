@@ -16,14 +16,15 @@ is already holding costs one lookup; on TorBox `createtorrent` answers
 "Found Cached Torrent" in about half a second for something already cached,
 and six of them through the shared pool take about a second.
 
-Reading the *embedded* tracks is the other half of the question and is not
-done here, because it is a different order of cost: it needs a real download
-link and two ranged reads of the file itself. Measured on Top Gun: Maverick,
-six sources through the four-worker pool took **eleven seconds** - and this
-add-on has already learned once what holding the picker on a spinner for
-twenty-six seconds feels like. What ships beside the video is knowable
-cheaply; what is muxed inside it is not, and saying only the first is better
-than making the viewer wait for both.
+Reading the *embedded* tracks is the other half, and it is done here too -
+in the background, never on the draw. It needs a real download link and one
+ranged read of the start of the file, because Matroska declares its tracks
+before the first cluster: about two seconds to resolve and two to read, so
+blocking the picker on it for six rows was eleven seconds and is not done.
+Remembered per file for a year, because a file's tracks never change. It is
+the anime lever: modern fansubs mux their English subtitle into the MKV and
+ship nothing beside it, and measured on Frieren 1x20 the English list went
+from 95/91/91/80/80 to 100 on every row once the pass had looked.
 
 Cached sources only. `_find` adds a torrent that is not there, uncached adds
 are capped at sixty an hour, and spending that quota to decorate a list
@@ -64,7 +65,14 @@ MAX_ROWS = 8
 # Generous, because nobody is waiting on it any more - this runs on a
 # background thread and the draw never blocks. Still bounded, because the
 # work goes through the shared four-worker pool that everything else uses.
-DEADLINE = 8.0
+DEADLINE = 20.0
+# Half the shared pool at most. The pool is the one the source search, the
+# subtitle search and playback's own resolve all use, and a background
+# decoration holding every worker would make the next press wait on it.
+BACKGROUND_WORKERS = 2
+# Reading inside a file costs a resolve and a ranged read, about four
+# seconds each, so fewer rows than the file list is asked for.
+INSIDE_ROWS = 6
 
 
 def _languages(files):
@@ -141,19 +149,113 @@ def annotate(sources):
     lost that mattered: the list drew correctly without it.
     """
     asking = []
-    for source in (sources or [])[:MAX_ROWS]:
+    for position, source in enumerate((sources or [])[:MAX_ROWS]):
         info_hash = (source.get("hash") or "").lower()
         if not info_hash or not source.get("cached"):
             continue
         known = _recall(info_hash)
         if known is not None:
             source["bundled_subs"] = known
-            continue
-        asking.append((info_hash, source))
+        else:
+            asking.append((_key(info_hash), _remember_for(info_hash),
+                           (lambda s=dict(source): _ask(s))))
+        inside = recall_inside(source)
+        if inside is not None:
+            source["inside_subs"] = inside
+        elif position < INSIDE_ROWS and _may_look_inside(source):
+            asking.append((_inside_key(source), _remember_inside_for(source),
+                           (lambda s=dict(source): _look_inside(s))))
 
     if asking:
-        _learn_later([(info_hash, dict(source)) for info_hash, source in asking])
+        _learn_later(asking)
     return sources
+
+
+def _remember_for(info_hash):
+    return lambda languages: _remember(info_hash, languages or [])
+
+
+# --------------------------------------------------------------------------
+# the subtitle tracks inside the file
+# --------------------------------------------------------------------------
+
+# Matroska declares its tracks before the first cluster, so this much of the
+# start of the file answers it. Measured on twelve cached anime releases:
+# resolving the link about 2 s, reading this about 2 s, and every one of the
+# twelve had a full English track inside.
+INSIDE_READ = 512 * 1024
+_INSIDE_TTL = 365 * 24 * 3600
+# What could not be read - not an MKV, a dead link - is not asked again for a
+# day, rather than on every open of the picker.
+_UNKNOWN_TTL = 24 * 3600
+_UNKNOWN = "?"
+
+
+def _inside_key(source):
+    """Per file, not per torrent: a season pack holds every episode."""
+    from .. import cache
+    meta = (source.get("extra") or {}).get("meta") or {}
+    part = ("%sx%s" % (meta.get("season") or 0, meta.get("episode") or 0)
+            if meta.get("type") == "episode" else "film")
+    return cache.make_key("sources", "inside",
+                          (source.get("hash") or "").lower(), part)
+
+
+def recall_inside(source):
+    """The languages of the full subtitle tracks inside this source's file.
+
+    A cache read only. None until the background pass has looked; [] for a
+    file known to have none, or that could not be read.
+    """
+    from .. import cache
+    if not source.get("cached") or not source.get("hash"):
+        return None
+    known = cache.get(_inside_key(source))
+    if known is None:
+        return None
+    return [] if known == [_UNKNOWN] else known
+
+
+def _may_look_inside(source):
+    name = (source.get("file_name") or source.get("title") or "").lower()
+    return not name.endswith((".mp4", ".avi", ".m4v", ".ts", ".wmv"))
+
+
+def _remember_inside_for(source):
+    from .. import cache
+
+    def remember(languages):
+        if languages == [_UNKNOWN]:
+            cache.set(_inside_key(source), [_UNKNOWN], _UNKNOWN_TTL)
+        else:
+            cache.set(_inside_key(source), languages, _INSIDE_TTL)
+    return remember
+
+
+def _look_inside(source):
+    """Full subtitle tracks muxed into the file, by language.
+
+    [_UNKNOWN] when the file could not be read, because `run_parallel` drops
+    a task that answers None and it would be asked again on every open.
+
+    Signs-and-songs and forced tracks are left out: they caption on-screen
+    text, not dialogue. Resolved through the same service playback would
+    use, on a copy, so nothing about it looks like playing the file.
+    """
+    from ..debrid import registry
+    from ..subs import hasher
+    from ..utils import matroska
+    resolver = registry.resolver_for(source)
+    link = resolver.resolve(dict(source)) if resolver is not None else ""
+    data = hasher.read_range(link, 0, INSIDE_READ - 1) if link else None
+    tracks = matroska.subtitle_tracks(data) if data else None
+    if tracks is None:
+        return [_UNKNOWN]
+    languages = []
+    for track in tracks:
+        if not track["partial"] and track["language"] not in languages:
+            languages.append(track["language"])
+    return languages
 
 
 def _learn_later(asking):
@@ -163,17 +265,18 @@ def _learn_later(asking):
     def work():
         try:
             answers = http.run_parallel(
-                [(info_hash, (lambda s=source: _ask(s)))
-                 for info_hash, source in asking],
-                workers=4, deadline=DEADLINE)
+                [(key, ask) for key, _remember_it, ask in asking],
+                workers=BACKGROUND_WORKERS, deadline=DEADLINE)
         except Exception:
             kodi.log_exception("could not tell which releases carry subtitles")
             return
         marked = 0
-        for info_hash, _source in asking:
-            languages = answers.get(info_hash) or []
-            _remember(info_hash, languages)
-            marked += 1 if languages else 0
+        for key, remember_it, _ask_it in asking:
+            if key not in answers:
+                continue            # past the deadline: ask again next time
+            languages = answers.get(key)
+            remember_it(languages)
+            marked += 1 if languages and languages != [_UNKNOWN] else 0
         if marked:
             kodi.log("%d of %d releases carry their own subtitles"
                      % (marked, len(asking)))

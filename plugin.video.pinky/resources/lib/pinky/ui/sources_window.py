@@ -255,7 +255,9 @@ def _bundled_mark(source):
     nothing otherwise. A subtitle nobody here can read is not a reason to
     take one release over another.
     """
-    languages = source.get("bundled_subs") or []
+    languages = list(source.get("bundled_subs") or [])
+    languages += [code for code in source.get("inside_subs") or []
+                  if code not in languages]
     if not languages:
         return ""
     try:

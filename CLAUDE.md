@@ -976,6 +976,27 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   subtitle file - SubsPlease, Judas, Sokudo and the rest put it inside the
   MKV, which is the next thing to read.
 
+  **And now it is read: the tracks inside the file.** `utils/matroska.py`
+  reads the track list out of the first 512 KB - Matroska declares its
+  tracks before the first cluster - and `sources.bundled` does it in the
+  background for the top six cached rows, remembered per *file* (a season
+  pack holds every episode) for a year. Checked live on twelve cached anime
+  releases before building it: **every one had a full English track
+  inside**, several with Arabic, Russian, French and Spanish too. Tried
+  first through TorBox's own `stream/createstream`, which knows the tracks
+  - and answers `PLAN_RESTRICTED_FEATURE` on this account.
+
+  A track inside the file counts for the Hebrew and English lists, never
+  for AI: Kodi shows a muxed track directly, which is what the automatic
+  path picks first, while the translator needs a subtitle it can download.
+  Signs-and-songs and forced tracks are not counted - they caption on-screen
+  text, not dialogue. A track naming no language is English, by the
+  Matroska specification rather than a guess. The pass uses at most two of
+  the shared pool's four workers, so it can never make playback wait.
+
+  Measured end to end on Frieren 1x20: the English list read 95, 91, 91,
+  80, 80, and after the 18-second background pass **100 on every row**.
+
   **Where anime naming belongs next.** TMDB's labels are free text in a
   dozen languages ("Season 4", "season 4 title", "OAD title romaji", Korean
   prose), so tying a name to a season from them is guesswork. Kitsu and
@@ -1205,7 +1226,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2205 tests, all running against Kodi stubs, so no Kodi install is needed:
+2224 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1238,6 +1259,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
 | `test_subtitle_pipeline.py` | 54 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. Plus the source of a translation being put in time before it is translated, and never being its own timing reference. |
+| `test_matroska.py` | 10 | The subtitle tracks an MKV declares, read from its first bytes and built byte for byte from the element layout: a full track against a Signs & Songs one, a track naming no language being English by the specification, Hebrew and the newer language tag, and "unknown" never being mistaken for "none" - a file that is not Matroska, a header cut off before its tracks end, a cluster first. |
 | `test_aes.py` | 8 | AES, because one login depends on it and a cipher that is subtly wrong looks exactly like one that is right. Checked against FIPS-197 and NIST SP 800-38A rather than against itself, so none of the expected values came from this code. |
 | `test_subtitle_orchestrator.py` | 35 | What happens when the things the subtitle search depends on misbehave. Every other subtitle test replaces the search and the download with fakes that only ever return data, so the code between a provider and the decision had never been asked what it does when a provider raises, answers nonsense, hangs, or hands back a dict full of junk. These inject at the real provider boundary and keep everything above it. Also the two stuck screens, the cancelled job that still wrote a file, and Kodi itself answering with an error envelope. |
 | `test_ktuvit.py` | 24 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
@@ -1254,7 +1276,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_kids.py` | 52 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. Also Continue Watching built from this device's own resume points when there is no Trakt account, newest first, with a title TMDB no longer knows dropped rather than drawn blank. |
 | `test_windows.py` | 55 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Pinky window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
 | `test_details_window.py` | 24 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. Plus the one button acting on the episode its label names, and falling back to the next unwatched one on the season list where the label names none. |
-| `test_sources_window.py` | 13 | The picker, which was crashing on every cached source before it had any tests at all. |
+| `test_sources_window.py` | 50 | The picker, which was crashing on every cached source before it had any tests at all. Plus what a release carries: the file list and the tracks inside the file learned in the background and never on the draw, remembered per file rather than per torrent, an unreadable file not re-asked on every open, and the background pass never taking more than half the shared pool. |
 | `test_play.py` | 71 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. Plus a series carrying its English and translated names, and anime and films not paying for them. |
 | `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
 | `test_signin.py` | 32 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
@@ -2186,7 +2208,9 @@ Showing each finished chunk as it arrives means the viewer starts watching
 almost immediately. Kodi caches a subtitle by path, so the file name alternates
 between two slots to force a re-read.
 
-**Not taken: extracting embedded subtitles from a remote file.** They ship an
+**Not taken: extracting embedded subtitles from a remote file.** (Reading
+only the *track list* is taken, and is cheap - see "the tracks inside the
+file" above; this is about pulling the cues out.) They ship an
 818 line Matroska parser and a 155 KB extractor that read the container over
 HTTP ranges, with a deadline of up to 900 seconds. Subtitle blocks are spread
 across every cluster, so getting them means pulling a large fraction of an

@@ -384,3 +384,30 @@ def test_a_release_not_looked_inside_yet_is_scored_as_before(found, monkeypatch)
     _n, _l, english = outlook.split_rows(META, [source(EXACT, 1), source(OTHER, 2)])
     fits = {row["hash"]: row["subs_fit"] for row in english}
     assert fits["%040d" % 1] < 100
+
+
+def test_a_track_inside_the_file_counts_for_english_but_never_for_ai(
+        found, monkeypatch):
+    """Kodi shows a muxed track directly, so the English row is honest. The
+    translator needs a subtitle it can download and cannot read the track,
+    so an AI row built on it would promise what playback cannot do."""
+    from pinky.sources import bundled
+    from pinky.subs.ai import translator
+    monkeypatch.setattr(translator, "available", lambda: True)
+    found["llm"] = []
+    _ships(monkeypatch, {})
+    monkeypatch.setattr(bundled, "recall_inside",
+                        lambda source: ["en"] if source["hash"] == "%040d" % 1 else None)
+    _native, llm, english = outlook.split_rows(META, [source(EXACT, 1)])
+    assert english and english[0]["subs_fit"] == 100
+    assert not llm
+
+
+def test_a_hebrew_track_inside_the_file_is_a_hundred_on_the_hebrew_list(
+        found, monkeypatch):
+    from pinky.sources import bundled
+    found["he"] = []
+    _ships(monkeypatch, {})
+    monkeypatch.setattr(bundled, "recall_inside", lambda source: ["he"])
+    native, _llm, _english = outlook.split_rows(META, [source(EXACT, 1)])
+    assert native and native[0]["subs_fit"] == 100

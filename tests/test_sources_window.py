@@ -356,13 +356,14 @@ def test_only_cached_rows_are_asked_about(monkeypatch, no_network):
     from pinky.sources import bundled
 
     bundled.forget()
+    monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     asked = []
     monkeypatch.setattr(bundled, "_learn_later",
-                        lambda rows: asked.extend(h for h, _s in rows))
+                        lambda rows: asked.extend(key for key, _r, _a in rows))
 
     bundled.annotate([{"hash": "a" * 40, "cached": False},
                       {"hash": "b" * 40, "cached": True}])
-    assert asked == ["b" * 40]
+    assert asked == [bundled._key("b" * 40)]
 
 
 def test_the_draw_never_waits_for_it(monkeypatch, no_network):
@@ -391,6 +392,7 @@ def test_what_is_known_is_applied_at_once(monkeypatch, no_network):
     from pinky.sources import bundled
 
     bundled.forget()
+    monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     bundled._remember("d" * 40, ["he", "en"])
     monkeypatch.setattr(bundled, "_learn_later",
                         lambda rows: (_ for _ in ()).throw(
@@ -405,6 +407,7 @@ def test_only_the_rows_on_screen_are_asked_about(monkeypatch, no_network):
     from pinky.sources import bundled
 
     bundled.forget()
+    monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     asked = []
     monkeypatch.setattr(bundled, "_learn_later", lambda rows: asked.extend(rows))
     bundled.annotate([{"hash": "%040d" % n, "cached": True} for n in range(40)])
@@ -415,8 +418,8 @@ def test_the_background_pass_fills_what_the_draw_will_use(monkeypatch, no_networ
     from pinky.sources import bundled
 
     bundled.forget()
-    monkeypatch.setattr(bundled, "_ask", lambda source: ["he"])
-    bundled._learn_later([("e" * 40, {"hash": "e" * 40, "cached": True})])
+    bundled._learn_later([(bundled._key("e" * 40), bundled._remember_for("e" * 40),
+                           lambda: ["he"])])
     import time
     for _ in range(60):
         if bundled._recall("e" * 40) is not None:
@@ -432,6 +435,7 @@ def test_what_was_learned_outlives_the_invocation(monkeypatch, no_network):
     from pinky.sources import bundled
 
     bundled.forget()
+    monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     bundled._remember("f" * 40, ["he"])
 
     # A fresh dict would be empty here; the cache is not.
@@ -449,6 +453,7 @@ def test_an_empty_answer_is_remembered_too(monkeypatch, no_network):
     from pinky.sources import bundled
 
     bundled.forget()
+    monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     bundled._remember("g" * 40, [])
     asked = []
     monkeypatch.setattr(bundled, "_learn_later", lambda rows: asked.extend(rows))
@@ -573,3 +578,95 @@ def test_hebrew_for_another_show_does_not_count_as_hebrew(monkeypatch):
 
     assert note == kodi.localize(32555), \
         "candidates for other shows are not Hebrew for this film"
+
+
+# --------------------------------------------------------------------------
+# the subtitle tracks inside the file
+# --------------------------------------------------------------------------
+
+
+def _episode(info_hash, episode, **extra):
+    source = {"hash": info_hash, "cached": True, "title": "Show - %02d.mkv" % episode,
+              "extra": {"meta": {"type": "episode", "season": 1, "episode": episode}}}
+    source.update(extra)
+    return source
+
+
+def test_what_is_inside_is_remembered_per_file_not_per_torrent(monkeypatch, no_network):
+    """A season pack is one torrent and every episode in it is its own file."""
+    from pinky.sources import bundled
+    assert bundled._inside_key(_episode("h" * 40, 1)) != \
+        bundled._inside_key(_episode("h" * 40, 2))
+
+
+def test_the_full_tracks_are_read_and_the_partial_ones_are_not(monkeypatch, no_network):
+    from pinky.debrid import registry
+    from pinky.sources import bundled
+    from pinky.subs import hasher
+    from pinky.utils import matroska
+
+    class Resolver(object):
+        def resolve(self, source):
+            return "https://cdn.example/file.mkv"
+
+    monkeypatch.setattr(registry, "resolver_for", lambda source: Resolver())
+    monkeypatch.setattr(hasher, "read_range", lambda url, start, end: b"x")
+    monkeypatch.setattr(matroska, "subtitle_tracks", lambda data: [
+        {"language": "en", "partial": False}, {"language": "en", "partial": True},
+        {"language": "ar", "partial": False}])
+    assert bundled._look_inside(_episode("i" * 40, 1)) == ["en", "ar"]
+
+
+def test_a_file_that_cannot_be_read_is_not_asked_about_on_every_open(
+        monkeypatch, no_network):
+    from pinky.debrid import registry
+    from pinky.sources import bundled
+
+    bundled.forget()
+    monkeypatch.setattr(registry, "resolver_for", lambda source: None)
+    source = _episode("j" * 40, 3)
+    answer = bundled._look_inside(source)
+    bundled._remember_inside_for(source)(answer)
+    assert bundled.recall_inside(source) == [], "known, and known to say nothing"
+
+
+def test_the_inside_of_a_file_is_asked_only_for_the_top_rows_and_never_an_mp4(
+        monkeypatch, no_network):
+    from pinky.sources import bundled
+
+    bundled.forget()
+    monkeypatch.setattr(bundled, "_recall", lambda info_hash: [])
+    asked = []
+    monkeypatch.setattr(bundled, "_learn_later", lambda rows: asked.extend(rows))
+    rows = [_episode("%040d" % n, 1) for n in range(10)]
+    rows[0]["title"] = "Show - 01.mp4"
+    bundled.annotate(rows)
+    assert len(asked) == bundled.INSIDE_ROWS - 1
+
+
+def test_the_background_pass_never_takes_the_whole_shared_pool(
+        monkeypatch, no_network):
+    """Playback resolves through the same four workers; a decoration holding
+    all of them would make the next press wait on it."""
+    from pinky import http
+    from pinky.sources import bundled
+
+    seen = {}
+
+    def run_parallel(tasks, workers=4, deadline=12.0, **kwargs):
+        seen["workers"] = workers
+        return {}
+
+    monkeypatch.setattr(http, "run_parallel", run_parallel)
+    bundled._learn_later([("k", lambda languages: None, lambda: ["en"])])
+    import time
+    for _ in range(60):
+        if "workers" in seen:
+            break
+        time.sleep(0.05)
+    assert seen["workers"] <= 2
+
+
+def test_a_track_inside_the_file_is_marked_like_a_file_beside_it():
+    mark = sources_window._bundled_mark({"inside_subs": ["en"]})
+    assert "EN" in mark
