@@ -223,6 +223,14 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
         # enough to stop the name query that finds the fansub releases.
         if found and not anime:
             return found
+    # By name, an anime upload is filed under its absolute number - "Naruto
+    # Shippuden S01E55" - so asking by name under TMDB's "season 3" too only
+    # doubled the requests to a host that rate-limits.
+    if anime and meta.get("type") == "episode" and not (
+            int(meta.get("season") or 1) == 1
+            and int(meta.get("episode") or 0)
+            == int(meta.get("absolute") or meta.get("episode") or 0)):
+        return found
         # An id query that finds nothing is not the same as there being
         # nothing. Measured on Hikaru no Go 2x02, which is S01E32 to everyone
         # but TMDB: `imdbid-0426711` knows English for episodes 1 to 30 and

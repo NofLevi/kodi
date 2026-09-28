@@ -572,3 +572,74 @@ def test_an_episode_target_is_left_to_the_episode_check():
         {"type": "episode", "title": "Silo", "year": 2023, "season": 1, "episode": 1},
         {"release": "Silo.S01E01.1080p.WEB-DL-NTb", "quality": "1080p"})
     assert matcher.rate({"release": "Silo.S01E01.1080p.WEB-DL-GRP"}, target)[0] > 0
+
+
+# --------------------------------------------------------------------------
+# the anime scorer: what an anime subtitle actually states
+# --------------------------------------------------------------------------
+
+
+def _anime(release_name, episode=55, absolute=55):
+    meta = {"type": "episode", "title": "Naruto Shippuden", "season": 3,
+            "episode": episode, "absolute": absolute, "extra": {"anime": True}}
+    return matcher.target_from(meta, {"file_name": release_name})
+
+
+ANIMERG = "[AnimeRG] Naruto Shippuden - 055 [1080p] [x265] [pseudo].mkv"
+
+
+def test_an_anime_subtitle_for_the_right_episode_is_seventy():
+    score, reason = matcher.rate(candidate("Naruto Shippuuden - EP055"),
+                                 _anime(ANIMERG))
+    assert score == 70
+
+
+def test_the_fansub_group_counts_with_or_without_its_brackets():
+    """OpenSubtitles files "[AnimeRG] ..." as "AnimeRG. ..." and the parser
+    then reads the group as "pseudo" from the tail."""
+    stripped = candidate("AnimeRG. Naruto Shippuden - 055 .720p. .x265. .pseudo.srt")
+    bracketed = candidate("[AnimeRG] Naruto Shippuden - 055 [720p].ass")
+    for entry in (stripped, bracketed):
+        score, reason = matcher.rate(entry, _anime(ANIMERG))
+        assert score >= 90 and "group" in reason, entry["release"]
+
+
+def test_a_track_extracted_from_the_same_mkv_is_identical():
+    """"..._track3_[eng]" is the English track of that exact file."""
+    entry = candidate("[AnimeRG] Naruto Shippuden - 055 [1080p] [x265] "
+                      "[pseudo]_track3_[eng]")
+    assert matcher.rate(entry, _anime(ANIMERG)) == (100, "identical release name")
+
+
+def test_a_bare_episode_number_is_the_episode_and_a_wrong_one_is_zero():
+    """"055_LEG" and "155_LEG" were both 45: a name that is only a number
+    stated nothing to the parser, so the wrong episode tied the right one."""
+    assert matcher.rate(candidate("055_LEG"), _anime(ANIMERG))[0] == 70
+    assert matcher.rate(candidate("155_LEG"), _anime(ANIMERG)) == (0, "wrong episode")
+
+
+def test_a_number_that_is_a_resolution_or_a_title_is_not_an_episode():
+    target = _anime(ANIMERG, episode=1, absolute=1)
+    assert matcher.rate(candidate("1080p.ass"), target)[0] > 0
+    assert matcher.rate(candidate("86 - Eighty Six - 01"), target)[0] > 0
+
+
+def test_the_same_cut_counts_for_anime():
+    """A Blu-ray and a broadcast are different cuts of an anime episode."""
+    bd = "[uP] Naruto Shippuden - 055 (BDRip 1080p x264 AAC Multi).mkv"
+    same = matcher.rate(candidate("Naruto Shippuden - 055 [BD 1080p].ass"), _anime(bd))
+    other = matcher.rate(candidate("Naruto Shippuden - 055 [TV 1080p].ass"), _anime(bd))
+    assert same[0] > other[0] and "cut" in same[1]
+
+
+def test_films_and_series_never_reach_the_anime_scorer(monkeypatch):
+    def explode(*args, **kwargs):
+        raise AssertionError("the anime scorer ran for a film or a series")
+
+    monkeypatch.setattr(matcher, "_rate_anime", explode)
+    matcher.rate(candidate("Dune.Part.Two.2024.1080p.WEB-DL-FLUX"), TARGET)
+    series = matcher.target_from({"type": "episode", "title": "Silo",
+                                  "season": 1, "episode": 1,
+                                  "extra": {"anime": False}},
+                                 {"file_name": "Silo.S01E01.1080p.WEB.h264-GRP"})
+    matcher.rate(candidate("Silo.S01E01.1080p.WEB.h264-GRP"), series)

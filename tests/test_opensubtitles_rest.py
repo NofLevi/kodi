@@ -642,3 +642,17 @@ def test_a_series_still_stops_at_an_id_answer(monkeypatch, provider):
                      "season": 1, "episode": 1,
                      "ids": {"imdb": "tt0903747"}}, None, ["en"])
     assert len(urls) == 1
+
+
+def test_anime_asks_by_name_only_under_the_absolute_number(monkeypatch, provider):
+    """Fansub uploads are filed by absolute number - Naruto Shippuden 3x55 is
+    "S01E55" by name - so a name query under TMDB's season 3 only doubled
+    the requests to a host that rate-limits."""
+    urls = _asked_many(monkeypatch, provider, [[], [], []])
+    provider.search({
+        "type": "episode", "extra": {"anime": True},
+        "title": "Naruto Shippuden", "search_title": "Naruto Shippuden",
+        "season": 3, "episode": 55, "absolute": 55,
+        "ids": {"imdb": "tt0988824"}}, None, ["en"])
+    by_name = [u for u in urls if "query-" in u]
+    assert len(by_name) == 1 and "season-1" in by_name[0]

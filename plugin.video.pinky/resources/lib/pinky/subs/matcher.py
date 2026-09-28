@@ -132,6 +132,13 @@ def rate(candidate, target, video_hash=""):
     `score_candidate` from writing its answer into a candidate that the next
     source would reuse. A function that returns its answer needs no copy.
     """
+    if target.get("anime"):
+        return _rate_anime(candidate, target, video_hash)
+    return _rate_scene(candidate, target, video_hash)
+
+
+def _rate_scene(candidate, target, video_hash=""):
+    """The film and series scorer - and the first half of the anime one."""
     name = candidate.get("release") or candidate.get("name") or ""
     parsed = release.parse(name)
 
@@ -221,6 +228,107 @@ def rate(candidate, target, video_hash=""):
             pass
 
     return (max(0, min(ADDITIVE_CEILING, total)),
+            ", ".join(reasons) or "title only")
+
+
+# A track pulled out of a release's own MKV is published under that release's
+# name with the track number glued on: "[AnimeRG] ... [pseudo]_track3_[eng]"
+# is the English track of "[AnimeRG] ... [pseudo].mkv", in time by
+# construction, and was losing its identical-name 100 to the suffix.
+_EXTRACTED_TRACK = re.compile(r"(?:_track\d+)?(?:_\[[a-z]{2,3}\])?$", re.I)
+
+# Where the cut came from, which is what decides timing for anime: a
+# Blu-ray, a DVD, a broadcast or a web stream.
+_ANIME_CUT = (("bd", re.compile(r"\b(?:bd|bdrip|bdremux|blu-?ray)\b", re.I)),
+              ("dvd", re.compile(r"\bdvd(?:rip)?\b", re.I)),
+              ("web", re.compile(r"\b(?:web|webrip|web-dl|cr|crunchyroll|"
+                                 r"funimation|netflix|nf|amzn|hidive|b-global)\b",
+                                 re.I)),
+              ("tv", re.compile(r"\b(?:tv|hdtv|raw)\b", re.I)))
+
+# A subtitle named only by its episode number - "055_LEG", "02.srt" - which
+# the release parser, wanting a show name first, reads as saying nothing.
+_BARE_NUMBER = re.compile(r"^\s*(\d{1,4})(?:v\d)?(?![pi]\b)(?:\D|$)", re.I)
+
+
+def _anime_cut(name):
+    for label, pattern in _ANIME_CUT:
+        if pattern.search(name or ""):
+            return label
+    return ""
+
+
+def _anime_leading_group(name):
+    """The group a fansub name opens with, bracketed or not.
+
+    OpenSubtitles strips the brackets: "[AnimeRG] Naruto ..." is filed as
+    "AnimeRG. Naruto ...", which the release parser reads as a group of
+    "pseudo" from its tail. For anime the group comes first.
+    """
+    text = (name or "").strip()
+    bracket = re.match(r"^\[([^\]]{2,30})\]", text)
+    if bracket:
+        return release.normalise(bracket.group(1))
+    word = re.match(r"^([A-Za-z0-9][A-Za-z0-9-]{1,29})[.\s_]", text)
+    return release.normalise(word.group(1)) if word else ""
+
+
+def _rate_anime(candidate, target, video_hash=""):
+    """`rate` for anime: the film and series scorer, plus what it misses.
+
+    A superset on purpose. Many anime subtitles are named scene-style and
+    earn their source, resolution and codec points there; a separate ladder
+    with smaller weights was tried first and the gate caught it lowering
+    Attack on Titan, Death Note and Frieren. So this runs `_rate_scene` and
+    only *adds* the evidence an anime name states that it cannot read: the
+    fansub group at the front, a name that is only the episode number, a
+    track extracted from the same MKV, and the Blu-ray or broadcast cut. The
+    one thing that lowers a score is a bare number naming another episode.
+    """
+    name = candidate.get("release") or candidate.get("name") or ""
+    parsed = release.parse(name)
+
+    stated = bool(parsed["season"] or parsed["episode"] or parsed["absolute"])
+    bare = None
+    if not stated and target.get("type") == "episode":
+        stem = _stem(name)
+        found = _BARE_NUMBER.match(stem)
+        # Only a name that is little more than the number: "055_LEG",
+        # "02", "01 BNHA". "86 - Eighty Six - 01" starts with its title.
+        if found and len(re.findall(r"[A-Za-z0-9]+", stem[found.end():])) > 2:
+            found = None
+        if found and int(found.group(1)) < 1900:
+            bare = int(found.group(1))
+            wanted = {int(target.get("episode") or 0),
+                      int(target.get("absolute") or 0)} - {0}
+            if bare not in wanted:
+                return 0, "wrong episode"
+
+    if name and target.get("release") and _same_name(
+            _EXTRACTED_TRACK.sub("", _stem(name)), target["release"]):
+        return 100, "identical release name"
+
+    score, reason = _rate_scene(candidate, target, video_hash)
+    if score in (0, 100):
+        return score, reason
+    reasons = [r for r in reason.split(", ") if r and r != "title only"]
+
+    if bare is not None:
+        score += WEIGHT_EPISODE
+        reasons.append("episode")
+
+    group = target.get("group") or ""
+    if group and "group" not in reasons and _anime_leading_group(name) == group:
+        score += WEIGHT_GROUP
+        reasons.append("group")
+
+    if "source" not in reasons:
+        cut = _anime_cut(release.normalise(target.get("release") or ""))
+        if cut and cut == _anime_cut(release.normalise(name)):
+            score += WEIGHT_SOURCE
+            reasons.append("cut")
+
+    return (max(0, min(ADDITIVE_CEILING, score)),
             ", ".join(reasons) or "title only")
 
 
@@ -338,6 +446,7 @@ def target_from(meta, source=None):
         "season": meta.get("season"),
         "episode": meta.get("episode"),
         "absolute": meta.get("absolute"),
+        "anime": bool((meta.get("extra") or {}).get("anime")),
     }
 
 

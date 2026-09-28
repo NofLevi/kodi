@@ -943,6 +943,24 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   season of the same show. Measured after: films 551 -> 551, anime 476 ->
   518 with no title lower (Digimon 2 -> 15).
 
+  **The anime subtitle scorer is its own, and a superset.** `matcher.rate`
+  dispatches on `target["anime"]`: films and series go to `_rate_scene`,
+  unchanged, and anime to `_rate_anime`, which runs `_rate_scene` first and
+  then *adds* only what an anime name states and it cannot read - the fansub
+  group at the front (OpenSubtitles files "[AnimeRG] ..." as "AnimeRG. ...",
+  which the parser read as a group of "pseudo"), a name that is only the
+  episode number ("055_LEG" was 45, and so was the wrong episode "155_LEG",
+  which is now 0), a track extracted from the same MKV ("..._track3_[eng]"
+  is identical to its release, so 100), and the Blu-ray or broadcast cut.
+  A separate ladder with smaller weights was tried first and the subtitle
+  gate caught it lowering every anime title whose subtitles are named
+  scene-style; the superset cannot lower anything but a wrong episode.
+  Measured with `tools/subtitle_gate.py`: films and series identical, anime
+  AI-source average 88.8 -> 90.7, English 88.0 -> 88.4 (Spy x Family's AI
+  list 77 -> 91, Frieren 1x20 86 -> 93). The anime name query is also
+  asked only under the absolute numbering, which is how fansub uploads are
+  filed, rather than once per numbering.
+
   **Where anime naming belongs next.** TMDB's labels are free text in a
   dozen languages ("Season 4", "season 4 title", "OAD title romaji", Korean
   prose), so tying a name to a season from them is guesswork. Kitsu and
@@ -1172,7 +1190,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2193 tests, all running against Kodi stubs, so no Kodi install is needed:
+2201 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1198,9 +1216,9 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 30 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
-| `test_opensubtitles_rest.py` | 39 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
+| `test_opensubtitles_rest.py` | 40 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
 | `test_yify.py` | 11 | The one anonymous film subtitle source with no account and no key: a real captured row parsed into a candidate, the site's own inconsistent casing on the language name, films-only enforced without a request (a series IMDb id answers 404 live), and the slug-to-download-URL transform that needs no second page fetch. |
-| `test_subtitle_matching.py` | 22 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
+| `test_subtitle_matching.py` | 55 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. And the anime scorer as a superset: the fansub group with or without brackets, a track extracted from the same MKV, a bare episode number and a wrong one, the Blu-ray cut, and films and series never reaching it. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
@@ -1564,6 +1582,10 @@ and is still outstanding.
                                       and what subtitle accuracy they have
     python tools/survey_sources.py --report
                                       summarise it, and list the edge cases
+    python tools/subtitle_gate.py     the same releases and subtitle candidates
+                                      scored by HEAD's matcher and the working
+                                      tree's - the fit the picker shows, per
+                                      engine; cached, so a rerun is free
     python tools/engine_gate.py       the same live releases scored by HEAD
                                       and by the working tree, films, series
                                       and anime - run it before committing a
