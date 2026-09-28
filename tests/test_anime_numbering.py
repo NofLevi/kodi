@@ -152,6 +152,41 @@ def test_a_stated_season_has_to_agree_with_a_bare_number():
     assert not release.matches_episode(release.parse("[Grp] Show S1 - 11"), 3, 11, 35)
 
 
+def test_romaji_titles_keeps_only_the_japanese_latin_spelling(monkeypatch):
+    """The native-script entry, the initialism and every other region's
+    translation are not what a fansub release is named after."""
+    from pinky.meta import tmdb
+    monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
+        "results": [
+            {"iso_3166_1": "JP", "title": "進撃の巨人", "type": "title"},
+            {"iso_3166_1": "JP", "title": "Shingeki no Kyojin", "type": "romaji"},
+            {"iso_3166_1": "JP", "title": "SNK", "type": "initialism"},
+            {"iso_3166_1": "US", "title": "Attack on Titan: Shingeki no Kyojin",
+             "type": "english and japanese title"},
+            {"iso_3166_1": "BR", "title": "Ataque dos Titãs", "type": "title"},
+        ]})
+    assert tmdb.romaji_titles("show", "1429") == ["Shingeki no Kyojin"]
+
+
+def test_romaji_titles_reads_the_movie_shaped_response_too(monkeypatch):
+    """A movie's alternative_titles keys the list "titles", not "results"."""
+    from pinky.meta import tmdb
+    monkeypatch.setattr(tmdb, "_call", lambda path, ttl=None, **kw: {
+        "titles": [{"iso_3166_1": "JP", "title": "Kimi no Na wa.",
+                   "type": "romaji"}]})
+    assert tmdb.romaji_titles("movie", "372058") == ["Kimi no Na wa."]
+
+
+def test_romaji_titles_costs_nothing_with_no_tmdb_id(monkeypatch):
+    from pinky.meta import tmdb
+
+    def explode(*args, **kwargs):
+        raise AssertionError("asked TMDB with no id")
+
+    monkeypatch.setattr(tmdb, "_call", explode)
+    assert tmdb.romaji_titles("show", "") == []
+
+
 # --------------------------------------------------------------------------
 # working the absolute number out
 # --------------------------------------------------------------------------
@@ -205,6 +240,8 @@ def anime_meta(monkeypatch):
     monkeypatch.setattr(tmdb, "english_title", lambda kind, tmdb_id: "REBORN!")
     monkeypatch.setattr(tmdb, "absolute_episode",
                         lambda tmdb_id, season, episode: 203)
+    monkeypatch.setattr(tmdb, "romaji_titles",
+                        lambda kind, tmdb_id: ["Katekyo Hitman Reborn!"])
     return play.build_meta({"type": "episode", "tmdb": "45857",
                             "season": 8, "episode": 14})
 
@@ -217,6 +254,19 @@ def test_anime_is_searched_by_its_english_name(anime_meta):
 def test_both_anime_providers_agree_on_the_query(anime_meta):
     from pinky.sources.providers import animetosho, nyaa
     assert nyaa._query_for(anime_meta) == animetosho._query_for(anime_meta)
+
+
+def test_anime_meta_carries_its_romaji_alias(anime_meta):
+    """`scoring._a_different_series` reads exactly this field - populating
+    it here is what stops a release titled after the Japanese name being
+    scored as a different show sharing the name."""
+    assert anime_meta["aliases"] == ["Katekyo Hitman Reborn!"]
+
+
+def test_a_romaji_named_release_is_not_a_different_series(anime_meta):
+    from pinky.sources import scoring
+    source = {"title": "[SubsPlease] Katekyo Hitman Reborn! - 203 [1080p].mkv"}
+    assert scoring._a_different_series(source, anime_meta) == ""
 
 
 def test_nothing_is_looked_up_for_a_film_that_is_not_anime(monkeypatch):

@@ -319,6 +319,42 @@ def english_title(media_type, tmdb_id):
     return payload.get("title") or payload.get("name") or ""
 
 
+def romaji_titles(media_type, tmdb_id):
+    """The Latin-script Japanese titles a show is also released under.
+
+    `original_title` is no help here either - TMDB's own is native script,
+    "進撃の巨人" for Attack on Titan - and fansub and raw releases routinely
+    use the *other* Latin name instead of the English one: "Shingeki no
+    Kyojin", "Boku no Hero Academia", "Kimetsu no Yaiba". `_a_different_series`
+    only ever knew the English title, so every one of those was scored as a
+    different show sharing the name - measured live across 30 popular anime,
+    that was the largest single cause left after the macron and long-vowel
+    fold, catching real releases from Erai-raws, SubsPlease and DBD-Raws
+    alike on titles as ordinary as Attack on Titan and My Hero Academia.
+
+    TMDB's `alternative_titles` carries these tagged `type: "romaji"` under
+    `iso_3166_1: "JP"` - not the native-script entry beside it, and not the
+    "initialism" one ("SNK", "AOT"), which is too short to be worth the
+    collision risk. One extra call, cached like every other, only for anime.
+    """
+    if not tmdb_id:
+        return []
+    path = "/movie/%s/alternative_titles" if media_type == "movie" \
+        else "/tv/%s/alternative_titles"
+    payload = _call(path % tmdb_id, ttl=TTL_DETAILS)
+    entries = payload.get("titles") or payload.get("results") or []
+    seen = []
+    for entry in entries:
+        if entry.get("iso_3166_1") != "JP":
+            continue
+        if "romaji" not in (entry.get("type") or "").lower():
+            continue
+        title = entry.get("title") or ""
+        if title and title not in seen:
+            seen.append(title)
+    return seen
+
+
 def absolute_episode(tmdb_id, season, episode):
     """Which episode this is counting from the first, not from the season.
 

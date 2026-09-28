@@ -108,6 +108,15 @@ def _name_it_the_way_the_indexes_do(meta, tmdb_id):
         english = ""
     meta["search_title"] = (english or meta.get("original_title")
                             or meta.get("title") or "")
+    # The Latin-script Japanese name a release is as likely to carry as the
+    # English one - "Shingeki no Kyojin" for Attack on Titan - which
+    # scoring._a_different_series reads out of meta["aliases"] to stop
+    # naming a real release under its other title from being scored as a
+    # different show sharing the name.
+    try:
+        meta["aliases"] = tmdb.romaji_titles(meta.get("type"), tmdb_id)
+    except Exception:
+        meta["aliases"] = []
     if meta.get("type") == "episode":
         try:
             meta["absolute"] = tmdb.absolute_episode(

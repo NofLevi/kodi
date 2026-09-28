@@ -135,3 +135,10 @@ repo/
 
 # wrangler's upload cache
 .wrangler/
+
+# --------------------------------------------------------------------------
+# Reference clones of other Kodi add-ons, kept locally to read and compare
+# against - never shipped, never committed. tools/build.py only walks the
+# two ADDONS folders, so this directory is invisible to packaging regardless.
+# --------------------------------------------------------------------------
+research/

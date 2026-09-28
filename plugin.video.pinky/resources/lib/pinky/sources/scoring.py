@@ -259,14 +259,42 @@ def _says_the_title(name, meta):
                if meta.get(key))
 
 
-# Words that describe where an episode sits in its own show rather than
-# naming a different show. "Attack on Titan Final Season" is Attack on Titan;
-# "Naruto Shippuuden" is not Naruto.
+# Words that describe where an episode sits in its own show, or how it was
+# encoded, rather than naming a different show. "Attack on Titan Final
+# Season" is Attack on Titan; "Naruto Shippuuden" is not Naruto. The
+# technical half was missing entirely: "[HDTV 1080p][Cap.101]" put "hdtv" and
+# "1080p" in front of the episode number the split regex actually found, and
+# with no vocabulary for what a resolution or a codec looks like, both read
+# as a second show's name. These are the same words `release.py`'s own
+# tables already recognise; duplicating a handful of them here is cheaper
+# than importing that machinery into a function that never parses a size or
+# a codec, only asks "have I seen this word before".
 _STRUCTURAL = frozenset("""
-season seasons final part parts cour tv series episode episodes ova ovas
-special specials movie film complete batch box set volume vol arc saga
-uncut uncensored dub dubbed sub subbed remastered bd bdrip web hd sd
+season seasons final part parts cour tv series episode episodes cap ova ovas
+oad oads special specials movie film complete batch box set volume vol arc
+saga uncut uncensored dub dubbed sub subbed multi multisub remastered
+hybrid proper repack
+480p 576p 720p 1080p 2160p 4k uhd fullhd fhd sd hdtv web webdl webrip
+bluray brrip bdrip dvdrip hdrip
+x264 x265 h264 h265 hevc avc av1 xvid divx hi10 hi10p 8bit 10bit
+aac ac3 eac3 dts flac opus mp3 truehd atmos
+bd hd
 """.split())
+
+# A colon, an apostrophe or a bare hyphen glues onto the letter beside it
+# rather than separating two words - "Re:ZERO" is one token, "Boruto:" keeps
+# its colon - so a release spelling the same title with a space ("Re Zero")
+# or without the punctuation at all ("Boruto") could never match it. Unlike
+# `release._JUNK`, dropped rather than reused globally: several of
+# `release.py`'s own resolution and codec patterns are tuned against exactly
+# what `normalise()` currently leaves in place, and this function is the only
+# caller that needs punctuation gone rather than kept.
+_STRAY_PUNCT = re.compile(r"[!?'\":,;-]+")
+
+
+def _words(text):
+    return [w for w in _STRAY_PUNCT.sub(" ", release.normalise(text)).split()
+            if len(w) >= 3]
 
 
 def _a_different_series(source, meta):
@@ -294,21 +322,31 @@ def _a_different_series(source, meta):
     known = set()
     for key in ("title", "show_title", "original_title", "search_title",
                 "english_title"):
-        for word in release.normalise(meta.get(key) or "").split():
-            if len(word) >= 3:
-                known.add(word)
+        known.update(_words(meta.get(key) or ""))
     for alias in meta.get("aliases") or []:
-        for word in release.normalise(alias or "").split():
-            if len(word) >= 3:
-                known.add(word)
+        known.update(_words(alias or ""))
     if not known:
         return ""
     name = release.normalise(
         _LEADING_GROUP.sub("", release.strip_site_tags(source.get("title") or "")))
-    head = re.split(r"\b(?:s\d{1,2}e\d{1,3}|\d{1,4})\b", name, 1)[0]
-    extra = [word for word in head.split()
-             if len(word) >= 3 and word not in known
-             and word not in _STRUCTURAL and not word.isdigit()]
+    # A long-running show numbers past 999 - One Piece is in four digits -
+    # and a release pads to match: "S01E0001" has four digits after the E,
+    # one more than this used to allow, so the marker never matched at all
+    # and the episode's own subtitle ("I'm Luffy! The Man Who's...") was
+    # read in its entirety as the name of a second show. "EP01" and "E001"
+    # are the same marker with no season number in front, common on a
+    # single-season show or an absolutely-numbered one, and neither used to
+    # be recognised at all - "Death Note - EP01 - Rebirth" left "rebirth"
+    # looking like the name of a second show, which is the episode's own
+    # title with nowhere else for it to have come from. The optional trailing
+    # letter is SubsPlease's own convention for an episode split in two -
+    # "01A", "01B" - which glues on with no space and so never had a
+    # boundary to split at either.
+    head = re.split(r"\b(?:s\d{1,2}e\d{1,4}[a-z]?|(?:episode|ep)\s*\d{1,4}[a-z]?|"
+                    r"e\d{1,4}[a-z]?|\d{1,4}[a-z]?)\b", name, 1)[0]
+    extra = [word for word in _words(head)
+             if word not in known and word not in _STRUCTURAL
+             and not word.isdigit()]
     if extra:
         return "another series of the same name"
     return ""

@@ -175,6 +175,105 @@ def test_every_rejection_reason_has_a_label():
     assert not missing, "no label for %s" % sorted(missing)
 
 
+def test_a_macron_in_tmdbs_title_does_not_reject_the_real_series():
+    """TMDB spells this show "Naruto Shippūden"; every release spells it
+    "Shippuuden" or "Shippuden" in plain ASCII. Before `release.normalise`
+    folded diacritics, that macron was a word no release could ever match,
+    so `_a_different_series` treated every real Naruto Shippuden release as
+    a different show sharing the name - live, 28 of 29 sources for Naruto
+    Shippuden 12x244 were hidden this way, 17 of them by this exact reason."""
+    meta = {"type": "episode", "title": "Naruto Shippūden"}
+    source = {"title": "[TorrentsDB] Naruto Shippuuden - 244 - "
+                        "Killer Bee and Motoi"}
+    assert scoring._a_different_series(source, meta) == ""
+
+
+def test_a_genuinely_different_series_is_still_caught():
+    """The fold only removes a diacritic mismatch - it must not blunt the
+    check `_a_different_series` exists for: Shippuuden really is a different
+    show from a plain "Naruto" query."""
+    meta = {"type": "episode", "title": "Naruto"}
+    source = {"title": "Naruto Shippuuden 106"}
+    assert scoring._a_different_series(source, meta) == \
+        "another series of the same name"
+
+
+def test_a_romaji_alias_is_not_a_different_series():
+    """TMDB's own title for a show is English; a release named after its
+    Japanese romaji title - "Shingeki no Kyojin" for Attack on Titan - is
+    the same show under its other name, not a different one sharing this
+    one. `meta["aliases"]` is where `play._name_it_the_way_the_indexes_do`
+    puts that name for exactly this check to read."""
+    meta = {"type": "episode", "title": "Attack on Titan",
+           "aliases": ["Shingeki no Kyojin"]}
+    source = {"title": "[Erai-raws] Shingeki no Kyojin - 01 "
+                        "[1080p][Multiple Subtitle].mkv"}
+    assert scoring._a_different_series(source, meta) == ""
+
+
+def test_stray_punctuation_does_not_split_a_matching_word():
+    """A colon, an apostrophe or a bare hyphen glues onto its neighbour
+    rather than separating two words, so "Boruto:" (TMDB's own title) and
+    "Boruto" (the release) were permanently different tokens, and "Re:ZERO"
+    with no space collapsed into one token nothing could ever match against
+    a release spelling it "Re Zero"."""
+    meta = {"type": "episode", "title": "Boruto: Naruto Next Generations"}
+    assert scoring._a_different_series(
+        {"title": "[Judas] Boruto - 01.mkv"}, meta) == ""
+
+    meta = {"type": "episode", "title": "Re:ZERO -Starting Life "
+                                        "in Another World-"}
+    assert scoring._a_different_series(
+        {"title": "[Anime Time] Re Zero - 01.mkv"}, meta) == ""
+
+
+def test_a_four_digit_episode_number_is_recognised():
+    """One Piece is past a thousand episodes and a release pads to match:
+    "S01E0001" has four digits after the E, one more than the marker used
+    to allow, so it was never recognised as an episode number at all and
+    the episode's own subtitle was read as the name of a second show."""
+    meta = {"type": "episode", "title": "One Piece", "aliases": ["One Piece"]}
+    source = {"title": "One Piece - S01E0001 - I'm Luffy! The Man Who's "
+                        "Gonna Be King of the Pirates!.mkv"}
+    assert scoring._a_different_series(source, meta) == ""
+
+
+def test_a_bare_episode_marker_with_no_season_is_recognised():
+    """"EP01" and "E001" are the same marker with no season number in
+    front - ordinary on a single-season show - and neither used to split
+    the name at all, so the episode's own title read as a second show's
+    name: "Death Note - EP01 - Rebirth" flagged on the word "rebirth"."""
+    meta = {"type": "episode", "title": "Death Note"}
+    assert scoring._a_different_series(
+        {"title": "Death Note - EP01 - Rebirth.mkv"}, meta) == ""
+    assert scoring._a_different_series(
+        {"title": "Death Note.E001.1080p.BluRay.x265-GROUP.mkv"}, meta) == ""
+
+
+def test_a_resolution_or_codec_word_is_not_evidence_of_a_different_show():
+    """"[HDTV 1080p][Cap.101]" put "hdtv" and "1080p" in front of the
+    episode number this function actually found, and with no vocabulary for
+    what a resolution or a codec looks like, both read as a second show's
+    name - "cap" is Spanish release convention for "episode" and was the
+    same kind of gap."""
+    meta = {"type": "episode", "title": "One Piece", "aliases": ["One Piece"]}
+    source = {"title": "One Piece [HDTV 1080p][Cap.101](wolfmax4k.com).mkv"}
+    assert scoring._a_different_series(source, meta) == ""
+
+
+def test_a_split_episode_suffix_is_recognised():
+    """SubsPlease releases some episodes in two parts, "01A" and "01B",
+    glued to the number with no space - which never had a boundary to
+    split at, so the episode's own Japanese-romaji title following it read
+    as a second show's name."""
+    meta = {"type": "episode", "title": "Re:ZERO -Starting Life in "
+                                        "Another World-",
+           "aliases": ["Re:Zero kara Hajimeru Isekai Seikatsu"]}
+    source = {"title": "[SubsPlease] Re Zero kara Hajimeru Isekai Seikatsu "
+                        "- 01A (1080p) [39286AC6].mkv"}
+    assert scoring._a_different_series(source, meta) == ""
+
+
 def test_cam_releases_are_rejected(prefs):
     assert "cam" in scoring.rejection_reason(make("Movie.2024.HDCAM.x264-X"), prefs)
 

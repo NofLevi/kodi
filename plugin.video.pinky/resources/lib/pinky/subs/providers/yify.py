@@ -7,21 +7,29 @@ subtitle half.
 Two things had to be found rather than assumed, because both are the reason
 this was written off once already.
 
-**The obvious domain is dead weight.** `yifysubtitles.ch` answers the search
-page fine, but every subtitle's actual `.zip` comes back **403** with
-`Cf-Mitigated: challenge` - a Cloudflare bot check with no way through it from
-a plain HTTP client, on Kodi 21's Python 3.8 with no JavaScript engine to run
-one in. A search that works and a download that is gated is worse than
-nothing, because it looks alive right up until the moment it is asked to do
-the one thing that matters.
+**The obvious domain looked like dead weight and was not, quite.**
+`yifysubtitles.ch` answers the search page fine, and a plain client's first
+download attempt comes back **403** with `Cf-Mitigated: challenge` - which
+this add-on took, once, for the whole story. It is not one: measured
+against Kodi POV IL's own Yify source, a real browser `User-Agent` and a
+matching `Referer` reach the file behind it cleanly, **200**, no JavaScript
+run anywhere - Cloudflare's rule here is checking the request's shape, not
+proving a browser sits behind it. `http.py`'s own default is
+`"Pinky/0.1 (Kodi)"`, which is exactly the shape that rule is for. The URL
+was also wrong twice over in the attempt that produced the 403: `/subtitle/`
+is singular, not `/subtitles/`, which is the path this add-on's own search
+results give no reason to expect.
 
-`yts-subs.com` is not that. Same catalogue - measured identical counts for
-the same title on both - and no Cloudflare in front of it. Its own frontend
-downloads through a second subdomain, `subtitles.yts-subs.com`, reached by a
-base64 `data-link` attribute on the *detail* page. Decoding it once showed
-the whole thing was unnecessary: the value is nothing but the row's own slug,
-already sitting in the search page's href, moved to that subdomain with
-`.zip` appended -
+None of that ended up mattering, because `yts-subs.com` needed no spoofing
+at all - measured identical counts for the same title on both, and this
+add-on's own default headers are enough. It is used here for that reason,
+not because the primary domain turned out to be unreachable; a future
+provider willing to send a browser `User-Agent` and `Referer` could use
+`yifysubtitles.ch` directly. Its own frontend downloads through a second
+subdomain, `subtitles.yts-subs.com`, reached by a base64 `data-link`
+attribute on the *detail* page. Decoding it once showed the whole thing was
+unnecessary: the value is nothing but the row's own slug, already sitting in
+the search page's href, moved to that subdomain with `.zip` appended -
 
     /subtitles/train-to-busan-2016-arabic-yify-35153
     -> https://subtitles.yts-subs.com/subtitles/train-to-busan-2016-arabic-yify-35153.zip
