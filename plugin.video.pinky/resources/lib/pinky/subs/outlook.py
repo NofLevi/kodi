@@ -231,15 +231,20 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
     native_found = candidates(meta)
     llm_found = [] if hebrew_title else translation_candidates(meta)
     english_found = [] if hebrew_title else english_candidates(meta, llm_found)
+    anime = bool((meta.get("extra") or {}).get("anime"))
+    translatable = set() if hebrew_title else set(
+        auto.translation_source_languages(meta, [hebrew]) or [])
     native, llm, english = [], [], []
     for index, source in enumerate(sources):
         name = source.get("title") or ""
+        shipped = _shipped(source, anime)
         target = matcher.target_from(meta, {
             "release": name,
             "group": source.get("group") or release.parse(name)["group"],
             "quality": source.get("quality") or "",
         })
-        if _claims_hebrew(name) or "he" in (source.get("languages") or []):
+        if (_claims_hebrew(name) or "he" in (source.get("languages") or [])
+                or hebrew in shipped):
             native_fit = 100
         else:
             native_fit = max([matcher.rate(c, target)[0] for c in native_found]
@@ -250,7 +255,9 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
                                 subs_fit=_as_percent(native_fit))))
         if hebrew_title:
             continue
-        fits = []
+        # A subtitle shipped with this release is in time by construction,
+        # and playback asks for it first, so it fits at 100.
+        fits = [(100, language) for language in sorted(shipped & translatable)]
         for candidate in llm_found:
             fit = matcher.rate(candidate, target)[0]
             if fit > 0:
@@ -270,8 +277,8 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
                         dict(source, subs_mode="llm",
                              subs_fit=_as_percent(best[1]),
                              subs_from=best[2])))
-        english_fit = max([matcher.rate(c, target)[0] for c in english_found]
-                          or [0])
+        english_fit = 100 if "en" in shipped else max(
+            [matcher.rate(c, target)[0] for c in english_found] or [0])
         if english_fit > 0:
             english.append((_order(source, english_fit, index),
                             dict(source, subs_mode="english",
@@ -283,6 +290,26 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
             [row for _key, row in llm[:limit]],
             [row for _key, row in english[:ENGLISH_ROWS]])
 
+
+
+def _shipped(source, anime):
+    """The languages this release ships its own subtitle files in.
+
+    Known only once `sources.bundled` has looked inside the torrent - a
+    background pass that remembers the answer for a month - and read here
+    from that memory alone, so the draw never waits. It used to reach the
+    screen only as a mark beside the row, while the fit on the same row went
+    on quoting a stranger's upload at 70%.
+
+    For anime, an unlabelled file beside the release counts as English:
+    that is what a subtitle in a fansub torrent is.
+    """
+    from ..sources import bundled
+    languages = set(bundled.recall(source) or source.get("bundled_subs") or [])
+    if anime and bundled.UNLABELLED in languages:
+        languages.add("en")
+    languages.discard(bundled.UNLABELLED)
+    return languages
 
 
 def english_candidates(meta, already=None):

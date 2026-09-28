@@ -961,6 +961,21 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   asked only under the absolute numbering, which is how fansub uploads are
   filed, rather than once per numbering.
 
+  **A subtitle shipped with the release now counts in its fit.**
+  `sources.bundled` has long looked inside cached torrents in the
+  background and remembered which languages ship beside the video - and
+  that reached the screen only as a mark, while the same row's fit went on
+  quoting a stranger's upload at 70%. `outlook._shipped` reads that memory
+  (a cache read, so the draw never waits) and a release shipping Hebrew,
+  English or a translation source is 100 on that list: in time by
+  construction, and the file playback's sidecar provider asks for first.
+  For anime an unlabelled file counts as English, which is what a subtitle
+  in a fansub torrent is; it is remembered as `und` and never printed. This
+  mostly helps films and series: checked live against 18 cached anime
+  releases (Digimon, Frieren, Jujutsu Kaisen), **none** shipped a separate
+  subtitle file - SubsPlease, Judas, Sokudo and the rest put it inside the
+  MKV, which is the next thing to read.
+
   **Where anime naming belongs next.** TMDB's labels are free text in a
   dozen languages ("Season 4", "season 4 title", "OAD title romaji", Korean
   prose), so tying a name to a season from them is guesswork. Kitsu and
@@ -1190,7 +1205,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2201 tests, all running against Kodi stubs, so no Kodi install is needed:
+2205 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 

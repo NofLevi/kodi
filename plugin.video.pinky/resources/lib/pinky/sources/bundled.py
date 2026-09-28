@@ -54,6 +54,7 @@ def _recall(info_hash):
     return cache.get(_key(info_hash))
 
 SUBTITLE_EXTENSIONS = (".srt", ".ass", ".ssa", ".vtt", ".sub")
+UNLABELLED = "und"
 
 # How many rows are worth asking about. The picker draws six by default and
 # thirteen with everything shown; past that the viewer is scrolling rather
@@ -84,10 +85,26 @@ def _languages(files):
         # No default here: an unlabelled file beside a release is probably
         # English, but "probably" is not something to print next to a
         # language the viewer is deciding on.
-        code = sidecar.language_of(name, default="")
-        if code and code not in found:
+        # "und" for a file that names no language. The mark never prints it
+        # - it shows only languages the viewer reads - but the anime engine
+        # counts it as English, which is what an unlabelled subtitle beside
+        # a fansub release is.
+        code = sidecar.language_of(name, default="") or UNLABELLED
+        if code not in found:
             found.append(code)
     return found
+
+
+def recall(source):
+    """What a cached source is already known to ship, without asking.
+
+    A cache read and nothing else, so the picker can count it in a row's fit
+    while it draws. None when it has not been asked yet.
+    """
+    info_hash = (source.get("hash") or "").lower()
+    if not info_hash or not source.get("cached"):
+        return None
+    return _recall(info_hash)
 
 
 def _ask(source):

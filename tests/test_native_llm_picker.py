@@ -333,3 +333,54 @@ def test_cached_still_breaks_a_tie_on_equal_fit():
     key_uncached = outlook._order(uncached, 70, 1)
 
     assert key_cached < key_uncached, "an equal fit still starts sooner cached"
+
+
+# --------------------------------------------------------------------------
+# a subtitle shipped with the release fits it by construction
+# --------------------------------------------------------------------------
+
+
+def _ships(monkeypatch, known):
+    from pinky.sources import bundled
+    monkeypatch.setattr(bundled, "recall",
+                        lambda source: known.get(source["hash"]))
+
+
+def test_a_release_shipping_english_is_a_hundred_on_the_english_list(
+        found, monkeypatch):
+    """The fit used to quote a stranger's upload while the file beside the
+    video, in time by construction, only got a mark."""
+    _ships(monkeypatch, {"%040d" % 2: ["en"]})
+    _native, _llm, english = outlook.split_rows(
+        META, [source(EXACT, 1), source(OTHER, 2)])
+    fits = {row["hash"]: row["subs_fit"] for row in english}
+    assert fits["%040d" % 2] == 100
+    assert fits["%040d" % 1] < 100, "only the release that ships it"
+
+
+def test_a_release_shipping_hebrew_is_a_hundred_on_the_hebrew_list(
+        found, monkeypatch):
+    found["he"] = []
+    _ships(monkeypatch, {"%040d" % 1: ["he"]})
+    native, _llm, _english = outlook.split_rows(META, [source(EXACT, 1)])
+    assert native and native[0]["subs_fit"] == 100
+
+
+def test_an_unlabelled_file_is_english_for_anime_and_nothing_otherwise(
+        found, monkeypatch):
+    """A subtitle beside a fansub release is English; beside a film it
+    could be anything, and nothing is claimed."""
+    found["llm"] = []
+    _ships(monkeypatch, {"%040d" % 1: ["und"]})
+    anime = dict(META, type="episode", season=1, episode=1, extra={"anime": True})
+    _n, _l, english = outlook.split_rows(anime, [source(EXACT, 1)])
+    assert english and english[0]["subs_fit"] == 100
+    _n, _l, english = outlook.split_rows(META, [source(EXACT, 1)])
+    assert not english
+
+
+def test_a_release_not_looked_inside_yet_is_scored_as_before(found, monkeypatch):
+    _ships(monkeypatch, {})
+    _n, _l, english = outlook.split_rows(META, [source(EXACT, 1), source(OTHER, 2)])
+    fits = {row["hash"]: row["subs_fit"] for row in english}
+    assert fits["%040d" % 1] < 100

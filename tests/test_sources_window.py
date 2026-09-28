@@ -344,7 +344,9 @@ def test_an_unlabelled_file_is_not_given_a_language_it_may_not_have():
     is deciding on."""
     from pinky.sources import bundled
 
-    assert bundled._languages([{"name": "pack/Some.Release.srt"}]) == []
+    languages = bundled._languages([{"name": "pack/Some.Release.srt"}])
+    assert languages == [bundled.UNLABELLED], "remembered as unlabelled"
+    assert sources_window._bundled_mark({"bundled_subs": languages}) == "",         "and never printed as a language"
 
 
 def test_only_cached_rows_are_asked_about(monkeypatch, no_network):
