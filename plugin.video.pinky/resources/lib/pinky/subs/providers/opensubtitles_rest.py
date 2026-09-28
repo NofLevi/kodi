@@ -228,11 +228,17 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
         # Only after the id query comes back empty, so it costs one request in
         # exactly the case that currently returns nothing, and none at all in
         # the common one.
-    return _fetch(meta, language, parts + _by_name(meta), by_name=True)
+    results = []
+    for name in _by_name(meta):
+        results.extend(_fetch(
+            meta, language,
+            parts + ["query-%s" % urllib.parse.quote(name.lower())],
+            by_name=True))
+    return results
 
 
 def _by_name(meta):
-    """The title as a query fragment, or nothing if there is no title.
+    """The name or names worth asking under, or nothing if there is none.
 
     Lowercased, and that is not tidiness. A capitalised query answers **302**
     to a redirect this add-on cannot follow - urllib reports it as
@@ -242,12 +248,35 @@ def _by_name(meta):
 
     A series is asked for under the show's name, not the episode's. `title`
     is the episode's own name on an episode, and "The Last Day of the
-    Preliminaries" is not what anybody filed a subtitle under.
+    Preliminaries" is not what anybody filed a subtitle under. `search_title`
+    is preferred over the raw title because for anime it already *is* the
+    English name - `_name_it_the_way_the_indexes_do` computed it for exactly
+    this reason - and because `title` can be Hebrew: `tmdb.language()`
+    follows the UI language, so a Hebrew household's `meta["title"]` is a
+    Hebrew string, and a Hebrew-script query to this index returns nothing.
+
+    An anime release is as likely to be filed under its Japanese romaji name
+    as its English one - fansub and raw groups both use it - and the two are
+    not the same query: asked for My Hero Academia 1x01 in English,
+    "my hero academia" returned 10 rows and "boku no hero academia" 9, nine
+    of them the same file, but Naruto Shippuden 1x01 told the other story -
+    "naruto shippuuden" returned a HorribleSubs upload that "naruto
+    shippuden" did not, because this index matches against its own title
+    mapping rather than the filename and the two names do not map to
+    identically the same rows. `meta["aliases"]` is where
+    `_name_it_the_way_the_indexes_do` puts that name; capped at two so a
+    title with several regional respellings costs at most three requests
+    total, only in the case that already costs one.
     """
-    title = meta.get("show_title") or meta.get("title") or ""
-    if not title:
-        return []
-    return ["query-%s" % urllib.parse.quote(title.lower())]
+    names = []
+    primary = meta.get("search_title") or meta.get("show_title") \
+        or meta.get("title") or ""
+    if primary:
+        names.append(primary)
+    for alias in (meta.get("aliases") or [])[:2]:
+        if alias and alias not in names:
+            names.append(alias)
+    return names
 
 
 def _fetch(meta, language, parts, hash_query=False, video_size=0,

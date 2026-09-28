@@ -362,6 +362,39 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Osman 1x01 - and OpenSubtitles has nothing for either in any language, which
   is a gap upstream rather than here.
 
+  **The name query was only ever the English one, and asked "why the Yify
+  regex" turned into asking whether that was still true.** `_by_name` read
+  `title`/`show_title` alone, and for anime that name is not the only one a
+  release is filed under - a fansub and a raw group both routinely use the
+  Japanese romaji title instead. Asked for Naruto Shippuden 1x01 in English,
+  `"naruto shippuden"` returned 12 rows and `"naruto shippuuden"` 2, and one
+  of those two - a HorribleSubs upload - was not in the first list at all.
+  This index matches against its own title mapping rather than a filename,
+  so the two spellings do not resolve to identically the same rows, and
+  asking only one leaves a real subtitle unreachable the same way an unasked
+  IMDb entry did above. `meta["aliases"]` - the same romaji titles
+  `_a_different_series` now reads, filled by `tmdb.romaji_titles` - is asked
+  too, capped at two so a title with several regional respellings costs at
+  most three requests rather than one per alias, and only in the case that
+  already costs one: the id query already failed.
+
+  It also stopped preferring the wrong title outright. `title` and
+  `show_title` follow the UI language - `tmdb.language()` returns whatever
+  `ui.language` resolves to - so a Hebrew household's `meta["title"]` is a
+  Hebrew string, and a Hebrew-script query to this same index returns
+  nothing, for the reason given two sections up: the index is Latin-only in
+  practice. `search_title` is the anime-specific English name computed for
+  the tracker search and was sitting unread by this file; it is now asked
+  first, ahead of a title that might not be answerable at all.
+
+  What is not fixed, because it is a different and larger question: every
+  *non-anime* title still asks under `title`/`show_title` alone, so the same
+  Hebrew-query dead end applies to any show on a Hebrew UI whose id lookup
+  fails - which `english_title` is never called for outside anime today.
+  Measuring how often that actually happens, and whether it is worth an
+  extra TMDB call on every playback rather than only anime's, is worth doing
+  next and has not been done.
+
   What it looked like from the outside is worth recording, because it is why
   this went unnoticed: the picker drew eight sources all reading
   `LLM translated from JA, 52% fit`. Eight rows, one file - the *same* lone
@@ -1063,7 +1096,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2170 tests, all running against Kodi stubs, so no Kodi install is needed:
+2174 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1089,7 +1122,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 11 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 30 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
-| `test_opensubtitles_rest.py` | 32 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. |
+| `test_opensubtitles_rest.py` | 36 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
 | `test_yify.py` | 11 | The one anonymous film subtitle source with no account and no key: a real captured row parsed into a candidate, the site's own inconsistent casing on the language name, films-only enforced without a request (a series IMDb id answers 404 live), and the slug-to-download-URL transform that needs no second page fetch. |
 | `test_subtitle_matching.py` | 22 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |

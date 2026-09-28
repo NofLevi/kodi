@@ -547,3 +547,63 @@ def test_a_series_is_asked_for_under_the_show_name(monkeypatch, provider):
                      "ids": {"imdb": "tt0426711"}}, None, ["en"])
     assert "query-hikaru%20no%20go" in urls[1]
     assert "preliminaries" not in urls[1]
+
+
+def test_an_anime_romaji_alias_is_asked_alongside_the_english_name(
+        monkeypatch, provider):
+    """Naruto Shippuden 1x01: "naruto shippuuden" returned a HorribleSubs
+    upload "naruto shippuden" did not, because this index matches its own
+    title mapping rather than a filename and the two names do not resolve
+    to identically the same rows. Both are worth a request, not one or the
+    other - the id query already failed, so this is the one path where
+    subtitles for a real anime release can go permanently unreached."""
+    urls = _asked_many(monkeypatch, provider, [[], [_row()], []])
+    found = provider.search({
+        "type": "episode", "title": "Naruto Shippuden",
+        "search_title": "Naruto Shippuden",
+        "aliases": ["Naruto Shippuuden"],
+        "season": 1, "episode": 1, "ids": {"imdb": "tt0988824"}}, None, ["en"])
+    assert len(urls) == 3
+    assert "query-naruto%20shippuden" in urls[1]
+    assert "query-naruto%20shippuuden" in urls[2]
+    assert found, "the alias query's answer must be kept"
+
+
+def test_the_alias_query_still_runs_when_the_english_name_already_answered(
+        monkeypatch, provider):
+    """A name query that already found something must not stop there - the
+    live measurement is that "naruto shippuden" and "naruto shippuuden"
+    return partly different rows, not one a subset of the other."""
+    urls = _asked_many(monkeypatch, provider, [[], [_row()], [_row()]])
+    provider.search({
+        "type": "episode", "title": "Naruto Shippuden",
+        "search_title": "Naruto Shippuden",
+        "aliases": ["Naruto Shippuuden"],
+        "season": 1, "episode": 1, "ids": {"imdb": "tt0988824"}}, None, ["en"])
+    assert len(urls) == 3, "the alias must still be asked after a hit"
+
+
+def test_search_title_is_preferred_over_a_possibly_hebrew_title(
+        monkeypatch, provider):
+    """`meta["title"]` follows the UI language and can be Hebrew, which this
+    index answers with nothing. `search_title` is the anime-specific English
+    name computed for exactly this reason, and must win over both `title`
+    and `show_title` when it is present."""
+    urls = _asked_many(monkeypatch, provider, [[], []])
+    provider.search({
+        "type": "episode", "title": u"נארוטו", "show_title": u"נארוטו",
+        "search_title": "Naruto Shippuden",
+        "season": 1, "episode": 1, "ids": {"imdb": "tt0988824"}}, None, ["en"])
+    assert "query-naruto%20shippuden" in urls[1]
+
+
+def test_no_more_than_two_aliases_are_ever_asked(monkeypatch, provider):
+    """A title with three regional respellings costs four requests total -
+    the id, the name, two aliases - not one per alias."""
+    urls = _asked_many(monkeypatch, provider, [[], [], [], []])
+    provider.search({
+        "type": "episode", "title": "Show", "search_title": "Show",
+        "aliases": ["Alias One", "Alias Two", "Alias Three"],
+        "season": 1, "episode": 1, "ids": {"imdb": "tt1"}}, None, ["en"])
+    assert len(urls) == 4, "the id, the name, and two aliases - not three"
+    assert "alias%20three" not in urls[-1], "the third alias is never asked"
