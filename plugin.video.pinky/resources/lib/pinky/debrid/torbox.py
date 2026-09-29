@@ -12,7 +12,7 @@ in a torrent. File picking therefore happens on our side, after the fact.
 import calendar
 import time
 
-from .. import http, kodi, settings
+from .. import cache, http, kodi, settings
 from . import base
 
 API = "https://api.torbox.app/v1/api"
@@ -38,6 +38,11 @@ APP_NAME = "Pinky"
 
 # The GET form is limited by URL length; the docs put it at roughly 100.
 CHECK_BATCH = 90
+# Asking for file lists is heavier - an anime batch lists five hundred files -
+# so it is asked only about the rows the picker is about to draw, a few at a
+# time, and the answer kept: what a cached torrent holds does not change.
+PLAYABLE_BATCH = 5
+PLAYABLE_TTL = 30 * 24 * 3600
 
 # A torrent that has just been added can come back before its file list does.
 # Bounded on purpose: this runs between the viewer pressing play and the
@@ -199,6 +204,51 @@ class TorBox(base.DebridService):
             for info_hash in batch:
                 result[info_hash] = info_hash.lower() in found
         return result
+
+    def playable(self, hashes):
+        """Which of these cached torrents TorBox can hand a video file out of.
+
+        Cached is not the same as playable. Measured on Naruto Shippuden 3x55,
+        five of the ten rows reading "Cached TorBox" could not be played: four
+        were complete-series batches that TorBox holds as **one .zip file** -
+        109 GB of "[Batch] [pseudo].zip" - and one, named "s03e02.mp4", was a
+        zip of another episode altogether. Torrentio lists each under the
+        episode's own file name, so nothing but the file list tells them
+        apart, and pressing play answered "no usable video file".
+
+        {hash: bool}; a hash TorBox did not answer about is left out, which
+        the caller treats as playable rather than guess.
+        """
+        result = {}
+        ask = []
+        for info_hash in hashes:
+            hit = cache.get(self._playable_key(info_hash))
+            if hit is None:
+                ask.append(info_hash)
+            else:
+                result[info_hash] = bool(hit.get("ok"))
+        for batch in _chunks(ask, PLAYABLE_BATCH):
+            payload = http.get_json(
+                "%s/torrents/checkcached" % API, headers=self._headers(),
+                params={"hash": ",".join(batch), "format": "list",
+                        "list_files": "true"},
+                timeout=base.timeout_for("cache"), default=None)
+            wanted = dict((info_hash.lower(), info_hash) for info_hash in batch)
+            for entry in (payload or {}).get("data") or []:
+                if not isinstance(entry, dict):
+                    continue
+                info_hash = wanted.get(str(entry.get("hash") or "").lower())
+                if not info_hash:
+                    continue
+                ok = any(str(item.get("name") or "").lower().endswith(
+                    base.VIDEO_EXTENSIONS)
+                    for item in entry.get("files") or [] if isinstance(item, dict))
+                result[info_hash] = ok
+                cache.set(self._playable_key(info_hash), {"ok": ok}, PLAYABLE_TTL)
+        return result
+
+    def _playable_key(self, info_hash):
+        return cache.make_key("debrid", self.name, "playable", info_hash.lower())
 
     # -- playback ----------------------------------------------------------
 

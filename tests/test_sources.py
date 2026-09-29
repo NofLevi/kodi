@@ -1233,3 +1233,23 @@ def test_an_ordinal_or_a_glued_title_is_not_another_show():
                  "[DB]ReZero kara Hajimeru Isekai Seikatsu 2nd Season Part 2_-_02_(Dual Audio).mkv",
                  "Re Zero kara Hajimeru Isekai Seikatsu TV2 [15].mkv"):
         assert scoring._a_different_series({"title": name}, meta) == "", name
+
+
+@pytest.mark.parametrize("title, release_name, rejected", [
+    # The show it continues, named by the first part of our name only.
+    ("Naruto Shippūden", "Naruto 055 [Nezumi] [A139713D].mkv", True),
+    ("Naruto Shippūden", "Naruto S01E01 - Enter Naruto Uzumaki!.mp4", True),
+    ("Dragon Ball Super", "[Group] Dragon Ball - 17.mkv", True),
+    # Ours: the name in full, or a name whose missing part is a subtitle.
+    ("Naruto Shippūden", "[AnimeRG] Naruto Shippuden - 055 [1080p].mkv", False),
+    ("Frieren: Beyond Journey's End", "[SubsPlease] Frieren - 20 (1080p).mkv", False),
+    ("Re:ZERO -Starting Life in Another World-", "[Erai-raws] Re Zero - 40.mkv", False),
+])
+def test_a_release_naming_the_show_this_one_continues(title, release_name, rejected):
+    """Naruto Shippuden 3x55 offered "Naruto 055 [Nezumi]" out of a pack
+    called "Naruto 053-078" - episode 55 of the original series."""
+    from pinky.sources import scoring
+    meta = {"type": "episode", "title": title, "search_title": title,
+            "extra": {"anime": True}}
+    why = scoring._a_different_series({"title": release_name}, meta)
+    assert bool(why) is rejected, why

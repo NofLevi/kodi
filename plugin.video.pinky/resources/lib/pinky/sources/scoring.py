@@ -458,7 +458,46 @@ def _a_different_anime_series(source, meta):
              and not word.isdigit()]
     if extra:
         return "another series of the same name"
+    if _names_only_the_parent(head, meta):
+        return "the show this one continues"
     return ""
+
+
+def _names_only_the_parent(head, meta):
+    """A release named by the first part of our name only, where the rest is
+    part of the name - the show this one continues.
+
+    Naruto Shippuden 3x55 offered "Naruto 055 [Nezumi]", from a pack called
+    "Naruto 053-078": episode 55 of the original series, which says nothing
+    the extra-word check could object to, because it says *less*. The same is
+    "Dragon Ball - 17" for Dragon Ball Super. What is missing has to be part
+    of the name, not a subtitle after a colon or a dash - "Frieren" for
+    "Frieren: Beyond Journey's End" and "Re:Zero" for the long English title
+    are the same show - and a release matching any name we go by in full is
+    ours whatever else is true.
+    """
+    said = [word for word in _words(head) if word not in _STRUCTURAL
+            and not _ANIME_PLACE.match(word) and not word.isdigit()]
+    if not said:
+        return False
+    names = [meta.get(key) or "" for key in
+             ("title", "show_title", "search_title", "english_title")]
+    everything = names + list(meta.get("aliases") or [])
+    for name in everything:
+        if [word for word in _words(name) if not word.isdigit()] == said:
+            return False
+    for name in names:
+        words = [word for word in _words(name) if not word.isdigit()]
+        if len(words) <= len(said) or words[:len(said)] != said:
+            continue
+        text = release.normalise(name)
+        cut = 0
+        for word in said:
+            cut = text.find(word, cut) + len(word)
+        rest = text[cut:].lstrip()
+        if rest and rest[0] not in ":-~([":
+            return True
+    return False
 
 
 def _another_production(source, meta):

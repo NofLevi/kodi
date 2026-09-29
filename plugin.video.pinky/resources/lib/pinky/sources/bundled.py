@@ -129,7 +129,7 @@ def _ask(source):
     return _languages(files)
 
 
-def annotate(sources):
+def annotate(sources, on_learnt=None):
     """Mark what is already known, and go and find out the rest.
 
     **Nothing waits for this.** It decorates a list, and a decoration may not
@@ -147,6 +147,10 @@ def annotate(sources):
     The thread is a daemon and its work is bounded by the shared pool. If the
     window closes and the plugin invocation is torn down first, nothing is
     lost that mattered: the list drew correctly without it.
+
+    `on_learnt` is called, from that thread, once it has learnt that at least
+    one release carries a subtitle - which is when a picker already on the
+    screen is worth drawing again.
     """
     asking = []
     for position, source in enumerate((sources or [])[:MAX_ROWS]):
@@ -167,7 +171,7 @@ def annotate(sources):
                            (lambda s=dict(source): _look_inside(s))))
 
     if asking:
-        _learn_later(asking)
+        _learn_later(asking, on_learnt)
     return sources
 
 
@@ -258,7 +262,7 @@ def _look_inside(source):
     return languages
 
 
-def _learn_later(asking):
+def _learn_later(asking, on_learnt=None):
     """Ask about these in the background, for the next time the list is drawn."""
     import threading
 
@@ -280,6 +284,11 @@ def _learn_later(asking):
         if marked:
             kodi.log("%d of %d releases carry their own subtitles"
                      % (marked, len(asking)))
+            if on_learnt is not None:
+                try:
+                    on_learnt()
+                except Exception:
+                    kodi.log_exception("could not redraw with what was learnt")
 
     thread = threading.Thread(target=work, name="pinky-embedded")
     thread.daemon = True

@@ -359,7 +359,7 @@ def test_only_cached_rows_are_asked_about(monkeypatch, no_network):
     monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     asked = []
     monkeypatch.setattr(bundled, "_learn_later",
-                        lambda rows: asked.extend(key for key, _r, _a in rows))
+                        lambda rows, *_: asked.extend(key for key, _r, _a in rows))
 
     bundled.annotate([{"hash": "a" * 40, "cached": False},
                       {"hash": "b" * 40, "cached": True}])
@@ -379,7 +379,7 @@ def test_the_draw_never_waits_for_it(monkeypatch, no_network):
                         lambda source: (_ for _ in ()).throw(
                             AssertionError("asked on the drawing thread")))
     started = []
-    monkeypatch.setattr(bundled, "_learn_later", lambda rows: started.append(rows))
+    monkeypatch.setattr(bundled, "_learn_later", lambda rows, *_: started.append(rows))
 
     sources = [{"hash": "c" * 40, "cached": True}]
     assert bundled.annotate(sources) is sources
@@ -395,7 +395,7 @@ def test_what_is_known_is_applied_at_once(monkeypatch, no_network):
     monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     bundled._remember("d" * 40, ["he", "en"])
     monkeypatch.setattr(bundled, "_learn_later",
-                        lambda rows: (_ for _ in ()).throw(
+                        lambda rows, *_: (_ for _ in ()).throw(
                             AssertionError("asked about something already known")))
 
     sources = [{"hash": "d" * 40, "cached": True}]
@@ -409,7 +409,7 @@ def test_only_the_rows_on_screen_are_asked_about(monkeypatch, no_network):
     bundled.forget()
     monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     asked = []
-    monkeypatch.setattr(bundled, "_learn_later", lambda rows: asked.extend(rows))
+    monkeypatch.setattr(bundled, "_learn_later", lambda rows, *_: asked.extend(rows))
     bundled.annotate([{"hash": "%040d" % n, "cached": True} for n in range(40)])
     assert len(asked) == bundled.MAX_ROWS
 
@@ -441,7 +441,7 @@ def test_what_was_learned_outlives_the_invocation(monkeypatch, no_network):
     # A fresh dict would be empty here; the cache is not.
     sources = [{"hash": "f" * 40, "cached": True}]
     monkeypatch.setattr(bundled, "_learn_later",
-                        lambda rows: (_ for _ in ()).throw(
+                        lambda rows, *_: (_ for _ in ()).throw(
                             AssertionError("asked about something written down")))
     bundled.annotate(sources)
     assert sources[0]["bundled_subs"] == ["he"]
@@ -456,7 +456,7 @@ def test_an_empty_answer_is_remembered_too(monkeypatch, no_network):
     monkeypatch.setattr(bundled, "_may_look_inside", lambda source: False)
     bundled._remember("g" * 40, [])
     asked = []
-    monkeypatch.setattr(bundled, "_learn_later", lambda rows: asked.extend(rows))
+    monkeypatch.setattr(bundled, "_learn_later", lambda rows, *_: asked.extend(rows))
     bundled.annotate([{"hash": "g" * 40, "cached": True}])
     assert asked == []
 
@@ -637,7 +637,7 @@ def test_the_inside_of_a_file_is_asked_only_for_the_top_rows_and_never_an_mp4(
     bundled.forget()
     monkeypatch.setattr(bundled, "_recall", lambda info_hash: [])
     asked = []
-    monkeypatch.setattr(bundled, "_learn_later", lambda rows: asked.extend(rows))
+    monkeypatch.setattr(bundled, "_learn_later", lambda rows, *_: asked.extend(rows))
     rows = [_episode("%040d" % n, 1) for n in range(10)]
     rows[0]["title"] = "Show - 01.mp4"
     bundled.annotate(rows)
@@ -670,3 +670,28 @@ def test_the_background_pass_never_takes_the_whole_shared_pool(
 def test_a_track_inside_the_file_is_marked_like_a_file_beside_it():
     mark = sources_window._bundled_mark({"inside_subs": ["en"]})
     assert "EN" in mark
+
+
+def test_what_the_background_learns_is_drawn_without_reopening(picker, monkeypatch):
+    """Naruto Shippuden 3x55 read "75% fit" on every English row while two of
+    its files carry an English track inside, because that was learnt in the
+    background and drawn only the next time the picker opened. The page is
+    rebuilt when it is learnt, and the cursor stays on the same release."""
+    control = picker.getControl(sources_window.LIST_SOURCES)
+    control.selectItem(1)
+    on_screen = picker._visible()[1]
+    reordered = list(reversed(picker._visible()))
+    monkeypatch.setattr(sources_window, "_first_page",
+                        lambda meta, short, full: reordered)
+    picker._learnt()
+    assert picker._visible() == reordered
+    assert picker._visible()[control.getSelectedPosition()] is on_screen
+
+
+def test_a_closed_picker_is_not_redrawn(picker, monkeypatch):
+    drawn = picker._visible()
+    monkeypatch.setattr(sources_window, "_first_page",
+                        lambda meta, short, full: list(reversed(drawn)))
+    picker.close()
+    picker._learnt()
+    assert picker._visible() == drawn

@@ -21,11 +21,14 @@ class SourcesWindow(xbmcgui.WindowXML):
     def __init__(self, *args, **kwargs):
         super(SourcesWindow, self).__init__()
         self.short = []
+        self.sources = []
         self.full = []
+        self.closed = False
         self.meta = {}
         self.chosen = None
         self.refresh_requested = False
         self.ready = False
+        self._drawn = []
         self.outlook = {}         # infohash -> what its subtitles look like
 
     def prepare(self):
@@ -48,6 +51,10 @@ class SourcesWindow(xbmcgui.WindowXML):
         self.prepare()
         self._render()
         self.setFocusId(LIST_SOURCES)
+
+    def close(self):
+        self.closed = True
+        super(SourcesWindow, self).close()
 
     def onAction(self, action):
         if action.getId() in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
@@ -80,7 +87,22 @@ class SourcesWindow(xbmcgui.WindowXML):
         """
         return list(self.short)
 
-    def _render(self):
+    def _learnt(self):
+        """The background pass found subtitles inside some releases: redraw.
+
+        Naruto Shippuden 3x55 read "English subtitle, 75% fit" on every row
+        while two of the files it listed carry an English track inside - in
+        time by construction, 100% - because that is learnt in the background
+        and was only drawn the next time the picker opened. The three lists
+        are built from those fits, so the page is rebuilt, not relabelled,
+        and the cursor stays on the release it was on.
+        """
+        if self.closed:
+            return
+        self.short = _first_page(self.meta, self.sources or self.short, self.full)
+        self._render(learn=False)
+
+    def _render(self, learn=True):
         """Fill the list.
 
         Wrapped because this runs inside onInit, where an exception is not a
@@ -96,19 +118,25 @@ class SourcesWindow(xbmcgui.WindowXML):
         # and a row that does not answer is drawn exactly as it was before.
         try:
             from ..sources import bundled
-            bundled.annotate(entries)
+            bundled.annotate(entries, self._learnt if learn else None)
         except Exception:
             kodi.log_exception("could not tell which releases carry subtitles")
         try:
             control = self.getControl(LIST_SOURCES)
+            position = control.getSelectedPosition()
             control.reset()
             # One addItems, not addItem in a loop. Adding one at a time during
             # onInit only ever landed the first row on screen even though the
             # status line correctly counted eight; the home and search windows
             # both batch and both render fully.
-            position = control.getSelectedPosition()
+            if not learn and 0 <= position < len(self._drawn):
+                # A redraw reorders the lists; stay on the same release.
+                same = _identity(self._drawn[position])
+                position = next((i for i, row in enumerate(entries)
+                                 if _identity(row) == same), position)
             control.addItems([_list_item(source, self.outlook)
                               for source in entries])
+            self._drawn = list(entries)
             if position > 0:
                 control.selectItem(position)
             kodi.log("sources picker: rendered %d of %d rows"
@@ -577,6 +605,7 @@ def pick_source(sources, meta, all_sources=None):
         window = SourcesWindow("pinky-sources.xml", kodi.addon_path(),
                                "default", "1080i")
         window.short = short
+        window.sources = sources
         window.full = full
         window.meta = meta
         try:

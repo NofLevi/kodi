@@ -197,6 +197,7 @@ def _ranked(meta, prefetch=False, force=False):
     _apply_subtitles(merged, meta)
 
     kept, rejected = scoring.rank_all(merged, meta, _runtime_hours(meta))
+    kept = _drop_unplayable(kept, rejected)
     # Both numbers, because they are different things and the log is read by
     # somebody wondering why the picker shows six rows. "66 after ranking"
     # next to a six-row picker reads as a contradiction; "66 kept, showing 6"
@@ -279,6 +280,39 @@ def _numbering_after_break(meta):
     if runs == 1:
         return None
     return [int(meta.get("season") or 1) + runs - 1, len(dates) - start]
+
+
+PLAYABLE_CHECK = 20
+
+
+def _drop_unplayable(kept, rejected):
+    """Take out the cached rows the service holds nothing playable in.
+
+    Only the top PLAYABLE_CHECK cached rows are asked about - they are what
+    the picker draws - and only of a service that can say (TorBox, whose
+    `playable` explains what "cached" was hiding). A row it cannot vouch for
+    either way stays.
+    """
+    from ..debrid import registry
+    asked = {}
+    for source in [s for s in kept if s.get("cached") and s.get("hash")][:PLAYABLE_CHECK]:
+        service = registry.get(source.get("cached_by") or "")
+        if service is not None and hasattr(service, "playable"):
+            asked.setdefault(service, []).append(source["hash"])
+    dead = set()
+    for service, hashes in asked.items():
+        try:
+            answers = service.playable(hashes)
+        except Exception:
+            kodi.log_exception("could not ask %s what it can play" % service.name)
+            continue
+        dead |= set(info_hash for info_hash, ok in answers.items() if ok is False)
+    if not dead:
+        return kept
+    reason = "held by the debrid service with nothing to play"
+    rejected[reason] = rejected.get(reason, 0) + len(dead)
+    kodi.log("sources: %d cached rows have nothing playable in them" % len(dead))
+    return [s for s in kept if s.get("hash") not in dead]
 
 
 def unfiltered_key(meta):

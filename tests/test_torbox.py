@@ -544,3 +544,47 @@ def test_a_finished_torrent_still_plays(monkeypatch, configured):
                         lambda *a, **k: {"data": "https://cdn/file.mkv"})
 
     assert client.resolve({"hash": "a" * 40, "extra": {}}) == "https://cdn/file.mkv"
+
+
+def test_a_cached_torrent_holding_only_a_zip_is_not_playable(monkeypatch):
+    """Naruto Shippuden 3x55: four "Cached TorBox" rows were complete-series
+    batches TorBox holds as one .zip, and pressing play answered "no usable
+    video file". The file list says so before anybody presses anything."""
+    from pinky.debrid import torbox
+    service = torbox.TorBox()
+    asked = []
+
+    def get_json(url, params=None, **kwargs):
+        asked.append(params)
+        return {"data": [
+            {"hash": "a" * 40, "files": [{"name": "Batch/Naruto [Batch].zip"}]},
+            {"hash": "b" * 40, "files": [{"name": "S03/Naruto - 055.mkv"},
+                                          {"name": "S03/cover.jpg"}]}]}
+
+    monkeypatch.setattr(torbox.http, "get_json", get_json)
+    monkeypatch.setattr(service, "_headers", lambda: {})
+    first = service.playable(["a" * 40, "b" * 40, "c" * 40])
+    assert first == {"a" * 40: False, "b" * 40: True}, "unanswered is left out"
+    assert asked[0]["list_files"] == "true"
+    service.playable(["a" * 40, "b" * 40])
+    assert len(asked) == 1, "what a cached torrent holds is remembered"
+
+
+def test_unplayable_cached_rows_leave_the_list(monkeypatch):
+    from pinky.sources import aggregator
+    from pinky.debrid import registry
+
+    class Service(object):
+        name = "torbox"
+
+        def playable(self, hashes):
+            return {"a" * 40: False, "b" * 40: True}
+
+    monkeypatch.setattr(registry, "get", lambda name: Service())
+    kept = [{"hash": "a" * 40, "cached": True, "cached_by": "torbox"},
+            {"hash": "b" * 40, "cached": True, "cached_by": "torbox"},
+            {"hash": "c" * 40}]
+    rejected = {}
+    left = aggregator._drop_unplayable(kept, rejected)
+    assert [s["hash"][0] for s in left] == ["b", "c"]
+    assert rejected == {"held by the debrid service with nothing to play": 1}
