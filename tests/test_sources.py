@@ -1353,3 +1353,20 @@ def test_an_ampersand_may_be_spelled_out_or_glued(release_name, rejected):
     from pinky.sources import scoring
     meta = {"type": "episode", "title": "Drake & Josh", "extra": {}}
     assert bool(scoring._a_different_series({"title": release_name}, meta)) is rejected
+
+
+@pytest.mark.parametrize("release_name, rejected", [
+    ("Star.Trek.The.Original.Series.S01E23.1080p.BluRay.REMUX.mkv", False),
+    ("Star.trek.TOS.s01e23.A.Taste.of.Armageddon.mkv", False),
+    ("Startrek.TOS.S01E23.1080p.BluRay.REMUX.x264.mkv", False),
+    ("Star Trek Picard - S01E23 - X.mkv", True),
+    ("Star.Trek.The.Next.Generation.S01E23.mkv", True),
+])
+def test_a_series_is_known_by_its_other_names(release_name, rejected):
+    """Star Trek is "The Original Series" and "TOS" on every release, TMDB's
+    alternative titles say so, and 19 of 23 copies of 1x23 were refused as
+    another show."""
+    from pinky.sources import scoring
+    meta = {"type": "episode", "title": "Star Trek", "extra": {},
+            "translated_titles": ["Star Trek: The Original Series", "Star Trek TOS"]}
+    assert bool(scoring._a_different_series({"title": release_name}, meta)) is rejected

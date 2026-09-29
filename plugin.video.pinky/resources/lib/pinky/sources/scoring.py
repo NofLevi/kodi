@@ -390,6 +390,9 @@ def _a_different_western_series(source, meta):
         known.update(_initials(meta.get(key) or ""))
     for name in meta.get("translated_titles") or []:
         known.update(_words(name or ""))
+    for name in [meta.get("title"), meta.get("english_title")] + list(
+            meta.get("translated_titles") or []):
+        known.update(_joined(name or ""))
     if not known:
         return ""
     # "Law & Order" is uploaded as "Law.and.Order", the same as anime's
@@ -406,6 +409,12 @@ def _a_different_western_series(source, meta):
     if extra:
         return "another series of the same name"
     return ""
+
+
+def _joined(text):
+    """Each two neighbouring words of a title written as one: "Startrek"."""
+    words = re.sub(r"[^a-z0-9 ]+", " ", release.normalise(text)).split()
+    return set(first + second for first, second in zip(words, words[1:]))
 
 
 def _initials(text):

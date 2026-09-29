@@ -105,6 +105,17 @@ def _name_it_in_every_language(meta, tmdb_id):
     except Exception:
         pairs = []
     meta["translated_titles"] = [name for _language, name in pairs]
+    # And the names it goes by in its own language, which are not
+    # translations: Star Trek is "Star Trek: The Original Series" and "Star
+    # Trek TOS" on every release, and 19 of 23 copies of 1x23 were refused
+    # as another show. `anime_titles` is TMDB's alternative titles, Latin
+    # script, less the ones labelled as another part of the show.
+    try:
+        meta["translated_titles"] += [
+            name for name in tmdb.anime_titles("tv", tmdb_id)
+            if name not in meta["translated_titles"]]
+    except Exception:
+        pass
     english = [name for language, name in pairs if language == "en"]
     if english:
         meta["english_title"] = english[0]
