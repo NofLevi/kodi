@@ -246,6 +246,9 @@ _3D = re.compile(r"\b(3d|sbs|hsbs|half-?ou)\b", re.I)
 
 
 _LONG_VOWEL = re.compile(r"(oo|uu)")
+_UNDECOMPOSED = {ord(a): b for a, b in zip(u"ıłŁøØđĐ",
+                                            "illoodd")}
+_UNDECOMPOSED[ord(u"ß")] = "ss"
 
 
 @functools.lru_cache(maxsize=1024)
@@ -258,6 +261,10 @@ def _normalised(name):
     # decomposition to Latin and passes through untouched.
     decomposed = unicodedata.normalize("NFKD", name)
     text = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    # A few letters have no decomposition at all, and a release writes the
+    # plain one: every copy of the Turkish drama "Alıkara" is "Alikara", and
+    # all of them were refused as another show.
+    text = text.translate(_UNDECOMPOSED)
     text = _JUNK.sub(" ", text)
     text = re.sub(r"\s+", " ", text)
     text = text.strip().lower()

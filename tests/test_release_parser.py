@@ -390,3 +390,18 @@ def test_a_versioned_telesync_is_a_cam(name, source):
     from pinky.utils import release
 
     assert release.parse(name)["source"] == source
+
+
+def test_a_letter_with_no_decomposition_folds_to_the_plain_one():
+    """Every release of the Turkish drama "Alıkara" is "Alikara"; the dotless
+    i has no decomposition, so the two never matched and all were refused."""
+    from pinky.utils import release
+    assert release.normalise(u"Alıkara") == "alikara"
+    assert release.normalise(u"Łódź") == "lodz"
+    assert release.normalise(u"Straße") == "strasse"
+
+
+def test_a_turkish_title_is_not_another_show_for_its_dotless_i():
+    from pinky.sources import scoring
+    meta = {"type": "episode", "title": u"Alıkara", "extra": {}}
+    assert scoring._a_different_series({"title": "Alikara.s01.e05.WEB-DLRip720p.mkv"}, meta) == ""

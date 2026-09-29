@@ -1370,3 +1370,34 @@ def test_a_series_is_known_by_its_other_names(release_name, rejected):
     meta = {"type": "episode", "title": "Star Trek", "extra": {},
             "translated_titles": ["Star Trek: The Original Series", "Star Trek TOS"]}
     assert bool(scoring._a_different_series({"title": release_name}, meta)) is rejected
+
+
+@pytest.mark.parametrize("title, release_name, rejected", [
+    ("Grey's Anatomy", "Grey`s Anatomy S09E13  Bad Blood.mkv", False),
+    ("It's Always Sunny in Philadelphia", "IASIP S13E05 The Gang Gets New Wheels.mp4", False),
+    ("Widow's Bay", "Widows Bay S01E08 Your Baggage 2160p ATVP WEB-DL.mkv", False),
+    ("Modern Family", "Modern.Family.S11E17E18.Finale.1080p.mkv", False),
+    ("Slow Horses", "Slow.Horses.S0406.Ita.Eng.Spa.1080p.h265.mkv", False),
+    ("The Wire", "T02E05 - Undertow.mkv", False),
+    ("The Wire", "TheWireS02E05-1080p.H265.AAC5.1.mkv", False),
+    ("The IT Crowd", "The IT Crowd S04E03a DVD-RIP x264 S4L.mkv", False),
+    ("Stargate SG-1", "StargateSG1S02E06.mp4", False),
+    ("The Blacklist", "Black list - S02E22_Tom Connolly.mkv", False),
+    ("Sliders", "ppt-sliders.s03e15.avi", False),
+    ("Lanterns", "www.1TamilMV.meme - Lanterns (2026) S01 EP 04 TRUE WEB-DL - 1080p.mkv", False),
+    ("The Lincoln Lawyer", "(AnimesTotais) The.Lincoln.Lawyer.S01E08.1080p.NF.WEB-DL.mkv", False),
+    ("Silicon Valley", "Crazy4TV.com - Silicon.Valley.S04E05.720p.WEB-DL.mkv", False),
+    ("Hawaii Five-0", "The Flash S04E01 The Flash Reborn.mp4", True),
+    ("Silo", "The.Gentlemen.2024.S02E07.1080p.WEBRip.x265-KONTRAST.mkv", True),
+    ("Law & Order", "NYPD.Blue.S01E12.MULTi.1080p.WEB.x265-VaCa7.mkv", True),
+    ("Band of Brothers", "Brother.Vs.Brother.S01E03.720p.AMZN.WEBRip.mkv", True),
+    ("The IT Crowd", "The Mighty Boosh - 104 - Tundra.avi", True),
+])
+def test_a_series_name_written_the_ways_uploaders_write_it(title, release_name, rejected):
+    """Three hundred scripted episodes: an apostrophe typed as a backtick, a
+    double episode, "S0406", Portuguese "T01E10", a name glued to its marker,
+    a site or scene prefix, "Black list" - each was refused as another show.
+    The shows that really are another show stay refused."""
+    from pinky.sources import scoring
+    meta = {"type": "episode", "title": title, "extra": {}}
+    assert bool(scoring._a_different_series({"title": release_name}, meta)) is rejected

@@ -369,9 +369,29 @@ def _a_different_series(source, meta):
 # number. The bare season marker and the "1x01" form are what a Spanish,
 # Italian or Czech upload uses, and without them the episode's own title -
 # "Capitolo Uno La Scomparsa Di Will Byers" - was read as a second show.
+# Three hundred episodes found four more: a double episode ("S11E17E18"),
+# season and episode run together ("S0613"), Portuguese "T01E10" and a split
+# episode's letter ("S04E03a"). With no marker the whole name is the head,
+# and "finale" and "1080p" read as another show.
 _WESTERN_MARKER = re.compile(
-    r"\b(?:s\d{1,2}\s*(?:ep|e|x)\s*\d{1,4}|s?\d{1,2}x\d{1,4}|s\d{1,2}"
+    r"\b(?:s\d{1,2}\s*(?:ep|e|x)\s*\d{1,4}(?:e\d{1,4})*[a-z]?|s\d{4}"
+    r"|t\d{1,2}e\d{1,4}|s?\d{1,2}x\d{1,4}|s\d{1,2}"
     r"|(?:episode|ep)\s*\d{1,4}|e\d{1,4}|\d{1,4})\b")
+
+# An apostrophe joins rather than separates: "Grey`s", "Widows Bay" and
+# "IASIP" are Grey's Anatomy, Widow's Bay and It's Always Sunny, and spacing
+# it gave "grey s" and initials starting "is". The backtick and the curly
+# quote are how uploaders type it.
+_APOSTROPHE = re.compile(u"['`’ʼ]")
+# What stands in front of a name without being part of it: the site that
+# re-hosted it ("www.1TamilMV.meme - ", "(AnimesTotais)", "Crazy4TV.com - ")
+# and a scene group's lower-case prefix ("ppt-sliders.s03e15").
+_WESTERN_PREFIX = re.compile(
+    r"^\s*(?:\([^()]{2,30}\)|www\.\S+|\S+\.(?:com|net|org|xyz|to|cc))\s*-?\s*",
+    re.I)
+_SCENE_PREFIX = re.compile(r"^[a-z0-9]{2,8}-(?=[a-z])")
+# A marker glued to the name: "TheWireS01E10", "FriendsS05E06".
+_GLUED_MARKER = re.compile(r"(?<=[a-z0-9])(?=s\d{1,2}e\d)")
 
 
 def _a_different_western_series(source, meta):
@@ -385,11 +405,16 @@ def _a_different_western_series(source, meta):
     Korean drama is Korean - neither of which any release carries.
     """
     known = set()
+    whole = set()
     for key in ("title", "show_title", "original_title", "english_title"):
-        known.update(_words(meta.get(key) or ""))
-        known.update(_initials(meta.get(key) or ""))
+        for text in _with_and_without_apostrophes(meta.get(key)):
+            known.update(_words(text))
+            known.update(_initials(text))
+            whole.update(_squashed(text))
     for name in meta.get("translated_titles") or []:
-        known.update(_words(name or ""))
+        for text in _with_and_without_apostrophes(name):
+            known.update(_words(text))
+            whole.update(_squashed(text))
     for name in [meta.get("title"), meta.get("english_title")] + list(
             meta.get("translated_titles") or []):
         known.update(_joined(name or ""))
@@ -400,15 +425,32 @@ def _a_different_western_series(source, meta):
     if any("&" in (meta.get(key) or "") for key in
            ("title", "show_title", "original_title", "english_title")):
         known.add("and")
-    name = release.normalise(
-        _LEADING_GROUP.sub("", release.strip_site_tags(source.get("title") or "")))
-    head = _WESTERN_MARKER.split(name, 1)[0]
-    extra = [word for word in _words(head)
-             if word not in known and word not in _WESTERN_STRUCTURAL
-             and not word.isdigit()]
-    if extra:
-        return "another series of the same name"
-    return ""
+    title = _APOSTROPHE.sub("", (source.get("title") or "").replace(u"꞉", ":"))
+    stripped = _WESTERN_PREFIX.sub("", title)
+    for text in (title, stripped, _SCENE_PREFIX.sub("", stripped)):
+        name = _GLUED_MARKER.sub(" ", release.normalise(
+            _LEADING_GROUP.sub("", release.strip_site_tags(text))))
+        head = _WESTERN_MARKER.split(name, 1)[0]
+        # The whole name without its spaces is ours: "Black list" is The
+        # Blacklist, "StargateSG1" Stargate SG-1.
+        if whole & _squashed(head):
+            return ""
+        extra = [word for word in _words(head)
+                 if word not in known and word not in _WESTERN_STRUCTURAL
+                 and not word.isdigit()]
+        if not extra:
+            return ""
+    return "another series of the same name"
+
+
+def _with_and_without_apostrophes(text):
+    return (text or "", _APOSTROPHE.sub("", text or ""))
+
+
+def _squashed(text):
+    """A name as its letters and digits alone, with and without "the"."""
+    squashed = re.sub(r"[^a-z0-9]+", "", release.normalise(text or ""))
+    return {squashed, squashed[3:] if squashed.startswith("the") else squashed} - {""}
 
 
 def _joined(text):
