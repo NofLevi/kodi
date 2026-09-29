@@ -1324,3 +1324,19 @@ def test_a_film_release_dated_before_the_film_was_first_shown(release_name, firs
     assert bool(scoring._before_it_existed({"title": release_name}, meta)) is rejected
     assert scoring._before_it_existed({"title": release_name},
                                       dict(meta, type="episode")) == ""
+
+
+@pytest.mark.parametrize("release_name, rejected", [
+    ("law.and.order.svu.s17e13.720p.web.h264-skyfire.mkv", False),
+    ("Law & Order SVU S17E13 Forty-One Witnesses.mp4", False),
+    ("Law.and.Order.Special.Victims.Unit.S05E18.1080p.WEB.mkv", False),
+    ("Law.and.Order.Criminal.Intent.S05E03.1080p.mkv", True),
+    ("Law.and.Order.Organized.Crime.S01E01.1080p.mkv", True),
+])
+def test_a_series_is_known_by_its_initials(release_name, rejected):
+    """Every release of Law & Order: Special Victims Unit says "SVU" and
+    "and"; eight of thirteen copies of 5x18 were refused as another show."""
+    from pinky.sources import scoring
+    meta = {"type": "episode", "title": "Law & Order: Special Victims Unit",
+            "extra": {}}
+    assert bool(scoring._a_different_series({"title": release_name}, meta)) is rejected

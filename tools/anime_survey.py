@@ -147,7 +147,9 @@ def build_sample(count, seed=20260928):
         return build_film_sample(count)
     # Series are the anime sample's shape with the anime taken out.
     scope = ({"with_genres": "16", "with_original_language": "ja"}
-             if KIND == "anime" else {"without_genres": "16"})
+             if KIND == "anime" else {"without_genres": "16,10763,10764,10767"})
+    # Not animation, and not news, reality or talk: TMDB's popular television
+    # is full of daily talk shows nobody releases, which measures nothing.
     rng = random.Random(seed)
     per_show = EPISODES_PER_SHOW
     shows_wanted = max(1, count // per_show // len(BUCKETS))

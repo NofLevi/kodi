@@ -387,10 +387,16 @@ def _a_different_western_series(source, meta):
     known = set()
     for key in ("title", "show_title", "original_title", "english_title"):
         known.update(_words(meta.get(key) or ""))
+        known.update(_initials(meta.get(key) or ""))
     for name in meta.get("translated_titles") or []:
         known.update(_words(name or ""))
     if not known:
         return ""
+    # "Law & Order" is uploaded as "Law.and.Order", the same as anime's
+    # "Off & Monster" in `_a_different_anime_series`.
+    if any("&" in (meta.get(key) or "") for key in
+           ("title", "show_title", "original_title", "english_title")):
+        known.add("and")
     name = release.normalise(
         _LEADING_GROUP.sub("", release.strip_site_tags(source.get("title") or "")))
     head = _WESTERN_MARKER.split(name, 1)[0]
@@ -400,6 +406,23 @@ def _a_different_western_series(source, meta):
     if extra:
         return "another series of the same name"
     return ""
+
+
+def _initials(text):
+    """What a title is abbreviated to: the initials of each run of words.
+
+    Every release of Law & Order: Special Victims Unit is "Law and Order
+    SVU", and "svu" is not a word of the title - so eight of thirteen copies
+    of 5x18 were refused as another show. Runs of three words and more, as
+    initials shorter than that are too common to mean anything.
+    """
+    words = [word for word in re.sub(r"[^a-z0-9 ]+", " ",
+                                     release.normalise(text)).split()]
+    found = set()
+    for start in range(len(words)):
+        for end in range(start + 3, len(words) + 1):
+            found.add("".join(word[0] for word in words[start:end]))
+    return found
 
 
 _ANIME_NUMBER = r"\d{1,4}(?:v\d{1,2}|[a-z])?"
