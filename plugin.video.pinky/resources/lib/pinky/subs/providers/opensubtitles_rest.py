@@ -30,6 +30,7 @@ everything degrades to what it was if this stops answering.
 begins with one, and Hebrew subtitles here arrive as cp1255 as often as UTF-8.
 `srt.decode` already handles both, because both have been shipped bugs.
 """
+import re
 import urllib.parse
 
 from ... import http, kodi
@@ -53,6 +54,10 @@ THREE_LETTER = {
 }
 
 MAX_PER_LANGUAGE = 12
+MAX_PER_SEASON_NAME = 40        # one query in every language, see _by_season_name
+SEASON_NAME_TTL = 24 * 3600
+EMPTY_TTL = 600
+SHARED_WORDS = 0.6     # of a row's show name, see _names_the_show
 
 # The reverse of THREE_LETTER, for a query that asks for no language at all
 # and has to read each row's own.
@@ -146,7 +151,55 @@ def search(meta, target, languages, video_hash="", video_size=0):
             asked = meta if numbering is None else dict(
                 meta, season=numbering[0], episode=numbering[1])
             results.extend(_search_one(asked, language, code))
+    wanted = set(languages)
+    results.extend(row for row in _by_season_name(meta)
+                   if row.get("language") in wanted)
     return results
+
+
+def _by_season_name(meta):
+    """An anime season TMDB has named, asked for under that name.
+
+    TMDB calls Ace of the Diamond's third season "Act II" and numbers it
+    3x34; OpenSubtitles files it as its own show, "Diamond no Ace - Act II",
+    episode 34 of season one - which no other question here asks. Measured:
+    the show's name under any numbering found nothing in any language, and
+    "diamond no ace act ii" as 1x34 found six. Bleach's "Thousand-Year Blood
+    War" as 1x06 finds twenty-one, English among them.
+
+    Which spelling the index knows varies by show - "ace of the diamond act
+    ii" finds nothing where "ace of diamond act ii" finds all six - so the
+    names are tried in turn and the first that answers wins. Asked once in
+    every language and cached, because the caller asks per language list
+    and this host rate-limits. Each row carries `asked_as`, the numbering it
+    was filed under, so the matcher knows "Act II - 34" is this episode.
+    """
+    season_name = meta.get("season_name") or ""
+    if not (season_name and meta.get("type") == "episode"
+            and (meta.get("extra") or {}).get("anime")):
+        return []
+    from ... import cache
+    episode = int(meta.get("episode") or 1)
+    key = cache.make_key("os_season_name", (meta.get("ids") or {}).get("tmdb"),
+                         meta.get("season"), episode)
+    rows = cache.get(key)
+    if rows is None:
+        rows = []
+        names = ([meta.get("search_title") or meta.get("title") or ""]
+                 + list(meta.get("aliases") or [])[:4])
+        for show in [name for name in names if name]:
+            query = "%s %s" % (show, season_name)
+            rows = _fetch(meta, "", ["episode-%d" % episode, "season-1",
+                                     "query-%s" % _query(query)],
+                          by_name=query, limit=MAX_PER_SEASON_NAME)
+            if rows:
+                break
+        for row in rows:
+            row["asked_as"] = [1, episode]
+        # An empty answer and a refused request look the same from here, so
+        # nothing is only remembered long enough to serve one picker.
+        cache.set(key, rows, SEASON_NAME_TTL if rows else EMPTY_TTL)
+    return [dict(row) for row in rows]
 
 
 def _imdb_agrees(entry, meta):
@@ -229,7 +282,9 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
     if anime and meta.get("type") == "episode" and not (
             int(meta.get("season") or 1) == 1
             and int(meta.get("episode") or 0)
-            == int(meta.get("absolute") or meta.get("episode") or 0)):
+            == int(meta.get("absolute") or meta.get("episode") or 0)) and [
+                int(meta.get("season") or 0), int(meta.get("episode") or 0)
+            ] != list(meta.get("scene") or []):
         return found
         # An id query that finds nothing is not the same as there being
         # nothing. Measured on Hikaru no Go 2x02, which is S01E32 to everyone
@@ -248,12 +303,28 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
     for name in _by_name(meta):
         for row in _fetch(
                 meta, language,
-                parts + ["query-%s" % urllib.parse.quote(name.lower())],
-                by_name=True):
+                parts + ["query-%s" % _query(name)],
+                by_name=name):
             if row.get("download") not in seen:
                 seen.add(row.get("download"))
                 results.append(row)
     return results
+
+
+def _query(name):
+    """A name as this index takes it, so it answers rather than redirects.
+
+    Lowercased (see `_by_name`). No slash: "ranma 1/2" is a path separator
+    and answers 302 even escaped. No "+" and no trailing space: both answer
+    **302 to a host called "_"**, which fails as a ConnectionError - Blood+
+    hit the search deadline on every episode for exactly this. And no "&"
+    or apostrophe, which the site strips itself with a 301, a request spent
+    for nothing on every "JoJo's" and "Panty & Stocking".
+    """
+    text = name.lower()
+    for character, replacement in (("/", " "), ("+", " "), ("&", " "), ("'", "")):
+        text = text.replace(character, replacement)
+    return urllib.parse.quote(" ".join(text.split()))
 
 
 def _by_name(meta):
@@ -301,7 +372,7 @@ def _by_name(meta):
 
 
 def _fetch(meta, language, parts, hash_query=False, video_size=0,
-           by_name=False):
+           by_name=False, limit=MAX_PER_LANGUAGE):
     payload = http.get_json(
         "%s/%s" % (BASE, "/".join(sorted(parts))),
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
@@ -316,11 +387,13 @@ def _fetch(meta, language, parts, hash_query=False, video_size=0,
         return []
 
     results = []
-    for entry in payload[:MAX_PER_LANGUAGE]:
+    for entry in payload[:limit]:
         if not isinstance(entry, dict):
             continue
         link = entry.get("SubDownloadLink")
         if not link:
+            continue
+        if by_name and not _names_the_show(entry, meta):
             continue
         agrees = None if by_name else _imdb_agrees(entry, meta)
         if agrees is False:
@@ -351,6 +424,48 @@ def _fetch(meta, language, parts, hash_query=False, video_size=0,
                         and agrees is True),
         ))
     return results
+
+
+def _names_the_show(entry, meta):
+    """Is a name query's row filed under this show, or merely a word of it?
+
+    The index answers a name query by full text, not only by title: asked
+    for "mono" episode 7 in Hebrew it returned two Neon Genesis Evangelion
+    subtitles, `MatchedBy: fulltext`, and the picker drew them as Hebrew for
+    mono at 70% - they name the right episode number and nothing in them
+    says otherwise. "Yu-Gi-Oh! GX" came back as Yu Yu Hakusho, and "blood"
+    (Blood+) as a hundred rows of Bleach: Thousand-Year Blood War.
+
+    So the row's own show name - `MovieName`, the quoted part for an episode
+    - has to be mostly words this show goes by, under *any* of its names:
+    "shingeki no kyojin" answers with rows filed as "Attack on Titan". Most
+    rather than all, because a filed name carries the odd word ours does
+    not. Folded through `release.normalise` on both sides, so "Shippûden"
+    and "Shippuuden" are one word; three letters or more, because "no" and
+    "go" are in half the romaji titles there are.
+    """
+    from ...utils import release
+
+    def words(text):
+        return set(word for word in re.findall(
+            r"[a-z0-9]+", release.normalise(str(text))) if len(word) >= 3)
+
+    filed = str(entry.get("MovieName") or "")
+    quoted = re.match(r'\s*"([^"]+)"', filed)
+    theirs = words(quoted.group(1) if quoted else filed)
+    if not theirs:
+        return True
+    names = [meta.get("search_title"), meta.get("english_title"),
+             meta.get("show_title"), meta.get("title"),
+             meta.get("original_title"), meta.get("season_name")]
+    names += list(meta.get("aliases") or [])
+    ours = set()
+    for name in names:
+        if name:
+            ours |= words(name)
+    if not ours:
+        return True
+    return len(theirs & ours) >= SHARED_WORDS * len(theirs)
 
 
 def _number(value):

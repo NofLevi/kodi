@@ -67,6 +67,8 @@ def cache_key(meta, languages=None):
     ids = meta.get("ids") or {}
     parts = ["suboutlook", ids.get("imdb") or ids.get("tmdb"),
              meta.get("season"), meta.get("episode")]
+    if meta.get("scene"):
+        parts.append("scene%s" % "x".join(str(n) for n in meta["scene"]))
     if languages:
         parts.append(",".join(languages))
     return cache.make_key(*parts)

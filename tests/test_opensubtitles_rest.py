@@ -656,3 +656,141 @@ def test_anime_asks_by_name_only_under_the_absolute_number(monkeypatch, provider
         "ids": {"imdb": "tt0988824"}}, None, ["en"])
     by_name = [u for u in urls if "query-" in u]
     assert len(by_name) == 1 and "season-1" in by_name[0]
+
+
+def _ace(**extra):
+    meta = {"type": "episode", "title": "Ace of the Diamond",
+            "search_title": "Ace of the Diamond", "season": 3, "episode": 34,
+            "absolute": 160, "season_name": "Act II",
+            "aliases": ["Daiya no A", "Diamond no Ace"],
+            "ids": {"tmdb": 61374, "imdb": "tt3105422"},
+            "extra": {"anime": True}}
+    meta.update(extra)
+    return meta
+
+
+def _season_named_index(monkeypatch, provider, answers):
+    """Answer a season-name query only under the spelling in `answers`."""
+    asked = []
+
+    def get_json(url, default=None, **kwargs):
+        asked.append(url)
+        for spelling, rows in answers.items():
+            if "query-" + spelling in url and url.endswith("/season-1"):
+                return list(rows)
+        return []
+
+    monkeypatch.setattr(provider.http, "get_json", get_json)
+    return asked
+
+
+_ACT_II = [{"SubFileName": "[CrunchyRoll] Diamond no Ace - Act II - 34.ass",
+            "SubDownloadLink": "https://x/34.gz", "SubLanguageID": "ara"},
+           {"SubFileName": "Diamond no Ace - Act II - 34.srt",
+            "SubDownloadLink": "https://x/34p.gz", "SubLanguageID": "per"}]
+
+
+def test_a_named_anime_season_is_asked_under_its_own_name(monkeypatch, provider):
+    """TMDB's Ace of the Diamond 3x34 is "Diamond no Ace - Act II - 34" on
+    OpenSubtitles: nothing under the show's name in any numbering, six rows
+    under the season's. The index knows some spellings and not others."""
+    asked = _season_named_index(monkeypatch, provider,
+                                {"diamond%20no%20ace%20act%20ii": _ACT_II})
+    found = provider.search(_ace(), None, ["ar", "en"])
+    assert [row["release"] for row in found] == [
+        "[CrunchyRoll] Diamond no Ace - Act II - 34.ass"]
+    assert found[0]["asked_as"] == [1, 34]
+    assert any("query-ace%20of%20the%20diamond%20act%20ii" in url for url in asked)
+
+
+def test_the_season_name_answer_is_asked_once_per_episode(monkeypatch, provider):
+    asked = _season_named_index(monkeypatch, provider,
+                                {"diamond%20no%20ace%20act%20ii": _ACT_II})
+    provider.search(_ace(), None, ["ar"])
+    before = len([url for url in asked if "act%20ii" in url])
+    provider.search(_ace(), None, ["en"])
+    assert len([url for url in asked if "act%20ii" in url]) == before
+
+
+def test_no_season_name_query_without_a_name_or_outside_anime(monkeypatch, provider):
+    asked = _season_named_index(monkeypatch, provider, {})
+    provider.search(_ace(season_name=None), None, ["en"])
+    provider.search(_ace(extra={}), None, ["en"])
+    assert not any("act%20ii" in url for url in asked)
+
+
+def test_a_season_named_row_is_the_right_episode_to_the_matcher():
+    """Absolute 160 is what TMDB counts; "Act II - 34" is how it was filed.
+    Without the numbering it was asked under, the matcher calls it the wrong
+    episode and scores it at zero."""
+    from pinky.subs import matcher
+    target = matcher.target_from(_ace())
+    row = {"release": "[CrunchyRoll] Diamond no Ace - Act II - 34.ass"}
+    assert matcher.rate(dict(row), target)[0] == 0
+    assert matcher.rate(dict(row, asked_as=[1, 34]), target)[0] >= 40
+    assert matcher.rate({"release": "Diamond no Ace - Act II - 35.ass",
+                         "asked_as": [1, 34]}, target)[0] == 0
+
+
+def test_a_slash_in_a_name_does_not_become_a_path(monkeypatch, provider):
+    """"Ranma 1/2 Nettouhen" split the path and answered 302."""
+    seen = _asked(monkeypatch, provider, payload=[])
+    provider.search({"type": "movie", "title": "Ranma 1/2 Nettouhen",
+                     "ids": {}}, None, ["en"])
+    assert "query-ranma%201%202%20nettouhen" in seen["url"], seen["url"]
+
+
+def test_a_name_query_row_filed_under_another_show_is_dropped(monkeypatch, provider):
+    """Asked for "mono" episode 7 the index answered by full text with Neon
+    Genesis Evangelion, and the picker drew it as Hebrew for mono at 70%."""
+    _asked(monkeypatch, provider, payload=[
+        {"SubFileName": "NGE-remastered_ep07-heb.srt", "SubDownloadLink": "https://x/e.gz",
+         "SubLanguageID": "heb", "MovieName": '"Neon Genesis Evangelion" A Human Work'},
+        {"SubFileName": "[Group] mono - 07.srt", "SubDownloadLink": "https://x/m.gz",
+         "SubLanguageID": "heb", "MovieName": '"mono" Episode #1.7'}])
+    found = provider.search({"type": "episode", "title": "mono", "season": 1,
+                             "episode": 7, "ids": {}}, None, ["he"])
+    assert [row["release"] for row in found] == ["[Group] mono - 07.srt"]
+
+
+def test_a_row_filed_under_the_shows_other_name_is_kept(monkeypatch, provider):
+    """"shingeki no kyojin" answers with rows the index files as "Attack on
+    Titan" - any name the show goes by is the same show."""
+    _asked(monkeypatch, provider, payload=[
+        {"SubFileName": "HorribleSubs. Shingeki no Kyojin - 01 .1080p.srt",
+         "SubDownloadLink": "https://x/1.gz", "SubLanguageID": "eng",
+         "MovieName": '"Attack on Titan" To You, in 2000 Years'}])
+    found = provider.search({"type": "episode", "title": "Attack on Titan",
+                             "aliases": ["Shingeki no Kyojin"], "season": 1,
+                             "episode": 1, "ids": {}}, None, ["en"])
+    assert found
+
+
+def test_a_show_that_only_shares_a_word_is_another_show(monkeypatch, provider):
+    """"blood" (Blood+) came back as a hundred rows of Bleach: Thousand-Year
+    Blood War; "mono" as JoJo's episode "Uketsugu mono"."""
+    _asked(monkeypatch, provider, payload=[
+        {"SubFileName": "Bleach.TYBW.S01E25.srt", "SubDownloadLink": "https://x/b.gz",
+         "SubLanguageID": "eng", "MovieName": '"Bleach: Thousand-Year Blood War" x'},
+        {"SubFileName": "JoJo.S01E25.srt", "SubDownloadLink": "https://x/j.gz",
+         "SubLanguageID": "eng", "MovieName": '"JoJo\'s Bizarre Adventure" Blood Line'},
+        {"SubFileName": "Blood+ - 25.srt", "SubDownloadLink": "https://x/p.gz",
+         "SubLanguageID": "eng", "MovieName": '"Blood+" Episode #1.25'}])
+    found = provider.search({"type": "episode", "title": "Blood+", "season": 1,
+                             "episode": 25, "ids": {}}, None, ["en"])
+    assert [row["release"] for row in found] == ["Blood+ - 25.srt"]
+
+
+@pytest.mark.parametrize("name, query", [
+    ("Blood+", "query-blood/"),
+    ("Panty & Stocking", "query-panty%20stocking/"),
+    ("JoJo's Bizarre Adventure", "query-jojos%20bizarre%20adventure/"),
+    ("Show ", "query-show/"),
+])
+def test_a_name_is_sent_the_way_the_index_takes_it(monkeypatch, provider, name, query):
+    """"+" and a trailing space answer 302 to a host called "_", which fails
+    as a ConnectionError; "&" and an apostrophe cost a 301 each time."""
+    seen = _asked(monkeypatch, provider, payload=[])
+    provider.search({"type": "episode", "title": name, "season": 1,
+                     "episode": 1, "ids": {}}, None, ["en"])
+    assert query in seen["url"] + "/", seen["url"]

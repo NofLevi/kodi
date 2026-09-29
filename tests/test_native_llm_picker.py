@@ -296,7 +296,7 @@ def test_the_page_is_ten_ten_and_five_and_no_more(found):
     of them a release nobody would choose, with the three lists that are the
     whole page buried inside them."""
     many = [source(EXACT, index) for index in range(40)]
-    page = sources_window._first_page(META, many, many)
+    page = sources_window._first_page(META, many[:6], many)
     counts = {}
     for row in page:
         counts[row["subs_mode"]] = counts.get(row["subs_mode"], 0) + 1
@@ -411,3 +411,30 @@ def test_a_hebrew_track_inside_the_file_is_a_hundred_on_the_hebrew_list(
     monkeypatch.setattr(bundled, "recall_inside", lambda source: ["he"])
     native, _llm, _english = outlook.split_rows(META, [source(EXACT, 1)])
     assert native and native[0]["subs_fit"] == 100
+
+
+def test_a_release_with_no_subtitle_known_is_still_on_the_page(found, monkeypatch):
+    """Hikaru no Go 3x02 kept six releases and drew one: only one had a
+    subtitle anybody had indexed, and the other five - one shipping 76
+    English .srt files, the rest MKVs with English inside - vanished."""
+    found["he"] = []
+    found["llm"] = []
+    only = source(EXACT, 1)
+    others = [source("Hikaru.No.Go.TV.EP62.BluRay.1080p.AC3.x264-CHD", 2),
+              source("[BlueLobster] Hikaru no Go - 62 [480p]", 3)]
+    _ships(monkeypatch, {only["hash"]: ["he"]})
+    page = sources_window._first_page(META, [only] + others, [only] + others)
+    assert [row["hash"] for row in page] == [only["hash"], others[0]["hash"],
+                                             others[1]["hash"]]
+    assert "subs_mode" not in page[-1], "a plain row, claiming no subtitle"
+
+
+def test_nothing_is_called_hidden_that_was_not_rejected(monkeypatch):
+    """"of 10, 9 hidden ()" - found minus drawn, with no reason behind it."""
+    from pinky.sources import aggregator
+    monkeypatch.setattr(aggregator, "filter_report",
+                        lambda meta: {"found": 10, "reasons": []})
+    assert sources_window._why_hidden([source(EXACT, 1)], META) == ""
+    monkeypatch.setattr(aggregator, "filter_report",
+                        lambda meta: {"found": 10, "reasons": [("cam release", 3)]})
+    assert "3" in sources_window._why_hidden([source(EXACT, 1)], META)

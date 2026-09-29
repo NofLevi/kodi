@@ -161,9 +161,14 @@ def _parse_stream(stream, provider_name):
     if cached_by:
         source["cached"] = True
         source["cached_by"] = cached_by
-    elif direct_url:
-        # A direct URL from these services always means the debrid copy is
-        # ready, otherwise they would have returned a magnet instead.
+    elif direct_url and not info_hash:
+        # A direct URL with nothing else to go on is taken as ready. With a
+        # hash it is not an answer at all: Torrentio, given a TorBox key,
+        # returns a resolve link for *every* torrent - "[TB+]" for the cached
+        # ones and "[TB download]" for the rest - and assuming it meant
+        # "cached" put uncached torrents on the screen as "Cached TorBox",
+        # skipped the real cache check, and TorBox then refused to play them
+        # ("Torrent not found in cache"). The hash goes to that check instead.
         source["cached"] = True
 
     file_index = _as_int(stream.get("fileIdx"), default=None)

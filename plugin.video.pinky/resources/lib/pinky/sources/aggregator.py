@@ -105,6 +105,7 @@ def _ranked(meta, prefetch=False, force=False):
             # subtitle line for up to twenty minutes after an update even though
             # fresh searches show a percentage. Annotate and re-rank once, then
             # persist the upgraded shape so subsequent opens remain free.
+            _scene_episode(meta, hit)
             if hit and any("subs_kind" not in source for source in hit):
                 migrated = _apply_subtitles(hit, meta)
                 if migrated and all("subs_kind" in source for source in hit):
@@ -132,6 +133,23 @@ def _ranked(meta, prefetch=False, force=False):
     dropped = []
     raw = _run_providers(providers, meta, quiet=prefetch,
                          also=_anime_address(meta, "arc"), dropped=dropped)
+
+    # The same holds when only a name index answered and a provider that asks
+    # by id was cut off. Black Lagoon 1x20: Nyaa came back in a second with
+    # two files that were never going to survive the filters, Torrentio was
+    # still working at ten seconds, and "not raw" was false - so the provider
+    # that answers for this exact episode was never asked again, and the
+    # viewer was told there was nothing where a calmer run found twenty-one.
+    by_id_dropped = [name for name in dropped if name not in ANIME_PROVIDERS]
+    if raw and by_id_dropped and all(
+            source.get("provider") in ANIME_PROVIDERS for source in raw):
+        kodi.log("only a name index answered and %s was still working, so "
+                 "asking again" % ", ".join(by_id_dropped))
+        retry = [(name, module) for name, module in providers
+                 if name in set(by_id_dropped)]
+        raw = raw + _run_providers(retry, meta, quiet=prefetch,
+                                   also=_anime_address(meta, "arc"),
+                                   deadline=_PATIENT_DEADLINE)
 
     if not raw and dropped:
         # Nothing came back and somebody was still working: that is "we
@@ -175,6 +193,7 @@ def _ranked(meta, prefetch=False, force=False):
     merged = model.dedupe(raw)
     _apply_meta(merged, meta)
     _check_debrid_cache(merged)
+    _scene_episode(meta, merged)
     _apply_subtitles(merged, meta)
 
     kept, rejected = scoring.rank_all(merged, meta, _runtime_hours(meta))
@@ -193,6 +212,73 @@ def _ranked(meta, prefetch=False, force=False):
     cache.volatile_set(unfiltered_key(meta), merged, TTL_RESULTS if merged else TTL_EMPTY)
     cache.volatile_set(key, kept, TTL_RESULTS if kept else TTL_EMPTY)
     return kept
+
+
+def _scene_episode(meta, sources):
+    """The numbering the releases themselves use, when it is not TMDB's.
+
+    TMDB folds Jujutsu Kaisen's second season into its first, so the episode
+    the viewer pressed is "1x41" - and every release and every subtitle calls
+    it "S2 - 17". The sources were found anyway, at the Kitsu address, but the
+    subtitle search asked for 1x41 and absolute 41 and got nothing: Re:Zero,
+    Apothecary Diaries and JJK all drew an empty AI list beside dozens of
+    cached sources, while OpenSubtitles had five English files as S02E17.
+
+    Read off the releases rather than worked out from Kitsu's cour titles,
+    because the releases are what the subtitles were typed against. Only the
+    providers that ask by id vote - they answered for this exact episode,
+    where a name index returns anything sharing a word - and only a clear
+    majority counts. Anime only, and set on `meta` as `scene`.
+    """
+    if meta.get("type") != "episode" or not (meta.get("extra") or {}).get("anime"):
+        return
+    from ..utils import release
+    own = {(int(meta.get("season") or 0), int(meta.get("episode") or 0)),
+           (1, int(meta.get("absolute") or meta.get("episode") or 0))}
+    votes = {}
+    for source in sources or []:
+        named = source.get("providers") or [source.get("provider")]
+        if all(name in ANIME_PROVIDERS for name in named):
+            continue
+        parsed = release.parse(source.get("title") or "")
+        pair = (parsed["season"] or 0, parsed["episode"] or parsed["absolute"] or 0)
+        if pair[0] and pair[1] and pair not in own:
+            votes[pair] = votes.get(pair, 0) + 1
+    pair = max(votes, key=votes.get) if votes else None
+    if pair and votes[pair] >= 2 and votes[pair] * 2 > sum(votes.values()):
+        meta["scene"] = list(pair)
+    elif _only_a_break(meta):
+        # Every release of Snow White with the Red Hair 1x21 calls it "21" or
+        # S01E21, and OpenSubtitles files its English as S02E09 - which is
+        # what TMDB's own air dates say too: the ninth episode after a break.
+        numbering = _numbering_after_break(meta)
+        if numbering:
+            meta["scene"] = numbering
+
+
+def _only_a_break(meta):
+    """Folded by a break alone: no season name, not long, not absolute."""
+    return (not meta.get("season_name") and not _numbered_absolutely(meta)
+            and int(meta.get("season_episodes") or 0) <= FOLDED_SEASON
+            and _folded(meta))
+
+
+def _numbering_after_break(meta):
+    """[season, episode] counted from the last break before this episode."""
+    import datetime
+    aired = (meta.get("item") or {}).get("premiered") or ""
+    try:
+        dates = sorted(datetime.date(*map(int, day[:10].split("-")))
+                       for day in _season_dates(meta) if day and day <= aired)
+    except ValueError:
+        return None
+    runs, start = 1, 0
+    for index in range(1, len(dates)):
+        if (dates[index] - dates[index - 1]).days > BREAK_DAYS:
+            runs, start = runs + 1, index
+    if runs == 1:
+        return None
+    return [int(meta.get("season") or 1) + runs - 1, len(dates) - start]
 
 
 def unfiltered_key(meta):
@@ -313,6 +399,8 @@ def _run_providers(providers, meta, quiet=False, also=None, dropped=None,
         for name, module in providers:
             asks_by_name = getattr(module, "BY_NAME", False)
             tasks.append((name, _guarded(module, meta if asks_by_name else also)))
+            if also.get("alongside") and not asks_by_name:
+                tasks.append((name, _guarded(module, meta)))
     else:
         tasks = [(name, _guarded(module, meta)) for name, module in providers]
 
@@ -363,6 +451,9 @@ def _apply_meta(sources, meta):
         # out of a pack needs the absolute number as well as the pair.
         "absolute": meta.get("absolute"),
         "title": meta.get("title"),
+        # How long it runs, so the file picker can tell a two-minute
+        # episode from a decoy of the same size.
+        "item": {"duration": (meta.get("item") or {}).get("duration") or 0},
     }
     for source in sources:
         source.setdefault("extra", {})
@@ -438,7 +529,10 @@ def _runtime_hours(meta):
     item = meta.get("item") or {}
     duration = item.get("duration") or 0
     if duration:
-        return max(0.25, duration / 3600.0)
+        # TMDB's own length, trusted. A fifteen-minute floor judged Chiikawa's
+        # two-minute episodes as quarter-hour ones, and rejected all eight
+        # copies of 1x55 - every one cached - as "far too small".
+        return max(1 / 60.0, duration / 3600.0)
     return 0.75 if meta.get("type") == "episode" else 2.0
 
 
@@ -478,6 +572,86 @@ def invalidate(meta=None):
         cache.volatile_delete_prefix("sources|")
 
 
+# A cour is at most about twenty-six episodes. A TMDB season longer than that
+# has folded several of them together - Re:Zero's "Season 1" is 85 - and its
+# numbering matches no index's.
+FOLDED_SEASON = 26
+
+
+BREAK_DAYS = 90
+
+
+def _folded(meta):
+    """Has TMDB put more than one broadcast run into this season?
+
+    Longer than a cour says so. So does a break: Hell's Paradise season one
+    is 25 episodes - thirteen in 2023, twelve in 2026 - which is under the
+    length rule, so "1x22" was asked only at TMDB's address, found four
+    files from a name index, and the Kitsu address that has it as episode 9
+    of the second season was never tried because something had come back.
+    Only a break *before* this episode counts: episodes before it are where
+    TMDB's own address is right.
+    """
+    if int(meta.get("season_episodes") or 0) > FOLDED_SEASON:
+        return True
+    import datetime
+    aired = (meta.get("item") or {}).get("premiered") or ""
+    if not aired:
+        return False
+    try:
+        dates = sorted(datetime.date(*map(int, day[:10].split("-")))
+                       for day in _season_dates(meta) if day and day <= aired)
+    except ValueError:
+        return False
+    return any((later - earlier).days > BREAK_DAYS
+               for earlier, later in zip(dates, dates[1:]))
+
+
+def _names(meta, title):
+    """The names to look an anime up under on Kitsu, likeliest first.
+
+    Kitsu's search cannot find "Re:ZERO -Starting Life in Another World-" -
+    it answers with an unrelated show - and finds the romaji name at once,
+    so the anime engine's other names are asked too.
+    """
+    names = [title] + list(meta.get("aliases") or [])[:2]
+    return [name for i, name in enumerate(names)
+            if name and name not in names[:i]]
+
+
+def _first(names, lookup):
+    for name in names:
+        found = lookup(name)
+        if found:
+            return found
+    return None
+
+
+def _season_dates(meta):
+    """When each episode of this TMDB season aired - a cached lookup."""
+    from ..meta import tmdb
+    show = (meta.get("ids") or {}).get("tmdb")
+    if not show:
+        return []
+    try:
+        return [episode.get("premiered") or ""
+                for episode in tmdb.episodes(show, meta.get("season")) or []]
+    except Exception:
+        return []
+
+
+def _numbered_absolutely(meta):
+    """Does TMDB already count this season's episodes from the first?
+
+    Naruto Shippuden's season 3 is episodes 54 to 71, so "3x55" is episode
+    55 of the series - `tmdb.absolute_episode` saw that and left the number
+    alone, which is what `absolute == episode` past season one says.
+    """
+    season = int(meta.get("season") or 0)
+    return season > 1 and int(meta.get("absolute") or 0) == int(
+        meta.get("episode") or -1)
+
+
 def _anime_address(meta, mode="arc"):
     """The same episode, addressed the way an anime index files it.
 
@@ -513,16 +687,39 @@ def _anime_address(meta, mode="arc"):
         if not kitsu.available():
             return None
         if mode == "arc":
-            if not meta.get("season_name"):
+            air_date = (meta.get("item") or {}).get("premiered") or ""
+            found = None
+            names = _names(meta, title)
+            if _numbered_absolutely(meta):
+                found = _first(names, lambda name: kitsu.series_address(
+                    name, meta.get("year"), meta.get("absolute")))
+            if not found and meta.get("season_name"):
+                found = kitsu.episode_address(
+                    title, meta.get("episode"), meta.get("season_name"),
+                    meta.get("season_episodes") or 0,
+                    already_absolute=_numbered_absolutely(meta),
+                    air_date=air_date)
+            if not found and _folded(meta):
+                found = (_first(names, lambda name: kitsu.series_address(
+                    name, meta.get("year"), meta.get("absolute")))
+                    or _first(names, lambda name: kitsu.air_date_address(
+                        name, air_date, _season_dates(meta))))
+            if not found:
                 return None
-            found = kitsu.episode_address(title, meta.get("episode"),
-                                          meta.get("season_name"),
-                                          meta.get("season_episodes") or 0)
         else:
             found = kitsu.season_address(
                 [title, meta.get("original_title") or ""],
                 meta.get("season"), meta.get("episode"),
                 meta.get("season_counts") or [])
+            # Asked only once the first search found nothing, so a season
+            # that works at TMDB's address is never moved off it. My Hero
+            # Academia: Vigilantes is one TMDB season of two cours - "1x24"
+            # is released as "2x11" - short enough not to look folded.
+            if not found:
+                air_date = (meta.get("item") or {}).get("premiered") or ""
+                found = _first(_names(meta, title),
+                               lambda name: kitsu.air_date_address(
+                                   name, air_date, _season_dates(meta)))
     except Exception:
         kodi.log_exception("could not look up an anime address")
         return None
@@ -540,4 +737,13 @@ def _anime_address(meta, mode="arc"):
     # identical question a second time.
     address["ids"].pop("imdb", None)
     address["episode"] = episode
+    # A season that is folded only because it has a break in it - no name,
+    # not long, not counted from the first - is asked at both addresses,
+    # because which one the trackers use varies by show: Hell's Paradise
+    # 1x22 has nothing at TMDB's and thirty-six at Kitsu's, Snow White with
+    # the Red Hair 1x21 has ten at TMDB's and five at Kitsu's.
+    address["alongside"] = (
+        mode == "arc" and not meta.get("season_name")
+        and not _numbered_absolutely(meta)
+        and int(meta.get("season_episodes") or 0) <= FOLDED_SEASON)
     return address

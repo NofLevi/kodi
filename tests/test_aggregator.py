@@ -599,6 +599,39 @@ def test_nothing_plus_a_provider_still_working_is_asked_again(monkeypatch,
     assert found, "the second ask found what the first never waited for"
 
 
+def test_a_name_index_alone_does_not_stand_in_for_a_provider_cut_off(
+        monkeypatch, settings_module):
+    """Black Lagoon 1x20: Nyaa answered in a second with two files nothing
+    would keep, Torrentio was cut off at ten, and because something had come
+    back it was never asked again. A calmer run found twenty-one."""
+    from pinky.sources import aggregator
+
+    calls = []
+
+    def fake_run(providers, meta, quiet=False, also=None, dropped=None,
+                 deadline=None):
+        calls.append([name for name, _module in providers])
+        if len(calls) == 1:
+            if dropped is not None:
+                dropped.extend(["animetosho", "torrentio"])
+            return [{"title": "[Group] Other Show - 20.mkv", "hash": "b" * 40,
+                     "provider": "nyaa", "quality": "1080p", "seeders": 1,
+                     "size": 1024 ** 3}]
+        return [{"title": "Film.2026.1080p.WEB-DL-GRP", "hash": "a" * 40,
+                 "provider": "torrentio", "quality": "1080p", "seeders": 9,
+                 "size": 2 * 1024 ** 3}]
+
+    monkeypatch.setattr(aggregator, "_enabled_providers", lambda meta: [
+        ("torrentio", object()), ("nyaa", object()), ("animetosho", object())])
+    monkeypatch.setattr(aggregator, "_run_providers", fake_run)
+    monkeypatch.setattr(aggregator, "_check_debrid_cache", lambda merged: None)
+    monkeypatch.setattr(aggregator, "_apply_subtitles", lambda merged, meta: None)
+
+    found = aggregator._ranked(META, force=True)
+    assert calls[1:] == [["torrentio"]], calls
+    assert any(source.get("provider") == "torrentio" for source in found)
+
+
 def test_a_deadline_is_not_remembered_as_no_sources(monkeypatch, settings_module):
     """Five minutes of "no sources" for a film that has them is the same
     failure twice."""
@@ -635,3 +668,53 @@ def test_a_genuine_blank_is_still_remembered(monkeypatch, settings_module):
 
     assert aggregator.find(META, force=True) == []
     assert any(value == [] for _key, value in written)
+
+
+def test_a_two_minute_episode_is_judged_as_two_minutes():
+    """Chiikawa's episodes run two minutes. A fifteen-minute floor rejected
+    all eight copies of 1x55 - every one cached - as "far too small"."""
+    from pinky.sources import aggregator, scoring
+
+    meta = {"type": "episode", "item": {"duration": 120}}
+    hours = aggregator._runtime_hours(meta)
+    assert hours < 0.05
+
+    class Prefs(object):
+        allow_cam = allow_hevc = allow_av1 = allow_hdr = True
+        cached_only = False
+        max_size = 0
+        max_rank = 3
+        min_rank = 0
+
+    subsplease = {"title": "[SubsPlease] Chiikawa - 55 (1080p) [230F37D2].mkv",
+                  "quality": "1080p", "codec": "h264", "hdr": [],
+                  "size": 25 * 1024 ** 2, "seeders": 23, "cached": True}
+    assert scoring.rejection_reason(subsplease, Prefs(), hours) == ""
+
+
+def test_a_season_folded_only_by_a_break_is_asked_at_both_addresses(monkeypatch):
+    """Snow White 1x21 has ten at TMDB's address and five at Kitsu's; Hell's
+    Paradise 1x22 none at TMDB's and thirty-six at Kitsu's. Which one the
+    trackers use varies by show, so a break-folded season asks both."""
+    from pinky.sources import aggregator
+
+    asked = []
+
+    class ById(object):
+        @staticmethod
+        def search(meta):
+            asked.append((meta.get("ids") or {}).get("kitsu") or "tmdb")
+            return []
+
+    monkeypatch.setattr(aggregator.http, "run_parallel",
+                        lambda tasks, **kw: [fn() for _name, fn in tasks])
+    also = {"ids": {"kitsu": "11179"}, "episode": 9, "alongside": True}
+    aggregator._run_providers([("torrentio", ById)], {"ids": {"imdb": "tt1"}},
+                              quiet=True, also=also)
+    assert sorted(asked) == ["11179", "tmdb"]
+
+    del asked[:]
+    also["alongside"] = False
+    aggregator._run_providers([("torrentio", ById)], {"ids": {"imdb": "tt1"}},
+                              quiet=True, also=also)
+    assert asked == ["11179"], "a named arc still replaces TMDB's address"

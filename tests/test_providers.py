@@ -193,3 +193,21 @@ def test_a_configured_provider_is_still_asked(monkeypatch, no_network):
                         lambda key, default="": "someblob" if "config" in key else default)
     comet.search({"type": "movie", "ids": {"imdb": "tt0137523"}, "title": "Film"})
     assert asked and "someblob" in asked[0]
+
+
+def test_a_resolve_link_with_a_hash_is_not_taken_as_cached():
+    """Torrentio with a TorBox key links every torrent - "[TB+]" cached,
+    "[TB download]" not. Taking the link as "cached" put uncached torrents on
+    screen as Cached TorBox, and TorBox then refused to play them."""
+    from pinky.sources.providers import stremio
+    hash_ = "a20bcc3f4ca332c10f216dc730d361aa3e2e3ca9"
+    uncached = stremio._parse_stream({
+        "name": "[TB download] Torrentio\n1080p", "infoHash": hash_,
+        "url": "https://torrentio.strem.fun/resolve/torbox/key/%s/null/0/x.mkv" % hash_,
+        "title": "[SubsPlease] Chiikawa - 55 (1080p) [230F37D2].mkv"}, "torrentio")
+    assert not uncached.get("cached"), "left to the real cache check"
+    cached = stremio._parse_stream({
+        "name": "[TB+] Torrentio\n1080p", "infoHash": hash_,
+        "url": "https://torrentio.strem.fun/resolve/torbox/key/%s/null/0/x.mkv" % hash_,
+        "title": "[SubsPlease] Chiikawa - 55 (1080p) [230F37D2].mkv"}, "torrentio")
+    assert cached.get("cached") and cached.get("cached_by") == "torbox"

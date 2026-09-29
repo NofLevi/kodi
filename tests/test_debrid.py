@@ -114,3 +114,22 @@ def test_a_failing_service_does_not_break_the_caller():
             raise RuntimeError("service is down")
 
     assert Broken().cached_with_memory(["a" * 40]) == {}
+
+
+def test_a_two_minute_episode_is_not_a_sample(service):
+    """Chiikawa's episodes are 8 to 25 MB. A flat 80 MB floor threw away
+    every file of a cached 368-file pack, and playing it answered "no
+    usable video file"."""
+    pack = files(("Chiikawa/[Gecko] Chiikawa - S01E54 [1080P].mkv", 17 * 1024 ** 2),
+                 ("Chiikawa/[Gecko] Chiikawa - S01E55 [1080P].mkv", 18 * 1024 ** 2))
+    meta = {"type": "episode", "season": 1, "episode": 55, "absolute": 55,
+            "item": {"duration": 120}}
+    chosen = service.pick_file(pack, {}, meta)
+    assert chosen and "S01E55" in chosen["name"]
+
+
+def test_a_sample_beside_the_feature_is_still_a_sample(service):
+    torrent = files(("Movie.2024.1080p.mkv", 2 * 1024 ** 3),
+                    ("Movie.2024.1080p.clip.mkv", 50 * 1024 ** 2))
+    meta = {"type": "movie", "item": {"duration": 7200}}
+    assert service.pick_file(torrent, {}, meta)["name"] == "Movie.2024.1080p.mkv"

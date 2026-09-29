@@ -282,7 +282,7 @@ season seasons final part parts cour tv series episode episodes cap ova ovas
 oad oads special specials movie film complete batch box set volume vol arc
 saga uncut uncensored dub dubbed sub subbed multi multisub remastered
 hybrid proper repack
-jakso episodio capitulo odcinek folge
+jakso episodio capitulo odcinek folge chapter chapters
 """.split())
 
 # Ordinary television is uploaded in every language it airs in, and the
@@ -374,6 +374,25 @@ _ANIME_MARKER = re.compile(
     r"\b(?:s\d{1,2}e%s|(?:episode|ep)\s*%s|e%s|%s)\b" % ((_ANIME_NUMBER,) * 4))
 
 
+# Where an episode sits, spelled as one token: "2nd" Season, "S02", "TV2",
+# "Season2", "Part2". Re:Zero's "2nd Season Part 2 - 02" and "S02 - E15" are
+# season two of Re:Zero, and were rejected as another show for those words.
+_ANIME_PLACE = re.compile(
+    r"^(?:\d{1,2}(?:st|nd|rd|th)|s\d{1,2}|tv\d{1,2}|season\d{1,2}|part\d{1,2}"
+    r"|cour\d{1,2})$")
+
+
+def _glued(text):
+    """A title's words with its punctuation removed rather than spaced.
+
+    "Re:Zero" is uploaded as "ReZero" as often as "Re Zero", and the spaced
+    fold alone never produced the one-word form.
+    """
+    return [word for word in re.sub(r"[!?'\":,;.\-]+", "",
+                                     release.normalise(text)).split()
+            if len(word) >= 3]
+
+
 def _a_different_anime_series(source, meta):
     """The anime check.
 
@@ -397,11 +416,22 @@ def _a_different_anime_series(source, meta):
     if meta.get("type") != "episode":
         return ""
     known = set()
+    # The season's own name too: an arc is released under it. "Monogatari
+    # Series Off & Monster Season" is season 5, and all twelve cached copies
+    # of 5x11 were rejected for the words "off" and "monster".
     for key in ("title", "show_title", "original_title", "search_title",
-                "english_title"):
+                "english_title", "season_name"):
         known.update(_words(meta.get(key) or ""))
+        known.update(_glued(meta.get(key) or ""))
     for alias in meta.get("aliases") or []:
         known.update(_words(alias or ""))
+        known.update(_glued(alias or ""))
+    # A scene release spells "&" out: "Monogatari Series OFF & MONSTER
+    # Season" is uploaded as "MONOGATARI.Series.OFF.and.MONSTER.Season".
+    if any("&" in (meta.get(key) or "") for key in
+           ("title", "search_title", "season_name")) or any(
+               "&" in (alias or "") for alias in meta.get("aliases") or []):
+        known.add("and")
     if not known:
         return ""
     name = release.normalise(
@@ -424,6 +454,7 @@ def _a_different_anime_series(source, meta):
     head = _ANIME_MARKER.split(name, 1)[0]
     extra = [word for word in _words(head)
              if word not in known and word not in _STRUCTURAL
+             and not _ANIME_PLACE.match(word)
              and not word.isdigit()]
     if extra:
         return "another series of the same name"

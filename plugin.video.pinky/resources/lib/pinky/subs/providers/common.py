@@ -85,6 +85,11 @@ def episode_numberings(meta):
     absolute = int(meta.get("absolute") or 0)
     if absolute and (1, absolute) not in numberings:
         numberings.append((1, absolute))
+    # The releases' own numbering where TMDB folded several broadcast seasons
+    # into one - JJK's "1x41" is "S02E17" everywhere else. aggregator._scene_episode.
+    scene = tuple(meta.get("scene") or ())
+    if len(scene) == 2 and scene not in numberings:
+        numberings.append(scene)
     return numberings
 
 

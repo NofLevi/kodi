@@ -1199,3 +1199,37 @@ def test_a_cached_source_needs_no_seeders_at_all(settings_module):
 
     stored = _at("1080p", 3, cached=True, seeders=0)
     assert scoring.rejection_reason(stored, prefs) == ""
+
+
+def test_an_arc_is_released_under_its_season_name():
+    """Monogatari season 5 is "Monogatari Series OFF & MONSTER Season", and
+    every cached copy of 5x11 was rejected for "off" and "monster" - and for
+    "and", which is how a scene release spells "&"."""
+    meta = {"type": "episode", "extra": ANIME, "title": "Monogatari",
+            "season_name": "MONOGATARI Series OFF & MONSTER Season"}
+    for name in ("[SubsPlease] Monogatari Series - Off & Monster Season - 11 (1080p).mkv",
+                 "MONOGATARI.Series.OFF.and.MONSTER.Season.S01E11.1080p.WEB.H264.mkv"):
+        assert scoring._a_different_series({"title": name}, meta) == "", name
+
+
+def test_a_chapter_is_an_episode_word_for_anime():
+    """"Monster - Chapter 03 - Murder Case DVDRip" is the real Monster."""
+    meta = {"type": "episode", "extra": ANIME, "title": "Monster"}
+    assert scoring._a_different_series(
+        {"title": "Monster - Chapter 03 - Murder Case DVDRip x265 AC-3 2.0 Kira [SEV].mkv"},
+        meta) == ""
+    assert scoring._a_different_series(
+        {"title": "[SubsPlease] Monster Eater - 03 (1080p).mkv"}, meta) ==         "another series of the same name"
+
+
+def test_an_ordinal_or_a_glued_title_is_not_another_show():
+    """Re:Zero's "2nd Season Part 2 - 02", "S02 - E15" and "ReZero" are all
+    season two of Re:Zero."""
+    meta = {"type": "episode", "extra": ANIME,
+            "title": "Re:ZERO -Starting Life in Another World-",
+            "aliases": ["Re:Zero kara Hajimeru Isekai Seikatsu"]}
+    for name in ("[Erai-raws] Re.Zero kara Hajimeru Isekai Seikatsu 2nd Season Part 2 - 02 [1080p].mkv",
+                 "Re Zero S02 - E15 [40].mkv",
+                 "[DB]ReZero kara Hajimeru Isekai Seikatsu 2nd Season Part 2_-_02_(Dual Audio).mkv",
+                 "Re Zero kara Hajimeru Isekai Seikatsu TV2 [15].mkv"):
+        assert scoring._a_different_series({"title": name}, meta) == "", name

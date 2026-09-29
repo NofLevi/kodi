@@ -20,6 +20,32 @@ BASE = "https://feed.animetosho.org"
 
 
 def search(meta):
+    """Under the English name first, then the romaji ones, until one answers.
+
+    Releases of a show are named in whichever language its fansubbers use,
+    and for plenty of anime that is not the English title TMDB gives: "3
+    Seconds Later, He Turned into a Beast" found nothing here while its
+    romaji name found thirty-three, and "Adam's Sweet Agony" one batch where
+    "Modaete yo, Adam-kun" found twenty-one. The next name is asked only when
+    the last found nothing for this episode, so a show that answers under
+    its English name costs exactly what it did.
+    """
+    for name in _names(meta):
+        found = _search_once(dict(meta, search_title=name))
+        if found:
+            return found
+    return []
+
+
+def _names(meta):
+    first = (meta.get("search_title") or meta.get("original_title")
+             or meta.get("title") or "")
+    names = [first] + list(meta.get("aliases") or [])[:2]
+    return [name for i, name in enumerate(names)
+            if name and name not in names[:i]]
+
+
+def _search_once(meta):
     query = _query_for(meta)
     if not query:
         return []

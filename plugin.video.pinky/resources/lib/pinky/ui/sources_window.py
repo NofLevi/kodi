@@ -472,10 +472,13 @@ def _why_hidden(entries, meta):
     if not report:
         return ""
     found = int(report.get("found") or 0)
-    hidden = found - len(entries)
+    reasons = report.get("reasons") or []
+    # Only what was actually rejected. "Found minus drawn" also counted the
+    # same file reported twice and releases not drawn yet, and printed
+    # "of 10, 9 hidden ()" on Hikaru no Go - nine hidden for no reason at all.
+    hidden = sum(int(count or 0) for _reason, count in reasons)
     if hidden <= 0:
         return ""
-    reasons = report.get("reasons") or []
     biggest = ", ".join("%d %s" % (count, _reason_label(reason))
                         for reason, count in reasons[:2])
     return kodi.localize(32470, found, hidden, biggest)
@@ -525,9 +528,19 @@ def _first_page(meta, short, full):
         return _plain(short, full)
     if not native and not llm and not english:
         return _plain(short, full)
-    kodi.log("sources picker: %d native rows, %d AI rows, %d English rows"
-             % (len(native), len(llm), len(english)))
-    return _in_one_order(native + llm + english)
+    # A release with no subtitle evidence *yet* is still a release. They used
+    # to vanish from this page: Hikaru no Go 3x02 kept six releases and drew
+    # one, because only one had a subtitle anybody had indexed - while the
+    # other five were a torrent shipping 76 English .srt files and MKVs with
+    # English inside, which nothing had looked at yet. They go after the
+    # three lists, as plain rows.
+    listed = set(_identity(row) for row in native + llm + english)
+    rest = [source for source in _plain(short, [])
+            if _identity(source) not in listed]
+    kodi.log("sources picker: %d native rows, %d AI rows, %d English rows, "
+             "%d with no subtitle known yet"
+             % (len(native), len(llm), len(english), len(rest)))
+    return _in_one_order(native + llm + english) + rest
 
 
 # Hebrew first where two rows fit equally well, because a subtitle somebody

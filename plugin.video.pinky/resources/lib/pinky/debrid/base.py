@@ -10,8 +10,15 @@ from .. import cache, kodi, settings
 # Video containers worth playing. Everything else in a torrent is noise.
 VIDEO_EXTENSIONS = (".mkv", ".mp4", ".avi", ".m4v", ".mov", ".ts", ".m2ts", ".wmv")
 
-# Files smaller than this are samples, trailers or extras, never the feature.
+# Files smaller than this are samples, trailers or extras - but only beside a
+# file that is much bigger. Chiikawa's episodes run two minutes and are 8 to
+# 25 MB, and a flat 80 MB floor threw away every file in a cached 368-file
+# pack: the release read "Cached", and playing it answered "no usable video
+# file". A sample is small *next to the feature*, so it is judged against the
+# largest video in the same torrent.
 MIN_VIDEO_BYTES = 80 * 1024 * 1024
+SAMPLE_FRACTION = 0.10
+BYTES_PER_MINUTE = 2 * 1024 * 1024
 
 CACHE_TTL = 3600        # how long a cached/not-cached answer is trusted
 
@@ -168,8 +175,6 @@ class DebridService(object):
                 size = int(entry.get("size") or entry.get("bytes") or 0)
             except (TypeError, ValueError, OverflowError):
                 continue
-            if size and size < MIN_VIDEO_BYTES:
-                continue
             if _is_extra(name):
                 continue
             candidates.append({
@@ -179,6 +184,18 @@ class DebridService(object):
                 "size": size,
             })
 
+        # A decoy is small for how long the thing runs: 5 MB is not a film,
+        # and 8 MB is a perfectly ordinary two-minute episode.
+        seconds = int(((meta or {}).get("item") or {}).get("duration") or 0)
+        floor = MIN_VIDEO_BYTES
+        if seconds:
+            floor = min(MIN_VIDEO_BYTES, seconds / 60.0 * BYTES_PER_MINUTE)
+        largest = max([c["size"] for c in candidates] or [0])
+        candidates = [c for c in candidates
+                      if not (c["size"] and (
+                          c["size"] < floor
+                          or (c["size"] < MIN_VIDEO_BYTES
+                              and c["size"] < largest * SAMPLE_FRACTION)))]
         if not candidates:
             return None
         hint_name = _basename(str(source.get("file_name") or "")).lower()

@@ -192,7 +192,8 @@ def current_season():
     return "fall", year
 
 
-def episode_address(title, episode, season_name="", season_episodes=0):
+def episode_address(title, episode, season_name="", season_episodes=0,
+                    already_absolute=False, air_date=""):
     """Where an anime episode lives on Kitsu: (kitsu_id, episode), or None.
 
     This exists because of how differently the two worlds count. TMDB folds a
@@ -223,7 +224,22 @@ def episode_address(title, episode, season_name="", season_episodes=0):
         return None
 
     total = sum(count for _id, count in parts)
+    # When TMDB already counts from the first episode of the series and Kitsu
+    # has the series as one long entry, the number needs no walking: it *is*
+    # the Kitsu episode. Naruto Shippuden 3x55 is kitsu 55 of 500, and the
+    # check below refused it for not adding up to TMDB's 18-episode season -
+    # right for a show split into cours, and "No playable sources" here.
+    if already_absolute and len(parts) == 1 and episode <= parts[0][1]:
+        return parts[0][0], episode
     if season_episodes and total != int(season_episodes):
+        # Counts that disagree are not always a shift. Monogatari's OFF &
+        # MONSTER season is 14 episodes on Kitsu and 15 on TMDB, whose 15th
+        # is a placeholder with no air date - and the two agree on the date
+        # of every episode that did air. A date names one episode; a count
+        # only implies one.
+        dated = _by_air_date(parts, air_date)
+        if dated:
+            return dated
         kodi.log("kitsu has %d episodes for %s %s where TMDB has %s, so the "
                  "numbering cannot be trusted" % (total, title, season_name,
                                                   season_episodes))
@@ -247,6 +263,165 @@ MIN_COUR_EPISODES = 4
 # A recap is published as "special" and a theme song as "music", and both sit
 # in the middle of the same search results. Only a broadcast run is a cour.
 COUR_SUBTYPES = ("TV", "ONA")
+
+
+def _title_words(text):
+    """The words of a title, folded the way release names are compared."""
+    import re
+    from ..utils import release
+    return set(word for word in re.sub(r"[!?'\":,;()-]+", " ",
+                                       release.normalise(text or "")).split()
+               if len(word) >= 3)
+
+
+def _by_air_date(parts, air_date):
+    """(kitsu_id, number) of the one episode that aired on this day, or None."""
+    if not air_date or len(air_date) < 10:
+        return None
+    matches = []
+    for kitsu_id, count in parts:
+        for offset in range(0, max(count, 1), 20):
+            payload = _get("/anime/%s/episodes" % kitsu_id,
+                           {"page[limit]": 20, "page[offset]": offset,
+                            "sort": "number"}, ttl=TTL_LIST)
+            for node in (payload or {}).get("data") or []:
+                attributes = node.get("attributes") or {}
+                if (attributes.get("airdate") or "")[:10] == air_date[:10]:
+                    matches.append((kitsu_id, int(attributes.get("number") or 0)))
+    matches = [match for match in matches if match[1] > 0]
+    return matches[0] if len(matches) == 1 else None
+
+
+def series_address(title, year, absolute):
+    """(kitsu_id, absolute) for a show TMDB already numbers from episode one.
+
+    Hunter x Hunter's TMDB "2x92" is episode 92 of the series, and so is One
+    Piece's "16x664". Torrentio, asked at TMDB's address, answers nothing -
+    IMDb numbers those seasons differently - while `kitsu:<id>:92` answers
+    with the cached copies. `episode_address` could not be used: it needs the
+    season's own name, and these seasons are called "Season 2".
+
+    A title search alone brings back every show of that name - Hunter x
+    Hunter 1999 and 2011 both - so the entry is chosen by the year the show
+    first aired, must run at least this many episodes (or still be airing,
+    which Kitsu gives as no count), and a tie gives no answer at all: a wrong
+    address plays a real episode of the wrong show.
+    """
+    absolute = int(absolute or 0)
+    year = int(year or 0)
+    if not title or absolute < 1 or not year:
+        return None
+    payload = _get("/anime", {
+        "filter[text]": title,
+        "page[limit]": 20,
+        "fields[anime]": "canonicalTitle,titles,abbreviatedTitles,"
+                         "episodeCount,startDate,subtype",
+    })
+    wanted = _title_words(title)
+    ranked = []
+    for node in (payload or {}).get("data") or []:
+        attributes = node.get("attributes") or {}
+        if attributes.get("subtype") not in COUR_SUBTYPES:
+            continue
+        # Kitsu's text search is loose: asked for Hunter x Hunter it also
+        # answers Toriko, which aired the same year for as long - and made the
+        # real one look ambiguous.
+        names = [attributes.get("canonicalTitle") or ""]
+        names += list((attributes.get("titles") or {}).values())
+        names += list(attributes.get("abbreviatedTitles") or [])
+        if not any(wanted <= _title_words(name) for name in names if name):
+            continue
+        start = attributes.get("startDate") or ""
+        if len(start) < 4 or not start[:4].isdigit():
+            continue
+        distance = abs(int(start[:4]) - year)
+        count = int(attributes.get("episodeCount") or 0)
+        if distance > 1 or (count and count < absolute):
+            continue
+        ranked.append((distance, node.get("id")))
+    if not ranked:
+        return None
+    ranked.sort()
+    if len(ranked) > 1 and ranked[0][0] == ranked[1][0]:
+        kodi.log("kitsu has more than one %s from %d, so no address is safe"
+                 % (title, year))
+        return None
+    return ranked[0][1], absolute
+
+
+def air_date_address(title, air_date, season_dates=()):
+    """(kitsu_id, number) of the episode of this show that aired that day.
+
+    For a TMDB season that folds several cours into one - Re:Zero is a single
+    85-episode "Season 1" - neither the season nor its number means anything
+    to an index, and "1x40" found nothing at all. The day it aired is the one
+    fact both sides agree on.
+
+    The cour is the one whose broadcast run covers that day, among entries
+    whose names carry the show's words. The number inside it is Kitsu's own
+    episode of that date where Kitsu has dates, and otherwise the count of
+    TMDB's episodes that aired in the cour's run up to this one - Kitsu has
+    no dates at all for Re:Zero's 2nd Season Part 2, and 1x40 is the second
+    TMDB episode to air after 6 January 2021. Counting real episodes rather
+    than weeks is what keeps a broadcast break from shifting it.
+    """
+    if not title or len(air_date or "") < 10:
+        return None
+    day = air_date[:10]
+    payload = _get("/anime", {
+        "filter[text]": title,
+        "page[limit]": 20,
+        "fields[anime]": "canonicalTitle,titles,abbreviatedTitles,"
+                         "episodeCount,startDate,endDate,subtype",
+    })
+    wanted = _title_words(title)
+    covering = []
+    for node in (payload or {}).get("data") or []:
+        attributes = node.get("attributes") or {}
+        if attributes.get("subtype") not in COUR_SUBTYPES:
+            continue
+        names = [attributes.get("canonicalTitle") or ""]
+        names += list((attributes.get("titles") or {}).values())
+        names += list(attributes.get("abbreviatedTitles") or [])
+        if not any(wanted <= _title_words(name) for name in names if name):
+            continue
+        first = _shift((attributes.get("startDate") or "")[:10], -2)
+        last = _shift((attributes.get("endDate") or "")[:10], 2)
+        count = int(attributes.get("episodeCount") or 0)
+        if not first or first > day or (last and last < day):
+            continue
+        if not count or count > AIR_DATE_MAX_EPISODES:
+            continue
+        covering.append((node.get("id"), count, first, last))
+    if len(covering) != 1:
+        return None
+    kitsu_id, count, first, last = covering[0]
+    dated = _by_air_date([(kitsu_id, count)], day)
+    if dated:
+        return dated
+    aired = sorted(set(date[:10] for date in season_dates or ()
+                       if date and first <= date[:10] <= day))
+    number = len(aired)
+    if day not in aired or not 1 <= number <= count:
+        return None
+    return kitsu_id, number
+
+
+def _shift(date, days):
+    """A YYYY-MM-DD date moved by some days, or "" for no date."""
+    if len(date or "") < 10:
+        return ""
+    import datetime
+    try:
+        moved = datetime.date(int(date[:4]), int(date[5:7]), int(date[8:10]))             + datetime.timedelta(days=days)
+    except ValueError:
+        return ""
+    return moved.isoformat()
+
+
+# Past this, an entry is a long run addressed by its number, not by walking
+# its episode list a page at a time.
+AIR_DATE_MAX_EPISODES = 60
 
 
 def _cours(title, season_name=""):

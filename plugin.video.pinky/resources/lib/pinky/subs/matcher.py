@@ -132,6 +132,10 @@ def rate(candidate, target, video_hash=""):
     `score_candidate` from writing its answer into a candidate that the next
     source would reuse. A function that returns its answer needs no copy.
     """
+    if candidate.get("asked_as"):
+        # Found as "Diamond no Ace - Act II", episode 34 - the season's own
+        # numbering, which is this episode. opensubtitles_rest._by_season_name.
+        target = dict(target, scene=candidate["asked_as"])
     if target.get("anime"):
         return _rate_anime(candidate, target, video_hash)
     return _rate_scene(candidate, target, video_hash)
@@ -198,11 +202,8 @@ def _rate_scene(candidate, target, video_hash=""):
         reasons.append("codec")
 
     if target.get("type") == "episode":
-        season = int(target.get("season") or 0)
-        episode = int(target.get("episode") or 0)
         if parsed["season"] or parsed["episode"] or parsed["absolute"]:
-            if release.matches_episode(parsed, season, episode,
-                                       target.get("absolute")):
+            if _right_episode(parsed, target):
                 total += WEIGHT_EPISODE
             else:
                 total += PENALTY_WRONG_EPISODE
@@ -300,7 +301,8 @@ def _rate_anime(candidate, target, video_hash=""):
         if found and int(found.group(1)) < 1900:
             bare = int(found.group(1))
             wanted = {int(target.get("episode") or 0),
-                      int(target.get("absolute") or 0)} - {0}
+                      int(target.get("absolute") or 0),
+                      int((target.get("scene") or [0, 0])[1])} - {0}
             if bare not in wanted:
                 return 0, "wrong episode"
 
@@ -385,9 +387,18 @@ def _contradicts_episode(parsed, target):
         return False
     if not (parsed["season"] or parsed["episode"] or parsed["absolute"]):
         return False
-    return not release.matches_episode(parsed, int(target.get("season") or 0),
-                                       int(target.get("episode") or 0),
-                                       target.get("absolute"))
+    return not _right_episode(parsed, target)
+
+
+def _right_episode(parsed, target):
+    """TMDB's episode, its absolute number, or the releases' own numbering."""
+    if release.matches_episode(parsed, int(target.get("season") or 0),
+                               int(target.get("episode") or 0),
+                               target.get("absolute")):
+        return True
+    scene = target.get("scene") or ()
+    return len(scene) == 2 and release.matches_episode(
+        parsed, int(scene[0]), int(scene[1]))
 
 
 def explain(candidate):
@@ -446,6 +457,7 @@ def target_from(meta, source=None):
         "season": meta.get("season"),
         "episode": meta.get("episode"),
         "absolute": meta.get("absolute"),
+        "scene": meta.get("scene"),
         "anime": bool((meta.get("extra") or {}).get("anime")),
     }
 
