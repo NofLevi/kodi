@@ -12,7 +12,7 @@ REASON = "another production of the same name"
 
 HIKARU = {"type": "episode", "year": 2001, "title": "היקארו נו גו",
           "original_title": "ヒカルの碁", "search_title": "Hikaru no Go",
-          "season": 1, "episode": 1}
+          "season": 1, "episode": 1, "extra": {"anime": True}}
 
 
 def make(title):
