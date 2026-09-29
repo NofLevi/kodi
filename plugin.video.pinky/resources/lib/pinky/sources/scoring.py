@@ -9,6 +9,7 @@ any uncached one, because on a weak device waiting for a download to start is
 the difference between watching something and giving up.
 """
 import math
+import time
 import re
 
 from .. import cache, kodi, settings
@@ -710,15 +711,25 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
         prefs.readable = prefs.readable | {prefs.original_language}
     remembered = remembered_group(meta)
     preferred = preferred_hashes(meta)
+    in_cinemas = not prefs.allow_cam and _only_in_cinemas(meta)
+
+    def why(source):
+        # One judgement for both passes below. The second used to repeat the
+        # checks by hand, and a check added to one and not the other is how
+        # a film still in cinemas got its cams back: they failed the
+        # resolution floor first, the floor stood aside, and the second pass
+        # had never heard of the cinema rule.
+        return (rejection_reason(source, prefs, runtime_hours)
+                or (in_cinemas and "cam release")
+                or _another_production(source, meta)
+                or _a_different_series(source, meta)
+                or _a_different_film(source, meta))
 
     kept = []
     rejected = {}
     already = set()
     for source in sources:
-        reason = (rejection_reason(source, prefs, runtime_hours)
-                  or _another_production(source, meta)
-                  or _a_different_series(source, meta)
-                  or _a_different_film(source, meta))
+        reason = why(source)
         if reason:
             rejected[reason] = rejected.get(reason, 0) + 1
             continue
@@ -745,11 +756,7 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
         for source in sources:
             if id(source) in already:
                 continue
-            reason = (rejection_reason(source, prefs, runtime_hours)
-                      or _another_production(source, meta)
-                      or _a_different_series(source, meta)
-                      or _a_different_film(source, meta))
-            if reason:
+            if why(source):
                 continue
             source["score"] = score(source, prefs, runtime_hours, remembered,
                                     preferred)
@@ -845,6 +852,33 @@ def _dubbed(source, prefs):
         return 0
     from .. import kids
     return 0 if kids.enabled() else 1
+
+
+CINEMA_WINDOW_DAYS = 180
+
+
+def _only_in_cinemas(meta):
+    """Is this a film that nobody can have a proper copy of yet?
+
+    Spider-Man: Brand New Day, two months into its cinema run with no digital
+    release anywhere, kept fifteen "sources" once the cam filter had taken
+    thirty-four: "D.WEBRip", "1TamilBlasters HQ HD", "little blur but good
+    rip", "kinda like webrip next best thing no ads". Every one a camera,
+    renamed. The filter reads what a name *says*, and these say nothing, so
+    the question is asked of the film instead: opened in a cinema within
+    CINEMA_WINDOW_DAYS, and no digital, disc or television release anywhere
+    in TMDB's release dates. Films only - a series airs, it has no cinema
+    run - and a film TMDB knows no cinema date for is left alone.
+    """
+    if (meta or {}).get("type") != "movie":
+        return False
+    extra = ((meta.get("item") or {}).get("extra") or {})
+    cinema, home = extra.get("cinema") or "", extra.get("home") or ""
+    today = time.strftime("%Y-%m-%d")
+    if not cinema or (home and home <= today):
+        return False
+    started = time.mktime(time.strptime(cinema, "%Y-%m-%d"))
+    return (time.time() - started) / 86400.0 <= CINEMA_WINDOW_DAYS
 
 
 def rank_all(sources, meta=None, runtime_hours=2.0):

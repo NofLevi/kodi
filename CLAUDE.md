@@ -291,6 +291,22 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   on Hikaru no Go reading LLM while English subtitles fitting at 100% sat in
   a list that had been thrown away.
 
+* **A film with no home release yet has nothing but cams, whatever they are
+  called.** Spider-Man: Brand New Day, two months into its cinema run, kept
+  fifteen releases after the cam filter took thirty-four: "D.WEBRip",
+  "1TamilBlasters HQ HD", "little blur but good rip", "kinda like webrip
+  next best thing no ads". The filter reads what a name *says*; these say
+  nothing. `scoring._only_in_cinemas` asks the film instead - a cinema date
+  within 180 days and no digital, disc or television release anywhere in
+  TMDB's release dates, which `tmdb.movie` already fetched and now keeps as
+  `extra["cinema"]` and `extra["home"]` - and then every copy is a cam, under
+  the same `allow_cam` switch. Measured: Brand New Day 15 -> 0, The Odyssey
+  19 -> 0, Hope 0, and Toy Story 5, Supergirl, Project Hail Mary and six
+  more already out at home untouched. The Odyssey found a second bug on the
+  way: its copies failed the resolution floor first, the floor stood aside
+  with too few left, and the second pass repeated the checks by hand without
+  the cinema rule. Both passes now share one `why`.
+
 * **A film still in cinemas is uploaded under words the cam filter had never
   heard.** The table knew `cam`, `ts`, `tc` and `telecine`; the names in the
   wild are `PREHD`, `HQ Pre`, `HDTC` and `LiNE`, all of which parsed as
@@ -1328,7 +1344,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2275 tests, all running against Kodi stubs, so no Kodi install is needed:
+2284 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1350,11 +1366,11 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
 | `test_anime_numbering.py` | 81 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. And two found by testing a Japanese source: `S01E66` being the 66th episode (Hikaru no Go's 3x06), and a stated season having to agree - "Oshi no Ko S3 - 06" is not 1x06. Plus `tmdb.romaji_titles` reading only the JP-tagged "romaji" entries out of TMDB's `alternative_titles`, and `meta["aliases"]` actually carrying one out of `build_meta` into a real rejection check. |
 | `test_release_parser.py` | 85 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. Plus `normalise` folding a macron and a doubled long vowel to the same plain letter, live-measured against 1,605 real anime releases, and leaving Hebrew - which has no such decomposition - untouched. |
-| `test_sources.py` | 115 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. Plus every live-measured gap in `_a_different_series`: a macron, a romaji alias, punctuation gluing two words into one, a four-digit padded episode number, a bare "EP01" with no season, and SubsPlease's glued "01A"/"01B" split-episode suffix - each pinned to the real release that exposed it. And the series engine on its own: a Korean drama on a Hebrew interface keeping its releases, a title in another language being the same show, every episode-numbering form, and "The Game", Sealab and Little House on the Prairie still being caught. |
+| `test_sources.py` | 122 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. Plus every live-measured gap in `_a_different_series`: a macron, a romaji alias, punctuation gluing two words into one, a four-digit padded episode number, a bare "EP01" with no season, and SubsPlease's glued "01A"/"01B" split-episode suffix - each pinned to the real release that exposed it. And the series engine on its own: a Korean drama on a Hebrew interface keeping its releases, a title in another language being the same show, every episode-numbering form, and "The Game", Sealab and Little House on the Prairie still being caught. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 13 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 34 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
-| `test_opensubtitles_rest.py` | 52 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
+| `test_opensubtitles_rest.py` | 54 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
 | `test_yify.py` | 11 | The one anonymous film subtitle source with no account and no key: a real captured row parsed into a candidate, the site's own inconsistent casing on the language name, films-only enforced without a request (a series IMDb id answers 404 live), and the slug-to-download-URL transform that needs no second page fetch. |
 | `test_subtitle_matching.py` | 55 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. And the anime scorer as a superset: the fansub group with or without brackets, a track extracted from the same MKV, a bare episode number and a wrong one, the Blu-ray cut, and films and series never reaching it. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |

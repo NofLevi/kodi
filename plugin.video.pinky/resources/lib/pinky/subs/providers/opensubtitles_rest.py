@@ -63,6 +63,14 @@ SHARED_WORDS = 0.6     # of a row's show name, see _names_the_show
 # and has to read each row's own.
 TWO_LETTER = dict((three, two) for two, three in THREE_LETTER.items())
 
+# A second code the index files one language under. Asked for "spa", it
+# leaves out Latin-American Spanish, which it keeps as "spl": Hold the Fort
+# (2025) had exactly one subtitle a translation could start from, and it was
+# "spl". Asked only when the first code found nothing, so it costs a request
+# in the case that has none and never otherwise.
+ALSO = {"es": "spl", "pt": "pob"}
+TWO_LETTER.update((three, two) for two, three in ALSO.items())
+
 # A clock needs two independent timelines, not a library. Two rows per
 # language is enough to find an independent pair and keeps a popular title -
 # Naruto answers a language-less query with a hundred rows in twenty-three
@@ -147,10 +155,17 @@ def search(meta, target, languages, video_hash="", video_size=0):
             results.extend(_search_one(meta, language, code,
                                        video_hash=video_hash,
                                        video_size=video_size))
+        found = []
         for numbering in numberings:
             asked = meta if numbering is None else dict(
                 meta, season=numbering[0], episode=numbering[1])
-            results.extend(_search_one(asked, language, code))
+            found.extend(_search_one(asked, language, code))
+        if not found and language in ALSO:
+            for numbering in numberings:
+                asked = meta if numbering is None else dict(
+                    meta, season=numbering[0], episode=numbering[1])
+                found.extend(_search_one(asked, language, ALSO[language]))
+        results.extend(found)
     wanted = set(languages)
     results.extend(row for row in _by_season_name(meta)
                    if row.get("language") in wanted)

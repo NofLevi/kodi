@@ -794,3 +794,33 @@ def test_a_name_is_sent_the_way_the_index_takes_it(monkeypatch, provider, name, 
     provider.search({"type": "episode", "title": name, "season": 1,
                      "episode": 1, "ids": {}}, None, ["en"])
     assert query in seen["url"] + "/", seen["url"]
+
+
+def test_latin_american_spanish_is_asked_for_when_spanish_finds_nothing(monkeypatch, provider):
+    """Hold the Fort (2025): "spa" found nothing, and its one subtitle a
+    translation could start from was filed as "spl"."""
+    asked = []
+
+    def get_json(url, default=None, **kwargs):
+        asked.append(url)
+        if "sublanguageid-spl" in url:
+            return [{"SubFileName": "Hold.the.Fort.2025.srt", "SubLanguageID": "spl",
+                     "SubDownloadLink": "https://x/s.gz"}]
+        return []
+
+    monkeypatch.setattr(provider.http, "get_json", get_json)
+    found = provider.search({"type": "movie", "title": "Hold the Fort",
+                             "ids": {"imdb": "tt29926644"}}, None, ["es"])
+    assert [row["language"] for row in found] == ["es"]
+    assert any("sublanguageid-spa" in url for url in asked)
+
+
+def test_latin_american_spanish_is_not_asked_when_spanish_answers(monkeypatch, provider):
+    seen = _asked(monkeypatch, provider)
+    asked = []
+    original = provider.http.get_json
+    monkeypatch.setattr(provider.http, "get_json",
+                        lambda url, **kw: asked.append(url) or original(url, **kw))
+    provider.search({"type": "movie", "title": "Film", "ids": {"imdb": "tt1"}},
+                    None, ["es"])
+    assert not any("sublanguageid-spl" in url for url in asked)

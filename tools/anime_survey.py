@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Anime, measured the way a viewer meets it: random episodes, real search.
+"""Anime, films and series, measured the way a viewer meets them: real search.
+
+    python tools/anime_survey.py --kind film --sample 300     the same for films
+    python tools/anime_survey.py --kind series --sample 300   and for series
 
     python tools/anime_survey.py --sample 300     choose the episodes (saved)
     python tools/anime_survey.py --run            search each one, resumable
@@ -40,6 +43,16 @@ sys.path.insert(0, os.path.join(ROOT, "tests/stubs"))
 
 LOG = []
 INSIDE = False
+KIND = "anime"
+
+
+def _use(kind):
+    """Point the sample and the results at one kind's own folder."""
+    global KIND, WORK, SAMPLE, RESULTS
+    KIND = kind
+    WORK = os.path.join(ROOT, ".survey", kind)
+    SAMPLE = os.path.join(WORK, "sample.json")
+    RESULTS = os.path.join(WORK, "results.jsonl")
 
 
 def boot():
@@ -82,8 +95,59 @@ def _aired(date):
     return bool(date) and date <= time.strftime("%Y-%m-%d")
 
 
+def _weeks_ago(days):
+    return time.strftime("%Y-%m-%d", time.localtime(time.time() - days * 86400))
+
+
+# Films: one each. The popular and new ones stop 45 days back, because a film
+# still in cinemas exists only as a camera recording, which this refuses by
+# design - that would measure a setting, not the search.
+FILM_BUCKETS = {
+    "popular": [({"sort_by": "popularity.desc",
+                  "primary_release_date.lte": _weeks_ago(45)}, [1, 2, 3, 4])],
+    "old": [({"sort_by": "vote_count.desc",
+              "primary_release_date.lte": "2006-12-31"}, [1, 2, 3, 4, 5, 6])],
+    "new": [({"sort_by": "popularity.desc", "primary_release_date.gte": "2022-01-01",
+              "primary_release_date.lte": _weeks_ago(45)}, [5, 6, 7, 8, 9, 10])],
+    "obscure": [({"sort_by": "popularity.desc", "vote_count.gte": "20"},
+                 [40, 50, 60, 70])],
+}
+
+
+def build_film_sample(count, seed=20260929):
+    from pinky.meta import tmdb
+    rng = random.Random(seed)
+    wanted = max(1, count // len(FILM_BUCKETS))
+    sample, seen = [], set()
+    for bucket, queries in FILM_BUCKETS.items():
+        rows = []
+        for filters, pages in queries:
+            for page in pages:
+                rows += tmdb.discover("movie", page=page, **filters)
+        rng.shuffle(rows)
+        taken = 0
+        for row in rows:
+            tmdb_id = str((row.get("ids") or {}).get("tmdb") or "")
+            if not tmdb_id or tmdb_id in seen or taken >= wanted:
+                continue
+            seen.add(tmdb_id)
+            taken += 1
+            sample.append({"id": tmdb_id, "bucket": bucket, "tmdb": tmdb_id,
+                           "title": row.get("title", ""), "year": row.get("year", 0),
+                           "season": 0, "episode": 0})
+    os.makedirs(WORK, exist_ok=True)
+    with io.open(SAMPLE, "w", encoding="utf-8") as handle:
+        json.dump(sample, handle, ensure_ascii=False, indent=0)
+    print("%d films -> %s" % (len(sample), SAMPLE))
+
+
 def build_sample(count, seed=20260928):
     from pinky.meta import tmdb
+    if KIND == "film":
+        return build_film_sample(count)
+    # Series are the anime sample's shape with the anime taken out.
+    scope = ({"with_genres": "16", "with_original_language": "ja"}
+             if KIND == "anime" else {"without_genres": "16"})
     rng = random.Random(seed)
     per_show = EPISODES_PER_SHOW
     shows_wanted = max(1, count // per_show // len(BUCKETS))
@@ -92,8 +156,7 @@ def build_sample(count, seed=20260928):
         rows = []
         for filters, pages in queries:
             for page in pages:
-                rows += tmdb.discover("tv", page=page, with_genres="16",
-                                      with_original_language="ja", **filters)
+                rows += tmdb.discover("tv", page=page, **dict(scope, **filters))
         rng.shuffle(rows)
         taken = 0
         for row in rows:
@@ -141,9 +204,12 @@ def examine(entry):
     record = dict(entry)
     started = time.time()
     try:
-        meta = play.build_meta({"type": "episode", "tmdb": entry["tmdb"],
-                                "season": entry["season"],
-                                "episode": entry["episode"]})
+        if entry.get("season"):
+            meta = play.build_meta({"type": "episode", "tmdb": entry["tmdb"],
+                                    "season": entry["season"],
+                                    "episode": entry["episode"]})
+        else:
+            meta = play.build_meta({"type": "movie", "tmdb": entry["tmdb"]})
         record["absolute"] = meta.get("absolute")
         record["imdb"] = (meta.get("ids") or {}).get("imdb", "")
         record["anime_flag"] = bool((meta.get("extra") or {}).get("anime"))
@@ -327,10 +393,12 @@ def main():
     parser.add_argument("--report", action="store_true")
     parser.add_argument("--inside", action="store_true",
                         help="also read the tracks inside two cached files")
+    parser.add_argument("--kind", default="anime", choices=("anime", "film", "series"))
     parser.add_argument("--results", default="",
                         help="write to this results file instead")
     args = parser.parse_args()
     global INSIDE, RESULTS
+    _use(args.kind)
     INSIDE = args.inside
     if args.results:
         RESULTS = os.path.join(WORK, args.results)

@@ -1253,3 +1253,54 @@ def test_a_release_naming_the_show_this_one_continues(title, release_name, rejec
             "extra": {"anime": True}}
     why = scoring._a_different_series({"title": release_name}, meta)
     assert bool(why) is rejected, why
+
+
+def _film_in_cinemas(cinema, home=""):
+    return {"type": "movie", "title": "Spider-Man: Brand New Day", "year": 2026,
+            "item": {"extra": {"cinema": cinema, "home": home}}}
+
+
+def _days_from_today(days):
+    import time
+    return time.strftime("%Y-%m-%d", time.localtime(time.time() + days * 86400))
+
+
+def test_a_film_only_in_cinemas_has_nothing_but_cams(monkeypatch):
+    """Spider-Man: Brand New Day kept fifteen after the cam filter - "D.WEBRip",
+    "HQ HD", "little blur but good rip" - two months into its cinema run with
+    no digital release anywhere. Every one a camera, renamed."""
+    from pinky.sources import scoring
+    meta = _film_in_cinemas(_days_from_today(-60), _days_from_today(10))
+    releases = [{"title": "Spider-Man.Brand.New.Day.2026.D.WEBRip.1080p", "quality": "1080p",
+                 "cached": True, "seeders": 50},
+                {"title": "Spider man brand new day little blur but good rip",
+                 "quality": "unknown", "cached": True, "seeders": 50}]
+    kept, rejected = scoring.rank([dict(r) for r in releases], meta, 2.3, limit=0)
+    assert kept == []
+    assert rejected.get("cam release") == 2
+
+
+def test_the_resolution_floor_standing_aside_does_not_bring_the_cams_back():
+    """They failed the floor first; the floor stood aside; the second pass had
+    never heard of the cinema rule, and The Odyssey kept nineteen."""
+    from pinky.sources import scoring
+    meta = _film_in_cinemas(_days_from_today(-70), _days_from_today(50))
+    releases = [{"title": "The.Odyssey.2026.480p.WEBRip-X", "quality": "480p",
+                 "cached": True, "seeders": 50}] * 3
+    kept, _rejected = scoring.rank([dict(r) for r in releases], meta, 2.8, limit=0)
+    assert kept == []
+
+
+@pytest.mark.parametrize("cinema, home, expected", [
+    (-60, 10, True),       # in cinemas, home release still to come
+    (-60, -5, False),      # out at home already
+    (-60, None, True),     # no home date known at all, recent
+    (-400, None, False),   # long past a cinema run: TMDB just lacks the date
+    (None, None, False),   # no cinema date: nothing to go on
+])
+def test_what_counts_as_only_in_cinemas(cinema, home, expected):
+    from pinky.sources import scoring
+    meta = _film_in_cinemas(_days_from_today(cinema) if cinema is not None else "",
+                            _days_from_today(home) if home is not None else "")
+    assert scoring._only_in_cinemas(meta) is expected
+    assert scoring._only_in_cinemas(dict(meta, type="episode")) is False

@@ -208,6 +208,7 @@ def movie(tmdb_id):
     if item:
         _attach_credits(item, payload)
         item["mpaa"] = _movie_certification(payload)
+        item["extra"]["cinema"], item["extra"]["home"] = _release_windows(payload)
         item["extra"]["trailer"] = _trailer(payload)
         item["extra"]["anime"] = is_anime(payload)
     return item
@@ -537,6 +538,26 @@ def _trailer(payload):
         if video.get("site") == "YouTube" and video.get("type") == "Trailer":
             return "plugin://plugin.video.youtube/play/?video_id=%s" % video.get("key")
     return ""
+
+
+def _release_windows(payload):
+    """(first cinema date, first home date), anywhere in the world, or "".
+
+    Home is TMDB's digital, physical or television release. Until there is
+    one, every copy of a film is a camera in a cinema - see
+    `scoring._only_in_cinemas`.
+    """
+    cinema, home = "", ""
+    for entry in (payload.get("release_dates") or {}).get("results") or []:
+        for release in entry.get("release_dates") or []:
+            day = str(release.get("release_date") or "")[:10]
+            if not day:
+                continue
+            if release.get("type") in (2, 3) and (not cinema or day < cinema):
+                cinema = day
+            elif release.get("type") in (4, 5, 6) and (not home or day < home):
+                home = day
+    return cinema, home
 
 
 def _movie_certification(payload):
