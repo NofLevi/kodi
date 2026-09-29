@@ -208,7 +208,8 @@ def movie(tmdb_id):
     if item:
         _attach_credits(item, payload)
         item["mpaa"] = _movie_certification(payload)
-        item["extra"]["cinema"], item["extra"]["home"] = _release_windows(payload)
+        (item["extra"]["cinema"], item["extra"]["home"],
+         item["extra"]["first_shown"]) = _release_windows(payload)
         item["extra"]["trailer"] = _trailer(payload)
         item["extra"]["anime"] = is_anime(payload)
     return item
@@ -541,23 +542,27 @@ def _trailer(payload):
 
 
 def _release_windows(payload):
-    """(first cinema date, first home date), anywhere in the world, or "".
+    """(first cinema date, first home date, first showing of any kind).
 
-    Home is TMDB's digital, physical or television release. Until there is
-    one, every copy of a film is a camera in a cinema - see
-    `scoring._only_in_cinemas`.
+    Anywhere in the world, "" where TMDB has none. Home is its digital,
+    physical or television release: until there is one, every copy of a film
+    is a camera in a cinema - see `scoring._only_in_cinemas`. The first
+    showing includes a festival premiere, and nothing can be released before
+    it - see `scoring._before_it_existed`.
     """
-    cinema, home = "", ""
+    cinema, home, first = "", "", ""
     for entry in (payload.get("release_dates") or {}).get("results") or []:
         for release in entry.get("release_dates") or []:
             day = str(release.get("release_date") or "")[:10]
             if not day:
                 continue
+            if not first or day < first:
+                first = day
             if release.get("type") in (2, 3) and (not cinema or day < cinema):
                 cinema = day
             elif release.get("type") in (4, 5, 6) and (not home or day < home):
                 home = day
-    return cinema, home
+    return cinema, home, first
 
 
 def _movie_certification(payload):

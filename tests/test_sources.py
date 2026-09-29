@@ -1304,3 +1304,23 @@ def test_what_counts_as_only_in_cinemas(cinema, home, expected):
                             _days_from_today(home) if home is not None else "")
     assert scoring._only_in_cinemas(meta) is expected
     assert scoring._only_in_cinemas(dict(meta, type="episode")) is False
+
+
+@pytest.mark.parametrize("release_name, first_shown, rejected", [
+    # The Chinese Anaconda (2024) under the 2025 film's address.
+    ("Anaconda.2024.1080p.WEBRip.x264.AAC5.1-WORLD.mp4", "2025-12-13", True),
+    ("Anaconda 2025 1080p AMZN WEB-DL DDP5 1 H 264-FLUX.mkv", "2025-12-13", False),
+    # Late is fine: premiered at a festival in 2025, opened in 2026.
+    ("Obsession.2026.1080p.AMZN.WEB-DL.DDP5.1.H.264-KyoGo.mkv", "2025-09-06", False),
+    # No year after the title, or no first showing known: nothing to go on.
+    ("Anaconda 1080p WEB-DL.mkv", "2025-12-13", False),
+    ("Anaconda.2024.1080p.WEBRip.mp4", "", False),
+])
+def test_a_film_release_dated_before_the_film_was_first_shown(release_name, first_shown,
+                                                               rejected):
+    from pinky.sources import scoring
+    meta = {"type": "movie", "title": release_name.split(".")[0].split(" ")[0],
+            "item": {"extra": {"first_shown": first_shown}}}
+    assert bool(scoring._before_it_existed({"title": release_name}, meta)) is rejected
+    assert scoring._before_it_existed({"title": release_name},
+                                      dict(meta, type="episode")) == ""

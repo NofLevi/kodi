@@ -215,6 +215,38 @@ _MONTH_DAY = re.compile(r"(?:0[1-9]|1[0-2]) (?:0[1-9]|[12]\d|3[01])\b")
 _ANY_YEAR = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
 
+def _before_it_existed(source, meta):
+    """A film release dated before the film was first shown is another film.
+
+    Anaconda (2025) kept four copies of "Anaconda.2024" - the Chinese film
+    of that name on Netflix, under the 2025 film's own address. A year
+    directly after the title may run *late* - Obsession premiered at a
+    festival in 2025 and opened in 2026, and its releases say both - but it
+    cannot run early: nothing is released before its first showing anywhere,
+    which TMDB's release dates give, premieres included. So only an earlier
+    year is refused, and only by a whole calendar year.
+    """
+    if (meta or {}).get("type") != "movie":
+        return ""
+    first = str((((meta.get("item") or {}).get("extra") or {}).get("first_shown")) or "")
+    if len(first) < 4 or not first[:4].isdigit():
+        return ""
+    name = release.normalise(
+        _LEADING_GROUP.sub("", release.strip_site_tags(source.get("title") or "")))
+    titles = {release.normalise(meta.get(key) or "")
+              for key in ("title", "original_title", "search_title")}
+    for title in sorted((t for t in titles if t), key=len, reverse=True):
+        if not name.startswith(title + " "):
+            continue
+        found = _YEAR_FIRST.match(name[len(title) + 1:])
+        if not found or _MONTH_DAY.match(found.group(2)):
+            return ""
+        if int(found.group(1)) < int(first[:4]):
+            return "another production of the same name"
+        return ""
+    return ""
+
+
 def _a_different_film(source, meta):
     """Is this film release something else entirely?
 
@@ -723,7 +755,8 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
                 or (in_cinemas and "cam release")
                 or _another_production(source, meta)
                 or _a_different_series(source, meta)
-                or _a_different_film(source, meta))
+                or _a_different_film(source, meta)
+                or _before_it_existed(source, meta))
 
     kept = []
     rejected = {}
