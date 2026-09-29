@@ -337,7 +337,7 @@ capitolo capitulo cap episodio folge
 # `release.py`'s own resolution and codec patterns are tuned against exactly
 # what `normalise()` currently leaves in place, and this function is the only
 # caller that needs punctuation gone rather than kept.
-_STRAY_PUNCT = re.compile(r"[!?'\":,;-]+")
+_STRAY_PUNCT = re.compile(r"[!?'\":,;&-]+")  # & too: "Drake&Josh" is uploaded glued
 
 
 def _words(text):

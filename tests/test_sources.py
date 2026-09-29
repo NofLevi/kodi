@@ -1340,3 +1340,16 @@ def test_a_series_is_known_by_its_initials(release_name, rejected):
     meta = {"type": "episode", "title": "Law & Order: Special Victims Unit",
             "extra": {}}
     assert bool(scoring._a_different_series({"title": release_name}, meta)) is rejected
+
+
+@pytest.mark.parametrize("release_name, rejected", [
+    ("Drake&Josh.s03e09.Foam.Finger.SATRip.Rus.avi", False),
+    ("DRAKE and JOSH - S03 E09 - The Foam Finger (480p - AMZN Web-DL).mp4", False),
+    ("Drake.Bell.Show.S01E01.mkv", True),
+])
+def test_an_ampersand_may_be_spelled_out_or_glued(release_name, rejected):
+    """Drake & Josh kept three of nine: "and" and "Drake&Josh" both read as
+    a second show's name."""
+    from pinky.sources import scoring
+    meta = {"type": "episode", "title": "Drake & Josh", "extra": {}}
+    assert bool(scoring._a_different_series({"title": release_name}, meta)) is rejected
