@@ -438,3 +438,31 @@ def test_nothing_is_called_hidden_that_was_not_rejected(monkeypatch):
     monkeypatch.setattr(aggregator, "filter_report",
                         lambda meta: {"found": 10, "reasons": [("cam release", 3)]})
     assert "3" in sources_window._why_hidden([source(EXACT, 1)], META)
+
+
+def test_a_wider_language_is_asked_only_when_the_usual_ones_find_nothing(monkeypatch):
+    """Sabrina, the Teenage Witch season 6 has German, Portuguese, Swedish and
+    Serbian subtitles and none in the six usual languages - the picker had
+    no way to Hebrew at all."""
+    from pinky import cache
+    asked = []
+
+    def search(meta, languages):
+        asked.append(list(languages))
+        return [c for c in subs("de", EXACT) if c["language"] in languages]
+
+    monkeypatch.setattr(auto, "translation_source_languages",
+                        lambda meta, already=(): ["ar", "en"])
+    monkeypatch.setattr(auto, "search_candidates", search)
+    cache.delete_prefix("suboutlook")
+    found = outlook.translation_candidates(META)
+    assert [c["language"] for c in found] == ["de"]
+    assert asked[0] == ["ar", "en"] and "de" in asked[1]
+
+    del asked[:]
+    cache.delete_prefix("suboutlook")
+    monkeypatch.setattr(auto, "search_candidates",
+                        lambda meta, languages: asked.append(list(languages))
+                        or subs("en", EXACT))
+    outlook.translation_candidates(META)
+    assert asked == [["ar", "en"]], "no wider round when the usual ones answer"

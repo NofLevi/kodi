@@ -68,6 +68,11 @@ WIDE_LANGUAGES = ("en", "es", "ar", "pt", "fr", "ru", "de", "it", "tr", "pl",
 # search that takes longer on a device waiting to draw a picker.
 AI_SOURCE_LANGUAGES = ("ar", "en", "pl", "es", "ru", "fr")
 FOREIGN_SOURCE_LANGUAGES = ("zh", "fr", "ko", "es", "it", "tr", "ja")
+# Asked only when every language above found nothing. Sabrina, the Teenage
+# Witch season 6 has subtitles in German, Portuguese, Swedish and Serbian and
+# in none of the six, so the picker offered no way to Hebrew at all where a
+# translation from German was there to be made.
+WIDER_SOURCE_LANGUAGES = ("de", "pt", "it", "nl", "tr", "cs", "hu", "ro")
 
 # TMDB's codes that are not ISO 639-1. "cn" is its code for Cantonese, which
 # subtitle sites and audio tracks file under Chinese.

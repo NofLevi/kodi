@@ -160,6 +160,11 @@ def translation_candidates(meta):
     try:
         found = [c for c in auto.search_candidates(meta, languages)
                  if c.get("language") in languages]
+        if not found:
+            wider = [code for code in auto.WIDER_SOURCE_LANGUAGES
+                     if code not in languages]
+            found = [c for c in auto.search_candidates(meta, wider)
+                     if c.get("language") in wider]
     except Exception:
         kodi.log_exception("could not look up subtitles to translate from")
         return []
@@ -236,6 +241,10 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
     anime = bool((meta.get("extra") or {}).get("anime"))
     translatable = set() if hebrew_title else set(
         auto.translation_source_languages(meta, [hebrew]) or [])
+    if translatable:
+        # Only ever found when the usual ones found nothing - see
+        # `translation_candidates`.
+        translatable |= set(auto.WIDER_SOURCE_LANGUAGES)
     native, llm, english = [], [], []
     for index, source in enumerate(sources):
         name = source.get("title") or ""

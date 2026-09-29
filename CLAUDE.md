@@ -1358,7 +1358,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2302 tests, all running against Kodi stubs, so no Kodi install is needed:
+2303 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -2256,6 +2256,12 @@ left out on the same numbers - same request, least found, and a list that
 grows without a reason is a search a device waits longer for. The one thing
 that does not work and would make this free is asking for several at once:
 `sublanguageid-eng,spa` answers **400**.
+
+When all of them find nothing, a second round asks a wider set - German,
+Portuguese, Italian, Dutch, Turkish, Czech, Hungarian, Romanian
+(`auto.WIDER_SOURCE_LANGUAGES`) - and only then: Sabrina, the Teenage Witch
+season 6 has German, Portuguese, Swedish and Serbian and nothing else, and
+the picker had offered no way to Hebrew at all.
 
 Widening it exposed a duplicate: a French film was asked for French twice,
 once from the base list and once as its own language, which is two identical
