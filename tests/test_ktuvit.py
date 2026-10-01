@@ -207,6 +207,28 @@ def test_the_session_is_cached(site):
     assert len([c for c in site["calls"] if c == ktuvit.LOGIN]) == 1
 
 
+def test_a_new_process_does_not_sign_in_again(site):
+    """Kodi runs every press as a new Python, and the session was this
+    process's memory alone: the picker signed in on every search, and Ktuvit
+    answered at the ten second deadline or after it."""
+    from pinky import cache
+    ktuvit.search(meta(), None, ["he"])
+    cache._volatile.clear()                  # what a new invocation starts with
+    ktuvit.search(meta(), None, ["he"])
+    assert len([c for c in site["calls"] if c == ktuvit.LOGIN]) == 1
+    assert len([c for c in site["calls"] if c == ktuvit.BASE + "/"]) == 1
+
+
+def test_a_session_kept_by_kodi_expires(site, monkeypatch):
+    from pinky import cache
+    ktuvit.session_cookie()
+    cache._volatile.clear()
+    real = ktuvit.time.time
+    monkeypatch.setattr(ktuvit.time, "time", lambda: real() + ktuvit.SESSION_TTL + 60)
+    ktuvit.session_cookie()
+    assert len([c for c in site["calls"] if c == ktuvit.LOGIN]) == 2
+
+
 def test_one_search_costs_one_login(site):
     ktuvit.search(meta(), None, ["he"])
     ktuvit.search(meta(), None, ["he"])

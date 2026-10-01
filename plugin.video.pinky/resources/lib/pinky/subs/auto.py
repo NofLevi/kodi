@@ -356,15 +356,18 @@ def _providers():
     English and Arabic the translation route asks for next, named to match a
     real release rather than an uploader's own guess at one. Then the modern
     OpenSubtitles, which can match on the file hash but needs a key whose free
-    tier is five downloads a day. Ktuvit is last of the Hebrew sources despite
-    having the best catalogue, because it is the only one that needs a
-    signed-in session and so the only one that can be slow for a reason the
-    user cannot see.
+    tier is five downloads a day.
+
+    Ktuvit goes second, beside Wizdom. It used to go last, for needing a
+    session - and three workers were then busy with OpenSubtitles, asked once
+    per language, so the site with the best Hebrew catalogue started late
+    and met the deadline. Its session is kept between searches now, so it is
+    as quick as the rest, and Hebrew is what the first list is for.
     """
     modules = _modules()
     enabled = settings.enabled_subtitle_providers()
-    order = ["sidecar", "wizdom", "bsplayer", "opensubtitles_rest", "yify",
-             "opensubtitles", "ktuvit", "subsource"]
+    order = ["sidecar", "wizdom", "ktuvit", "bsplayer", "opensubtitles_rest",
+             "yify", "opensubtitles", "subsource"]
     return [(name, modules[name]) for name in order
             if name in enabled and name in modules]
 
@@ -374,6 +377,10 @@ def search_candidates(meta, languages, video_hash="", split_languages=False):
 
     `video_hash` may be a string or a callable that will produce one, which is
     what lets the hash be computed alongside this search rather than before it.
+
+    When the deadline cuts a provider off, what comes back is what the others
+    found and not what there is. `cut_short` says so afterwards, and a caller
+    that remembers answers must not remember that one.
     """
     providers = _providers()
     if not providers:
@@ -418,7 +425,11 @@ def search_candidates(meta, languages, video_hash="", split_languages=False):
                          for language in languages)
         else:
             tasks.append((name, make(name, module)))
-    found = http.run_parallel(tasks, workers=3, deadline=10.0)
+    unfinished = []
+    found = http.run_parallel(tasks, workers=3, deadline=10.0, dropped=unfinished)
+    _CUT_SHORT.pop(memo_key[:5], None)
+    if unfinished:
+        _CUT_SHORT[memo_key[:5]] = time.time()
 
     candidates = []
     seen = set()
@@ -442,7 +453,8 @@ def search_candidates(meta, languages, video_hash="", split_languages=False):
     # Wizdom answers a show with every show whose name it contains.
     from . import othershow
     candidates = othershow.drop(candidates, meta)
-    _remember_search(memo_key, candidates)
+    if not unfinished:
+        _remember_search(memo_key, candidates)
     return candidates
 
 
@@ -459,6 +471,13 @@ def search_candidates(meta, languages, video_hash="", split_languages=False):
 _SEARCHES = {}
 _SEARCH_TTL = 60.0
 _SEARCH_MAX = 8
+_CUT_SHORT = {}
+
+
+def cut_short(meta, languages):
+    """Did the last search for this lose a provider to the deadline?"""
+    when = _CUT_SHORT.get(_search_memo_key(meta, languages, "", False)[:5])
+    return bool(when) and time.time() - when < _SEARCH_TTL
 
 
 def _search_memo_key(meta, languages, video_hash, split_languages):

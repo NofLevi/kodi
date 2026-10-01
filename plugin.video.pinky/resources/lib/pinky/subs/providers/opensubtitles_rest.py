@@ -31,6 +31,7 @@ begins with one, and Hebrew subtitles here arrive as cp1255 as often as UTF-8.
 `srt.decode` already handles both, because both have been shipped bugs.
 """
 import re
+import unicodedata
 import urllib.parse
 
 from ... import http, kodi
@@ -54,6 +55,9 @@ THREE_LETTER = {
 }
 
 MAX_PER_LANGUAGE = 12
+# What one request returns at most. An answer this long may have been cut, so
+# a language missing from it is not a language that has nothing.
+ROW_CAP = 100
 MAX_PER_SEASON_NAME = 40        # one query in every language, see _by_season_name
 SEASON_NAME_TTL = 24 * 3600
 EMPTY_TTL = 600
@@ -69,6 +73,7 @@ TWO_LETTER = dict((three, two) for two, three in THREE_LETTER.items())
 # "spl". Asked only when the first code found nothing, so it costs a request
 # in the case that has none and never otherwise.
 ALSO = {"es": "spl", "pt": "pob"}
+_ALSO_BACK = dict((three, two) for two, three in ALSO.items())
 TWO_LETTER.update((three, two) for two, three in ALSO.items())
 
 # A clock needs two independent timelines, not a library. Two rows per
@@ -147,6 +152,9 @@ def search(meta, target, languages, video_hash="", video_size=0):
     # numbering alone is how anime came to get nothing on 48% of titles.
     numberings = common.episode_numberings(meta) or [None]
     results = []
+    at_once = None
+    if len([language for language in languages if THREE_LETTER.get(language)]) > 1:
+        at_once = _all_at_once(meta, languages, numberings)
     for language in languages:
         code = THREE_LETTER.get(language)
         if not code:
@@ -155,6 +163,9 @@ def search(meta, target, languages, video_hash="", video_size=0):
             results.extend(_search_one(meta, language, code,
                                        video_hash=video_hash,
                                        video_size=video_size))
+        if at_once is not None:
+            results.extend(at_once.get(language) or [])
+            continue
         found = []
         for numbering in numberings:
             asked = meta if numbering is None else dict(
@@ -170,6 +181,45 @@ def search(meta, target, languages, video_hash="", video_size=0):
     results.extend(row for row in _by_season_name(meta)
                    if row.get("language") in wanted)
     return results
+
+
+def _all_at_once(meta, languages, numberings):
+    """Every wanted language out of one request per address, or None.
+
+    The picker asks what AI could translate from in seven languages, and this
+    asked each of them separately: nine requests a language for an anime
+    episode - three numberings by id, three spellings of the name under two -
+    so sixty-three, one after another on one worker. Measured in a real Kodi
+    on Naruto Shippuden 3x55, that outlived the ten second deadline twice,
+    the picker opened after 43 seconds with **no subtitle candidates at all**,
+    and the empty answer was then remembered for an hour.
+
+    Leaving the language out answers with all of them, which is what
+    `search_any_language` already does for timing evidence. It is cut at
+    `ROW_CAP` rows, and a popular film has more than that - Fight Club's
+    hundred hold no Polish, Arabic or French at all - so a full answer is not
+    trusted and the caller asks language by language as before. An episode
+    rarely reaches it: Naruto's is 80 rows in 22 languages.
+    """
+    wanted = set(language for language in languages if THREE_LETTER.get(language))
+    counts = []
+    rows = []
+    for numbering in numberings:
+        asked = meta if numbering is None else dict(
+            meta, season=numbering[0], episode=numbering[1])
+        rows.extend(_search_one(asked, None, None, counts=counts, limit=ROW_CAP))
+    if any(count >= ROW_CAP for count in counts):
+        return None
+    found = {}
+    for row in rows:
+        language = _ALSO_BACK.get(row.get("language"), row.get("language"))
+        if language not in wanted:
+            continue
+        row["language"] = language
+        held = found.setdefault(language, [])
+        if len(held) < MAX_PER_LANGUAGE * len(numberings):
+            held.append(row)
+    return found
 
 
 def _by_season_name(meta):
@@ -255,7 +305,8 @@ def _imdb_agrees(entry, meta):
     return theirs == ours
 
 
-def _search_one(meta, language, code, video_hash="", video_size=0):
+def _search_one(meta, language, code, video_hash="", video_size=0,
+                counts=None, limit=MAX_PER_LANGUAGE):
     ids = meta.get("ids") or {}
     imdb = str(ids.get("imdb") or "").replace("tt", "").strip()
 
@@ -283,7 +334,8 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
     anime = bool((meta.get("extra") or {}).get("anime"))
     found = []
     if imdb:
-        found = _fetch(meta, language, parts + ["imdbid-%s" % imdb])
+        found = _fetch(meta, language, parts + ["imdbid-%s" % imdb],
+                       counts=counts, limit=limit)
         # Anime is asked by name as well, not only when the id finds nothing.
         # An anime upload is filed against an id so rarely that a non-empty
         # answer is usually the wrong half of the corpus: Naruto Shippuden
@@ -319,7 +371,7 @@ def _search_one(meta, language, code, video_hash="", video_size=0):
         for row in _fetch(
                 meta, language,
                 parts + ["query-%s" % _query(name)],
-                by_name=name):
+                by_name=name, counts=counts, limit=limit):
             if row.get("download") not in seen:
                 seen.add(row.get("download"))
                 results.append(row)
@@ -336,7 +388,11 @@ def _query(name):
     or apostrophe, which the site strips itself with a 301, a request spent
     for nothing on every "JoJo's" and "Panty & Stocking".
     """
-    text = name.lower()
+    # Without its accents, which the index folds itself: "shippūden",
+    # "shippuden" and "shippûden" answer with the identical eighty rows, and
+    # were asked as three names. "Shippuuden" is another answer and stays.
+    text = "".join(char for char in unicodedata.normalize("NFKD", name.lower())
+                   if not unicodedata.combining(char))
     for character, replacement in (("/", " "), ("+", " "), ("&", " "), ("'", "")):
         text = text.replace(character, replacement)
     return urllib.parse.quote(" ".join(text.split()))
@@ -376,18 +432,18 @@ def _by_name(meta):
     total, only in the case that already costs one.
     """
     names = []
+    asked = set()
     primary = meta.get("search_title") or meta.get("english_title") \
         or meta.get("show_title") or meta.get("title") or ""
-    if primary:
-        names.append(primary)
-    for alias in (meta.get("aliases") or [])[:2]:
-        if alias and alias not in names:
-            names.append(alias)
+    for name in [primary] + list((meta.get("aliases") or [])[:2]):
+        if name and _query(name) not in asked:
+            asked.add(_query(name))
+            names.append(name)
     return names
 
 
 def _fetch(meta, language, parts, hash_query=False, video_size=0,
-           by_name=False, limit=MAX_PER_LANGUAGE):
+           by_name=False, limit=MAX_PER_LANGUAGE, counts=None):
     payload = http.get_json(
         "%s/%s" % (BASE, "/".join(sorted(parts))),
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
@@ -400,6 +456,8 @@ def _fetch(meta, language, parts, hash_query=False, video_size=0,
         return []
     if not isinstance(payload, list):
         return []
+    if counts is not None:
+        counts.append(len(payload))
 
     results = []
     for entry in payload[:limit]:

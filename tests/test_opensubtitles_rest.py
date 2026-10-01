@@ -842,3 +842,65 @@ def test_a_show_with_only_short_words_still_checks_a_name_query(filed, ours):
         if "Stephen" in filed and not names:
             continue                      # a name we were never told is not ours
         assert opensubtitles_rest._names_the_show({"MovieName": filed}, meta) is ours
+
+
+def _every_request(monkeypatch, provider, rows):
+    """Answer each request with `rows(url)` and remember what was asked."""
+    asked = []
+
+    def get_json(url, default=None, **kwargs):
+        asked.append(url)
+        return rows(url)
+    monkeypatch.setattr(provider.http, "get_json", get_json)
+    return asked
+
+
+def _in(language, number):
+    return {"SubFileName": "%s-%d.srt" % (language, number),
+            "SubDownloadLink": "https://x/%s/%d.gz" % (language, number),
+            "SubLanguageID": language}
+
+
+def test_several_languages_are_one_request(monkeypatch, provider):
+    """The picker asks what AI could translate from in seven languages, and
+    each was asked separately: sixty-three requests for one anime episode,
+    one after another. In a real Kodi that outlived the deadline twice and
+    Naruto Shippuden 3x55 opened after 43 seconds with no candidates."""
+    asked = _every_request(monkeypatch, provider, lambda url: [
+        _in("eng", 1), _in("ara", 1), _in("spl", 1), _in("ger", 1)])
+    found = provider.search({"type": "movie", "title": "x",
+                             "ids": {"imdb": "tt0137523"}}, None, ["ar", "en", "es"])
+    assert len(asked) == 1 and "sublanguageid" not in asked[0]
+    # Latin American Spanish is Spanish, and German was not asked for.
+    assert sorted(c["language"] for c in found) == ["ar", "en", "es"]
+
+
+def test_an_answer_that_may_be_cut_is_asked_language_by_language(monkeypatch, provider):
+    """One request returns a hundred rows at most. Fight Club's hundred hold
+    no Polish, Arabic or French at all, and it has all three."""
+    def rows(url):
+        if "sublanguageid" not in url:
+            return [_in("eng", n) for n in range(provider.ROW_CAP)]
+        return [_in(url.split("sublanguageid-")[1][:3], 1)]
+    asked = _every_request(monkeypatch, provider, rows)
+    found = provider.search({"type": "movie", "title": "x",
+                             "ids": {"imdb": "tt0137523"}}, None, ["ar", "en", "pl"])
+    assert len(asked) == 4
+    assert sorted(c["language"] for c in found) == ["ar", "en", "pl"]
+
+
+def test_one_language_is_asked_for_by_name(monkeypatch, provider):
+    asked = _every_request(monkeypatch, provider, lambda url: [_in("heb", 1)])
+    provider.search({"type": "movie", "title": "x", "ids": {"imdb": "tt0137523"}},
+                    None, ["he"])
+    assert len(asked) == 1 and "sublanguageid-heb" in asked[0]
+
+
+def test_a_name_is_asked_once_however_it_is_accented(monkeypatch, provider):
+    """The index folds accents itself: "shippuden" spelled with a macron,
+    plainly and with a circumflex answered with the identical eighty rows,
+    three requests for one. "Shippuuden" is another answer and is kept."""
+    meta = {"search_title": u"Naruto Shipp\u016bden",
+            "aliases": ["Naruto Shippuden", "Naruto Shippuuden"]}
+    assert provider._by_name(meta) == [u"Naruto Shipp\u016bden", "Naruto Shippuuden"]
+    assert provider._query(u"Naruto Shipp\u00fbden") == "naruto%20shippuden"

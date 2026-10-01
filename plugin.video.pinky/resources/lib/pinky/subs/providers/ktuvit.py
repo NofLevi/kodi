@@ -50,6 +50,7 @@ session and the failure lands on the fetch.
 import base64
 import hashlib
 import re
+import time
 
 from ... import cache, http, kodi, settings
 from ...utils import aes
@@ -96,6 +97,38 @@ SESSION_TTL = 24 * 3600
 REFUSAL_TTL = 15 * 60
 _REFUSED = "refused"
 TIMEOUT = (5, 12)
+
+
+# Where the session lives between searches. It was this process's memory
+# alone, and "one login a day" was true only of the background service: Kodi
+# runs every press as a new Python, so the picker scraped the homepage for
+# the salt and signed in again on *every* search. Measured in a real Kodi,
+# Ktuvit answered at ten seconds both times - once just inside the deadline
+# and once dropped by it - where the search itself takes one. Over 239
+# episodes it is the only Hebrew source for eight and carries a release name
+# nobody else has on 102, so losing it loses rows and, more often, the fit.
+#
+# A window property is Kodi's own memory: every invocation reads it, nothing
+# is written to storage - the reason this was never in the SQLite cache -
+# and it is gone when Kodi exits.
+def _held(key):
+    value = cache.volatile_get(key)
+    if value:
+        return value
+    expires, _, value = (kodi.get_property(key) or "").partition("|")
+    try:
+        remaining = float(expires) - time.time()
+    except ValueError:
+        return None
+    if not value or remaining <= 0:
+        return None
+    return cache.volatile_set(key, value, remaining)
+
+
+def _hold(key, value, ttl):
+    kodi.set_property(key, "%d|%s" % (time.time() + ttl, value))
+    return cache.volatile_set(key, value, ttl)
+
 
 HEADERS = {
     "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -159,7 +192,10 @@ _SALT_TTL = 12 * 3600
 
 def _encryption_salt():
     key = cache.make_key("subs", "ktuvit", "salt")
-    held = cache.volatile_get(key)
+    # On disk, unlike the session: it is published on the site's front page,
+    # and that page took eight seconds to arrive when it was timed - most of
+    # the search's whole deadline, spent before the login had been sent.
+    held = _held(key) or cache.get(key)
     if held:
         return held
     response = http.get(BASE + "/", headers=HEADERS, timeout=TIMEOUT)
@@ -169,7 +205,8 @@ def _encryption_salt():
     if not found:
         kodi.log("ktuvit did not publish an encryption salt")
         return ""
-    cache.volatile_set(key, found.group(1), _SALT_TTL)
+    _hold(key, found.group(1), _SALT_TTL)
+    cache.set(key, found.group(1), _SALT_TTL)
     return found.group(1)
 
 
@@ -235,7 +272,7 @@ def session_cookie(refresh=False):
     account = hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()[:16]
     key = cache.make_key("subs", "ktuvit", "session", account)
     if not refresh:
-        cached = cache.volatile_get(key)
+        cached = _held(key)
         if cached:
             return "" if cached == _REFUSED else cached
 
@@ -265,16 +302,16 @@ def session_cookie(refresh=False):
     if isinstance(answer, dict) and not answer.get("IsSuccess"):
         kodi.log("ktuvit refused the sign in: %s"
                  % (answer.get("ErrorMessage") or "no reason given"))
-        cache.volatile_set(key, _REFUSED, REFUSAL_TTL)
+        _hold(key, _REFUSED, REFUSAL_TTL)
         return ""
 
     cookie = _cookie_from(response)
     if not cookie:
         kodi.log("ktuvit refused the sign in")
-        cache.volatile_set(key, _REFUSED, REFUSAL_TTL)
+        _hold(key, _REFUSED, REFUSAL_TTL)
         return ""
 
-    cache.volatile_set(key, cookie, SESSION_TTL)
+    _hold(key, cookie, SESSION_TTL)
     return cookie
 
 

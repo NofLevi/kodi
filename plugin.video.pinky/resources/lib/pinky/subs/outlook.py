@@ -96,6 +96,7 @@ def candidates(meta, refresh=False, strict=False):
         wanted = _hebrew_code()
         found = [c for c in auto.search_candidates(meta, [wanted])
                  if c.get("language") == wanted]
+        dropped = auto.cut_short(meta, [wanted])
     except Exception:
         kodi.log_exception("could not look up subtitles")
         if strict:
@@ -105,7 +106,12 @@ def candidates(meta, refresh=False, strict=False):
         # no Hebrew subtitles for the next hour, and reopening the picker
         # could not undo it. `meta/anilist.py` already learned this one.
         return []
-    cache.set(key, found, TTL)
+    # Nor is a search the deadline cut short. In a real Kodi, Naruto Shippuden
+    # 3x55 lost its one slow provider to the deadline, came back with nothing,
+    # and that nothing was the answer for the next hour - the second opening
+    # drew "0 candidates" without asking anybody.
+    if not dropped:
+        cache.set(key, found, TTL)
     return found
 
 
@@ -160,15 +166,18 @@ def translation_candidates(meta):
     try:
         found = [c for c in auto.search_candidates(meta, languages)
                  if c.get("language") in languages]
-        if not found:
+        dropped = auto.cut_short(meta, languages)
+        if not found and not dropped:
             wider = [code for code in auto.WIDER_SOURCE_LANGUAGES
                      if code not in languages]
             found = [c for c in auto.search_candidates(meta, wider)
                      if c.get("language") in wider]
+            dropped = auto.cut_short(meta, wider)
     except Exception:
         kodi.log_exception("could not look up subtitles to translate from")
         return []
-    cache.set(key, found, TTL)
+    if not dropped:
+        cache.set(key, found, TTL)
     return found
 
 
@@ -349,10 +358,12 @@ def english_candidates(meta, already=None):
         from . import auto
         found = [c for c in auto.search_candidates(meta, ["en"])
                  if c.get("language") == "en"]
+        dropped = auto.cut_short(meta, ["en"])
     except Exception:
         kodi.log_exception("could not look up English subtitles")
         return []
-    cache.set(key, found, TTL)
+    if not dropped:
+        cache.set(key, found, TTL)
     return found
 
 

@@ -1216,6 +1216,51 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
     _names_the_show` compares words of three letters, "It" has none, and
     with nothing to compare it passed everything: The Diplomat, The Ark and
     Killing It for It 1x02, twelve rows and none of them ours.
+
+* **Every survey here ran faster than the picker does, and so measured a
+  better add-on than the one on the screen.** "I barely see any Hebrew" was
+  true and none of the numbers above could show it. In a real Kodi, Naruto
+  Shippuden 3x55 logged `deadline hit after 10.0s, dropped:
+  opensubtitles_rest` twice, `subtitle outlook: 0 candidates`, and `action
+  episode took 43679 ms`; the second opening drew "0 candidates" at once.
+  Three causes, each invisible from a long-lived test process:
+
+  * **Sixty-three requests for one episode, in a row.** The translation
+    round asked OpenSubtitles per language - three numberings by id and
+    three spellings of the name under two, nine a language, seven
+    languages - on one worker. Leaving the language out answers with all of
+    them (`opensubtitles_rest._all_at_once`), cut at 100 rows, so a full
+    answer is distrusted and asked language by language as before. And
+    "shippūden", "shippuden" and "shippûden" are one query to the index:
+    identical eighty rows. Over fifteen titles: **184 requests to 51, no
+    candidate lost, fifteen gained** (Latin American Spanish is filed as
+    `spl`). Naruto's picker went from 24.6 s to about 10, Hikaru no Go's
+    from 28 to 3.8.
+  * **A search the deadline cut short was remembered for an hour.**
+    `run_parallel` drops what has not finished and returns the rest, which
+    is not an exception, so "a failure is not cached" never applied.
+    `auto.cut_short` says when it happened and `outlook` does not store that
+    answer.
+  * **Ktuvit signed in on every search.** Its session was process memory,
+    and Kodi runs every press as a new Python: homepage for the salt (five
+    to eight seconds on its own), login, then the search - at the deadline
+    or past it. The session is a window property now, which is Kodi's
+    memory and not storage; the salt, which is public, is cached on disk;
+    and Ktuvit is asked second rather than last. It is the only Hebrew
+    source for 8 of 239 episodes and carries a release name nobody else has
+    on 102, so losing it cost rows and, more often, the fit.
+
+  And what "Stremio and POV IL have Hebrew for this" turned out to mean.
+  Checked by hand on 1 October 2026: Naruto Shippuden has **no** Hebrew
+  subtitle on Wizdom (0 names) or Ktuvit (four seasons listed, every episode
+  "אין כתוביות"), under 3x55, 1x55 or S03E02; Hikaru no Go and Black Lagoon
+  are not on Ktuvit at all. POV IL's subtitle add-on translates with Gemini
+  Flash-Lite on the fly and shows the result as Hebrew; Stremio's "Heb Subs"
+  lists Machine Translation as a source, and "כתוביות בעברית" adds SubDL and
+  Subsource, which want a key. Stremio's own OpenSubtitles add-on has no
+  Hebrew even for Fight Club. So for anime the gap is presentation and a
+  working engine, not a source: the same translation is here, drawn as one
+  yellow "LLM" row under "No Hebrew subtitle exists".
   * `scoring._WESTERN_PREFIX` took ".Net"flix and ".To"rrents for the end
     of a site's name. Harmless where it was, wrong, and found by this.
 
@@ -1437,7 +1482,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2376 tests, all running against Kodi stubs, so no Kodi install is needed:
+2384 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1463,7 +1508,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 13 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 34 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
-| `test_opensubtitles_rest.py` | 59 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
+| `test_opensubtitles_rest.py` | 63 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
 | `test_yify.py` | 11 | The one anonymous film subtitle source with no account and no key: a real captured row parsed into a candidate, the site's own inconsistent casing on the language name, films-only enforced without a request (a series IMDb id answers 404 live), and the slug-to-download-URL transform that needs no second page fetch. |
 | `test_subtitle_matching.py` | 67 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. And the anime scorer as a superset: the fansub group with or without brackets, a track extracted from the same MKV, a bare episode number and a wrong one, the Blu-ray cut, and films and series never reaching it. |
 | `test_othershow.py` | 17 | A subtitle filed under our show that names another one: HBO's Girls under Gilmore Girls, CSI under CSI: Miami, The Middle under Malcolm in the Middle. And what must survive it - "Buffy", "Lois and Clark", a transliterated title - plus the franchise rule, a hash match being exempt, films and anime untouched, a bounded number of questions, and a search that fails dropping nothing. |
@@ -1474,7 +1519,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_matroska.py` | 10 | The subtitle tracks an MKV declares, read from its first bytes and built byte for byte from the element layout: a full track against a Signs & Songs one, a track naming no language being English by the specification, Hebrew and the newer language tag, and "unknown" never being mistaken for "none" - a file that is not Matroska, a header cut off before its tracks end, a cluster first. |
 | `test_aes.py` | 8 | AES, because one login depends on it and a cipher that is subtly wrong looks exactly like one that is right. Checked against FIPS-197 and NIST SP 800-38A rather than against itself, so none of the expected values came from this code. |
 | `test_subtitle_orchestrator.py` | 35 | What happens when the things the subtitle search depends on misbehave. Every other subtitle test replaces the search and the download with fakes that only ever return data, so the code between a provider and the decision had never been asked what it does when a provider raises, answers nonsense, hangs, or hands back a dict full of junk. These inject at the real provider boundary and keep everything above it. Also the two stuck screens, the cancelled job that still wrote a file, and Kodi itself answering with an error envelope. |
-| `test_ktuvit.py` | 24 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
+| `test_ktuvit.py` | 32 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
 | `test_translation.py` | 27 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Plus no model name containing a version number, which has been retired under us twice, and a 404 striking a model off for the session where a 503 does not. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
 | `test_vod_seasons.py` | 17 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video. |

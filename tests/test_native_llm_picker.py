@@ -466,3 +466,40 @@ def test_a_wider_language_is_asked_only_when_the_usual_ones_find_nothing(monkeyp
                         or subs("en", EXACT))
     outlook.translation_candidates(META)
     assert asked == [["ar", "en"]], "no wider round when the usual ones answer"
+
+
+def test_a_search_the_deadline_cut_short_is_not_remembered(monkeypatch):
+    """In a real Kodi, Naruto Shippuden 3x55 lost its slow provider to the
+    deadline and came back with nothing - and that nothing was the answer for
+    the next hour: the second opening drew "0 candidates" without asking."""
+    from pinky import cache
+    asked = []
+    cut = {"short": True}
+
+    def search(meta, languages):
+        asked.append(list(languages))
+        return [] if cut["short"] else subs("he", EXACT)
+
+    monkeypatch.setattr(auto, "search_candidates", search)
+    monkeypatch.setattr(auto, "cut_short", lambda meta, languages: cut["short"])
+    cache.delete_prefix("suboutlook")
+    assert outlook.candidates(META) == []
+    cut["short"] = False
+    assert len(outlook.candidates(META)) == len(subs("he", EXACT))
+    assert len(asked) == 2, "the cut-short answer was asked again, not recalled"
+    outlook.candidates(META)
+    assert len(asked) == 2, "and a whole answer is remembered"
+
+
+def test_the_search_says_when_the_deadline_cut_it_short(monkeypatch):
+    from pinky import http
+
+    def run_parallel(tasks, workers=4, deadline=12.0, on_result=None, dropped=None):
+        dropped.append("opensubtitles_rest")
+        return {}
+
+    monkeypatch.setattr(http, "run_parallel", run_parallel)
+    monkeypatch.setattr(auto, "_providers", lambda: [("wizdom", None)])
+    assert auto.search_candidates(META, ["he"]) == []
+    assert auto.cut_short(META, ["he"]) is True
+    assert auto.cut_short(META, ["en"]) is False

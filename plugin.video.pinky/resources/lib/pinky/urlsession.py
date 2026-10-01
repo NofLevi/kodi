@@ -9,8 +9,10 @@ subset, and the standard library already provides it.
 So requests is used when it is installed, and this takes over when it is not.
 The add-on behaves identically either way, and the dependency became optional.
 
-Connections are reused per host, which is the one genuinely useful thing
-requests gives that plain urlopen does not.
+Connections are *not* reused: this is urllib's opener, which opens one per
+request. It used to say otherwise here. Measured on 1 October 2026 against
+rest.opensubtitles.org it costs about 20 ms a request beside requests - 0.11 s
+against 0.09 - so it is not why anything is slow, and not worth a pool.
 """
 import codecs
 import gzip
