@@ -255,11 +255,40 @@ def _look_inside(source):
     tracks = matroska.subtitle_tracks(data) if data else None
     if tracks is None:
         return [_UNKNOWN]
+    _remember_readable(source, link)
     languages = []
     for track in tracks:
         if not track["partial"] and track["language"] not in languages:
             languages.append(track["language"])
     return languages
+
+
+def _remember_readable(source, link):
+    """Which of those tracks can be read out of the file, to translate from.
+
+    A track inside the file is in time by construction, and for most anime
+    it is the only English there is - but a translation needs the lines, and
+    only a track the file indexes line by line gives them up without the
+    whole video being downloaded. One more small read, in the same
+    background pass, so the picker can promise it before it is pressed.
+    """
+    from .. import cache
+    try:
+        from ..subs import inside
+        readable = inside.readable_languages(link)
+    except Exception:
+        kodi.log_exception("could not tell whether the tracks inside can be read")
+        return
+    cache.set(_inside_key(source) + "|text", readable, _INSIDE_TTL)
+
+
+def recall_readable(source):
+    """Languages of the tracks inside this file that can be translated from.
+    A cache read only; [] until the background pass has looked."""
+    from .. import cache
+    if not source.get("cached") or not source.get("hash"):
+        return []
+    return cache.get(_inside_key(source) + "|text") or []
 
 
 def _learn_later(asking, on_learnt=None):

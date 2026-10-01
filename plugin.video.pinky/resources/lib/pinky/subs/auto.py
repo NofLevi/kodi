@@ -524,6 +524,7 @@ def find_and_prepare(meta, languages, player=None, cancelled=None,
     is_cancelled = cancelled or (lambda: False)
     report = {"translated": False, "synchronised": False, "reason": ""}
     downloads = _DownloadBudget(consensus.budget())
+    downloads.ruler = ruler_later(meta)
     wanted = languages[0]
 
     def keep(language, cues, variant=""):
@@ -763,6 +764,53 @@ def video_hash_later(meta):
     return get
 
 
+# How long the ruler is waited for. It is two small ranged reads, two to five
+# seconds measured, and it starts when the search does.
+RULER_WAIT = 8.0
+
+
+def ruler_later(meta):
+    """Start reading the file's own subtitle timeline; returns a getter.
+
+    A release with a subtitle track muxed in has every line of it in its
+    index, and those times are when somebody speaks in *this* cut - a ruler
+    for any downloaded subtitle, in any language, with no hash and no second
+    opinion. Measured on the cached copy of The Invite: all four Hebrew
+    subtitles fitted by name at 75% and were **19.4 seconds** out, which the
+    file's Portuguese track measured exactly. See `subs.inside`.
+
+    Started alongside the search, like the hash, because nothing needs it
+    until a subtitle has been downloaded.
+    """
+    url = meta.get("stream_url") or ""
+    if not url:
+        return lambda: []
+    holder = {}
+
+    def work():
+        try:
+            from . import inside
+            holder["value"] = inside.timeline(url)
+        except Exception:
+            kodi.log_exception("reading the file's own subtitle timeline failed")
+            holder["value"] = []
+
+    thread = threading.Thread(target=work)
+    thread.daemon = True
+    thread.start()
+
+    def get():
+        thread.join(RULER_WAIT)
+        return holder.get("value") or []
+
+    return get
+
+
+def _own_timeline(downloads):
+    ruler = getattr(downloads, "ruler", None)
+    return ruler() if callable(ruler) else []
+
+
 def _hash_value(video_hash):
     """Accept either a hash or something that will produce one."""
     return (video_hash() if callable(video_hash) else video_hash) or ""
@@ -899,6 +947,8 @@ class _DownloadBudget(object):
         self.failed = 0
         self.failed_by_provider = {}
         self.cache = {}
+        # The file's own subtitle timeline, when it has one - see ruler_later.
+        self.ruler = None
 
     def _key(self, candidate, expect_language=None):
         return matcher.candidate_key(candidate, expect_language)
@@ -1231,7 +1281,13 @@ def reference_cues(winners, languages, downloads, skip=None):
     `skip` is the candidate being judged, so a file can never be its own
     ruler - which the translation path can otherwise ask for, because there
     the subtitle under test is in one of these same other languages.
+
+    The file's own subtitle track comes first: it is this cut by definition,
+    where a hash match is this cut by somebody's registration of it.
     """
+    own = _own_timeline(downloads)
+    if own:
+        return own
     for language in languages[1:]:
         candidate = winners.get(language)
         if candidate is skip:
@@ -1245,7 +1301,10 @@ def reference_cues(winners, languages, downloads, skip=None):
 
 
 def hash_reference(candidates, downloads, skip=None):
-    """A hash-matched subtitle from `candidates`, for use as a timing ruler."""
+    """The file's own timeline, or a hash-matched subtitle from `candidates`."""
+    own = _own_timeline(downloads)
+    if own:
+        return own
     for candidate in candidates or []:
         if candidate is skip or candidate.get("reason") != "hash":
             continue
@@ -1417,6 +1476,7 @@ def translate_fallback(meta, winners, languages, report, player=None,
 
     if downloads is None:
         downloads = _DownloadBudget(consensus.budget())
+        downloads.ruler = ruler_later(meta)
     if not translator.available():
         return "", report
 
@@ -1430,27 +1490,31 @@ def translate_fallback(meta, winners, languages, report, player=None,
     if stopped():
         return "", report
     ranked = translation_context.rank_translation_sources(winners, languages)
-    source = next(((lang, cand) for lang, cand in ranked
-                   if (cand.get("score") or 0) >= 40), None)
+    source = inside_source(meta, languages[0]) or next(
+        ((lang, cand) for lang, cand in ranked
+         if (cand.get("score") or 0) >= 40), None)
     if not source:
         return "", report
 
     language, candidate = source
     if stopped():
         return "", report
-    cues = downloads.fetch(candidate, announce=True)
-    if not cues:
-        return "", report
-    # The hash first, then two agreeing languages. Same reason as the picker's
-    # path: for anime there is no hash and the translation's timing is the
-    # source file's timing, so without this the source is translated exactly
-    # as it arrived and nothing ever looks at it again.
-    reference = reference_cues(winners, languages, downloads, skip=candidate)
-    if not reference:
-        reference = translation_reference(
-            [winner for winner in winners.values() if winner],
-            downloads, skip=candidate)
-    cues = retimed_for_translation(cues, reference, language)
+    if candidate.get("inside"):
+        cues = candidate["cues"]      # the file's own lines: in time already
+    else:
+        cues = downloads.fetch(candidate, announce=True)
+        if not cues:
+            return "", report
+        # The hash first, then two agreeing languages. Same reason as the
+        # picker's path: for anime there is no hash and the translation's
+        # timing is the source file's timing, so without this the source is
+        # translated exactly as it arrived and nothing ever looks at it again.
+        reference = reference_cues(winners, languages, downloads, skip=candidate)
+        if not reference:
+            reference = translation_reference(
+                [winner for winner in winners.values() if winner],
+                downloads, skip=candidate)
+        cues = retimed_for_translation(cues, reference, language)
 
     translated = _translate_progressively(cues, meta, languages[0], player,
                                           source_language=language,
@@ -1479,6 +1543,43 @@ def translate_fallback(meta, winners, languages, report, player=None,
     report["source_language"] = language
     report["applied"] = player is not None
     return path, report
+
+
+def inside_source(meta, target):
+    """The file's own subtitle track as something to translate from, or None.
+
+    A fansub release carries its English inside the MKV, and for anime that
+    is usually all there is: the picker drew "No Hebrew found" beside a file
+    with a full English track in it, because a translation needed a subtitle
+    it could download. `inside.text` reads the lines out of the file through
+    its index, and what comes back is in time by construction - no ruler, no
+    re-timing - which is why it leads every downloaded source.
+
+    Returns (language, candidate) shaped like a translation source, the
+    candidate marked `inside` and carrying its cues.
+    """
+    url = meta.get("stream_url") or ""
+    if not url:
+        return None
+    wanted = [code for code in (translation_source_languages(meta, [target]) or [])
+              if code != target]
+    if "en" not in wanted and target != "en":
+        wanted.append("en")
+    # The language the picker's row named: the same close-call preference,
+    # which among tracks that all fit perfectly is the whole decision.
+    from .ai import context
+    wanted.sort(key=lambda code: -context.source_bonus(code))
+    try:
+        from . import inside
+        language, cues = inside.text(url, tuple(wanted))
+    except Exception:
+        kodi.log_exception("could not read the subtitle track inside the file")
+        return None
+    if not cues:
+        return None
+    return language, {"inside": True, "language": language, "provider": "inside",
+                      "release": "the %s track inside the file" % language,
+                      "score": 100, "cues": cues}
 
 
 def wide_languages(target):
@@ -1542,6 +1643,7 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
 
     if downloads is None:
         downloads = _DownloadBudget(consensus.budget())
+        downloads.ruler = ruler_later(meta)
     if not translator.available():
         kodi.log("AI translation was asked for but no engine is configured")
         return ""
@@ -1557,7 +1659,10 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
         return ""
     if video_hash is None:
         video_hash = video_hash_for(meta)
-    sources = translation_sources(meta, target, video_hash, candidates)
+    sources = list(translation_sources(meta, target, video_hash, candidates) or [])
+    own = None if stopped() else inside_source(meta, target)
+    if own:
+        sources.insert(0, own)
     if stopped() or not sources:
         kodi.log("found nothing at all to translate into %s" % target)
         return ""
@@ -1565,15 +1670,17 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
     for language, candidate in sources:
         if stopped():
             return ""
-        cues = downloads.fetch(candidate, announce=True)
+        cues = (candidate["cues"] if candidate.get("inside")
+                else downloads.fetch(candidate, announce=True))
         if not cues:
             continue
         kodi.log("translating the %s subtitle %r into %s"
                  % (language, (candidate.get("release") or "")[:60], target))
         kodi.notify(kodi.localize(32549))
-        cues = retimed_for_translation(
-            cues, translation_reference(candidates, downloads, skip=candidate),
-            language)
+        if not candidate.get("inside"):
+            cues = retimed_for_translation(
+                cues, translation_reference(candidates, downloads, skip=candidate),
+                language)
         translated = _translate_progressively(cues, meta, target, player,
                                               variant=VARIANT_AI,
                                               source_language=language,

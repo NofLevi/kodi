@@ -277,10 +277,14 @@ def split_rows(meta, sources, limit=SPLIT_ROWS):
         if hebrew_title:
             continue
         # A subtitle shipped with this release is in time by construction,
-        # and playback asks for it first, so it fits at 100.
-        # Only a file, never a track inside the video: the translator needs
-        # a subtitle it can download, and Kodi keeps a muxed track to itself.
-        fits = [(100, language) for language in sorted(files & translatable)]
+        # and playback asks for it first, so it fits at 100. A file beside
+        # the video, or a track inside it that the file indexes line by line:
+        # `inside.text` reads those out, which is how a fansub release with
+        # English muxed in stopped reading "No Hebrew found".
+        from ..sources import bundled
+        readable = set(bundled.recall_readable(source) or [])
+        fits = [(100, language)
+                for language in sorted((files | readable) & translatable)]
         for candidate in llm_found:
             fit = matcher.rate(candidate, target)[0]
             if fit > 0:

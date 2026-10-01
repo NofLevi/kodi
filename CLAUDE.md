@@ -1261,6 +1261,70 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Hebrew even for Fight Club. So for anime the gap is presentation and a
   working engine, not a source: the same translation is here, drawn as one
   yellow "LLM" row under "No Hebrew subtitle exists".
+
+* **Against Kodi POV IL's MoranSubs, run rather than read.** Its engine
+  (`service.subtitles.kodipovilai`, 71,000 lines) was run unmodified beside
+  ours on 79 titles with the same release name, search only, each side
+  judged by both rulers. A harness lesson first: our Kodi stub does not
+  convert language codes, so its OpenSubtitles source asked for "heb,eng",
+  found nothing, and for an hour looked broken when it was the test.
+
+      class          n   has Hebrew   exact name   seconds
+                         them / us    them / us    them / us
+      film popular  20    80 / 80      50 / 55     8.7 / 1.2
+      film new      15   100 / 100     93 / 93     6.7 / 1.2
+      series        25    96 / 96      56 / 56     5.4 / 0.9
+      anime         19     5 / 5        0 / 0     10.0 / 0.9
+
+  **Level on finding Hebrew, title for title** - neither found one the other
+  missed - and about seven times faster, because it waits out dead sources
+  (Subscene, BSPlayer) to its ten second limit. English to translate from:
+  anime 53% against our 68%. What it has that this does not, in order of
+  what it costs to match:
+
+  * **The file's own subtitle track, as a ruler and as a source** - built,
+    below.
+  * **OpenSubtitles.com**, through 33 bundled API keys, and **Ktuvit**
+    through one shared account. Coverage came out level anyway, and a
+    shared credential in a public repository is the thing this add-on
+    decided against; they are noted, not copied.
+  * **A community pool**: a server where a translation made by one user is
+    served to the next. It is their private service behind a signing key,
+    so it was not queried and cannot be matched without one of our own.
+  * **Telegram channels**, off until the user signs in.
+
+* **The subtitle track inside the file is the ruler, and the source.**
+  `subs/inside.py`. mkvmerge indexes a subtitle track line by line: every
+  cue has its start, its duration and where its block sits, in the Cues.
+  Measured on cached releases: 98 KB for Fight Club's 1,810 lines, 706 KB
+  for a Silo episode's 43 tracks, read in well under a second.
+
+  *As a ruler* (`inside.timeline`, `auto.ruler_later`): those times are when
+  somebody speaks in this cut, which is all `sync` correlates, so any
+  downloaded subtitle can be measured against them - no hash, no second
+  opinion. It leads `reference_cues` and `hash_reference`. On the cached
+  copy of The Invite, four Hebrew subtitles fitting at 75% by name were all
+  **19.4 seconds out**, and the file's Portuguese track said so exactly; on
+  Dune: Part Two it refused a mislabelled one at 0.20. A file with no
+  indexed track - the Friends Blu-ray rips - is as it was.
+
+  *As a source* (`inside.text`, `auto.inside_source`): the lines are read
+  from where the index points, a few kilobytes each, never the video
+  between them, and lead every downloaded source in both translation paths.
+  Naruto Shippuden 3x55's BDRip went from "No Hebrew found" to an AI row at
+  100%: 334 lines of its own English, in time by construction.
+  `bundled._remember_readable` learns which tracks can be read in the same
+  background pass, so the picker promises it before it is pressed.
+
+  The limit that shapes it is not ours. **The debrid CDN answers 429 to a
+  client that asks too fast, and to the player with it**: 3,167 requests in
+  38 seconds for one film's track, and every read failed for minutes after.
+  So a track is read only when it is an episode's worth of lines
+  (`MAX_LINES`), no closer together than `PACE`, and the first refusal ends
+  it. Fourteen to thirty requests a second were measured passing. A feature
+  film's track is still a ruler - that is one read - and its text is left
+  to the subtitles that can be downloaded. An older fansub mux indexes only
+  its video; such a track is neither.
   * `scoring._WESTERN_PREFIX` took ".Net"flix and ".To"rrents for the end
     of a site's name. Harmless where it was, wrong, and found by this.
 
@@ -1482,7 +1546,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2384 tests, all running against Kodi stubs, so no Kodi install is needed:
+2397 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1516,6 +1580,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
 | `test_subtitle_pipeline.py` | 54 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. Plus the source of a translation being put in time before it is translated, and never being its own timing reference. |
+| `test_inside.py` | 12 | The subtitle track inside the file, from byte-built Matroska: every line timed out of the index, the fullest dialogue track chosen over a signs track and a hearing-impaired one, a file that indexes only its video being no ruler, the file's own timeline leading a hash match, the lines read from where the index points, an ASS line reduced to its words, a film's worth of lines not read line by line, and a refusal ending the read rather than being argued with. |
 | `test_matroska.py` | 10 | The subtitle tracks an MKV declares, read from its first bytes and built byte for byte from the element layout: a full track against a Signs & Songs one, a track naming no language being English by the specification, Hebrew and the newer language tag, and "unknown" never being mistaken for "none" - a file that is not Matroska, a header cut off before its tracks end, a cluster first. |
 | `test_aes.py` | 8 | AES, because one login depends on it and a cipher that is subtly wrong looks exactly like one that is right. Checked against FIPS-197 and NIST SP 800-38A rather than against itself, so none of the expected values came from this code. |
 | `test_subtitle_orchestrator.py` | 35 | What happens when the things the subtitle search depends on misbehave. Every other subtitle test replaces the search and the download with fakes that only ever return data, so the code between a provider and the decision had never been asked what it does when a provider raises, answers nonsense, hangs, or hands back a dict full of junk. These inject at the real provider boundary and keep everything above it. Also the two stuck screens, the cancelled job that still wrote a file, and Kodi itself answering with an error envelope. |
