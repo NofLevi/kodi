@@ -193,6 +193,13 @@ _GROUP_BRACKET = re.compile(r"^\[([^\]]{2,20})\]")
 _SEASON_EPISODE = re.compile(
     r"\bs(\d{1,2})[\s._-]?e(\d{1,3})\b|\b(\d{1,2})x(\d{1,3})\b", re.I)
 _SEASON_ONLY = re.compile(r"\bs(\d{1,2})\b", re.I)
+# One file holding two episodes or three: "S03E04-05", "S03E17-E18",
+# "S11E17E18", "S04E19-20-21", "S01E01 E02". The plain pattern above reads the
+# first number of the dashed forms and nothing at all of the glued one, so
+# ALF's only Hebrew subtitle for 3x05 was the wrong episode and every copy of
+# Modern Family's finale named no episode.
+_MULTI_EPISODE = re.compile(
+    r"\bs(\d{1,2})[\s._-]?e(\d{1,3})((?:[\s._+-]?e\d{1,3}|-\d{1,3})+)\b", re.I)
 _ABSOLUTE_EPISODE = re.compile(r"\s-\s(\d{1,4})(?:\s|$|v\d)")
 
 # The dash form above - "Show - 12" - is the tidy convention and plenty of
@@ -390,6 +397,7 @@ def _parse(raw, size=0):
         "year": _year(text),
         "season": season,
         "episode": episode,
+        "episode_last": _episode_last(episode_text),
         "absolute": absolute,
         "episode_range": _episode_range(text),
         "proper": bool(_PROPER.search(text)),
@@ -484,7 +492,23 @@ def _year(text):
     return int(matches[0]) if matches else 0
 
 
+def _episode_last(text):
+    """The last episode of a double or triple one, or 0."""
+    match = _MULTI_EPISODE.search(text)
+    if not match:
+        return 0
+    first = int(match.group(2))
+    last = max(int(number) for number in re.findall(r"\d+", match.group(3)))
+    # A dash and a number with no "e" is only believed for a neighbour:
+    # "S01E05-264" is a codec, "S01E01-E10" says what it is.
+    limit = 3 if "e" not in match.group(3).lower() else 40
+    return last if first < last <= first + limit else 0
+
+
 def _episode_numbers(text):
+    multi = _MULTI_EPISODE.search(text)
+    if multi and _episode_last(text):
+        return int(multi.group(1)), int(multi.group(2)), 0
     match = _SEASON_EPISODE.search(text)
     if match:
         if match.group(1) is not None:
@@ -546,7 +570,9 @@ def matches_episode(parsed, season, episode, absolute=None):
         # subtitle indexes file a long-running anime: Hikaru no Go's TMDB
         # 3x06 is S01E66 on Jimaku, and was being thrown out as the wrong
         # episode by the very number that proves it is the right one.
-        return (parsed["season"] == int(season) and parsed["episode"] == int(episode)) \
+        last = parsed.get("episode_last") or parsed["episode"]
+        return (parsed["season"] == int(season)
+                and parsed["episode"] <= int(episode) <= last) \
             or bool(absolute and parsed["season"] == 1 and parsed["episode"] == wanted)
 
     if parsed["absolute"]:

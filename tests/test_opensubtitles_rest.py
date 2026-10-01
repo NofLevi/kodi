@@ -824,3 +824,21 @@ def test_latin_american_spanish_is_not_asked_when_spanish_answers(monkeypatch, p
     provider.search({"type": "movie", "title": "Film", "ids": {"imdb": "tt1"}},
                     None, ["es"])
     assert not any("sublanguageid-spl" in url for url in asked)
+
+
+@pytest.mark.parametrize("filed, ours", [
+    ('"It" Part 2', True),
+    ('"Stephen King\'s It" Episode #1.2', True),
+    ('"The Diplomat" Don\'t Call It a Kimono', False),
+    ('"Killing It" Kickoff', False),
+    ('"And Just Like That..." Hello It\'s Me', False),
+])
+def test_a_show_with_only_short_words_still_checks_a_name_query(filed, ours):
+    """It 1x02 was answered with twelve rows of other shows and none of its
+    own: with no word of three letters to compare, the check passed them all."""
+    from pinky.subs.providers import opensubtitles_rest
+    for names in ({}, {"translated_titles": ["Stephen King's It"]}):
+        meta = dict({"type": "episode", "title": "It", "show_title": "It"}, **names)
+        if "Stephen" in filed and not names:
+            continue                      # a name we were never told is not ours
+        assert opensubtitles_rest._names_the_show({"MovieName": filed}, meta) is ours

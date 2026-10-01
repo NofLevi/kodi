@@ -204,7 +204,13 @@ def _rate_scene(candidate, target, video_hash=""):
     if target.get("type") == "episode":
         if parsed["season"] or parsed["episode"] or parsed["absolute"]:
             if _right_episode(parsed, target):
-                total += WEIGHT_EPISODE
+                # A subtitle typed for two episodes in one file fits a
+                # release that is those two in one file, and is an episode
+                # out on one that is not: ALF 3x05 is released both ways.
+                if _span(parsed) == (target.get("span") or _span(parsed)):
+                    total += WEIGHT_EPISODE
+                else:
+                    reasons.append("double episode")
             else:
                 total += PENALTY_WRONG_EPISODE
                 reasons.append("wrong episode")
@@ -368,11 +374,57 @@ def _contradicts_title(parsed, name, target):
     year = int(target.get("year") or 0)
     if not year or not target.get("title"):
         return False
-    years = [int(found) for found in _A_YEAR.findall(release.normalise(name))
-             if int(found) <= year + 2]
+    stated = [int(found) for found in _A_YEAR.findall(release.normalise(name))]
+    if target.get("type") == "movie" and _a_sequel(name, stated, target):
+        return True
+    years = [found for found in stated if found <= year + 2]
     if not years or any(abs(found - year) <= 2 for found in years):
         return False
     return not release.mentions(name, target["title"])
+
+
+# What a re-release adds to a film's name without making it another film.
+_EDITION_WORDS = frozenset("""
+the a an directors director cut final extended edition unrated uncut redux
+theatrical special ultimate remastered restored anniversary collectors
+version imax criterion proper repack internal limited
+""".split())
+
+
+def _a_sequel(name, stated, target):
+    """A film's sequel or its remake: our title's words, and more, and a year.
+
+    Wizdom files a subtitle under every film whose title its name contains.
+    Playing Dune (2021) from a FLUX release, "Dune.Part.Two.2024...FLUX"
+    scored 99 - level with the real subtitle and far above a real one made
+    for another release - and Aliens (1986) tied Alien (1979) at 75. The
+    check above lets both through, because they do carry our title's words.
+
+    The year alone is not enough either: "Blade.Runner.The.Final.Cut.2007"
+    and "Alien.Directors.Cut.2003" are the film, dated by their re-release.
+    So it takes both - a year nowhere near ours, and a name before it that is
+    not ours give or take an edition. A year that is part of our own title
+    is not a date: the 1917 in "1917", the 2049 in "Blade Runner 2049".
+    """
+    year = int(target.get("year") or 0)
+    titles = [title for title in target.get("titles") or [target.get("title")]
+              if title and all(ord(char) < 0x250 for char in title)]
+    years = [found for found in stated
+             if not any(str(found) in title for title in titles)]
+    if not titles or not years or any(abs(found - year) <= 2 for found in years):
+        return False
+    # A re-release is dated after the film and never before it: "Dune.1984"
+    # under Dune (2021) is the film this one remade.
+    if all(found < year for found in years):
+        return True
+
+    def plain(text):
+        text = re.sub(u"['`’]", "", text).replace("&", " and ")
+        words = re.sub(r"[^a-z0-9 ]+", " ", release.normalise(text)).split()
+        return " ".join(word for word in words if word not in _EDITION_WORDS)
+
+    theirs = plain(_A_YEAR.split(release.normalise(name), 1)[0])
+    return bool(theirs) and theirs not in set(plain(title) for title in titles)
 
 
 def _contradicts_episode(parsed, target):
@@ -388,6 +440,12 @@ def _contradicts_episode(parsed, target):
     if not (parsed["season"] or parsed["episode"] or parsed["absolute"]):
         return False
     return not _right_episode(parsed, target)
+
+
+def _span(parsed):
+    """How many episodes a name says it holds: 1, or more for a double."""
+    last = parsed.get("episode_last") or 0
+    return last - parsed["episode"] + 1 if parsed.get("episode") and last else 1
 
 
 def _right_episode(parsed, target):
@@ -451,7 +509,12 @@ def target_from(meta, source=None):
         "resolution": source.get("quality") or parsed["resolution"],
         "codec": parsed["codec"],
         "editions": parsed["editions"],
+        "span": _span(parsed),
         "title": meta.get("title") or "",
+        # Every name it goes by: on a Hebrew interface `title` is Hebrew, and
+        # a subtitle's name is compared with a Latin one or not at all.
+        "titles": [name for name in (meta.get("title"), meta.get("original_title"),
+                                     meta.get("english_title")) if name],
         "year": meta.get("year") or 0,
         "type": meta.get("type"),
         "season": meta.get("season"),

@@ -1401,3 +1401,17 @@ def test_a_series_name_written_the_ways_uploaders_write_it(title, release_name, 
     from pinky.sources import scoring
     meta = {"type": "episode", "title": title, "extra": {}}
     assert bool(scoring._a_different_series({"title": release_name}, meta)) is rejected
+
+
+@pytest.mark.parametrize("name", [
+    "Gilmore.Girls.S01E01.WEBRip.Netflix.he",
+    "Law.and.Order.S14E03.Torrents.of.Greed",
+    "Star.Trek.TOS.S01E01",
+])
+def test_a_word_beginning_like_a_domain_is_not_a_site(name):
+    """".Net"flix and ".To"rrents ended a site prefix, and took the show's
+    name off the front with it."""
+    from pinky.sources import scoring
+    assert scoring._WESTERN_PREFIX.sub("", name) == name
+    assert scoring.stated_series(
+        "Crazy4TV.com - Silicon.Valley.S04E05.720p") == "silicon valley"

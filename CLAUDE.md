@@ -1170,6 +1170,55 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Flash" for Hawaii Five-0, "NYPD Blue" for Law & Order, Russian
   transliterations and typos ("Sucession", "Ted Laso").
 
+* **A Hebrew subtitle at 99% can be another show's, and the surveys could
+  not see it.** They count whether a row exists and how well its *name*
+  fits. Asked why CSI: Miami and Gilmore Girls had no Hebrew row, the
+  episodes turned out to be missing upstream (Wizdom has Hawaii Five-0 to
+  season 6, Longmire to season 1) - and Wizdom's whole-show lists showed
+  something worse: **it files an upload under every show whose title
+  contains the name it was uploaded with.** Over 70 surveyed series and
+  23,218 names, 17 shows carried another show's subtitles: HBO's Girls under
+  Gilmore Girls (69 of 191), CSI under CSI: Miami (60 of 159), The Middle
+  under Malcolm in the Middle (50), Lost Girl under Lost (74), Star Trek:
+  TNG under Star Trek (26), Dexter: New Blood under Dexter. They carry the
+  right season and episode, which is all the matcher asked: Gilmore Girls
+  6x05's best Hebrew subtitle was "Girls.S06E05.720p.HDTV.x264-AVS" at 99,
+  ahead of the real one at 85; CSI: Miami 9x13's only one was CSI's; Hacks
+  1x02's was "Half.Man.S01E02", at 99.
+
+  Words cannot settle it - "Buffy", "SG1", "Lois and Clark" and "Hawaii
+  Five" are ours, "Girls" is not - so `subs/othershow.py` asks TMDB whether
+  a *different* show goes by the name: one cached search per name that is
+  not plainly ours, at most eight, in the shared pool under a four second
+  deadline. A franchise's short name ("CSI") is its first show's. It runs in
+  `auto.search_candidates`, which every route passes through; a hash match
+  is exempt, and films and anime are untouched. Measured on what the
+  providers answered for 239 episodes: 24 of 1,412 Hebrew candidates dropped
+  and the top one was another show's on three; none of the 305 names it
+  drops from the whole-show lists is ours.
+
+  Four more of the same family:
+  * **A film's sequel carries its title and another year.** Playing Dune
+    (2021) from a FLUX release, "Dune.Part.Two.2024...FLUX" scored 99. The
+    year alone is not the test - "Blade.Runner.The.Final.Cut.2007" is the
+    film, dated by its re-release - so `matcher._a_sequel` wants a far year
+    *and* a name that is not ours give or take an edition, or a year
+    *before* ours, which no re-release has. Over 298 films and 2,520 names
+    it rejects two, both right, and the plain year rule it replaced was
+    wrong on three.
+  * **One file, two episodes.** ALF's only Hebrew subtitle for 3x05 is
+    "S03E04-05" and was the wrong episode; "S11E17E18" parsed as no episode
+    at all. `release.parse` reads `episode_last`, `matches_episode` takes
+    the span - which the debrid file picker uses too - and the matcher gives
+    the episode's weight only when the release holds the same span, since a
+    double-episode subtitle is an episode out on a single one.
+  * **A show called "It" switched a check off.** `opensubtitles_rest.
+    _names_the_show` compares words of three letters, "It" has none, and
+    with nothing to compare it passed everything: The Diplomat, The Ark and
+    Killing It for It 1x02, twelve rows and none of them ours.
+  * `scoring._WESTERN_PREFIX` took ".Net"flix and ".To"rrents for the end
+    of a site's name. Harmless where it was, wrong, and found by this.
+
 * `meta/seadex.py` is the exception to ranking by numbers. For anime the
   release group *is* the quality, and SeaDex publishes which group won. It
   returns infohashes, the aggregator already merges by infohash, so a
@@ -1388,7 +1437,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2324 tests, all running against Kodi stubs, so no Kodi install is needed:
+2376 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1409,14 +1458,15 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_providers.py` | 21 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
 | `test_anime_numbering.py` | 81 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. And two found by testing a Japanese source: `S01E66` being the 66th episode (Hikaru no Go's 3x06), and a stated season having to agree - "Oshi no Ko S3 - 06" is not 1x06. Plus `tmdb.romaji_titles` reading only the JP-tagged "romaji" entries out of TMDB's `alternative_titles`, and `meta["aliases"]` actually carrying one out of `build_meta` into a real rejection check. |
-| `test_release_parser.py` | 87 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. Plus `normalise` folding a macron and a doubled long vowel to the same plain letter, live-measured against 1,605 real anime releases, and leaving Hebrew - which has no such decomposition - untouched. |
-| `test_sources.py` | 159 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. Plus every live-measured gap in `_a_different_series`: a macron, a romaji alias, punctuation gluing two words into one, a four-digit padded episode number, a bare "EP01" with no season, and SubsPlease's glued "01A"/"01B" split-episode suffix - each pinned to the real release that exposed it. And the series engine on its own: a Korean drama on a Hebrew interface keeping its releases, a title in another language being the same show, every episode-numbering form, and "The Game", Sealab and Little House on the Prairie still being caught. |
+| `test_release_parser.py` | 101 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. Plus `normalise` folding a macron and a doubled long vowel to the same plain letter, live-measured against 1,605 real anime releases, and leaving Hebrew - which has no such decomposition - untouched. |
+| `test_sources.py` | 162 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. Plus every live-measured gap in `_a_different_series`: a macron, a romaji alias, punctuation gluing two words into one, a four-digit padded episode number, a bare "EP01" with no season, and SubsPlease's glued "01A"/"01B" split-episode suffix - each pinned to the real release that exposed it. And the series engine on its own: a Korean drama on a Hebrew interface keeping its releases, a title in another language being the same show, every episode-numbering form, and "The Game", Sealab and Little House on the Prairie still being caught. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
 | `test_debrid.py` | 13 | Picking the right file from a season pack, ignoring samples and extras, refusing to play the wrong episode, and a repeated cache question not becoming a repeated API call. |
 | `test_torbox.py` | 34 | The one debrid service with a live account behind it, tested against the shapes it really returns rather than the documented ones - `checkcached` answering with a list of objects and omitting a miss, `requestdl` answering with a bare string. Also which call goes first: the account list is 466 KB and two to four seconds, `createtorrent` answers "Found Cached Torrent" in half a second, and a torrent TorBox is still downloading is not played at all. |
-| `test_opensubtitles_rest.py` | 54 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
+| `test_opensubtitles_rest.py` | 59 | The only anonymous OpenSubtitles, pinned against what it really answers. The lowercased query, because one capital letter is a 302 the add-on cannot follow. The two anime numberings. And the one worth carrying elsewhere: an id query that finds nothing falling back to the title, and that answer not being discarded for naming a different IMDb entry of the same show - which is how Hikaru no Go had English subtitles nobody could reach. Plus the romaji alias asked alongside the English name and not instead of it, capped at two, and `search_title` winning over a `title` that can be Hebrew. |
 | `test_yify.py` | 11 | The one anonymous film subtitle source with no account and no key: a real captured row parsed into a candidate, the site's own inconsistent casing on the language name, films-only enforced without a request (a series IMDb id answers 404 live), and the slug-to-download-URL transform that needs no second page fetch. |
-| `test_subtitle_matching.py` | 55 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. And the anime scorer as a superset: the fansub group with or without brackets, a track extracted from the same MKV, a bare episode number and a wrong one, the Blu-ray cut, and films and series never reaching it. |
+| `test_subtitle_matching.py` | 67 | Candidate scoring: hash match, identical release name, group, source, resolution, and the wrong episode pushed to the bottom. Plus the OpenSubtitles hash arithmetic. And the anime scorer as a superset: the fansub group with or without brackets, a track extracted from the same MKV, a bare episode number and a wrong one, the Blu-ray cut, and films and series never reaching it. |
+| `test_othershow.py` | 17 | A subtitle filed under our show that names another one: HBO's Girls under Gilmore Girls, CSI under CSI: Miami, The Middle under Malcolm in the Middle. And what must survive it - "Buffy", "Lois and Clark", a transliterated title - plus the franchise rule, a hash match being exempt, films and anime untouched, a bounded number of questions, and a search that fails dropping nothing. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
 | `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |

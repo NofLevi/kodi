@@ -461,23 +461,29 @@ def _names_the_show(entry, meta):
     """
     from ...utils import release
 
-    def words(text):
+    def words(text, shortest=3):
         return set(word for word in re.findall(
-            r"[a-z0-9]+", release.normalise(str(text))) if len(word) >= 3)
+            r"[a-z0-9]+", release.normalise(str(text))) if len(word) >= shortest)
 
-    filed = str(entry.get("MovieName") or "")
-    quoted = re.match(r'\s*"([^"]+)"', filed)
-    theirs = words(quoted.group(1) if quoted else filed)
-    if not theirs:
-        return True
     names = [meta.get("search_title"), meta.get("english_title"),
              meta.get("show_title"), meta.get("title"),
              meta.get("original_title"), meta.get("season_name")]
     names += list(meta.get("aliases") or [])
+    names += list(meta.get("translated_titles") or [])
+    names = [name for name in names if name]
+    # A show called "It" has no word of three letters, and with nothing to
+    # compare the check passed everything: asked for It 1x02 the index
+    # answered with The Diplomat, The Ark and Killing It, twelve rows of
+    # other shows and none of ours. Such a name is compared by every word.
+    shortest = 3 if any(words(name) for name in names) else 1
+    filed = str(entry.get("MovieName") or "")
+    quoted = re.match(r'\s*"([^"]+)"', filed)
+    theirs = words(quoted.group(1) if quoted else filed, shortest)
+    if not theirs:
+        return True
     ours = set()
     for name in names:
-        if name:
-            ours |= words(name)
+        ours |= words(name, shortest)
     if not ours:
         return True
     return len(theirs & ours) >= SHARED_WORDS * len(theirs)

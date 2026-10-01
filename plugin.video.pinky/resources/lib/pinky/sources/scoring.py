@@ -387,8 +387,8 @@ _APOSTROPHE = re.compile(u"['`’ʼ]")
 # re-hosted it ("www.1TamilMV.meme - ", "(AnimesTotais)", "Crazy4TV.com - ")
 # and a scene group's lower-case prefix ("ppt-sliders.s03e15").
 _WESTERN_PREFIX = re.compile(
-    r"^\s*(?:\([^()]{2,30}\)|www\.\S+|\S+\.(?:com|net|org|xyz|to|cc))\s*-?\s*",
-    re.I)
+    r"^\s*(?:\([^()]{2,30}\)|www\.\S+|\S+\.(?:com|net|org|xyz|to|cc)(?=[\s-]|$))"
+    r"\s*-?\s*", re.I)
 _SCENE_PREFIX = re.compile(r"^[a-z0-9]{2,8}-(?=[a-z])")
 # A marker glued to the name: "TheWireS01E10", "FriendsS05E06".
 _GLUED_MARKER = re.compile(r"(?<=[a-z0-9])(?=s\d{1,2}e\d)")
@@ -445,6 +445,20 @@ def _a_different_western_series(source, meta):
 
 def _with_and_without_apostrophes(text):
     return (text or "", _APOSTROPHE.sub("", text or ""))
+
+
+def stated_series(title):
+    """The show a release or a subtitle names: what stands before its episode.
+
+    The same reading the series engine makes, for `subs.othershow`, which
+    asks the opposite question of it - not "does this say more than our
+    name" but "does it say another show's".
+    """
+    title = _APOSTROPHE.sub("", (title or "").replace(u"꞉", ":"))
+    title = _LEADING_GROUP.sub("", release.strip_site_tags(
+        _WESTERN_PREFIX.sub("", title)))
+    name = _GLUED_MARKER.sub(" ", release.normalise(title))
+    return _WESTERN_MARKER.split(name, 1)[0].strip()
 
 
 def _squashed(text):

@@ -495,6 +495,22 @@ def search(query, media_type="multi", page=1, language=None):
     return _results(payload, None if media_type == "multi" else media_type)
 
 
+def shows_named(query):
+    """The series a name finds: (tmdb id, name, original name, first year).
+
+    Raw rows in English rather than items, for `subs.othershow`, which wants
+    to know which show a subtitle's name belongs to and nothing else about it.
+    """
+    if not query:
+        return []
+    payload = _call("/search/tv", ttl=TTL_DETAILS, query=query,
+                    include_adult="false", language="en-US")
+    return [(str(row.get("id") or ""), row.get("name") or "",
+             row.get("original_name") or "", (row.get("first_air_date") or "")[:4])
+            for row in (payload.get("results") or [])[:10]
+            if isinstance(row, dict)]
+
+
 def find_by_imdb(imdb_id):
     """Resolve an IMDb id to a TMDB item."""
     if not imdb_id:

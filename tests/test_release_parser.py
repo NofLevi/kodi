@@ -405,3 +405,26 @@ def test_a_turkish_title_is_not_another_show_for_its_dotless_i():
     from pinky.sources import scoring
     meta = {"type": "episode", "title": u"Alıkara", "extra": {}}
     assert scoring._a_different_series({"title": "Alikara.s01.e05.WEB-DLRip720p.mkv"}, meta) == ""
+
+
+@pytest.mark.parametrize("name, season, episode, matches", [
+    ("ALF.S03E04-05.DVDRip.XviD-MEMETiC", 3, 5, True),
+    ("ALF.S03E04-05.DVDRip.XviD-MEMETiC", 3, 4, True),
+    ("ALF.S03E04-05.DVDRip.XviD-MEMETiC", 3, 6, False),
+    ("ALF S03E04+E05 Tonight, Tonight.mp4", 3, 5, True),
+    ("Seinfeld.S03E17-E18.DVDRip.XviD-FoV", 3, 18, True),
+    ("Modern.Family.S11E17E18.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb.mkv", 11, 18, True),
+    ("Modern.Family.S11E17E18.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb.mkv", 11, 16, False),
+    ("Battlestar.Galactica.S04E19E20E21.Extended.720p.BluRay", 4, 21, True),
+    ("BGS S04E19-20-21 Daybreak EXTENDED", 4, 20, True),
+    ("Show.S01E05-1080p.mkv", 1, 6, False),
+    ("Show.S01E05-264.mkv", 1, 6, False),
+    ("Show.S02E03.2021-05.mkv", 2, 5, False),
+    ("Show.S02E05.5.1.AAC.mkv", 2, 6, False),
+    ("Silo.S02E07.1080p.WEB.H264-GRP", 2, 8, False),
+])
+def test_a_file_holding_two_episodes_is_both_of_them(name, season, episode, matches):
+    """ALF's only Hebrew subtitle for 3x05 is "S03E04-05" and was the wrong
+    episode; every copy of Modern Family's finale, "S11E17E18", named none."""
+    from pinky.utils import release
+    assert release.matches_episode(release.parse(name), season, episode) is matches

@@ -439,6 +439,9 @@ def search_candidates(meta, languages, video_hash="", split_languages=False):
             if key:
                 seen.add(key)
             candidates.append(candidate)
+    # Wizdom answers a show with every show whose name it contains.
+    from . import othershow
+    candidates = othershow.drop(candidates, meta)
     _remember_search(memo_key, candidates)
     return candidates
 

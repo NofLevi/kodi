@@ -643,3 +643,65 @@ def test_films_and_series_never_reach_the_anime_scorer(monkeypatch):
                                   "extra": {"anime": False}},
                                  {"file_name": "Silo.S01E01.1080p.WEB.h264-GRP"})
     matcher.rate(candidate("Silo.S01E01.1080p.WEB.h264-GRP"), series)
+
+
+def test_a_double_episode_subtitle_fits_a_double_episode_release():
+    """ALF 3x05 is released on its own and as "S03E04+E05": the subtitle
+    typed for two episodes is an episode out on the first."""
+    from pinky.subs import matcher
+    meta = {"type": "episode", "title": "ALF", "season": 3, "episode": 5, "year": 1986}
+    subtitle = {"release": "ALF.S03E04-05.DVDRip.XviD-MEMETiC"}
+
+    def fit(release_name):
+        return matcher.rate(subtitle, matcher.target_from(meta, {"file_name": release_name}))
+
+    assert fit("ALF S03E04+E05 Tonight, Tonight.mp4")[0] >= 70
+    assert fit("ALF.S03E05.Tonight.Tonight.2.1080p.WEB-DL.AAC2.0.H.264-DAWN.mkv") == (
+        40, "double episode")
+    meta["episode"] = 6
+    assert fit("ALF.S03E06.1080p.WEB-DL.mkv")[0] == 0
+
+
+@pytest.mark.parametrize("title, year, playing, subtitle, wrong", [
+    # Wizdom files Dune: Part Two under Dune, and it scored 99.
+    ("Dune", 2021, "Dune.2021.2160p.WEB-DL.DDP5.1.Atmos.HEVC-FLUX.mkv",
+     "Dune.Part.Two.2024.2160p.WEB-DL.DDP5.1.Atmos.HEVC-FLUX", True),
+    ("Dune: Part Two", 2024, "Dune.Part.Two.2024.1080p.WEB.mkv",
+     "Dune.2021.1080p.WEB.H264-GRP", True),
+    ("Alien", 1979, "Alien.1979.1080p.BluRay.x264-GRP.mkv",
+     "Aliens.1986.SE.720p.HDTV.DTS.x264-DON", True),
+    # The film this one remade: a re-release is never dated before the film.
+    ("Dune", 2021, "Dune.2021.1080p.BluRay.x264-GRP.mkv",
+     "Dune.1984.1080p.BluRay.x264-GRP", True),
+    # The same film, dated by its re-release.
+    ("Blade Runner", 1982, "Blade.Runner.1982.The.Final.Cut.1080p.BluRay.mkv",
+     "Blade.Runner.The.Final.Cut.2007.25fps.592.728kbps.V5.WunSeeDee", False),
+    ("Alien", 1979, "Alien.1979.1080p.BluRay.x264-GRP.mkv",
+     "Alien.Directors.Cut.2003.DVDRIP.XViD-DigitalVX", False),
+    ("The Shawshank Redemption", 1994, "The.Shawshank.Redemption.1994.1080p.BluRay.mkv",
+     "The.Shawshank.Redemption.2000.DVDRip.Xvid.AC3.iNTERNAL-FFM", False),
+    # A year that is the film's own name is not a date.
+    ("1917", 2019, "1917.2019.1080p.BluRay.mkv", "1917.1080p.BluRay.x264-SPARKS", False),
+    ("Blade Runner 2049", 2017, "Blade.Runner.2049.2017.1080p.BluRay.mkv",
+     "Blade.Runner.2049.1080p.BluRay.x264-SPARKS", False),
+    ("Dune", 2021, "Dune.2021.1080p.BluRay.x264-GRP.mkv",
+     "Dune.Part.One.2021.1080p.BluRay.x264-CEBRAY", False),
+])
+def test_a_sequel_or_a_remake_is_another_film(title, year, playing, subtitle, wrong):
+    from pinky.subs import matcher
+    meta = {"type": "movie", "title": title, "year": year}
+    score, reason = matcher.rate(
+        {"release": subtitle}, matcher.target_from(meta, {"file_name": playing}))
+    assert (score == 0 and reason == "wrong title") is wrong
+
+
+def test_a_sequel_is_told_apart_by_the_latin_title_on_a_hebrew_interface():
+    """`title` is Hebrew there, and a subtitle's name never is."""
+    from pinky.subs import matcher
+    playing = "Dune.2021.2160p.WEB-DL.DDP5.1.Atmos.HEVC-FLUX.mkv"
+    sequel = {"release": "Dune.Part.Two.2024.2160p.WEB-DL.DDP5.1.Atmos.HEVC-FLUX"}
+    hebrew = {"type": "movie", "title": u"\u05d7\u05d5\u05dc\u05d9\u05ea", "year": 2021}
+    known = dict(hebrew, original_title="Dune")
+    assert matcher.rate(sequel, matcher.target_from(known, {"file_name": playing}))[0] == 0
+    # With no Latin name to compare against, nothing is concluded.
+    assert matcher.rate(sequel, matcher.target_from(hebrew, {"file_name": playing}))[0] > 0
