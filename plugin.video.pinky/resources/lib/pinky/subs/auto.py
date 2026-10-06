@@ -1850,11 +1850,12 @@ def _translate_progressively(cues, meta, language, player, variant="",
                   "start_at": _watching_at(player)}
         return translator.translate(cues, language, **kwargs)
     except translator.TranslationError:
-        kodi.log_exception("AI translation failed")
         if stopped():
             # Superseded: the viewer has moved on, and "did not finish" over
             # the next episode was this job's failure read as that one's.
+            kodi.log("the AI translation stopped: the viewer moved on")
             return []
+        kodi.log_exception("AI translation failed")
         # Say why. Without this the film simply plays with nothing on it and
         # nobody watching can tell "the model is out of quota" from "this
         # add-on found no subtitles" - and the second is what it looks like.

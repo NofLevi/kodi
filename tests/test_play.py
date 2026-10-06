@@ -1108,3 +1108,27 @@ def test_translations_reads_both_shapes_and_skips_blank_names(monkeypatch):
         ]})
     assert tmdb.translations("show", "1399") == [
         ("es", "Juego de tronos"), ("it", "Il Trono di Spade")]
+
+
+def test_a_link_that_lands_on_a_providers_own_clip_is_not_the_film(links_open,
+                                                                   monkeypatch):
+    """Hikaru no Go 1x03 played Torrentio's "Torrent is being downloaded to
+    debrid..." with an AI translation running over it: the link answered,
+    and what it answered was a green screen."""
+    from pinky import http
+    reachable = links_open
+    asked = "https://torrentio.strem.fun/resolve/torbox/k/abc/Hikaru.EP03.mkv"
+
+    class Landed(object):
+        def __init__(self, url):
+            self.url, self.status_code = url, 200
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(http, "get", lambda url, **kw: Landed(
+        "https://torrentio.strem.fun/videos/downloading_v3.mp4"))
+    assert reachable(asked, honour_memory=False) is False
+    monkeypatch.setattr(http, "get", lambda url, **kw: Landed(
+        "https://store-039.wnam.tb-cdn.io/dld/0c5e91c1"))
+    assert reachable(asked, honour_memory=False) is True, "a redirect to the file is fine"

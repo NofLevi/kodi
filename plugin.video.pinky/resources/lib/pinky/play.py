@@ -782,7 +782,29 @@ def _reachable(url, honour_memory=True):
         # A node that answers clears its own black mark, so one slow moment
         # does not keep a working host out for five minutes.
         cache.delete(key)
+    if _placeholder(url, getattr(response, "url", "") or ""):
+        # It answers, and what it answers is not the film.
+        kodi.log("%s answered with its own clip rather than the file - the "
+                 "debrid service does not have this torrent yet"
+                 % http._host(url), kodi.LOG_INFO)
+        return False
     return True
+
+
+def _placeholder(asked, landed):
+    """Did a link redirect to a provider's stock clip?
+
+    Torrentio's `/resolve/` link for a torrent the debrid service does not
+    hold adds it there and redirects to `/videos/downloading_v3.mp4` - a green
+    screen reading "Torrent is being downloaded to debrid...", which played
+    as Hikaru no Go 1x03 with an AI translation running over it. Its other
+    clips (a failed download, a limit reached) live beside it.
+    """
+    from urllib.parse import urlsplit
+    if not landed or landed == asked:
+        return False
+    path = urlsplit(landed).path.lower()
+    return "/videos/" in path and path.endswith(".mp4")
 
 
 def _choose(sources, meta, force_picker):
