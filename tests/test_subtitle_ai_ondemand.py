@@ -624,3 +624,18 @@ def test_a_superseded_translation_does_not_speak_over_the_next_episode(monkeypat
     auto._translate_progressively([], {"title": "A Film"}, "he", None,
                                   cancelled=lambda: True)
     assert said == []
+
+
+def test_the_ai_row_does_not_wait_for_a_hash_its_candidates_cannot_match(
+        fake_world, monkeypatch):
+    """The picker searched without a hash, so none of its candidates can match
+    one: Hikaru no Go spent 3.4 s on it before the first line was translated."""
+    name = "Shawshank.1994.1080p.BluRay.x264-AMIABLE"
+    fake_world["downloads"][name] = srt_bytes()
+    monkeypatch.setattr(auto, "video_hash_for",
+                        lambda meta: pytest.fail("the hash was computed"))
+    monkeypatch.setattr(auto, "video_hash_later",
+                        lambda meta: pytest.fail("the hash was computed"))
+    path = auto.translate_now(dict(MOVIE, stream_url="https://cdn/film.mkv"), "he",
+                              candidates=[candidate(name, "en")])
+    assert path

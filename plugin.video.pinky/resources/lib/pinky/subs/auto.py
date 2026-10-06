@@ -1613,8 +1613,8 @@ def translation_sources(meta, target, video_hash="", candidates=None):
                                        split_languages=True)
     if not candidates:
         return []
-    ranked = matcher.rank(candidates, matcher.target_from(meta), video_hash,
-                          languages)
+    ranked = matcher.rank(candidates, matcher.target_from(meta),
+                          _hash_value(video_hash), languages)
     return translation_context.rank_translation_candidates(ranked, target)
 
 
@@ -1670,7 +1670,12 @@ def _translate_now(meta, target, player, candidates, video_hash, cancelled,
         return ""
     status.say(0, kodi.localize(32559))
     if video_hash is None:
-        video_hash = video_hash_for(meta)
+        # The picker's candidates were searched without a hash, so none of
+        # them can match one: computing it there was three and a half seconds
+        # before the first line was translated, for nothing (Hikaru no Go,
+        # "file hash computed in 3431 ms", then "translating"). Searching here,
+        # it is read alongside the search rather than before it.
+        video_hash = "" if candidates is not None else video_hash_later(meta)
     sources = list(translation_sources(meta, target, video_hash, candidates) or [])
     if meta.get("stream_url") and not stopped():
         status.say(1, kodi.localize(32560))
