@@ -3,8 +3,12 @@
 Portable means everything (profile, add-ons, logs) stays inside one folder and
 nothing touches the registry or %APPDATA%. Deleting the folder undoes it.
 
-    python tools/setup_kodi.py            download and install
-    python tools/setup_kodi.py --link     only link the add-on into an existing one
+    python tools/setup_kodi.py              download and install
+    python tools/setup_kodi.py --link       only link the add-on into an existing one
+    python tools/setup_kodi.py --shortcut   only make the Pinky shortcut
+
+Both full runs end by putting a "Pinky" shortcut on the Desktop and in the
+Start menu: the portable Kodi with its -p flag, under Pinky's own icon.
 """
 import os
 import shutil
@@ -168,7 +172,50 @@ def write_advanced_settings(portable):
     print("wrote advancedsettings.xml with debug logging on")
 
 
+def make_shortcuts():
+    """"Pinky" on the Desktop and in the Start menu, opening this Kodi.
+
+    Built here rather than shipped, because a shortcut holds absolute paths:
+    this works out where the project and the Desktop are on whatever
+    Windows it runs on - a Desktop moved into OneDrive included, which is
+    why the folder is asked of Windows rather than assumed. The paths reach
+    PowerShell as environment variables, never pasted into the command, so a
+    folder with a space or a quote in its name cannot break it. Only what
+    every Windows has is used: WScript.Shell, and the .ico beside this file.
+    """
+    if os.name != "nt":
+        print("shortcuts are for Windows; elsewhere Kodi opens from its own launcher")
+        return False
+    if not os.path.isfile(EXE):
+        print("no portable Kodi yet, so no shortcut: run without --shortcut first")
+        return False
+    script = (
+        "$shell = New-Object -ComObject WScript.Shell; "
+        "foreach ($place in @([Environment]::GetFolderPath('Desktop'), "
+        "[Environment]::GetFolderPath('Programs'))) { "
+        "$link = $shell.CreateShortcut((Join-Path $place 'Pinky.lnk')); "
+        "$link.TargetPath = $env:PINKY_EXE; $link.Arguments = '-p'; "
+        "$link.WorkingDirectory = $env:PINKY_DIR; "
+        "$link.IconLocation = $env:PINKY_ICON + ',0'; "
+        "$link.Description = 'Pinky, on the portable Kodi'; "
+        "$link.Save(); Write-Output $link.FullName }")
+    env = dict(os.environ, PINKY_EXE=EXE, PINKY_DIR=KODI_DIR,
+               PINKY_ICON=os.path.join(ROOT, "tools", "pinky.ico"))
+    result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive",
+                             "-Command", script],
+                            env=env, capture_output=True, text=True)
+    if result.returncode != 0:
+        print("could not make the shortcut: %s" % result.stderr.strip()[-300:])
+        return False
+    for line in result.stdout.splitlines():
+        print("shortcut: %s" % line)
+    return True
+
+
 def main():
+    if "--shortcut" in sys.argv:
+        return 0 if make_shortcuts() else 1
+
     portable = make_portable()
 
     if "--link" not in sys.argv:
@@ -181,6 +228,7 @@ def main():
     link_addons(portable)
     write_advanced_settings(portable)
     enable_addons(portable)
+    make_shortcuts()
 
     print()
     print("run it with:")

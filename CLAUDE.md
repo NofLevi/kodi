@@ -1578,6 +1578,12 @@ binaries. Fetch it on any machine with one command.
 
     python tools/setup_kodi.py        portable Kodi 21.3 into .kodi-test/
     .kodi-test/kodi.exe -p            run it
+    python tools/setup_kodi.py --shortcut
+                                      only (re)make the Pinky shortcut
+
+Setup ends by putting a "Pinky" shortcut on the Desktop and in the Start
+menu - the portable Kodi with `-p`, under `tools/pinky.ico` - built on the
+machine it runs on, because a shortcut holds absolute paths.
 
 That step also links the add-on folders in, enables them in Kodi's add-on
 database (Kodi leaves manually placed add-ons disabled), and turns on debug
