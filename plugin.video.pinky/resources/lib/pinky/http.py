@@ -475,7 +475,12 @@ def run_parallel(tasks, workers=4, deadline=12.0, on_result=None, dropped=None):
                 results[name] = value
                 if on_result is not None:
                     try:
-                        on_result(name, value)
+                        # A number back means "now that this has answered,
+                        # wait at most this much longer for the rest".
+                        sooner = on_result(name, value)
+                        if isinstance(sooner, (int, float)) \
+                                and not isinstance(sooner, bool):
+                            expires = min(expires, time.time() + sooner)
                     except Exception:
                         kodi.log_exception("on_result callback for %s raised" % name)
             submit_one()

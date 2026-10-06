@@ -28,6 +28,13 @@ TTL_EMPTY = 5 * 60             # remember failures briefly, but not for long
 # is waiting on the *other* providers, and by here there are none.
 _PATIENT_DEADLINE = 25
 
+# How much longer the other providers are waited for once Torrentio has
+# answered. Measured on ten titles they all answer in under a second when
+# well; three seconds is that with room to spare, and a provider still
+# silent after it is the one that would have held the picker for ten. What
+# it costs is that provider's extra sources on that one opening.
+AFTER_TORRENTIO = 3.0
+
 # Providers that only make sense for anime, and are skipped otherwise.
 ANIME_PROVIDERS = ("nyaa", "animetosho")
 
@@ -421,6 +428,13 @@ def _run_providers(providers, meta, quiet=False, also=None, dropped=None,
             elapsed = time.time() - started
             progress.update(int(min(99, (elapsed / deadline) * 100)),
                             message=kodi.localize(32332, len(found)))
+        # Torrentio and TorrentsDB answer in a fraction of a second, and when
+        # one of the others hangs it held the picker for the full deadline:
+        # Top Gun: Maverick waited ten seconds on TorrentsDB in a real Kodi
+        # with Torrentio's 265 sources already in hand. Once Torrentio has
+        # answered, the rest get a few seconds more, not the whole wait.
+        if name == "torrentio" and sources:
+            return AFTER_TORRENTIO
 
     if also:
         # A named arc replaces the address rather than adding to it, for the

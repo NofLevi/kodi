@@ -376,3 +376,47 @@ def test_a_cooldown_expires(monkeypatch):
     http._start_cooldown("throttled.example", 30.0)
     monkeypatch.setattr(http.time, "time", lambda: real_time() + 31)
     assert not http.rate_limited("throttled.example"), "30 seconds, not for ever"
+
+
+def test_an_answer_can_bring_the_deadline_forward():
+    """Top Gun: Maverick waited the full ten seconds on TorrentsDB with
+    Torrentio's 265 sources already in hand."""
+    import time
+    from pinky import http
+
+    import threading
+    release = threading.Event()
+
+    def quick():
+        return ["265 sources"]
+
+    def hangs():
+        release.wait(5)
+        return ["late"]
+
+    started = time.time()
+    found = http.run_parallel([("torrentio", quick), ("torrentsdb", hangs)],
+                              workers=2, deadline=5.0,
+                              on_result=lambda name, value: 0.3 if name == "torrentio" else None)
+    elapsed = time.time() - started
+    release.set()
+    assert found == {"torrentio": ["265 sources"]}
+    assert elapsed < 1.5, "%.1fs - the deadline was not brought forward" % elapsed
+
+
+def test_the_aggregator_waits_only_a_little_after_torrentio(monkeypatch, settings_module):
+    from pinky.sources import aggregator
+
+    returned = []
+    original = aggregator.http.run_parallel
+
+    def spy(tasks, workers=4, deadline=12.0, on_result=None, dropped=None):
+        returned.append(on_result("torrentio", ["a source"]))
+        returned.append(on_result("torrentio", []))
+        returned.append(on_result("torrentsdb", ["a source"]))
+        return {}
+
+    monkeypatch.setattr(aggregator.http, "run_parallel", spy)
+    aggregator._run_providers([], {"type": "movie"}, quiet=True)
+    assert returned == [aggregator.AFTER_TORRENTIO, None, None], \
+        "only Torrentio answering with something brings the deadline forward"
