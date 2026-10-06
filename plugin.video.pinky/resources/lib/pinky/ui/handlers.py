@@ -288,6 +288,10 @@ def play_episode(params):
         "tmdb": params.get("tmdb"),
         "season": int(params.get("season") or 0),
         "episode": int(params.get("episode") or 0),
+        # Set by the next-episode card: the release that was playing and the
+        # subtitle route it was watched with, to carry on in.
+        "follow": params.get("follow") or "",
+        "route": params.get("route") or "",
     })
 
 

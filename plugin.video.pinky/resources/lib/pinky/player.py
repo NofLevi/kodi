@@ -622,8 +622,14 @@ class PinkyPlayer(xbmc.Player):
         if not nxt:
             return ""
         from . import router
+        # The release and the subtitle route this was watched with, so the
+        # next episode carries on in the same files the same way instead of
+        # asking again (`play._follow`).
+        source = (self.meta or {}).get("source") or {}
         return router.url_for("episode", tmdb=(nxt.get("ids") or {}).get("tmdb"),
-                              season=nxt["season"], episode=nxt["episode"])
+                              season=nxt["season"], episode=nxt["episode"],
+                              follow=source.get("file_name") or source.get("release") or "",
+                              route=source.get("subs_mode") or "")
 
     def _play_next(self):
         url = self._next_url()

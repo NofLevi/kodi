@@ -312,7 +312,7 @@ def play(handle, request, force_picker=False):
         listing.resolve_failed(handle)
         return
 
-    chosen = _choose(sources, meta, force_picker)
+    chosen = (None if force_picker else _follow(request, sources))         or _choose(sources, meta, force_picker)
     if not chosen:
         # Either the viewer closed the picker, or - the case that used to be
         # invisible - autoplay was handed a list it could make nothing of. An
@@ -383,6 +383,71 @@ def _mime_of(source):
     import os
     name = ((source or {}).get("file_name") or (source or {}).get("title") or "").lower()
     return _MIMES.get(os.path.splitext(name.strip())[1], "")
+
+
+# How alike two release names must be, numbers aside, for the next episode
+# to be taken from the same release without asking. High on purpose: below
+# it the picker opens, which is what happened before this existed.
+FOLLOW_LIKENESS = 0.9
+_NUMBERS = re.compile(r"\[[0-9a-f]{8}\]|\d+")
+
+
+def _follow(request, sources):
+    """The next episode from the release the last one played from.
+
+    Fansub and scene releases name every episode the same way but for its
+    number - "Hikaru.No.Go.TV.EP03.BluRay.1080p.AC3.x264-CHD" and then EP04 -
+    so the name with its numbers taken out finds the same release among the
+    next episode's sources. Only a cached one, from the same group, and only
+    when the names agree almost entirely; otherwise the picker opens as it
+    always did. The subtitle route comes with it: watched with AI subtitles,
+    the next one is translated too.
+    """
+    from difflib import SequenceMatcher
+    from .utils import release
+    followed = (request.get("follow") or "").strip()
+    if not followed:
+        return None
+    shape = _shape_of(followed)
+    # Taking the numbers out also blurs 1080p into 720p and x264 into x265,
+    # so those are read separately and have to agree, with the group.
+    wanted = _identity_of(release.parse(followed))
+    best, likeness = None, 0.0
+    for source in sources:
+        if not source.get("cached"):
+            continue
+        name = source.get("file_name") or source.get("title") or ""
+        if _identity_of(release.parse(name)) != wanted:
+            continue
+        score = SequenceMatcher(None, shape, _shape_of(name)).ratio()
+        if score > likeness:
+            best, likeness = source, score
+    if best is None or likeness < FOLLOW_LIKENESS:
+        kodi.log("no release like %s for the next episode, so the picker opens"
+                 % followed[:70])
+        return None
+    kodi.log("carrying on in %s (%.0f%% alike)%s"
+             % ((best.get("file_name") or best.get("title") or "")[:70], likeness * 100,
+                ", with %s subtitles" % request["route"] if request.get("route") else ""))
+    chosen = dict(best)
+    if request.get("route"):
+        chosen["subs_mode"] = request["route"]
+    return chosen
+
+
+def _identity_of(parsed):
+    return tuple((parsed.get(key) or "").lower()
+                 for key in ("group", "resolution", "codec", "source"))
+
+
+def _shape_of(name):
+    """A release name with its numbers and checksum taken out - and its file
+    extension, which a torrent's own name does not have."""
+    base = _VIDEO_EXTENSION.sub("", name.strip().lower())
+    return _NUMBERS.sub("#", base)
+
+
+_VIDEO_EXTENSION = re.compile(r"\.(?:mkv|mp4|m4v|avi|ts|webm)$")
 
 
 def source_record(chosen):

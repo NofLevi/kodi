@@ -1193,3 +1193,40 @@ def test_a_release_that_will_not_open_is_replaced_aloud_and_keeps_the_route(
     assert url == "https://cdn/ok.mkv" and playing["title"] == "Worse 720p"
     assert playing["subs_mode"] == "llm", "translated, as the chosen row would have been"
     assert said and "Worse 720p" in said[-1]
+
+
+def _release(title, cached=True):
+    return {"title": title, "cached": cached, "hash": title[:8]}
+
+
+def test_the_next_episode_carries_on_in_the_same_release_and_route():
+    """Fansub and scene releases name every episode alike but for its number;
+    watched with AI subtitles, the next one is translated too."""
+    sources = [_release("[KORSARS]_Hikaru.no.Go.[S01E04].BDRip.1080p_[ForceMedia].mkv"),
+               _release("Hikaru.No.Go.TV.EP04.BluRay.1080p.AC3.x264-CHD.mkv"),
+               _release("[nielsen145]Hikaru.No.Go.TV.EP04.BluRay.1080p.AC3.x264[2021F4A9].mkv")]
+    chosen = play._follow({"follow": "Hikaru.No.Go.TV.EP03.BluRay.1080p.AC3.x264-CHD.mkv",
+                           "route": "llm"}, sources)
+    assert chosen["title"] == "Hikaru.No.Go.TV.EP04.BluRay.1080p.AC3.x264-CHD.mkv"
+    assert chosen["subs_mode"] == "llm"
+
+
+def test_nothing_alike_enough_opens_the_picker():
+    followed = {"follow": "Hikaru.No.Go.TV.EP03.BluRay.1080p.AC3.x264-CHD.mkv", "route": "llm"}
+    assert play._follow(followed, [_release("Hikaru.No.Go.TV.EP04.BluRay.720p.AC3.x264-CHD.mkv")]) is None, \
+        "another resolution is another release"
+    assert play._follow(followed, [_release("Hikaru.No.Go.TV.EP04.BluRay.1080p.AC3.x265-CHD.mkv")]) is None, \
+        "another codec too"
+    assert play._follow(followed, [_release("Hikaru.No.Go.TV.EP04.BluRay.1080p.AC3.x264-CHD.mkv",
+                                            cached=False)]) is None, "only what plays at once"
+    assert play._follow({"follow": ""}, [_release("anything")]) is None, "and only when asked"
+
+
+def test_the_next_episode_link_names_what_was_playing(monkeypatch):
+    from pinky import player as player_module
+    p = player_module.PinkyPlayer()
+    p.meta = {"source": {"file_name": "Hikaru.No.Go.TV.EP03.BluRay.1080p.AC3.x264-CHD.mkv",
+                         "subs_mode": "llm"}}
+    p._next = {"ids": {"tmdb": 30982}, "season": 1, "episode": 4}
+    url = p._next_url()
+    assert "follow=" in url and "route=llm" in url and "episode=4" in url
