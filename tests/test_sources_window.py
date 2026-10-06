@@ -716,3 +716,15 @@ def test_a_closed_picker_is_not_redrawn(picker, monkeypatch):
     picker.close()
     picker._learnt()
     assert picker._visible() == drawn
+
+
+def test_an_ai_row_does_not_name_a_track_it_is_not_translating_from():
+    """"EMBEDDED EN" beside "translated from FR, 100..." - the English is not
+    what the row uses, and it pushed the fit off the end of the line."""
+    source = {"inside_subs": ["en"], "subs_mode": "llm", "subs_from": "fr",
+              "subs_fit": 100}
+    mark = sources_window._bundled_mark(source)
+    assert mark and mark not in sources_window._subtitle_badge(dict(source))
+    english = dict(source, subs_mode="english", subs_from="en")
+    assert sources_window._subtitle_badge(english).startswith(mark), \
+        "on an English row the track inside is the point"

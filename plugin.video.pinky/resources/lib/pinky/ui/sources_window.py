@@ -245,7 +245,10 @@ def _subtitle_badge(source, outlook=None):
 
     mode = source.get("subs_mode")
     if mode in MODE_COLOURS:
-        return _bundled_mark(source) + _mode_line(source, mode)
+        # Not on an AI row: "EMBEDDED EN" beside "translated from FR" names a
+        # track the row is not using, and pushed the fit off the end of it.
+        mark = "" if mode == "llm" else _bundled_mark(source)
+        return mark + _mode_line(source, mode)
 
     kind = source.get("subs_kind")
     if not kind:
