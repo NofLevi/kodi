@@ -555,8 +555,16 @@ def _number(value):
 
 
 def download(candidate):
-    """Fetch and un-gzip. The API serves .gz rather than the zip Wizdom does."""
-    data = common.fetch_bytes(candidate["download"],
+    """Fetch and un-gzip. The API serves .gz rather than the zip Wizdom does.
+
+    The link it hands out is `.../filead/<id>.gz`, and the name is the
+    description: two cues are written into the file, six seconds of
+    "Watch Online Movies and Series for FREE" at the start and a minute of
+    "Do you want subtitles for any video?" at the end - in Hebrew, on a
+    Hebrew file ("נמאס לך לחפש כתוביות?"). The same signed link with `/file/`
+    serves the upload as it was uploaded, measured on Fight Club and Silo.
+    """
+    data = common.fetch_bytes(candidate["download"].replace("/filead/", "/file/"),
                               headers={"User-Agent": USER_AGENT})
     if not data:
         return b""

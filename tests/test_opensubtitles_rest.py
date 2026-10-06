@@ -221,6 +221,20 @@ def test_a_download_is_gunzipped(monkeypatch, provider):
                               "language": "he"}) == body
 
 
+def test_the_copy_without_adverts_is_the_one_downloaded(monkeypatch, provider):
+    """`/filead/` writes "Watch Online Movies and Series for FREE" into the
+    first cue and a minute of another advert into the last - in Hebrew, on a
+    Hebrew file. `/file/` is the upload as it was uploaded."""
+    asked = []
+    monkeypatch.setattr(provider.common, "fetch_bytes",
+                        lambda url, **kw: asked.append(url) or b"")
+    provider.download({"download": "https://dl.opensubtitles.org/en/download/"
+                                   "src-api/vrf-19fb0c66/filead/1957848298.gz",
+                       "language": "he"})
+    assert asked == ["https://dl.opensubtitles.org/en/download/"
+                     "src-api/vrf-19fb0c66/file/1957848298.gz"]
+
+
 def test_something_that_is_not_gzip_does_not_raise(monkeypatch, provider):
     """An error page where a subtitle was expected is a normal Tuesday."""
     monkeypatch.setattr(provider.common, "fetch_bytes",

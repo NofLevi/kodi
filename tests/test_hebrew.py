@@ -747,3 +747,21 @@ def test_a_written_subtitle_carries_a_byte_order_mark(tmp_path):
     assert u"שלום" in srt.decode(raw)
     assert srt.parse(srt.decode(raw))[0].text == u"שלום", \
         "and the mark must not land inside the first cue"
+
+
+def test_an_advert_written_into_a_subtitle_is_not_shown():
+    """Measured on OpenSubtitles downloads: six seconds of advert at the
+    start and a minute at the end, and on a Hebrew file the advert is
+    Hebrew too."""
+    from pinky.subs import srt
+
+    cues = srt.clean([
+        srt.Cue(1, 6.0, 12.1, "Watch Online Movies and Series for FREE\nwww.osdb.link/lm"),
+        srt.Cue(2, 11.0, 17.1, u"נמאס לך לחפש כתוביות?\nRay מייצר אותן מיידית:  getray.app"),
+        srt.Cue(3, 60.9, 65.4, u"- מועדון קרב -"),
+        srt.Cue(4, 70.0, 72.0, "I found the open subtitles of my life."),
+        srt.Cue(5, 8156.3, 8216.7,
+                "Do you want subtitles for any video?\n-=[ ai.OpenSubtitles.com ]=-"),
+    ])
+    assert [cue.text for cue in cues] == [u"- מועדון קרב -",
+                                          "I found the open subtitles of my life."]

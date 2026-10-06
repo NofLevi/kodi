@@ -30,6 +30,14 @@ _MAX_MICRODVD_FRAME = 10 * 60 * 60 * 120  # ten hours at the maximum accepted FP
 _PRESENTATION_FORMS = re.compile(u"[\uFB1D-\uFDFF\uFE70-\uFEFF]")
 _TAGS = re.compile(r"</?[a-zA-Z][^>]*>")
 _HI_BRACKETS = re.compile(r"[\[\(][^\]\)]{0,60}[\]\)]")
+# The cues OpenSubtitles writes into a file it serves - "Watch Online Movies
+# and Series for FREE / www.osdb.link", "Do you want subtitles for any
+# video?", and on a Hebrew file a Hebrew one for an app called Ray. The
+# legacy endpoint's /file/ link leaves them out, but an upload that was
+# itself downloaded somewhere carries them baked in. Matched on the
+# addresses, which no line of dialogue contains.
+_ADVERT = re.compile(r"osdb\.link|opensubtitles\.(?:com|org)|\b(?:try|get)ray\.app"
+                     r"|become vip member|advertise your product", re.I)
 
 MIN_DURATION = 0.4
 MAX_DURATION = 8.0
@@ -462,7 +470,7 @@ def clean(cues, strip_hi=False):
         if strip_hi:
             text = _HI_BRACKETS.sub("", text)
         text = re.sub(r"[ \t]+", " ", text).strip()
-        if not text:
+        if not text or _ADVERT.search(text):
             continue
         out.append(Cue(cue.index, cue.start, cue.end, text))
     return clamp_durations(out)
