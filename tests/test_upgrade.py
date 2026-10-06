@@ -22,7 +22,7 @@ from conftest import ADDON_DIR
 
 
 CREDENTIAL_MARKERS = ("apikey", "token", "secret", "password", "client_id",
-                      "_key", "user")
+                      "_key", "user", "refresh", "expires")
 
 
 def credential_keys(settings):
@@ -986,3 +986,67 @@ def test_the_shipped_update_url_is_the_release_alias():
     assert updater.DEFAULT_INDEX == (
         "https://github.com/NofLevi/kodi/releases/latest/download/addons.xml")
     assert "/releases/latest/" in updater.DEFAULT_INDEX
+
+
+# Every account setting this add-on has ever shipped. A name that disappears
+# from settings.xml is a value Kodi drops on the next save - a key or a token
+# gone on update, which is the one thing an update must never cost. Add to
+# this list; never take from it without a migration that carries the value.
+ACCOUNT_SETTINGS_EVER_SHIPPED = (
+    "alldebrid.apikey", "mdblist.apikey", "premiumize.apikey",
+    "premiumize.client_id", "premiumize.token", "realdebrid.client_id",
+    "realdebrid.client_secret", "realdebrid.expires", "realdebrid.refresh",
+    "realdebrid.token", "subs.ai.gemini_key", "subs.ai.openai_key",
+    "subs.ai.openrouter_key", "subs.ktuvit.password", "subs.ktuvit.user",
+    "subs.opensubtitles.apikey", "subs.opensubtitles.password",
+    "subs.opensubtitles.user", "tmdb.apikey", "torbox.apikey",
+    "trakt.access_token", "trakt.client_id", "trakt.client_secret",
+    "trakt.expires", "trakt.refresh_token", "trakt.user",
+)
+
+
+def test_no_account_setting_ever_disappears_from_settings_xml(settings_module):
+    import os
+    import re
+    xml = open(os.path.join(ADDON_DIR, "resources", "settings.xml"), encoding="utf-8").read()
+    declared = set(re.findall(r'setting id="([^"]+)"', xml))
+    gone = [key for key in ACCOUNT_SETTINGS_EVER_SHIPPED if key not in declared]
+    assert not gone, "renamed or removed, so lost on the next update: %s" % gone
+    assert set(credential_keys(settings_module)) <= set(ACCOUNT_SETTINGS_EVER_SHIPPED), \
+        "a new account setting: add it to ACCOUNT_SETTINGS_EVER_SHIPPED"
+
+
+class _Refreshed(object):
+    def __init__(self, payload, status=200):
+        self.status_code, self._payload = status, payload
+
+    def json(self):
+        if isinstance(self._payload, Exception):
+            raise self._payload
+        return self._payload
+
+
+def test_a_refresh_answer_with_no_token_signs_nobody_out(settings_module, monkeypatch):
+    from pinky.debrid import realdebrid
+    settings_module.set_many({"realdebrid.token": "OLD", "realdebrid.refresh": "R",
+                              "realdebrid.client_id": "C", "realdebrid.client_secret": "S"})
+    for answer in ({}, {"access_token": ""}, ValueError("not json"), ["a list"]):
+        monkeypatch.setattr(realdebrid.http, "post", lambda *a, **k: _Refreshed(answer))
+        assert realdebrid.RealDebrid()._refresh() == ""
+        assert settings_module.get("realdebrid.token") == "OLD"
+        assert settings_module.get("realdebrid.refresh") == "R"
+
+
+def test_a_trakt_refresh_that_leaves_out_the_refresh_token_keeps_it(settings_module,
+                                                                     monkeypatch):
+    """An empty refresh token is a sign-out three months later."""
+    from pinky.meta import trakt
+    settings_module.set_many({"trakt.access_token": "OLD", "trakt.refresh_token": "KEEP"})
+    monkeypatch.setattr(trakt, "_get", lambda *a, **k: None)
+    monkeypatch.setattr(trakt.http, "post", lambda *a, **k: _Refreshed(
+        {"access_token": "NEW", "expires_in": 7776000, "created_at": 1}))
+    assert trakt.refresh_token() == "NEW"
+    assert settings_module.get("trakt.refresh_token") == "KEEP"
+    monkeypatch.setattr(trakt.http, "post", lambda *a, **k: _Refreshed(ValueError("html")))
+    assert trakt.refresh_token() == ""
+    assert settings_module.get("trakt.access_token") == "NEW"

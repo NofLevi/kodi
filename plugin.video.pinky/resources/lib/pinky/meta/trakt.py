@@ -149,7 +149,11 @@ def _store_token(payload):
     expires = int(payload.get("created_at") or time.time()) + int(payload.get("expires_in") or 0)
     settings.set_many({
         "trakt.access_token": payload["access_token"],
-        "trakt.refresh_token": payload.get("refresh_token", ""),
+        # Kept when the answer leaves it out: an empty refresh token is a
+        # sign-out three months later, when the next refresh has nothing to
+        # refresh with.
+        "trakt.refresh_token": (payload.get("refresh_token")
+                                or settings.get("trakt.refresh_token")),
         "trakt.expires": str(expires),
     })
     profile = _get("/users/me", auth=True)
@@ -183,7 +187,12 @@ def refresh_token():
     if response is None or response.status_code != 200:
         kodi.log("Trakt token refresh failed")
         return ""
-    return _store_token(response.json()) or ""
+    try:
+        payload = response.json()
+    except ValueError:
+        kodi.log("Trakt answered a refresh with something that is not JSON")
+        return ""
+    return _store_token(payload if isinstance(payload, dict) else None) or ""
 
 
 # The three names every debrid client declares, so Trakt goes through the one

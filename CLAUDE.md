@@ -1611,7 +1611,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2432 tests, all running against Kodi stubs, so no Kodi install is needed:
+2435 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1672,7 +1672,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_wizard.py` | 7 | The one setup step that is not an account: light against richer artwork, with what each costs, and a device that is told it has room rather than quietly switched. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
 | `test_upnext.py` | 8 | The next episode, including across a season boundary, and the signal being well formed. |
-| `test_upgrade.py` | 27 | That an update costs the viewer nothing. Twenty-two credentials, and re-entering them on a projector with a remote is the difference between an update people accept and one they refuse. Reads the source for anything writing inside the add-on folder, which an update wipes; installs a real release over a real one and checks the keys, the subtitles and the profile survived; and refuses a truncated download, a file that is not a zip, and one with no `addon.xml`. |
+| `test_upgrade.py` | 30 | That an update costs the viewer nothing. Twenty-two credentials, and re-entering them on a projector with a remote is the difference between an update people accept and one they refuse. Reads the source for anything writing inside the add-on folder, which an update wipes; installs a real release over a real one and checks the keys, the subtitles and the profile survived; and refuses a truncated download, a file that is not a zip, and one with no `addon.xml`. |
 | `test_failure_paths.py` | 31 | Somebody else's free service misbehaving. 429 retried and 404 not, `Retry-After` honoured rather than the backoff and capped so an hour-long wait cannot freeze a search, truncated JSON, DNS failure - and **the deadline**, which is the rule the whole add-on rests on. |
 | `test_hebrew.py` | 70 | Hebrew is half the catalogue, not an edge case: cp1255 and iso-8859-8 subtitles, a byte order mark landing in the first cue, substring search over 2,810 Hebrew titles, a Hebrew title beside a Latin release group, and a filename that has to survive Android storage. |
 | `test_packaging.py` | 5 | The built zip staying under 600 KB, containing no build junk, rooted at the add-on id, and carrying every file the add-on needs. |
@@ -1826,6 +1826,17 @@ the add-on folder** - every runtime path goes to `kodi.profile_path()`.
 `test_upgrade.py` holds both halves of that, by reading the source for writes
 into `addon_path()` and by installing a real release over a real one and
 checking the keys are still there afterwards.
+
+**Accounts must come through everything** - updates, renamed settings,
+profile switches, a token refresh that goes wrong. Two ways that was not yet
+true, found by auditing for it on 6 October 2026: the upgrade test's net
+missed `realdebrid.refresh` and both `expires` settings, and a refresh answer
+with no token in it would have been stored - an empty Real-Debrid token, or an
+empty Trakt refresh token that signs the viewer out at the next refresh three
+months later. Both refreshes now keep what they had, and
+`ACCOUNT_SETTINGS_EVER_SHIPPED` in `test_upgrade.py` freezes every account
+setting name: one that disappears from settings.xml is a value Kodi drops on
+the next save, so removing or renaming one fails the build.
 
 The one risky step is replacing the folder, so it is the one with care taken:
 unpack to a temporary directory beside the add-on, refuse anything without a

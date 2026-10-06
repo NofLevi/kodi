@@ -180,7 +180,15 @@ class RealDebrid(base.DebridService):
         if response is None or response.status_code != 200:
             kodi.log("Real-Debrid token refresh failed")
             return ""
-        token = response.json()
+        try:
+            token = response.json()
+        except ValueError:
+            token = None
+        if not isinstance(token, dict) or not token.get("access_token"):
+            # An answer with no token in it is not a new token. Storing it
+            # would sign the viewer out; keeping the old one costs nothing.
+            kodi.log("Real-Debrid answered a refresh with no token; keeping the old one")
+            return ""
         settings.set_many({
             "realdebrid.token": token.get("access_token", ""),
             "realdebrid.refresh": token.get("refresh_token", refresh),
