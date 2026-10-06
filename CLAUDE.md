@@ -1611,7 +1611,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2435 tests, all running against Kodi stubs, so no Kodi install is needed:
+2447 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1672,6 +1672,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_wizard.py` | 7 | The one setup step that is not an account: light against richer artwork, with what each costs, and a device that is told it has room rather than quietly switched. |
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
 | `test_upnext.py` | 8 | The next episode, including across a season boundary, and the signal being well formed. |
+| `test_backup.py` | 12 | Settings and accounts to a file and back: every changed setting and every key returning, buttons and defaults never written, a backup from an older version still restoring, anything else refused, the newer resume point winning, and import asking before it changes anything. |
 | `test_upgrade.py` | 48 | That an update costs the viewer nothing. Twenty-two credentials, and re-entering them on a projector with a remote is the difference between an update people accept and one they refuse. Reads the source for anything writing inside the add-on folder, which an update wipes; installs a real release over a real one and checks the keys, the subtitles and the profile survived; and refuses a truncated download, a file that is not a zip, and one with no `addon.xml`. |
 | `test_failure_paths.py` | 31 | Somebody else's free service misbehaving. 429 retried and 404 not, `Retry-After` honoured rather than the backoff and capped so an hour-long wait cannot freeze a search, truncated JSON, DNS failure - and **the deadline**, which is the rule the whole add-on rests on. |
 | `test_hebrew.py` | 70 | Hebrew is half the catalogue, not an edge case: cp1255 and iso-8859-8 subtitles, a byte order mark landing in the first cue, substring search over 2,810 Hebrew titles, a Hebrew title beside a Latin release group, and a filename that has to survive Android storage. |
@@ -1837,6 +1838,14 @@ months later. Both refreshes now keep what they had, and
 `ACCOUNT_SETTINGS_EVER_SHIPPED` in `test_upgrade.py` freezes every account
 setting name: one that disappears from settings.xml is a value Kodi drops on
 the next save, so removing or renaming one fails the build.
+
+**A backup for what an update is not** (`backup.py`, Settings -> Tools):
+an uninstall with its data, a reset box, or a second box to set up. Every
+setting changed from its default - accounts and keys included - and the
+resume points, to a JSON file in a folder the viewer picks, and back after a
+yes. A name the backup carries that this version no longer has is skipped,
+and the newer of two resume points wins. It says when it is written that the
+file holds every key, because it does.
 
 The one risky step is replacing the folder, so it is the one with care taken:
 unpack to a temporary directory beside the add-on, refuse anything without a

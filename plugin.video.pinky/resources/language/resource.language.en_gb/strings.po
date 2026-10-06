@@ -1796,3 +1796,39 @@ msgstr ""
 msgctxt "#32563"
 msgid "That release would not open, playing %s instead"
 msgstr ""
+
+msgctxt "#32564"
+msgid "Export a backup of settings and accounts"
+msgstr ""
+
+msgctxt "#32565"
+msgid "Import a backup of settings and accounts"
+msgstr ""
+
+msgctxt "#32566"
+msgid "Where should the backup be saved?"
+msgstr ""
+
+msgctxt "#32567"
+msgid "Saved as %s. It holds your keys and sign-ins, so keep it private."
+msgstr ""
+
+msgctxt "#32568"
+msgid "Choose a Pinky backup"
+msgstr ""
+
+msgctxt "#32569"
+msgid "Replace your settings and accounts with the backup from %s?"
+msgstr ""
+
+msgctxt "#32570"
+msgid "Backup restored: %d settings."
+msgstr ""
+
+msgctxt "#32571"
+msgid "That file is not a Pinky backup."
+msgstr ""
+
+msgctxt "#32572"
+msgid "The backup could not be saved there."
+msgstr ""

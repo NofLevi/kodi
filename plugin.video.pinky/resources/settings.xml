@@ -848,6 +848,20 @@
                         <close>true</close>
                     </control>
                 </setting>
+                <setting id="action.backup_export" type="action" label="32564">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=backup_export)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.backup_import" type="action" label="32565">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=backup_import)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="action.profile" type="action" label="32384">
                     <level>1</level>
                     <data>RunPlugin(plugin://plugin.video.pinky/?action=profile)</data>

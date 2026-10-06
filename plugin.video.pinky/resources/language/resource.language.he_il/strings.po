@@ -1756,3 +1756,39 @@ msgstr "כתוביות AI: תורגמו %d מתוך %d שורות מ%s"
 msgctxt "#32563"
 msgid "That release would not open, playing %s instead"
 msgstr "הגרסה שנבחרה לא נפתחה, מנגן במקומה: %s"
+
+msgctxt "#32564"
+msgid "Export a backup of settings and accounts"
+msgstr "ייצוא גיבוי של ההגדרות והחשבונות"
+
+msgctxt "#32565"
+msgid "Import a backup of settings and accounts"
+msgstr "ייבוא גיבוי של ההגדרות והחשבונות"
+
+msgctxt "#32566"
+msgid "Where should the backup be saved?"
+msgstr "היכן לשמור את הגיבוי?"
+
+msgctxt "#32567"
+msgid "Saved as %s. It holds your keys and sign-ins, so keep it private."
+msgstr "נשמר בשם %s. הקובץ מכיל את המפתחות והחשבונות שלך, שמרו אותו בפרטיות."
+
+msgctxt "#32568"
+msgid "Choose a Pinky backup"
+msgstr "בחרו גיבוי של Pinky"
+
+msgctxt "#32569"
+msgid "Replace your settings and accounts with the backup from %s?"
+msgstr "להחליף את ההגדרות והחשבונות בגיבוי מתאריך %s?"
+
+msgctxt "#32570"
+msgid "Backup restored: %d settings."
+msgstr "הגיבוי שוחזר: %d הגדרות."
+
+msgctxt "#32571"
+msgid "That file is not a Pinky backup."
+msgstr "הקובץ הזה אינו גיבוי של Pinky."
+
+msgctxt "#32572"
+msgid "The backup could not be saved there."
+msgstr "לא ניתן לשמור את הגיבוי במיקום הזה."

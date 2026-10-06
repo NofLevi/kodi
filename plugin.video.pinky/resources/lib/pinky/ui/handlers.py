@@ -933,6 +933,20 @@ def _connect_or_disconnect(client):
     return True
 
 
+@router.route("backup_export")
+def backup_export(params):
+    """Settings and accounts to a file the viewer keeps (Tools)."""
+    from .. import backup
+    backup.export_to_file()
+
+
+@router.route("backup_import")
+def backup_import(params):
+    """A backup file back into the settings, after asking (Tools)."""
+    from .. import backup
+    backup.import_from_file()
+
+
 @router.route("check_update")
 def check_update(params):
     """Fetch and install a newer release, keeping every setting.

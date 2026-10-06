@@ -56,6 +56,24 @@ def save(key, position, total):
         _write(data)
 
 
+def merge(entries):
+    """Take resume points from a backup, keeping the newer of two places."""
+    with _lock:
+        data = dict(_read())
+        changed = False
+        for key, entry in entries.items():
+            if not isinstance(entry, dict) or not entry.get("position"):
+                continue
+            if data.get(key, {}).get("at", 0) >= entry.get("at", 0):
+                continue
+            data[key] = {"position": float(entry["position"]),
+                         "total": float(entry.get("total") or 0),
+                         "at": int(entry.get("at") or 0)}
+            changed = True
+        if changed:
+            _write(data)
+
+
 def clear(key):
     """Forget a place, once something has been finished."""
     with _lock:
