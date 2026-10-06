@@ -368,7 +368,21 @@ def play(handle, request, force_picker=False):
         listing.resolve_failed(handle)
         return
     player.set_now_playing(meta)
-    listing.resolve(handle, url, meta.get("item"))
+    listing.resolve(handle, url, meta.get("item"), mime=_mime_of(chosen))
+
+
+# What a release's file name says it is, for Kodi to be told rather than
+# find out: Kodi asks the server first otherwise, which on TorBox was 1.4 s
+# of first byte before the second request that actually opened the film.
+_MIMES = {".mkv": "video/x-matroska", ".mp4": "video/mp4", ".m4v": "video/mp4",
+          ".avi": "video/x-msvideo", ".webm": "video/webm", ".ts": "video/mp2t"}
+
+
+def _mime_of(source):
+    """The file's type from its name, or "" to let Kodi ask."""
+    import os
+    name = ((source or {}).get("file_name") or (source or {}).get("title") or "").lower()
+    return _MIMES.get(os.path.splitext(name.strip())[1], "")
 
 
 def source_record(chosen):
@@ -462,8 +476,9 @@ def resolve_fallback(meta):
         kodi.log("the stream would not open; trying %s"
                  % (candidate.get("title", "")[:70]), kodi.LOG_INFO)
         url = _resolve(candidate)
-        if url and _reachable(url):
-            return candidate, url, fallbacks
+        landed = _reachable(url) if url else ""
+        if landed:
+            return candidate, landed, fallbacks
     return None, "", []
 
 
@@ -690,8 +705,9 @@ def _resolve_any(chosen, sources, force_picker):
     # note five minutes old is a guess about a host that may well be back,
     # and one ranged request with an eight second ceiling is the cost of
     # finding out.
-    if url and _reachable(url, honour_memory=False):
-        return chosen, url
+    landed = _reachable(url, honour_memory=False) if url else ""
+    if landed:
+        return chosen, landed
 
     limit = RESOLVE_ATTEMPTS if _uncached_allowed() else RESOLVE_ATTEMPTS_CACHED
     tried = {id(chosen)}
@@ -705,8 +721,9 @@ def _resolve_any(chosen, sources, force_picker):
         kodi.log("falling through to the next source: %s"
                  % (candidate.get("title", "")[:70]))
         url = _resolve(candidate)
-        if url and _reachable(url):
-            return candidate, url
+        landed = _reachable(url) if url else ""
+        if landed:
+            return candidate, landed
     return chosen, ""
 
 
@@ -757,6 +774,9 @@ def _reachable(url, honour_memory=True):
     Only a connection failure counts against it. An HTTP status does not: some
     CDNs answer a range request with 403 and the full file with 200, and
     refusing those would be worse than the problem being solved.
+
+    Returns the address the link really leads to - what Kodi is then given -
+    or "" when it will not play.
     """
     from . import cache, http
 
@@ -764,31 +784,102 @@ def _reachable(url, honour_memory=True):
     if honour_memory and key and cache.get(key):
         kodi.log("skipping %s, it was not answering a moment ago"
                  % http._host(url))
-        return False
+        return ""
 
-    response = http.get(url, headers={"Range": "bytes=0-0"},
+    # One hop first, not followed. A Torrentio link answers in a hundredth of
+    # a second with where the file is, and that address is what Kodi is
+    # given, so it does not make the same hop again for every request it
+    # sends. Where it points is also what says whether this is the film or
+    # the provider's own clip.
+    landed = url
+    response = http.get(url, headers={"Range": "bytes=0-0"}, allow_redirects=False,
                         timeout=REACHABLE_TIMEOUT, retries=0, stream=True)
+    location = ""
+    if response is not None and response.status_code in (301, 302, 303, 307, 308):
+        location = response.headers.get("Location") or ""
+        _close(response)
+    if location:
+        from urllib.parse import urljoin
+        landed = urljoin(url, location)
+        if _placeholder(url, landed):
+            # It answers, and what it answers is not the film.
+            kodi.log("%s answered with its own clip rather than the file - the "
+                     "debrid service does not have this torrent yet"
+                     % http._host(url), kodi.LOG_INFO)
+            return ""
+        answered = _recently_answered(landed)
+        if answered:
+            # The same file on the same server gave up a byte minutes ago:
+            # coming back to a film is not a reason to ask again, and asking
+            # was one to two seconds of TorBox's first byte.
+            return answered
+        key = _dead_host_key(landed) or key
+        if honour_memory and key and cache.get(key):
+            kodi.log("skipping %s, it was not answering a moment ago"
+                     % http._host(landed))
+            return ""
+        response = http.get(landed, headers={"Range": "bytes=0-0"},
+                            timeout=REACHABLE_TIMEOUT, retries=0, stream=True)
     if response is None:
-        kodi.log("the link came back but %s will not open" % http._host(url),
+        kodi.log("the link came back but %s will not open" % http._host(landed),
                  kodi.LOG_INFO)
         if key:
             cache.set(key, True, DEAD_HOST_TTL)
-        return False
-    try:
-        response.close()
-    except Exception:
-        pass
+        return ""
+    final = getattr(response, "url", "") or landed
+    _close(response)
     if key:
         # A node that answers clears its own black mark, so one slow moment
         # does not keep a working host out for five minutes.
         cache.delete(key)
-    if _placeholder(url, getattr(response, "url", "") or ""):
-        # It answers, and what it answers is not the film.
+    if _placeholder(url, final):
         kodi.log("%s answered with its own clip rather than the file - the "
                  "debrid service does not have this torrent yet"
                  % http._host(url), kodi.LOG_INFO)
-        return False
-    return True
+        return ""
+    # Under the address it was asked by: Torrentio points at TorBox, which
+    # points at the file, and the next look-up starts from the middle one.
+    if landed != url:
+        _remember_answered(landed, final)
+    return final
+
+
+# How long a link that gave up a byte is believed without asking again. The
+# same file on the same server: a dead node is still caught by any other
+# link, and by this one five minutes later.
+ANSWERED_TTL = 300
+
+
+def _answered_key(url):
+    """Keyed on a digest: the address carries the debrid token."""
+    import hashlib
+    return "pinky.answered." + hashlib.sha1(url.encode("utf-8")).hexdigest()
+
+
+def _remember_answered(asked, final):
+    """In Kodi's memory, never on disk: the address it leads to is signed
+    with the debrid token, which this add-on keeps out of its cache."""
+    import time
+    kodi.set_property(_answered_key(asked), "%d|%s" % (time.time() + ANSWERED_TTL, final))
+
+
+def _recently_answered(asked):
+    import time
+    held = kodi.get_property(_answered_key(asked)) or ""
+    expires, _bar, final = held.partition("|")
+    try:
+        if final and float(expires) > time.time():
+            return final
+    except ValueError:
+        pass
+    return ""
+
+
+def _close(response):
+    try:
+        response.close()
+    except Exception:
+        pass
 
 
 def _placeholder(asked, landed):

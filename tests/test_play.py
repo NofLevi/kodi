@@ -407,7 +407,7 @@ def links_open(monkeypatch):
     rather than about what happens around it.
     """
     original = play._reachable
-    monkeypatch.setattr(play, "_reachable", lambda url, honour_memory=True: True)
+    monkeypatch.setattr(play, "_reachable", lambda url, honour_memory=True: url)
     return original
 
 
@@ -452,7 +452,7 @@ def test_a_link_that_will_not_open_falls_through_to_the_next(film,
                         lambda s: "https://dead/%s" % s["title"][:4]
                         if s["title"] == "Best 1080p" else "https://cdn/ok")
     monkeypatch.setattr(play, "_reachable",
-                        lambda url, honour_memory=True: not url.startswith("https://dead/"))
+                        lambda url, honour_memory=True: "" if url.startswith("https://dead/") else url)
 
     chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
     assert url == "https://cdn/ok"
@@ -466,7 +466,7 @@ def test_a_link_the_viewer_picked_is_handed_over_without_a_probe(film,
     probed = []
     monkeypatch.setattr(play, "_resolve", lambda s: "https://cdn/a")
     monkeypatch.setattr(play, "_reachable",
-                        lambda url, honour_memory=True: probed.append(url) or True)
+                        lambda url, honour_memory=True: probed.append(url) or url)
 
     _chosen, url = play._resolve_any(SOURCES[0], SOURCES, force_picker=True)
     assert url == "https://cdn/a"
@@ -574,13 +574,13 @@ def test_a_link_that_answers_at_all_is_good_enough(links_open, monkeypatch):
     would be worse than the problem this solves."""
     from pinky import http
     monkeypatch.setattr(http, "get", lambda url, **kwargs: _Answered(403))
-    assert links_open("https://cdn/whatever") is True
+    assert links_open("https://cdn/whatever")
 
 
 def test_a_link_that_never_answers_is_refused(links_open, monkeypatch):
     from pinky import http
     monkeypatch.setattr(http, "get", lambda url, **kwargs: None)
-    assert links_open("https://cdn/whatever") is False
+    assert links_open("https://cdn/whatever") == ""
 
 
 def test_the_probe_asks_for_one_byte_and_does_not_retry(links_open,
@@ -596,7 +596,7 @@ def test_the_probe_asks_for_one_byte_and_does_not_retry(links_open,
         return answered
 
     monkeypatch.setattr(http, "get", fake_get)
-    assert links_open("https://cdn/whatever") is True
+    assert links_open("https://cdn/whatever")
     assert seen["headers"]["Range"] == "bytes=0-0"
     assert seen["retries"] == 0
     assert seen["timeout"] == play.REACHABLE_TIMEOUT
@@ -614,12 +614,12 @@ def test_a_host_that_would_not_answer_is_not_asked_twice(links_open,
     monkeypatch.setattr(http, "get",
                         lambda url, **kwargs: attempts.append(url) or None)
 
-    assert links_open("https://store-028.example/dld/one") is False
-    assert links_open("https://store-028.example/dld/two") is False
+    assert links_open("https://store-028.example/dld/one") == ""
+    assert links_open("https://store-028.example/dld/two") == ""
     assert len(attempts) == 1, "the second link on a dead host is free"
 
     # A different node is still asked.
-    assert links_open("https://store-029.example/dld/three") is False
+    assert links_open("https://store-029.example/dld/three") == ""
     assert len(attempts) == 2
 
 
@@ -637,8 +637,8 @@ def test_dead_host_cache_and_logs_never_store_signed_url_secrets(
     monkeypatch.setattr(http, "get", lambda url, **kwargs: None)
     monkeypatch.setattr(kodi, "log", lambda message, *args: logs.append(message))
 
-    assert links_open(secret_url) is False
-    assert links_open(secret_url) is False
+    assert links_open(secret_url) == ""
+    assert links_open(secret_url) == ""
     key = play._dead_host_key(secret_url)
     assert key == "debrid|deadhost|cdn.example"
     exposed = " ".join(list(stored) + logs)
@@ -653,7 +653,7 @@ def test_a_host_is_only_written_off_for_a_few_minutes(links_open, monkeypatch):
     from pinky import cache, http
 
     monkeypatch.setattr(http, "get", lambda url, **kwargs: None)
-    assert links_open("https://store-030.example/dld/one") is False
+    assert links_open("https://store-030.example/dld/one") == ""
 
     key = play._dead_host_key("https://store-030.example/dld/one")
     assert cache.get(key), "the node should be remembered as unreachable"
@@ -663,7 +663,7 @@ def test_a_host_is_only_written_off_for_a_few_minutes(links_open, monkeypatch):
     # Once the note has gone, the node gets another chance.
     cache.delete(key)
     monkeypatch.setattr(http, "get", lambda url, **kwargs: _Answered())
-    assert links_open("https://store-030.example/dld/two") is True
+    assert links_open("https://store-030.example/dld/two")
 
 
 def test_the_key_is_the_host_not_the_link(links_open):
@@ -1001,10 +1001,10 @@ def test_a_dead_host_note_never_vetoes_the_whole_playback(links_open, monkeypatc
     monkeypatch.setattr(http, "get",
                         lambda url, **kw: opened.append(url) or None)
 
-    assert reachable("https://onehost/x") is False, "a fallback is skipped free"
+    assert reachable("https://onehost/x") == "", "a fallback is skipped free"
     assert opened == [], "and costs no request"
 
-    assert reachable("https://onehost/x", honour_memory=False) is False
+    assert reachable("https://onehost/x", honour_memory=False) == ""
     assert opened == ["https://onehost/x"],         "but the first attempt of a playback is actually made"
 
 
@@ -1016,7 +1016,7 @@ def test_the_first_attempt_ignores_the_memory(links_open, monkeypatch):
     monkeypatch.setattr(play, "_resolve", lambda s: "https://onehost/a")
     monkeypatch.setattr(play, "_reachable",
                         lambda url, honour_memory=True:
-                        asked.append(honour_memory) or True)
+                        asked.append(honour_memory) or url)
     cache.set(play._dead_host_key("https://onehost/a"), True, 300)
 
     play._resolve_any(SOURCES[0], SOURCES, force_picker=False)
@@ -1128,7 +1128,52 @@ def test_a_link_that_lands_on_a_providers_own_clip_is_not_the_film(links_open,
 
     monkeypatch.setattr(http, "get", lambda url, **kw: Landed(
         "https://torrentio.strem.fun/videos/downloading_v3.mp4"))
-    assert reachable(asked, honour_memory=False) is False
+    assert reachable(asked, honour_memory=False) == ""
     monkeypatch.setattr(http, "get", lambda url, **kw: Landed(
         "https://store-039.wnam.tb-cdn.io/dld/0c5e91c1"))
-    assert reachable(asked, honour_memory=False) is True, "a redirect to the file is fine"
+    assert reachable(asked, honour_memory=False), "a redirect to the file is fine"
+
+
+class _Hop(object):
+    def __init__(self, status, url, location=""):
+        self.status_code, self.url = status, url
+        self.headers = {"Location": location} if location else {}
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_kodi_is_given_where_the_link_leads_and_the_same_file_is_not_asked_twice(
+        links_open, monkeypatch):
+    """Kodi opened Torrentio's link and redirected again for every request it
+    sent; the address it leads to is handed over instead. And coming back to
+    the same file minutes later does not pay TorBox's first byte again."""
+    from pinky import cache, http
+    reachable = links_open
+    asked = []
+    torrentio = "https://torrentio.strem.fun/resolve/torbox/k/abc/Top.Gun.mkv"
+    cdn = "https://store-013.wnam.tb-cdn.io/dld/c14c26d6?token=k"
+
+    def get(url, **kwargs):
+        asked.append((url, kwargs.get("allow_redirects", True)))
+        if url == torrentio:
+            return _Hop(302, url, cdn)
+        return _Hop(206, url)
+
+    monkeypatch.setattr(http, "get", get)
+    assert reachable(torrentio, honour_memory=False) == cdn
+    assert asked == [(torrentio, False), (cdn, True)], "one hop, not followed, then the file"
+    del asked[:]
+    assert reachable(torrentio, honour_memory=False) == cdn
+    assert asked == [(torrentio, False)], "the same file, checked a moment ago"
+    assert "token" not in play._answered_key(cdn) and cdn not in play._answered_key(cdn),         "the token is not written into the cache"
+
+
+def test_kodi_is_told_the_file_type_so_it_does_not_ask_first():
+    """Kodi asked TorBox's server what the file was before opening it: 1.4 s
+    of first byte, then the request that actually opened the film."""
+    assert play._mime_of({"file_name": "Top.Gun.Maverick.2022.1080p.WEB-DL.mkv"}) \
+        == "video/x-matroska"
+    assert play._mime_of({"title": "Fight.Club.1999.mp4"}) == "video/mp4"
+    assert play._mime_of({"title": "Something without an extension"}) == ""

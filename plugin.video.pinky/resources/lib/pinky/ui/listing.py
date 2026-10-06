@@ -318,10 +318,17 @@ def end(handle, content=None, sort_methods=None, cache_to_disc=True, succeeded=T
                               updateListing=False, cacheToDisc=cache_to_disc)
 
 
-def resolve(handle, url, item=None):
-    """Hand a playable URL to Kodi, honoring a numeric StartOffset."""
+def resolve(handle, url, item=None, mime=""):
+    """Hand a playable URL to Kodi, honoring a numeric StartOffset.
+
+    With `mime`, Kodi is told what the file is and does not ask the server
+    first - one round trip to the debrid CDN fewer before the film opens.
+    """
     li = make_list_item(item) if item else xbmcgui.ListItem(offscreen=True)
     li.setPath(url)
+    if mime:
+        li.setMimeType(mime)
+        li.setContentLookup(False)
 
     position = float((((item or {}).get("resume") or {}).get("position")) or 0)
     if position > 0:

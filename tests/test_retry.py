@@ -38,7 +38,7 @@ def film(monkeypatch, settings_module):
     monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
         "ids": {"tmdb": 278, "imdb": "tt0111161"}, "title": "A Film",
         "year": 1994, "art": {}, "original_title": "A Film"})
-    monkeypatch.setattr(play, "_reachable", lambda url, honour_memory=True: True)
+    monkeypatch.setattr(play, "_reachable", lambda url, honour_memory=True: url)
     del xbmc.Player.PLAYED[:]
     return settings_module
 
