@@ -41,6 +41,16 @@ def kodi_environment(tmp_path):
     try:
         from pinky.subs.ai import gemini
         gemini._RETIRED.clear()
+        gemini._BUSY.clear()
+    except Exception:
+        pass
+    # Google's free endpoint is the engine of last resort and needs no key,
+    # so a test whose fake engine fails would otherwise translate over the
+    # network and pass by accident. Unreachable here; a test that means to
+    # use it replaces `http.post`.
+    try:
+        from pinky.subs.ai import google_web
+        google_web.ENDPOINT = "http://127.0.0.1:9/not-in-tests"
     except Exception:
         pass
     del xbmc.JSONRPC_CALLS[:]

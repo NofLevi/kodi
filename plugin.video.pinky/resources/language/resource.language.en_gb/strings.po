@@ -1777,3 +1777,18 @@ msgctxt "#30325"
 msgid "YIFY Subtitles (films, no account needed)"
 msgstr ""
 
+msgctxt "#32559"
+msgid "AI subtitles: finding something to translate"
+msgstr ""
+
+msgctxt "#32560"
+msgid "AI subtitles: reading the subtitle inside the file"
+msgstr ""
+
+msgctxt "#32561"
+msgid "AI subtitles: downloading the %s subtitle"
+msgstr ""
+
+msgctxt "#32562"
+msgid "AI subtitles: %d of %d lines translated from %s"
+msgstr ""

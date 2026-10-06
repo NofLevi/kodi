@@ -1620,6 +1620,17 @@ def translation_sources(meta, target, video_hash="", candidates=None):
 
 def translate_now(meta, target, player=None, candidates=None, video_hash=None,
                   cancelled=None, generation=None, downloads=None):
+    """`_translate_now` under one progress bar, closed however it ends."""
+    status = _Status(cancelled or (lambda: False))
+    try:
+        return _translate_now(meta, target, player, candidates, video_hash,
+                              cancelled, generation, downloads, status)
+    finally:
+        status.close()
+
+
+def _translate_now(meta, target, player, candidates, video_hash, cancelled,
+                   generation, downloads, status):
     """Translate the best subtitle we can find into `target`, and return its path.
 
     This is the viewer saying "what I have is not good enough" - or that there
@@ -1657,9 +1668,12 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
 
     if stopped():
         return ""
+    status.say(0, kodi.localize(32559))
     if video_hash is None:
         video_hash = video_hash_for(meta)
     sources = list(translation_sources(meta, target, video_hash, candidates) or [])
+    if meta.get("stream_url") and not stopped():
+        status.say(1, kodi.localize(32560))
     own = None if stopped() else inside_source(meta, target)
     if own:
         sources.insert(0, own)
@@ -1670,13 +1684,14 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
     for language, candidate in sources:
         if stopped():
             return ""
+        if not candidate.get("inside"):
+            status.say(2, kodi.localize(32561, _language_name(language)))
         cues = (candidate["cues"] if candidate.get("inside")
                 else downloads.fetch(candidate, announce=True))
         if not cues:
             continue
         kodi.log("translating the %s subtitle %r into %s"
                  % (language, (candidate.get("release") or "")[:60], target))
-        kodi.notify(kodi.localize(32549))
         if not candidate.get("inside"):
             cues = retimed_for_translation(
                 cues, translation_reference(candidates, downloads, skip=candidate),
@@ -1685,7 +1700,8 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
                                               variant=VARIANT_AI,
                                               source_language=language,
                                               cancelled=stopped,
-                                              generation=generation)
+                                              generation=generation,
+                                              status=status)
         if translated:
             def apply_final():
                 path = store(meta, target, translated, variant=VARIANT_AI)
@@ -1707,9 +1723,61 @@ def translate_now(meta, target, player=None, candidates=None, video_hash=None,
     return ""
 
 
+class _Status(object):
+    """The one progress bar an AI translation shows, from the moment it is
+    chosen until the subtitle is on screen or it has said why not.
+
+    It used to appear only once a source was downloaded and then say
+    "Translating with AI..." at 0% while a model took two minutes to refuse:
+    measured on Naruto Shippuden 3x55, nearly four minutes of an episode with
+    nothing on screen that said anything was happening, then "The
+    translation did not finish". Every stage now says what it is doing, and
+    the count is lines, which moves.
+    """
+
+    # Kodi does not draw a background progress bar over a playing video -
+    # photographed in Kodi 21 at 12, 45 and 110 seconds into a translation,
+    # and there was nothing in the corner - so what the viewer actually sees
+    # is the notification. Each stage says so, at most this often.
+    NOTIFY_GAP = 3.0
+    NOTIFY_SHOWN = 8.0
+
+    def __init__(self, stopped):
+        self._stopped = stopped
+        self._bar = None
+        self._said = ("", 0.0)
+
+    def say(self, percent, message):
+        if self._stopped():
+            self.close()
+            return
+        try:
+            if self._bar is None:
+                import xbmcgui
+                self._bar = xbmcgui.DialogProgressBG()
+                self._bar.create("Pinky", message)
+            self._bar.update(max(0, min(100, int(percent))), message=message)
+        except Exception:
+            kodi.log_exception("could not show the translation's progress")
+        said, at = self._said
+        now = time.time()
+        if now - at >= self.NOTIFY_GAP and (message != said
+                                            or now - at >= self.NOTIFY_SHOWN):
+            self._said = (message, now)
+            kodi.notify(message, time_ms=int(self.NOTIFY_SHOWN * 1000) + 500)
+
+    def close(self):
+        bar, self._bar = self._bar, None
+        if bar is not None:
+            try:
+                bar.close()
+            except Exception:
+                pass
+
+
 def _translate_progressively(cues, meta, language, player, variant="",
                              source_language=None,
-                             cancelled=None, generation=None):
+                             cancelled=None, generation=None, status=None):
     """Translate, showing each finished chunk as it arrives.
 
     A feature-length film is several minutes of translation. Waiting for all of
@@ -1720,7 +1788,6 @@ def _translate_progressively(cues, meta, language, player, variant="",
     Kodi caches a subtitle file by path, so re-writing the same name changes
     nothing on screen. Alternating between two names forces it to re-read.
     """
-    import xbmcgui
 
     from .ai import coordinator, translator
 
@@ -1730,8 +1797,10 @@ def _translate_progressively(cues, meta, language, player, variant="",
         return ((cancelled is not None and cancelled())
                 or not coordinator.current(generation))
 
-    progress = xbmcgui.DialogProgressBG()
-    progress.create("Pinky", kodi.localize(32335))
+    own = status is None
+    progress = status or _Status(stopped)
+    progress.say(0, kodi.localize(32335))
+    from_name = _language_name(source_language) if source_language else ""
     # Everything from here is inside the try whose finally closes that bar.
     # `_partial_slots` was outside it, and it is not as safe as it looks: it
     # runs `int(meta["season"])` on a value that has round-tripped through
@@ -1744,8 +1813,9 @@ def _translate_progressively(cues, meta, language, player, variant="",
     def on_progress(done, total, partial=None):
         if stopped():
             return
-        progress.update(int(done * 100 / max(1, total)),
-                        message=kodi.localize(32335))
+        progress.say(done * 100 / max(1, total),
+                     kodi.localize(32562, done, total, from_name)
+                     if from_name else kodi.localize(32335))
         if player is None or partial is None or done <= state["shown"]:
             return
         if not slots:
@@ -1776,10 +1846,15 @@ def _translate_progressively(cues, meta, language, player, variant="",
     try:
         slots[:] = _partial_slots(meta, language, variant, generation)
         kwargs = {"on_progress": on_progress, "meta": meta,
-                  "cancelled": stopped, "source_language": source_language}
+                  "cancelled": stopped, "source_language": source_language,
+                  "start_at": _watching_at(player)}
         return translator.translate(cues, language, **kwargs)
     except translator.TranslationError:
         kodi.log_exception("AI translation failed")
+        if stopped():
+            # Superseded: the viewer has moved on, and "did not finish" over
+            # the next episode was this job's failure read as that one's.
+            return []
         # Say why. Without this the film simply plays with nothing on it and
         # nobody watching can tell "the model is out of quota" from "this
         # add-on found no subtitles" - and the second is what it looks like.
@@ -1803,8 +1878,17 @@ def _translate_progressively(cues, meta, language, player, variant="",
                 kodi.log_exception("could not hide rejected partial translation")
         return []
     finally:
-        progress.close()
+        if own:
+            progress.close()
         _clean_partials(slots)
+
+
+def _watching_at(player):
+    """Where the viewer is, in seconds; 0 when the player cannot say."""
+    try:
+        return max(0.0, float(player.getTime())) if player is not None else 0.0
+    except Exception:
+        return 0.0
 
 
 def _partial_slots(meta, language, variant="", generation=0):

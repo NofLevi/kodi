@@ -104,19 +104,31 @@ def complete(system_prompt, prompt, timeout=(10, 90), model_name=None):
              if name not in _RETIRED]
     if not names:
         raise ModelRetired("no Gemini model in the chain is served for this key")
+    # A busy model goes to the back rather than out: when every model is
+    # busy, the one that said so longest ago is still asked.
+    now = time.time()
+    names.sort(key=lambda name: _BUSY.get(name, 0) > now)
     last = None
-    for name in names:
+    for position, name in enumerate(names):
+        alternative = position + 1 < len(names)
         try:
-            return _complete(system_prompt, prompt, timeout, name)
+            return _complete(system_prompt, prompt,
+                             (timeout[0], min(timeout[1], BUSY_READ))
+                             if alternative else timeout, name)
         except ModelRetired as error:
             last = error
             _RETIRED.add(name)
             kodi.log("Gemini model %s is not served here, so it will not be "
                      "asked again (%s)" % (name, error))
-        except ModelUnavailable as error:
+        except (ModelUnavailable, GeminiError) as error:
+            if not isinstance(error, ModelUnavailable) \
+                    and "no response" not in str(error):
+                raise
             last = error
-            kodi.log("Gemini model %s could not take the request (%s)"
-                     % (name, error))
+            _BUSY[name] = time.time() + BUSY_SECONDS
+            kodi.log("Gemini model %s could not take the request (%s); the "
+                     "next %d minutes go to the next model"
+                     % (name, error, BUSY_SECONDS // 60))
     raise last
 
 
@@ -134,6 +146,31 @@ class _Fast(object):
 
 
 fast = _Fast()
+
+
+class _Full(object):
+    """The full model and nothing else, for going over what the fast one
+    wrote. Its answer is only worth having from this model: falling back to
+    the fast one would pay for the same translation twice, so a busy full
+    model ends the pass instead."""
+
+    def complete(self, system_prompt, prompt, timeout=(10, 90)):
+        if _BUSY.get(DEFAULT_MODEL, 0) > time.time() or DEFAULT_MODEL in _RETIRED:
+            raise ModelUnavailable("%s is busy" % DEFAULT_MODEL)
+        try:
+            return _complete(system_prompt, prompt, (timeout[0], BUSY_READ),
+                             DEFAULT_MODEL)
+        except ModelRetired:
+            _RETIRED.add(DEFAULT_MODEL)
+            raise
+        except (ModelUnavailable, GeminiError) as error:
+            if isinstance(error, ModelUnavailable) or "no response" in str(error):
+                _BUSY[DEFAULT_MODEL] = time.time() + BUSY_SECONDS
+                raise ModelUnavailable(str(error))
+            raise
+
+
+full = _Full()
 
 
 class ModelUnavailable(GeminiError):
@@ -154,6 +191,20 @@ class ModelRetired(ModelUnavailable):
 # in the chain and is tried again.
 _RETIRED = set()
 
+# Models that said they were busy, and until when to believe them. Measured
+# on 6 October 2026: flash answered 503 "high demand" to every request for
+# hours, or held one open past 150 seconds, while flash-lite translated 80
+# lines in four. Asking flash first for every chunk made each chunk of a
+# playing episode wait out a refusal, and a translation that should have
+# taken half a minute took three and failed. A refusal now sends the next ten
+# minutes to the next model, and flash is asked again after that.
+_BUSY = {}
+BUSY_SECONDS = 10 * 60
+# How long a model with another behind it may take to start answering. The
+# full model was measured at 43 s for its first 100 lines on a good day; a
+# minute is past that, and is a minute rather than a minute and a half.
+BUSY_READ = 60
+
 
 def _complete(system_prompt, prompt, timeout, name):
     key = api_key()
@@ -171,7 +222,9 @@ def _complete(system_prompt, prompt, timeout, name):
     }
     response = http.post(
         "%s/%s:generateContent" % (BASE, name),
-        params={"key": key}, json=body, timeout=timeout, retries=1,
+        # No retry of a refusal: a 503 here means "busy", and the next model
+        # in the chain is the retry worth having.
+        params={"key": key}, json=body, timeout=timeout, retries=0,
         headers={"Content-Type": "application/json"})
 
     if response is None:

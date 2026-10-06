@@ -92,10 +92,12 @@ def _cues(count):
 class Recording(object):
     """A backend that translates everything, and says which model was asked."""
 
-    def __init__(self, drop=()):
+    def __init__(self, drop=(), full=False):
         self.calls = []
         self.drop = set(drop)
         self.fast = _Fast(self)
+        if full:
+            self.full = _Fast(self, "full")
 
     def _answer(self, prompt, model):
         payload = json.loads(prompt[prompt.index("{"):prompt.rindex("}") + 1])
@@ -109,11 +111,12 @@ class Recording(object):
 
 
 class _Fast(object):
-    def __init__(self, owner):
+    def __init__(self, owner, name="fast"):
         self.owner = owner
+        self.name = name
 
     def complete(self, system_prompt, prompt, *args, **kwargs):
-        return self.owner._answer(prompt, "fast")
+        return self.owner._answer(prompt, self.name)
 
 
 @pytest.fixture
@@ -124,20 +127,24 @@ def engine(monkeypatch, settings_module):
     return backend
 
 
-def test_the_first_chunk_is_short_and_goes_to_the_fast_model(engine):
+def test_every_chunk_goes_to_the_fast_model_and_the_first_is_short(engine):
     """Nothing is on screen until the first chunk returns: 2.5 s for 40 lines
-    on the lite model against 43 s for 100 on the full one, measured."""
+    on the lite model against 43 s for 100 on the full one, measured. And
+    nothing after it either, while the full model is busy: Hikaru no Go had
+    40 Hebrew lines and then English."""
     translator.translate(_cues(250), "he")
-    assert engine.calls[0] == ("fast", translator.FIRST_CHUNK)
-    assert all(model == "full" for model, _size in engine.calls[1:])
-    assert [size for _model, size in engine.calls] == [40, 100, 100, 10, 40]
+    assert engine.calls == [("fast", 40), ("fast", 100), ("fast", 100), ("fast", 10)]
 
 
-def test_the_quick_first_lines_are_redone_on_the_full_model(engine):
-    """The lite model made a male speaker female in the first chunk; the
-    file that is kept should not carry that."""
+def test_the_full_model_goes_over_everything_the_fast_one_wrote(monkeypatch,
+                                                                 settings_module):
+    """The lite model made a male speaker female; the file that is kept
+    should not carry that."""
+    settings_module.set("subs.ai.chunk", "100")
+    backend = Recording(full=True)
+    monkeypatch.setattr(translator, "engine", lambda: backend)
     translator.translate(_cues(250), "he")
-    assert engine.calls[-1] == ("full", translator.FIRST_CHUNK)
+    assert backend.calls[4:] == [("full", 40), ("full", 100), ("full", 100), ("full", 10)]
 
 
 def test_a_dropped_line_is_asked_for_again_instead_of_losing_the_film(
@@ -147,7 +154,7 @@ def test_a_dropped_line_is_asked_for_again_instead_of_losing_the_film(
     monkeypatch.setattr(translator, "engine", lambda: backend)
     out = translator.translate(_cues(140), "he")
     assert all(cue.text.startswith(u"ש") for cue in out)
-    assert ("full", 1) in backend.calls, "only the missing line is re-sent"
+    assert ("fast", 1) in backend.calls, "only the missing line is re-sent"
 
 
 def test_an_exact_file_subtitle_is_translated_before_a_guessed_arabic_one():

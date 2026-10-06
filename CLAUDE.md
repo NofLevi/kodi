@@ -1604,7 +1604,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2412 tests, all running against Kodi stubs, so no Kodi install is needed:
+2421 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1637,14 +1637,14 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_othershow.py` | 17 | A subtitle filed under our show that names another one: HBO's Girls under Gilmore Girls, CSI under CSI: Miami, The Middle under Malcolm in the Middle. And what must survive it - "Buffy", "Lois and Clark", a transliterated title - plus the franchise rule, a hash match being exempt, films and anime untouched, a bounded number of questions, and a search that fails dropping nothing. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
-| `test_subtitle_ai_ondemand.py` | 25 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
+| `test_subtitle_ai_ondemand.py` | 36 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
 | `test_subtitle_pipeline.py` | 54 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. Plus the source of a translation being put in time before it is translated, and never being its own timing reference. |
 | `test_inside.py` | 13 | The subtitle track inside the file, from byte-built Matroska: every line timed out of the index, the fullest dialogue track chosen over a signs track and a hearing-impaired one, a file that indexes only its video being no ruler, the file's own timeline leading a hash match, the lines read from where the index points, an ASS line reduced to its words, a film's worth of lines not read line by line, and a refusal ending the read rather than being argued with. |
 | `test_matroska.py` | 10 | The subtitle tracks an MKV declares, read from its first bytes and built byte for byte from the element layout: a full track against a Signs & Songs one, a track naming no language being English by the specification, Hebrew and the newer language tag, and "unknown" never being mistaken for "none" - a file that is not Matroska, a header cut off before its tracks end, a cluster first. |
 | `test_aes.py` | 8 | AES, because one login depends on it and a cipher that is subtly wrong looks exactly like one that is right. Checked against FIPS-197 and NIST SP 800-38A rather than against itself, so none of the expected values came from this code. |
 | `test_subtitle_orchestrator.py` | 35 | What happens when the things the subtitle search depends on misbehave. Every other subtitle test replaces the search and the download with fakes that only ever return data, so the code between a provider and the decision had never been asked what it does when a provider raises, answers nonsense, hangs, or hands back a dict full of junk. These inject at the real provider boundary and keep everything above it. Also the two stuck screens, the cancelled job that still wrote a file, and Kodi itself answering with an error envelope. |
 | `test_ktuvit.py` | 32 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
-| `test_translation.py` | 27 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Plus no model name containing a version number, which has been retired under us twice, and a 404 striking a model off for the session where a 503 does not. |
+| `test_translation.py` | 44 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Plus no model name containing a version number, which has been retired under us twice, and a 404 striking a model off for the session where a 503 does not. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
 | `test_vod_seasons.py` | 17 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video. |
 | `test_vod.py` | 30 | Israeli live TV and the catalogue: broadcaster ordering, referers carried through, relative paths given their CDN host, broken channels hidden, Hebrew substring search, and updating the bundled data invalidating the cache. |
@@ -2527,6 +2527,41 @@ then dropped, and an exhausted model arrives as a **200 with an error object**,
 which would otherwise read as a subtitle with nothing in it. The model name is
 a setting because OpenRouter's free list changes; the default is a starting
 point, not a promise.
+
+**A translation that is being watched has to arrive, and say so while it
+does.** Watched in a real Kodi on 6 October 2026, with Gemini's full model
+answering 503 "high demand" all day (and once holding a request past 150 s),
+while flash-lite translated 80 lines in four seconds. Naruto Shippuden 3x55
+showed nearly four minutes with nothing on screen saying anything was
+happening, then "The translation did not finish" - over the next episode,
+because the job had kept retrying after the viewer left it. Hikaru no Go
+then got 40 Hebrew lines and English after them. What changed:
+
+* **Kodi draws no background progress bar over a playing video** -
+  photographed at 12, 45 and 110 seconds into a translation, nothing in the
+  corner. So `auto._Status` also says each stage as a notification: finding
+  a source, reading the track inside the file, downloading, "140 of 349
+  lines translated from English". Photographed after: every stage on screen.
+* **Every chunk goes to the fast model first**, so the whole episode is
+  Hebrew in about half a minute, then `gemini.full` goes over it and only its
+  answers replace the quick ones; a busy full model ends that pass and costs
+  nothing. Measured after: 343 of Hikaru no Go's 349 lines in Hebrew, against
+  40.
+* **A busy model steps back for ten minutes** (`gemini._BUSY`) instead of
+  being asked first for every chunk, a request it holds open is cut at a
+  minute when there is another model behind it, and an engine refusing
+  everything hands over at once (`TranslationRefused`) rather than after each
+  chunk is refused in turn.
+* **From the line being watched**, then on to the end, then back for the
+  start - the job that began nine minutes in used to translate the opening.
+* **Google Translate's free endpoint is the last engine** (`google_web`),
+  and the first when no key is set: no account, lines sent many to a request
+  and used only when exactly as many come back - 833 lines in under five
+  seconds, every batch whole. It knows nothing of the cast, so gender is
+  guessed; it is what Kodi POV IL and DarkSubs fall back to, and it is Hebrew
+  where the alternative was English. The tests point it at nothing, so a
+  failing fake engine cannot pass by reaching Google.
+* A superseded job says nothing.
 
 **No Gemini model name here may contain a version number.** Pinning has
 failed twice: `gemini-2.5-flash` began answering 404 to every request from a

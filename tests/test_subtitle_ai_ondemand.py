@@ -578,3 +578,49 @@ def _raise(error):
     def fail(*args, **kwargs):
         raise error
     return fail
+
+
+def test_a_translation_says_what_it_is_doing_from_the_start(fake_world, monkeypatch):
+    """Naruto Shippuden 3x55: four minutes of an episode with nothing on the
+    screen saying anything was happening, then "did not finish". The bar is
+    up from the moment AI is chosen, says each stage, and is gone after."""
+    import xbmcgui
+    from pinky import kodi
+
+    shown, closed = [], []
+
+    class Bar(object):
+        def create(self, heading, message=""):
+            shown.append(message)
+
+        def update(self, percent=0, heading=None, message=None):
+            shown.append(message)
+
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(xbmcgui, "DialogProgressBG", Bar)
+    name = "Shawshank.1994.1080p.BluRay.x264-AMIABLE"
+    fake_world["candidates"] = [candidate(name, "en")]
+    fake_world["downloads"][name] = srt_bytes()
+    assert auto.translate_now(MOVIE, "he", video_hash="")
+    assert shown[0] == kodi.localize(32559), "before anything is found"
+    assert kodi.localize(32561, auto._language_name("en")) in shown
+    assert len(closed) == 1
+
+
+def test_a_superseded_translation_does_not_speak_over_the_next_episode(monkeypatch,
+                                                                     settings_module):
+    """"The translation did not finish" over Hikaru no Go was Naruto's."""
+    from pinky import kodi
+    from pinky.subs import auto
+    from pinky.subs.ai import translator
+
+    said = []
+    monkeypatch.setattr(kodi, "notify", lambda message, *a, **k: said.append(message))
+    monkeypatch.setattr(auto, "_partial_slots", lambda *a, **k: [])
+    monkeypatch.setattr(translator, "translate", _raise(
+        translator.TranslationError("only 3 of 900 cues were translated")))
+    auto._translate_progressively([], {"title": "A Film"}, "he", None,
+                                  cancelled=lambda: True)
+    assert said == []

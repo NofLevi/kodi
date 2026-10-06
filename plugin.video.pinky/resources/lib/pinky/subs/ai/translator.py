@@ -80,7 +80,14 @@ class TranslationBudgetExceeded(TranslationError):
     pass
 
 
-ENGINE_ORDER = ("gemini", "openrouter", "openai")
+class TranslationRefused(TranslationError):
+    """The engine is refusing every request, so the next engine should be
+    asked now rather than after every chunk has been refused in turn."""
+
+
+# Google's free endpoint last: no key, no account, worse Hebrew - and Hebrew
+# rather than English when every model is busy.
+ENGINE_ORDER = ("gemini", "openrouter", "openai", "google")
 
 
 def _named(name):
@@ -94,14 +101,20 @@ def _named(name):
     if name == "openai":
         from . import openai_compat
         return openai_compat if openai_compat.configured() else None
+    if name == "google":
+        from . import google_web
+        return google_web
     return None
 
 
 def engine():
-    """The engine a translation starts on, or None when it is switched off."""
+    """The engine a translation starts on, or None when it is switched off.
+
+    With no key for the chosen one, Google's free endpoint, so switching AI
+    on is enough to get Hebrew."""
     if not settings.get_bool("subs.ai.enabled"):
         return None
-    return _named(settings.get("subs.ai.engine"))
+    return _named(settings.get("subs.ai.engine")) or _named("google")
 
 
 def engines():
@@ -142,7 +155,7 @@ def chunk_size():
 
 
 def translate(cues, target_language="he", on_progress=None, meta=None,
-              cancelled=None, source_language=None):
+              cancelled=None, source_language=None, start_at=0.0):
     """Translate cues, returning new cues with the original timings.
 
     on_progress(done, total, cues_so_far) is called after each chunk. The third
@@ -160,7 +173,7 @@ def translate(cues, target_language="he", on_progress=None, meta=None,
     for position, backend in enumerate(backends):
         try:
             return _translate_with(backend, cues, target_language, on_progress,
-                                   meta, cancelled, source_language)
+                                   meta, cancelled, source_language, start_at)
         except TranslationCancelled:
             raise
         except TranslationError as error:
@@ -178,21 +191,31 @@ def translate(cues, target_language="he", on_progress=None, meta=None,
 
 
 def _translate_with(backend, cues, target_language, on_progress, meta,
-                    cancelled, source_language=None):
+                    cancelled, source_language=None, start_at=0.0):
     """One engine's attempt at the whole file."""
     language = LANGUAGE_NAMES.get(target_language, target_language)
     context = _context_block(meta)
     size = chunk_size()
     translated = {}
     total = len(cues)
+    # From the line being watched, not from the first line of the file: a
+    # translation that starts late - a source that took a minute to find, an
+    # engine that was busy - used to spend its first requests on scenes
+    # already gone, and Hikaru no Go was nine minutes in with nothing on it.
+    # Then on to the end, then back for the beginning.
+    begin = next((position for position, cue in enumerate(cues)
+                  if cue.end >= (start_at or 0.0)), 0)
     # A short first chunk on the engine's fastest model, so the first Hebrew
     # line is on screen in seconds rather than after a full chunk. Measured on
     # Gemini: 40 lines on the lite model in 2.5 s, against 43 s for the first
     # 100 on the full one. Every later chunk arrives well before the film
     # reaches it, so only the first is worth hurrying.
-    first = min(FIRST_CHUNK, size, total)
-    ranges = [(0, first)] + [(start, min(start + size, total))
-                             for start in range(first, total, size)]
+    first = min(FIRST_CHUNK, size, total - begin)
+    ranges = ([(begin, begin + first)]
+              + [(start, min(start + size, total))
+                 for start in range(begin + first, total, size)]
+              + [(start, min(start + size, begin))
+                 for start in range(0, begin, size)])
     base_requests = len(ranges)
     budget = {
         "calls": 0,
@@ -202,49 +225,65 @@ def _translate_with(backend, cues, target_language, on_progress, meta,
         # all of it, because the point of the cap is that one failing model
         # cannot turn a film into hundreds of requests.
         "max_calls": (base_requests
-                      + (1 if hasattr(backend, "fast") else 0)   # first chunk, redone
+                      # the full model's pass over what the fast one wrote
+                      + (base_requests if hasattr(backend, "fast") else 0)
                       + max(MAX_EXTRA_REQUESTS, base_requests // 2)),
         "deadline": time.monotonic() + MAX_TRANSLATION_SECONDS,
         "cancelled": cancelled or (lambda: False),
     }
 
+    done = 0
     for index, (start, end) in enumerate(ranges):
         if budget["cancelled"]():
             raise TranslationCancelled("translation cancelled")
+        done += end - start
         batch = cues[start:end]
-        engine_for_chunk = getattr(backend, "fast", backend) if index == 0 else backend
+        # Every chunk on the fast model: the whole episode is on screen in
+        # half a minute. Only the first used to be, and the rest waited on
+        # the full model - measured on Hikaru no Go with flash busy all day,
+        # 40 lines in Hebrew and then English, the second chunk not back
+        # fifty seconds later.
+        engine_for_chunk = getattr(backend, "fast", backend)
         try:
             translated.update(
                 _translate_batch(engine_for_chunk, batch, language, start,
                                  context, budget=budget))
-        except (TranslationCancelled, TranslationBudgetExceeded):
+        except (TranslationCancelled, TranslationBudgetExceeded, TranslationRefused):
             raise
         except TranslationError:
             kodi.log_exception("chunk starting at %d failed" % start)
         if on_progress is not None:
             try:
-                on_progress(end, total, _merge(cues, translated, source_language))
+                on_progress(done, total, _merge(cues, translated, source_language))
             except TypeError:
                 # Callers that only want the counts.
-                on_progress(end, total)
+                on_progress(done, total)
             except Exception:
                 kodi.log_exception("progress callback failed")
 
-    # The first chunk went to the fast model so the film had words on it in
-    # seconds, and it pays for that: measured, the lite model made a male
-    # speaker female ("אני יכולה") where the full model did not. Those lines
-    # have long since been read by now, but the file is kept and watched
-    # again, so they are redone on the full model - one request - and only a
-    # better answer replaces the quick one.
-    fast = getattr(backend, "fast", None)
-    if fast is not None and first and not budget["cancelled"]():
-        try:
-            translated.update(_translate_batch(
-                backend, cues[:first], language, 0, context, budget=budget))
-        except (TranslationCancelled, TranslationBudgetExceeded):
-            pass
-        except TranslationError:
-            kodi.log("kept the quick translation of the first %d lines" % first)
+    # Then the full model goes over it, in the same order, because the fast
+    # one pays for its speed: measured, the lite model made a male speaker
+    # female ("אני יכולה") where the full model did not. Each chunk it
+    # returns replaces the quick one in the file that is kept. A busy full
+    # model ends the pass and the quick translation stands - it is a whole
+    # subtitle, which is the point.
+    full = getattr(backend, "full", None)
+    if getattr(backend, "fast", None) is not None and full is not None:
+        upgraded = 0
+        for start, end in ranges:
+            if budget["cancelled"]():
+                break
+            try:
+                better = _translate_batch(full, cues[start:end], language, start,
+                                          context, budget=budget)
+            except (TranslationCancelled, TranslationBudgetExceeded):
+                break
+            except TranslationError as error:
+                kodi.log("the full model stopped going over the quick "
+                         "translation after %d lines (%s)" % (upgraded, str(error)[:60]))
+                break
+            translated.update(better)
+            upgraded += end - start
 
     completed = sum(1 for position in range(total)
                     if translated.get(str(position)))
@@ -365,7 +404,11 @@ def _translate_batch(backend, batch, language, offset, context="", depth=0,
                 raise TranslationBudgetExceeded("translation request budget exhausted")
             budget["calls"] += 1
         try:
-            reply = backend.complete(SYSTEM_PROMPT, prompt)
+            if hasattr(backend, "translate_lines"):
+                # Not a model: no prompt, the lines themselves.
+                reply = backend.translate_lines(payload, language)
+            else:
+                reply = backend.complete(SYSTEM_PROMPT, prompt)
             if budget is not None and budget["cancelled"]():
                 raise TranslationCancelled("translation cancelled")
         except (TranslationCancelled, TranslationBudgetExceeded):
@@ -380,8 +423,8 @@ def _translate_batch(backend, batch, language, offset, context="", depth=0,
                 # every split doubles the number of requests: measured on The
                 # Invite, 50 became 25 became 12 became 6 over two and a half
                 # minutes, every one of them a 429, while the film played.
-                raise TranslationError("the engine is refusing requests (%s)"
-                                       % last_error)
+                raise TranslationRefused("the engine is refusing requests (%s)"
+                                         % last_error)
             continue
         parsed = _parse_reply(reply)
         if parsed is None:

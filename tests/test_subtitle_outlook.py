@@ -182,8 +182,9 @@ def test_the_answer_is_remembered(monkeypatch):
                             calls.append(1) or _candidates("A.Film"))
     sources = [source("A.Film.2020.1080p.mkv")]
     outlook.for_sources(META, sources)
+    first = len(calls)
     outlook.for_sources(META, sources)
-    assert len(calls) == 1
+    assert first and len(calls) == first, "the second open asks nothing"
 
 
 def test_no_sources_asks_nothing(monkeypatch):

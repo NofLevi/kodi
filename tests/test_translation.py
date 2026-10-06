@@ -64,6 +64,9 @@ def use_engine(monkeypatch, settings_module):
     def install(mode="good"):
         engine = FakeEngine(mode)
         monkeypatch.setattr(translator, "engine", lambda: engine)
+        # Only this engine: Google's free one would otherwise answer for a
+        # fake that fails, over the network.
+        monkeypatch.setattr(translator, "engines", lambda: [engine])
         return engine
 
     return install
@@ -295,11 +298,15 @@ def test_a_model_that_answers_404_is_not_asked_again(monkeypatch):
         gemini._RETIRED.clear()
 
 
-def test_an_overloaded_model_keeps_its_place(monkeypatch):
-    """503 says the model is there and busy, which is the opposite claim."""
+def test_an_overloaded_model_steps_back_but_is_not_struck_off(monkeypatch):
+    """503 says busy, not gone - so it is not retired like a 404, but nor is
+    it asked first again on the next chunk. Measured on 6 October 2026:
+    flash answered 503 for hours while flash-lite translated 80 lines in
+    four seconds, and asking flash first made every chunk wait it out."""
     from pinky.subs.ai import gemini
 
     gemini._RETIRED.clear()
+    gemini._BUSY.clear()
     asked = []
 
     def answer(system_prompt, prompt, timeout, name):
@@ -311,11 +318,40 @@ def test_an_overloaded_model_keeps_its_place(monkeypatch):
     monkeypatch.setattr(gemini, "_complete", answer)
     try:
         gemini.complete("s", "p")
+        assert asked == [gemini.DEFAULT_MODEL, gemini.FAST_MODEL]
         del asked[:]
         gemini.complete("s", "p")
-        assert gemini.DEFAULT_MODEL in asked
+        assert asked == [gemini.FAST_MODEL], "the busy model is not asked first"
+        gemini._BUSY[gemini.DEFAULT_MODEL] = 0          # ten minutes later
+        del asked[:]
+        gemini.complete("s", "p")
+        assert asked[0] == gemini.DEFAULT_MODEL, "and it gets its place back"
+        assert gemini.DEFAULT_MODEL not in gemini._RETIRED
     finally:
         gemini._RETIRED.clear()
+        gemini._BUSY.clear()
+
+
+def test_a_model_that_never_answers_steps_back_too(monkeypatch):
+    """A request held open past two minutes is the same answer as a 503."""
+    from pinky.subs.ai import gemini
+
+    gemini._BUSY.clear()
+    asked = []
+
+    def answer(system_prompt, prompt, timeout, name):
+        asked.append((name, timeout))
+        if name == gemini.DEFAULT_MODEL:
+            raise gemini.GeminiError("no response from Gemini")
+        return "ok"
+
+    monkeypatch.setattr(gemini, "_complete", answer)
+    try:
+        assert gemini.complete("s", "p") == "ok"
+        assert asked[0][1][1] <= gemini.BUSY_READ,             "with another model behind it, a minute rather than a minute and a half"
+        assert gemini.DEFAULT_MODEL in gemini._BUSY
+    finally:
+        gemini._BUSY.clear()
 
 
 def test_nothing_left_in_the_chain_is_said_once_rather_than_tried(monkeypatch):
@@ -515,3 +551,117 @@ def test_an_english_source_is_still_left_in_place(settings_module):
     merged = translator._merge(cues, {"1": u"שתיים"}, "en")
 
     assert [cue.text for cue in merged] == ["one", u"שתיים"]
+
+
+def test_the_lines_being_watched_are_translated_first(use_engine, monkeypatch):
+    """Hikaru no Go was nine minutes in when its translation began, and the
+    first requests went on the opening scenes - already gone. From the line
+    being watched, on to the end, then back for the beginning."""
+    engine = use_engine("good")
+    monkeypatch.setattr(translator, "engines", lambda: [engine])
+    original = cues(40)                     # a line every 3 s
+    seen = []
+    result = translator.translate(original, "he", start_at=60.0,
+                                  on_progress=lambda done, total: seen.append(done))
+    firsts = [int(next(iter(json.loads(p.split("Input:", 1)[1].strip()))))
+              for p in engine.prompts]
+    assert firsts[0] == 20, "the line on screen at a minute"
+    assert firsts[1:] == sorted(firsts[1:], key=lambda n: (n < 20, n))
+    assert all(cue.text.startswith("HE:") for cue in result)
+    assert seen == sorted(seen) and seen[-1] == 40, "the count only goes up"
+
+
+class _Answer(object):
+    def __init__(self, text, status=200):
+        self.status_code = status
+        self._text = text
+
+    def json(self):
+        return [[[self._text, "", None, None]]]
+
+
+def test_google_is_there_when_no_key_is(settings_module):
+    """Switching AI on is enough: with no key for the chosen engine, Google's
+    free endpoint, which is what Kodi POV IL and DarkSubs fall back to."""
+    from pinky.subs.ai import google_web
+
+    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.gemini_key": ""})
+    assert translator.engine() is google_web
+    assert translator.engines()[-1] is google_web
+    settings_module.set("subs.ai.enabled", "false")
+    assert translator.engine() is None, "switched off is still off"
+
+
+def test_google_answers_only_when_every_line_came_back(monkeypatch):
+    """A merged line would put every line after it on the wrong timing."""
+    from pinky.subs.ai import google_web
+
+    sent = {}
+
+    def post(url, data=None, **kwargs):
+        sent.update(data)
+        return _Answer(u"בָּטוּחַ.\nמי זה?")
+
+    monkeypatch.setattr(google_web.http, "post", post)
+    reply = json.loads(google_web.translate_lines({"7": "Sure.", "8": "Who\nis that?"}, "Hebrew"))
+    assert reply == {"7": u"בטוח.", "8": u"מי זה?"}, \
+        "vowel points gone, one line each"
+    assert sent["tl"] == "iw" and sent["q"] == "Sure.\nWho is that?"
+    assert json.loads(google_web.translate_lines({"1": "a", "2": "b", "3": "c"}, "Hebrew")) == {}
+
+
+def test_an_engine_refusing_everything_hands_over_at_once(monkeypatch, settings_module):
+    """Both Gemini models answered 503 to every request: each chunk waited
+    out its refusals before the next engine was asked, and the episode played
+    in English meanwhile."""
+    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.chunk": "8"})
+    refused = []
+
+    class Busy(object):
+        def complete(self, system_prompt, prompt):
+            refused.append(True)
+            raise RuntimeError("HTTP 503")
+
+    good = FakeEngine("good")
+    monkeypatch.setattr(translator, "engines", lambda: [Busy(), good])
+    result = translator.translate(cues(40), "he")
+    assert len(refused) == 1, "the first refusal, not one per chunk"
+    assert all(cue.text.startswith("HE:") for cue in result)
+
+
+def test_the_whole_episode_goes_to_the_fast_model_then_the_full_one_goes_over_it(
+        monkeypatch, settings_module):
+    """Hikaru no Go: 40 lines in Hebrew from the fast model, then English,
+    because every later chunk waited on a full model that was busy all day."""
+    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.chunk": "8"})
+
+    class Model(FakeEngine):
+        def __init__(self, tag, busy=False):
+            FakeEngine.__init__(self)
+            self.tag, self.busy = tag, busy
+
+        def complete(self, system_prompt, prompt):
+            if self.busy:
+                raise RuntimeError("HTTP 503")
+            reply = json.loads(FakeEngine.complete(self, system_prompt, prompt))
+            return json.dumps({k: v.replace("HE:", self.tag + ":") for k, v in reply.items()})
+
+    class Engine(object):
+        def __init__(self, full_busy):
+            self.fast, self.full = Model("FAST"), Model("FULL", busy=full_busy)
+
+        def complete(self, system_prompt, prompt):
+            raise AssertionError("the chain is not asked when there is a fast model")
+
+    shown = []
+    healthy = Engine(full_busy=False)
+    monkeypatch.setattr(translator, "engines", lambda: [healthy])
+    result = translator.translate(cues(30), "he",
+                                  on_progress=lambda done, total, partial: shown.append(partial))
+    assert all(cue.text.startswith("FAST:") for cue in shown[-1]), "on screen quickly"
+    assert all(cue.text.startswith("FULL:") for cue in result), "and kept at its best"
+
+    busy = Engine(full_busy=True)
+    monkeypatch.setattr(translator, "engines", lambda: [busy])
+    result = translator.translate(cues(30), "he")
+    assert all(cue.text.startswith("FAST:") for cue in result), "a busy full model costs nothing"

@@ -324,8 +324,11 @@ def test_the_ai_row_comes_last(chooser, settings_module):
     assert "embedded" in labels[0]
     assert labels[1].startswith("100%")
     # Two offers, Hebrew first and English second, told apart in the text.
-    assert labels[2] == u"%s  %s  → HE" % (kodi.localize(32494), kodi.localize(32497))
-    assert labels[3] == u"%s  %s  → EN" % (kodi.localize(32494), kodi.localize(32497))
+    # No key is needed any more - Google's free endpoint is always there - so
+    # neither asks for one.
+    assert labels[2] == u"%s  %s  → HE" % (kodi.localize(32494), kodi.localize(32493))
+    assert labels[3].startswith(kodi.localize(32494)) and labels[3].endswith(u"→ EN")
+    assert kodi.localize(32497) not in labels[2] + labels[3]
 
 
 def test_a_film_with_nothing_is_still_offered_a_translation(chooser,

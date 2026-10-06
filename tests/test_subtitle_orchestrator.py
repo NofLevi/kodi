@@ -303,11 +303,11 @@ def test_a_failure_setting_up_partials_still_closes_the_progress_bar(
     import xbmcgui
     from pinky.subs.ai import translator
 
-    closed = []
+    closed, created = [], []
 
     class Bar(object):
         def create(self, *args, **kwargs):
-            pass
+            created.append(True)
 
         def update(self, *args, **kwargs):
             pass
@@ -327,7 +327,7 @@ def test_a_failure_setting_up_partials_still_closes_the_progress_bar(
         auto._translate_progressively(cues, "he", None, {"type": "movie"},
                                       cancelled=None, generation=0)
 
-    assert closed, "the progress bar was left on the screen"
+    assert len(closed) == len(created), "the progress bar was left on the screen"
 
 
 # --------------------------------------------------------------------------
