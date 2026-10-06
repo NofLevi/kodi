@@ -1177,3 +1177,19 @@ def test_kodi_is_told_the_file_type_so_it_does_not_ask_first():
         == "video/x-matroska"
     assert play._mime_of({"title": "Fight.Club.1999.mp4"}) == "video/mp4"
     assert play._mime_of({"title": "Something without an extension"}) == ""
+
+
+def test_a_release_that_will_not_open_is_replaced_aloud_and_keeps_the_route(
+        film, monkeypatch):
+    """Hikaru no Go: the chosen release failed in silence for five seconds,
+    another played, and without the AI route it searched for Hebrew first."""
+    from pinky import kodi
+    said = []
+    monkeypatch.setattr(kodi, "notify", lambda message, *a, **k: said.append(message))
+    monkeypatch.setattr(play, "_resolve",
+                        lambda source: "" if source["title"] == "Best 1080p" else "https://cdn/ok.mkv")
+    chosen = dict(SOURCES[0], subs_mode="llm", subs_from="en")
+    playing, url = play._resolve_any(chosen, [chosen] + SOURCES[1:], force_picker=False)
+    assert url == "https://cdn/ok.mkv" and playing["title"] == "Worse 720p"
+    assert playing["subs_mode"] == "llm", "translated, as the chosen row would have been"
+    assert said and "Worse 720p" in said[-1]

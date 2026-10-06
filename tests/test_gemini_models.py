@@ -133,7 +133,9 @@ def test_every_chunk_goes_to_the_fast_model_and_the_first_is_short(engine):
     nothing after it either, while the full model is busy: Hikaru no Go had
     40 Hebrew lines and then English."""
     translator.translate(_cues(250), "he")
-    assert engine.calls == [("fast", 40), ("fast", 100), ("fast", 100), ("fast", 10)]
+    first = translator.FIRST_CHUNK
+    assert engine.calls == [("fast", first), ("fast", 100), ("fast", 100),
+                            ("fast", 250 - first - 200)]
 
 
 def test_the_full_model_goes_over_everything_the_fast_one_wrote(monkeypatch,
@@ -144,7 +146,9 @@ def test_the_full_model_goes_over_everything_the_fast_one_wrote(monkeypatch,
     backend = Recording(full=True)
     monkeypatch.setattr(translator, "engine", lambda: backend)
     translator.translate(_cues(250), "he")
-    assert backend.calls[4:] == [("full", 40), ("full", 100), ("full", 100), ("full", 10)]
+    first = translator.FIRST_CHUNK
+    assert backend.calls[4:] == [("full", first), ("full", 100), ("full", 100),
+                                 ("full", 250 - first - 200)]
 
 
 def test_a_dropped_line_is_asked_for_again_instead_of_losing_the_film(

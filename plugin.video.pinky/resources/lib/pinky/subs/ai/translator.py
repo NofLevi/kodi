@@ -19,7 +19,10 @@ from .. import srt
 DEFAULT_CHUNK = 80
 MIN_CHUNK = 8        # smallest configurable chunk size
 MIN_SPLIT = 2        # smallest chunk worth splitting again
-FIRST_CHUNK = 40     # lines in the first request, sent to the fastest model
+# Lines in the first request: what reaches the screen first. Measured on the
+# fast model, 10 lines in 1.2 s against 40 in 2.2-2.4 s, and the next chunk
+# is back long before a dozen lines of dialogue have been read.
+FIRST_CHUNK = 12
 MAX_RETRIES = 2
 MAX_EXTRA_REQUESTS = 6
 MAX_TRANSLATION_SECONDS = 10 * 60
@@ -211,6 +214,9 @@ def _translate_with(backend, cues, target_language, on_progress, meta,
     # 100 on the full one. Every later chunk arrives well before the film
     # reaches it, so only the first is worth hurrying.
     first = min(FIRST_CHUNK, size, total - begin)
+    if begin:
+        kodi.log("translating from line %d of %d (%d:%02d), where the viewer is"
+                 % (begin + 1, total, cues[begin].start // 60, cues[begin].start % 60))
     ranges = ([(begin, begin + first)]
               + [(start, min(start + size, total))
                  for start in range(begin + first, total, size)]

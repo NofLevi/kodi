@@ -1792,3 +1792,7 @@ msgstr ""
 msgctxt "#32562"
 msgid "AI subtitles: %d of %d lines translated from %s"
 msgstr ""
+
+msgctxt "#32563"
+msgid "That release would not open, playing %s instead"
+msgstr ""

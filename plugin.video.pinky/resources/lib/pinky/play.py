@@ -708,6 +708,11 @@ def _resolve_any(chosen, sources, force_picker):
     landed = _reachable(url, honour_memory=False) if url else ""
     if landed:
         return chosen, landed
+    # Said, because it used to fail in silence: Hikaru no Go spent five and a
+    # half seconds on a chosen release with nothing in the log to say why.
+    kodi.log("the chosen release %s: %s" % (
+        "would not open" if url else "was not handed over by the debrid service",
+        chosen.get("title", "")[:70]), kodi.LOG_INFO)
 
     limit = RESOLVE_ATTEMPTS if _uncached_allowed() else RESOLVE_ATTEMPTS_CACHED
     tried = {id(chosen)}
@@ -723,8 +728,26 @@ def _resolve_any(chosen, sources, force_picker):
         url = _resolve(candidate)
         landed = _reachable(url) if url else ""
         if landed:
-            return candidate, landed
+            return _instead_of(chosen, candidate), landed
     return chosen, ""
+
+
+def _instead_of(chosen, candidate):
+    """The release that plays when the chosen one would not, said aloud and
+    carrying the chosen row's subtitle route.
+
+    The picker always opens now, so the viewer always chose - and a swap
+    nobody mentions is a film that is not the one picked. Chosen from the AI
+    list, the replacement is translated as well: without the route it took
+    the automatic path, which searches for Hebrew first, and the first
+    translated line arrived ten seconds after the picture instead of three.
+    """
+    kodi.notify(kodi.localize(32563, candidate.get("title", "")[:60]))
+    replacement = dict(candidate)
+    for key in ("subs_mode", "subs_from"):
+        if chosen.get(key) and not replacement.get(key):
+            replacement[key] = chosen[key]
+    return replacement
 
 
 # How long to wait for the first byte of a stream before deciding the link is
