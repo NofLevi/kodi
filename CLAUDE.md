@@ -278,6 +278,20 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Three bytes end the guessing, and `decode` has read the mark first since it
   was written.
 
+* **Kodi lays every subtitle line out left to right, and every translation
+  made here was showing its punctuation backwards.** A Hebrew line written
+  correctly - "אנחנו כאן." - shows its period before the first word, and a
+  dialogue dash at the end. Checked in Kodi 21 on one clip four ways: as
+  written (wrong), pre-flipped (right), wrapped in RLE..PDF (right), behind
+  an RLM (wrong). Uploaders know: of about 260 Hebrew downloads from all
+  five providers, some 240 put the end punctuation first and are right on
+  screen as they are. What is written correctly - a few uploads, and every
+  AI translation, which is the route anime depends on - was wrong.
+  `srt.laid_out_for_kodi`, in `srt.write`, leaves a flipped file alone and
+  wraps each Hebrew line of any other in a right-to-left embedding, which is
+  also what Kodi POV IL settled on on devices. Checked in Kodi after, from a
+  file `srt.write` made. The stubs cannot see any of it.
+
 * **The picker is ten native, ten AI, five English - a ladder, not a
   scoreboard.** Drawing everything that passed the filters was tried: 118
   rows on Toy Story 5, with the three lists that are the whole point of the
@@ -1577,7 +1591,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2407 tests, all running against Kodi stubs, so no Kodi install is needed:
+2409 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1640,7 +1654,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_upnext.py` | 8 | The next episode, including across a season boundary, and the signal being well formed. |
 | `test_upgrade.py` | 27 | That an update costs the viewer nothing. Twenty-two credentials, and re-entering them on a projector with a remote is the difference between an update people accept and one they refuse. Reads the source for anything writing inside the add-on folder, which an update wipes; installs a real release over a real one and checks the keys, the subtitles and the profile survived; and refuses a truncated download, a file that is not a zip, and one with no `addon.xml`. |
 | `test_failure_paths.py` | 24 | Somebody else's free service misbehaving. 429 retried and 404 not, `Retry-After` honoured rather than the backoff and capped so an hour-long wait cannot freeze a search, truncated JSON, DNS failure - and **the deadline**, which is the rule the whole add-on rests on. |
-| `test_hebrew.py` | 68 | Hebrew is half the catalogue, not an edge case: cp1255 and iso-8859-8 subtitles, a byte order mark landing in the first cue, substring search over 2,810 Hebrew titles, a Hebrew title beside a Latin release group, and a filename that has to survive Android storage. |
+| `test_hebrew.py` | 70 | Hebrew is half the catalogue, not an edge case: cp1255 and iso-8859-8 subtitles, a byte order mark landing in the first cue, substring search over 2,810 Hebrew titles, a Hebrew title beside a Latin release group, and a filename that has to survive Android storage. |
 | `test_packaging.py` | 5 | The built zip staying under 600 KB, containing no build junk, rooted at the add-on id, and carrying every file the add-on needs. |
 
 Three of these catch whole classes of mistake rather than one bug:

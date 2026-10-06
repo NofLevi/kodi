@@ -276,7 +276,8 @@ def test_a_hebrew_titled_subtitle_can_actually_be_written_and_read(
     assert path and os.path.isfile(path)
 
     back = srt.read(path)
-    assert [cue.text for cue in back] == [HEBREW_TITLE, HEBREW_WORD]
+    assert [cue.text for cue in back] == [srt.RLE + HEBREW_TITLE + srt.PDF,
+                                          srt.RLE + HEBREW_WORD + srt.PDF]
 
 
 def test_two_hebrew_titles_do_not_collide_on_disk(settings_module):
@@ -745,7 +746,7 @@ def test_a_written_subtitle_carries_a_byte_order_mark(tmp_path):
         raw = handle.read()
     assert raw.startswith(b"\xef\xbb\xbf"), "Kodi has nothing to detect without it"
     assert u"שלום" in srt.decode(raw)
-    assert srt.parse(srt.decode(raw))[0].text == u"שלום", \
+    assert srt.parse(srt.decode(raw))[0].text == srt.RLE + u"שלום" + srt.PDF, \
         "and the mark must not land inside the first cue"
 
 
@@ -765,3 +766,34 @@ def test_an_advert_written_into_a_subtitle_is_not_shown():
     ])
     assert [cue.text for cue in cues] == [u"- מועדון קרב -",
                                           "I found the open subtitles of my life."]
+
+
+def _written(tmp_path, texts):
+    from pinky.subs import srt
+
+    path = str(tmp_path / "out.he.srt")
+    srt.write(path, [srt.Cue(n + 1, n, n + 0.9, text) for n, text in enumerate(texts)])
+    return [cue.text for cue in srt.parse(srt.decode(open(path, "rb").read()))]
+
+
+def test_hebrew_written_correctly_is_wrapped_so_kodi_shows_it_right(tmp_path):
+    """Kodi lays a line out left to right: "אנחנו כאן." shows its period
+    before the first word. Every translation made here is written this way."""
+    from pinky.subs import srt
+
+    lines = _written(tmp_path, [u"אנחנו לא יודעים למה אנחנו כאן.",
+                                u"- שריף בקר, יש לך 3 דקות?\nOK",
+                                u"Tom!"])
+    assert lines[0] == srt.RLE + u"אנחנו לא יודעים למה אנחנו כאן." + srt.PDF
+    assert lines[1] == srt.RLE + u"- שריף בקר, יש לך 3 דקות?" + srt.PDF + "\nOK"
+    assert lines[2] == "Tom!", "a line with no Hebrew is left alone"
+    again = _written(tmp_path, lines)
+    assert again == lines, "read back and written again, it is wrapped once"
+
+
+def test_hebrew_an_uploader_flipped_is_left_as_it_is(tmp_path):
+    """Most Hebrew uploads are flipped for exactly this renderer, and are
+    already right on screen; wrapping them would turn them back round."""
+    flipped = [u".אנחנו לא יודעים למה אנחנו כאן", u"?שריף בקר, יש לך 3 דקות -",
+               u"!בוא נלך", u"מה קורה"]
+    assert _written(tmp_path, flipped) == flipped
