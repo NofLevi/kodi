@@ -194,9 +194,13 @@ def _ranked(meta, prefetch=False, force=False):
     _apply_meta(merged, meta)
     _check_debrid_cache(merged)
     _scene_episode(meta, merged)
-    _apply_subtitles(merged, meta)
 
-    kept, rejected = scoring.rank_all(merged, meta, _runtime_hours(meta))
+    # Rated after the filters, not before: a subtitle's fit is only read by
+    # the score and the order, and rating all 279 of Top Gun's releases to
+    # keep 89 was most of the picker's computation.
+    kept, rejected = scoring.rank_all(
+        merged, meta, _runtime_hours(meta),
+        annotate=lambda survivors: _apply_subtitles(survivors, meta))
     kept = _drop_unplayable(kept, rejected)
     # Both numbers, because they are different things and the log is read by
     # somebody wondering why the picker shows six rows. "66 after ranking"
@@ -333,12 +337,12 @@ def uncached(meta):
         return []
     prefs = scoring.Preferences()
     prefs.cached_only = False
-    kept = []
-    for source in found:
-        if scoring.rejection_reason(source, prefs, _runtime_hours(meta)):
-            continue
+    kept = [source for source in found
+            if not scoring.rejection_reason(source, prefs, _runtime_hours(meta))]
+    # The cached-only filter kept these from being rated the first time.
+    _apply_subtitles(kept, meta)
+    for source in kept:
         source["score"] = scoring.score(source, prefs, _runtime_hours(meta))
-        kept.append(source)
     kept.sort(key=lambda s: scoring.sort_key(s, prefs))
     return kept
 

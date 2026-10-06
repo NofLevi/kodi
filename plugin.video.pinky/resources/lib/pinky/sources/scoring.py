@@ -818,8 +818,14 @@ def preferred_hashes(meta):
 ENOUGH_TO_CHOOSE_FROM = 10
 
 
-def rank(sources, meta=None, runtime_hours=2.0, limit=None):
-    """Filter, score and sort. Returns (kept, rejection counts)."""
+def rank(sources, meta=None, runtime_hours=2.0, limit=None, annotate=None):
+    """Filter, score and sort. Returns (kept, rejection counts).
+
+    `annotate(kept)` runs between the filters and the scoring, for what only
+    the survivors need: the subtitle fit, which the score and the order read
+    and the filters never do. Rating it for every release found was 279 of
+    them for Top Gun: Maverick, where 89 survive.
+    """
     prefs = Preferences()
     meta = meta or {}
     # A Turkish drama is in Turkish, and that is not a foreign-language
@@ -854,8 +860,6 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
         if reason:
             rejected[reason] = rejected.get(reason, 0) + 1
             continue
-        source["score"] = score(source, prefs, runtime_hours, remembered,
-                                preferred)
         already.add(id(source))
         kept.append(source)
 
@@ -879,10 +883,13 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None):
                 continue
             if why(source):
                 continue
-            source["score"] = score(source, prefs, runtime_hours, remembered,
-                                    preferred)
             kept.append(source)
 
+    if annotate is not None:
+        annotate(kept)
+    for source in kept:
+        source["score"] = score(source, prefs, runtime_hours, remembered,
+                                preferred)
     kept.sort(key=lambda s: sort_key(s, prefs))
     if limit is None:
         limit = prefs.results
@@ -1002,6 +1009,6 @@ def _only_in_cinemas(meta):
     return (time.time() - started) / 86400.0 <= CINEMA_WINDOW_DAYS
 
 
-def rank_all(sources, meta=None, runtime_hours=2.0):
+def rank_all(sources, meta=None, runtime_hours=2.0, annotate=None):
     """Everything that passed the filters, for the "show all" view."""
-    return rank(sources, meta, runtime_hours, limit=0)
+    return rank(sources, meta, runtime_hours, limit=0, annotate=annotate)

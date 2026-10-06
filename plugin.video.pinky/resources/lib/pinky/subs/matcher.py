@@ -367,7 +367,24 @@ def _contradicts_title(parsed, name, target):
 
     Silence is not disagreement. A bare "Episode 2.srt" or an upload named
     after nothing states neither, and is left to the evidence below.
+
+    The answer depends on the subtitle's name and on the title, never on the
+    release it is weighed against - and the picker weighs every subtitle
+    against every release: 11,547 ratings for Top Gun: Maverick, 1.3 s on a
+    desktop and four to eight times that on the projector, most of it this
+    check asked again for the same 48 names. So it is remembered per name.
     """
+    return _title_contradicted(
+        name, target.get("type") or "", int(target.get("year") or 0),
+        target.get("title") or "", tuple(target.get("titles") or ()))
+
+
+@functools.lru_cache(maxsize=2048)
+def _title_contradicted(name, kind, year, title, titles):
+    """`_contradicts_title` on plain values, so it can be remembered."""
+    target = {"type": kind, "year": year, "title": title,
+              "titles": list(titles) or None}
+    parsed = release.parse(name)
     if target.get("type") == "movie" and (parsed.get("season")
                                           or parsed.get("episode")):
         return True

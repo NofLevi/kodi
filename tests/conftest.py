@@ -44,6 +44,14 @@ def kodi_environment(tmp_path):
         gemini._BUSY.clear()
     except Exception:
         pass
+    # Searches the deadline cut short, remembered process-wide so a caller
+    # does not store a partial answer; one test's cut-short search made the
+    # next one refuse to remember a whole answer.
+    try:
+        from pinky.subs import auto
+        auto._CUT_SHORT.clear()
+    except Exception:
+        pass
     # Google's free endpoint is the engine of last resort and needs no key,
     # so a test whose fake engine fails would otherwise translate over the
     # network and pass by accident. Unreachable here; a test that means to
