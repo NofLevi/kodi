@@ -1611,7 +1611,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2423 tests, all running against Kodi stubs, so no Kodi install is needed:
+2428 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1644,7 +1644,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_othershow.py` | 17 | A subtitle filed under our show that names another one: HBO's Girls under Gilmore Girls, CSI under CSI: Miami, The Middle under Malcolm in the Middle. And what must survive it - "Buffy", "Lois and Clark", a transliterated title - plus the franchise rule, a hash match being exempt, films and anime untouched, a bounded number of questions, and a search that fails dropping nothing. |
 | `test_subtitle_sync.py` | 10 | The alignment engine: constant offset, PAL/NTSC drift, refusing to shift an unrelated subtitle, and a feature-length alignment staying inside its time budget. |
 | `test_subtitle_chooser.py` | 24 | The hierarchy the viewer sees: embedded first, then exact, then estimates, with the label each earns. Forced tracks marked and skipped. |
-| `test_subtitle_ai_ondemand.py` | 36 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
+| `test_subtitle_ai_ondemand.py` | 37 | Asking for a translation on purpose, and getting one where nothing exists. The row appearing over a perfectly good Hebrew match, because that judgement is the viewer's; the search widening past the two configured languages, because a film with no Hebrew and no English usually has a Spanish one; a translation never overwriting the subtitle it was made alongside; and the hand-off to the background service, which is where the work has to happen. |
 | `test_subtitle_pipeline.py` | 54 | The whole decision end to end: only one file ever downloaded, a hash-matched reference re-timing a mismatched subtitle, translation falling back correctly, and partial translations reaching the player while the rest runs. Plus the three ways a title ended with nothing while good subtitles sat behind the failure: a sick provider spending a budget meant for files it never delivered, a subtitle for another episode being applied because its score was zero, and a CD1 half ending the search instead of being passed over. Plus the source of a translation being put in time before it is translated, and never being its own timing reference. |
 | `test_inside.py` | 13 | The subtitle track inside the file, from byte-built Matroska: every line timed out of the index, the fullest dialogue track chosen over a signs track and a hearing-impaired one, a file that indexes only its video being no ruler, the file's own timeline leading a hash match, the lines read from where the index points, an ASS line reduced to its words, a film's worth of lines not read line by line, and a refusal ending the read rather than being argued with. |
 | `test_matroska.py` | 10 | The subtitle tracks an MKV declares, read from its first bytes and built byte for byte from the element layout: a full track against a Signs & Songs one, a track naming no language being English by the specification, Hebrew and the newer language tag, and "unknown" never being mistaken for "none" - a file that is not Matroska, a header cut off before its tracks end, a cluster first. |
@@ -1665,7 +1665,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_windows.py` | 56 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Pinky window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
 | `test_details_window.py` | 24 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. Plus the one button acting on the episode its label names, and falling back to the next unwatched one on the season list where the label names none. |
 | `test_sources_window.py` | 54 | The picker, which was crashing on every cached source before it had any tests at all. Plus what a release carries: the file list and the tracks inside the file learned in the background and never on the draw, remembered per file rather than per torrent, an unreadable file not re-asked on every open, and the background pass never taking more than half the shared pool. |
-| `test_play.py` | 72 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. Plus a series carrying its English and translated names, and anime and films not paying for them. |
+| `test_play.py` | 74 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. Plus a series carrying its English and translated names, and anime and films not paying for them. |
 | `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
 | `test_signin.py` | 32 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
 | `test_profiles.py` | 26 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, **the shipped defaults being the lean profile key for key**, and the visual-polish switch raising artwork without ever lowering a richer profile. |
@@ -1673,7 +1673,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
 | `test_upnext.py` | 8 | The next episode, including across a season boundary, and the signal being well formed. |
 | `test_upgrade.py` | 27 | That an update costs the viewer nothing. Twenty-two credentials, and re-entering them on a projector with a remote is the difference between an update people accept and one they refuse. Reads the source for anything writing inside the add-on folder, which an update wipes; installs a real release over a real one and checks the keys, the subtitles and the profile survived; and refuses a truncated download, a file that is not a zip, and one with no `addon.xml`. |
-| `test_failure_paths.py` | 24 | Somebody else's free service misbehaving. 429 retried and 404 not, `Retry-After` honoured rather than the backoff and capped so an hour-long wait cannot freeze a search, truncated JSON, DNS failure - and **the deadline**, which is the rule the whole add-on rests on. |
+| `test_failure_paths.py` | 31 | Somebody else's free service misbehaving. 429 retried and 404 not, `Retry-After` honoured rather than the backoff and capped so an hour-long wait cannot freeze a search, truncated JSON, DNS failure - and **the deadline**, which is the rule the whole add-on rests on. |
 | `test_hebrew.py` | 70 | Hebrew is half the catalogue, not an edge case: cp1255 and iso-8859-8 subtitles, a byte order mark landing in the first cue, substring search over 2,810 Hebrew titles, a Hebrew title beside a Latin release group, and a filename that has to survive Android storage. |
 | `test_packaging.py` | 5 | The built zip staying under 600 KB, containing no build junk, rooted at the add-on id, and carrying every file the add-on needs. |
 
@@ -2050,6 +2050,39 @@ report's own variance rather than a change: rows now cache twenty items and
 draw twelve, so the obvious suspect was the larger payload, and measuring it
 directly puts both the twenty-item and the twelve-item version under a tenth
 of a millisecond. The report reads a cold SQLite page cache once per run.
+
+## Where a press spends its time, and what was taken out
+
+Measured on 6 October 2026 from a real Kodi's log and step by step outside
+it. A picker opening took 7-19 s (9.5 typical), a chosen row 5-9.5 s to a
+picture, an AI subtitle 6.5-31 s to its first line. What was cut, each one
+checked to change nothing a viewer reads - the same rows, the same releases,
+the same subtitle lines, the same file:
+
+    rating subtitles      once per name, and only for releases that pass the
+                          filters: Top Gun 11,547 ratings in 1.57 s -> 5,479
+                          in 0.30 s (`matcher._title_contradicted`,
+                          `scoring.rank(annotate=)`). Computation, so four to
+                          eight times this on the projector.
+    a provider hanging    three seconds more once Torrentio has answered, not
+                          ten: 10.2 s -> 3.9 s (`AFTER_TORRENTIO`)
+    the AI row            no file hash its candidates cannot match: the first
+                          line is translated 0.3-1.8 s after choosing, not
+                          3.2-6.1 s
+    the link check        one hop unfollowed, Kodi given where it leads and the
+                          file type so it does not probe (1.4 s of first byte
+                          in the Top Gun log); the same file checked in the
+                          last five minutes is not asked again, 0.9-1.4 s ->
+                          0.02 s - in a window property, because the address
+                          carries the debrid token
+
+Deliberately not done on the projector's account: starting the subtitle work
+while Kodi opens the video, and reading the track inside the file while the
+picker is open. Both save seconds by doing more at once, which is the load
+pattern that ended Kodi POV IL on the same hardware. And `requests` against
+`urlsession` is undecided until it is measured on the device: loading
+`requests` costs every press, but `urlsession` opens a new TLS connection
+per request, which is the expensive half on a Cortex-A53.
 
 ## Verifying the windows render
 
