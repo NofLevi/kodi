@@ -166,7 +166,12 @@ def annotate(sources, on_learnt=None):
         inside = recall_inside(source)
         if inside is not None:
             source["inside_subs"] = inside
-        elif position < INSIDE_ROWS and _may_look_inside(source):
+        # A file whose tracks were learnt before readability was asked keeps
+        # them for a year, so it is looked at once more rather than drawn as
+        # "English inside" and translated from somebody's Arabic at 70%:
+        # Naruto Shippuden 3x55's BDRip, in a real Kodi.
+        if (inside is None or (inside and not _readable_known(source))) \
+                and position < INSIDE_ROWS and _may_look_inside(source):
             asking.append((_inside_key(source), _remember_inside_for(source),
                            (lambda s=dict(source): _look_inside(s))))
 
@@ -279,7 +284,10 @@ def _remember_readable(source, link):
     except Exception:
         kodi.log_exception("could not tell whether the tracks inside can be read")
         return
-    cache.set(_inside_key(source) + "|text", readable, _INSIDE_TTL)
+    if readable is None:
+        # A read that failed is asked again on a later open, not filed.
+        return
+    cache.set(_readable_key(source), readable, _INSIDE_TTL)
 
 
 def recall_readable(source):
@@ -288,7 +296,18 @@ def recall_readable(source):
     from .. import cache
     if not source.get("cached") or not source.get("hash"):
         return []
-    return cache.get(_inside_key(source) + "|text") or []
+    return cache.get(_readable_key(source)) or []
+
+
+def _readable_key(source):
+    # Not "|text", which is what held the readings a refused request filed as
+    # "nothing readable" for a year; renamed so every one of them is asked again.
+    return _inside_key(source) + "|readable"
+
+
+def _readable_known(source):
+    from .. import cache
+    return cache.get(_readable_key(source)) is not None
 
 
 def _learn_later(asking, on_learnt=None):

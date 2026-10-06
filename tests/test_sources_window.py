@@ -644,6 +644,27 @@ def test_the_inside_of_a_file_is_asked_only_for_the_top_rows_and_never_an_mp4(
     assert len(asked) == bundled.INSIDE_ROWS - 1
 
 
+def test_a_file_whose_tracks_were_learnt_before_readability_is_looked_at_again(
+        monkeypatch, no_network):
+    """Naruto Shippuden 3x55 in a real Kodi: "EMBEDDED EN" beside "translated
+    from AR, 70%", because the tracks were remembered for a year before
+    anything asked whether they could be read."""
+    from pinky import cache
+    from pinky.sources import bundled
+
+    bundled.forget()
+    monkeypatch.setattr(bundled, "_recall", lambda info_hash: [])
+    asked = []
+    monkeypatch.setattr(bundled, "_learn_later", lambda rows, *_: asked.extend(rows))
+    old, settled, empty = (_episode("%040d" % n, 1) for n in range(3))
+    for source in (old, settled, empty):
+        bundled._remember_inside_for(source)(["en"] if source is not empty else [])
+    cache.set(bundled._readable_key(settled), ["en"], 3600)
+    bundled.annotate([old, settled, empty])
+    assert [key for key, _remember, _ask in asked] == [bundled._inside_key(old)]
+    assert old["inside_subs"] == ["en"], "drawn from what is known meanwhile"
+
+
 def test_the_background_pass_never_takes_the_whole_shared_pool(
         monkeypatch, no_network):
     """Playback resolves through the same four workers; a decoration holding

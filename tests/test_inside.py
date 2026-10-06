@@ -225,3 +225,16 @@ def test_the_files_own_track_leads_what_is_translated(remote, monkeypatch):
     assert language == "en" and candidate["inside"] and len(candidate["cues"]) == 50
     assert auto.inside_source({}, "he") is None
     assert auto.inside_source({"stream_url": "nowhere"}, "he") is None
+
+
+def test_a_read_that_was_refused_is_not_an_answer(remote):
+    """The CDN refusing every read for a few minutes filed a BDRip with 316
+    readable lines as "nothing readable" for a year."""
+    entries = [_numbered(3, codec=b"S_TEXT/UTF8")]
+    assert inside.readable_languages("u") is None      # every read refused
+    assert inside.tracks("u") == []
+    remote["u"] = _spoken_file(entries, 3, _dialogue(60))
+    assert inside.readable_languages("u") == ["en"], "asked again, not remembered"
+    remote["v"] = _file([_numbered(1, kind=1, codec=b"V_MPEG4/ISO/AVC"), _numbered(3)],
+                        [_cue(n * 1000, 1) for n in range(200)])
+    assert inside.readable_languages("v") == [], "an index of video only is an answer"

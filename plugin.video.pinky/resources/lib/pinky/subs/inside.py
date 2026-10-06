@@ -42,12 +42,20 @@ def tracks(url):
     [] when the file is not Matroska, has no subtitle track, or indexes only
     its video - an older fansub mux, which would have to be read through.
     """
+    return _tracks_or_none(url) or []
+
+
+def _tracks_or_none(url):
+    """`tracks`, or None when the file could not be read at all - a refused
+    or failed request, which says nothing about what the file holds."""
     if not url:
         return []
     with _LOCK:
         if url in _HELD:
             return _HELD[url]
     found = _read(url)
+    if found is None:
+        return None
     with _LOCK:
         if len(_HELD) > 8:
             _HELD.clear()
@@ -56,14 +64,23 @@ def tracks(url):
 
 
 def _read(url):
+    """The indexed tracks; [] for a file that has none to give; None when a
+    read failed. The difference is remembered for a year or not at all: the
+    CDN refusing every read for a few minutes once filed Naruto Shippuden
+    3x55's BDRip as "nothing readable inside", and its row went on offering
+    a stranger's Arabic at 70% beside 316 lines of its own."""
     try:
         head = hasher.read_range(url, 0, HEAD_BYTES - 1)
-        where = matroska.layout(head) if head else None
+        if not head:
+            return None
+        where = matroska.layout(head)
         if not where or not where["tracks"] or where["cues"] is None:
             return []
         start = where["cues"]
         opening = hasher.read_range(url, start, start + 15)
-        element = matroska._element(bytes(opening or b""), 0)
+        if not opening:
+            return None
+        element = matroska._element(bytes(opening), 0)
         if element is None or element[0] != matroska.CUES or not element[1]:
             return []
         if element[1] > INDEX_LIMIT:
@@ -72,10 +89,12 @@ def _read(url):
             return []
         body = hasher.read_range(url, start + element[2],
                                  start + element[2] + element[1] - 1)
-        index = matroska.cue_index(body, where["scale"]) if body else {}
+        if not body:
+            return None
+        index = matroska.cue_index(body, where["scale"])
     except Exception:
         kodi.log_exception("could not read the subtitle index inside the file")
-        return []
+        return None
     found = []
     for track in where["tracks"]:
         lines = index.get(track["number"]) or []
@@ -257,9 +276,13 @@ def _readable(track):
 
 def readable_languages(url):
     """The languages `text` could give for this file, for the picker to know
-    a release can be translated from before anybody presses it."""
+    a release can be translated from before anybody presses it. None when
+    the file could not be read, which is not an answer to remember."""
+    held = _tracks_or_none(url)
+    if held is None:
+        return None
     found = []
-    for track in tracks(url):
+    for track in held:
         if _readable(track) and track["language"] not in found:
             found.append(track["language"])
     return found
