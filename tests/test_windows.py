@@ -1543,3 +1543,40 @@ def test_a_kodi_that_refuses_the_question_is_not_a_crash(monkeypatch,
     monkeypatch.setattr(xbmc, "executeJSONRPC",
                         lambda request: '{"error": {"message": "no"}}')
     assert kodi.ensure_hebrew_keyboard() is False
+
+
+def test_coming_back_from_a_video_redraws_continue_watching(monkeypatch, configured):
+    """The window stays open under every video, so the row kept what it held
+    when Pinky opened: Top Gun was saved at 1:22 and never appeared."""
+    import time
+    from pinky import bookmarks, catalog
+    from pinky.meta import trakt_state
+
+    rows = [{"id": row_id, "title_id": 32201, "loader": lambda: [], "ttl": 60,
+             "needs": [], "default": True} for row_id in ("continue", "row1")]
+    monkeypatch.setattr(catalog, "enabled_rows", lambda section=None: rows)
+    monkeypatch.setattr(catalog, "row_title", lambda row: "Row " + row["id"])
+    drawn = {"continue": make_items(2, "Hikaru")}
+    monkeypatch.setattr(catalog, "peek",
+                        lambda row_id, section=None: drawn.get(row_id) or make_items(3, row_id))
+    monkeypatch.setattr(trakt_state, "annotate", lambda entries: entries)
+    invalidated = []
+    monkeypatch.setattr(catalog, "invalidate", lambda row_id=None: invalidated.append(row_id))
+
+    bookmarks.save("episode:tmdb:30982:1:3", 550, 1408)
+    window = home_window.HomeWindow()
+    window.onInit()
+    bookmarks.save("episode:tmdb:30982:1:3", 600, 1408)    # a position, not a title
+    window.onInit()
+    assert invalidated == [], "the same titles in the same order redraw nothing"
+
+    time.sleep(1.1)                                         # a later "at"
+    bookmarks.save("movie:tmdb:361743", 82, 7800)
+    drawn["continue"] = make_items(3, "TopGun")
+    window.onInit()                                         # back from the video
+    for _ in range(50):
+        if window.getControl(home_window.LIST_BASE).size() == 3:
+            break
+        time.sleep(0.05)
+    assert invalidated == ["continue"]
+    assert window.getControl(home_window.LIST_BASE).size() == 3

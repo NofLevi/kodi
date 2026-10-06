@@ -1429,6 +1429,13 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   reachable only by finding the title again yourself. Trakt still wins where
   it answers, because it knows every box and this knows one.
 
+  The row is drawn once, and the home window stays open under every video -
+  so it kept what it held when Pinky opened. Top Gun: Maverick was saved at
+  1:22 on 6 October 2026 and never appeared. Kodi calls `onInit` again when
+  the window comes back from the video, and that now redraws the row
+  (`home_window._refresh_continue`) when the titles or their order changed;
+  a position saved every few seconds inside the same title redraws nothing.
+
 * **Two presses racing was real.** A source search is seconds of network, so
   backing out and pressing something else left two in flight - and the
   cancelled title finished second, handed Kodi *its* URL, and the film that
@@ -1604,7 +1611,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2422 tests, all running against Kodi stubs, so no Kodi install is needed:
+2423 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1655,7 +1662,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_extractors_israeli.py` | 23 | Now 14, Sport 1 and 891FM, plus the check that every broadcaster in the catalogue has an extractor behind it. |
 | `test_mdblist.py` | 19 | The list resolution staying bounded, the curator's order surviving lookups that finish out of order, a title TMDB does not know being dropped rather than blanked, and the API key staying out of the cache keys. |
 | `test_kids.py` | 52 | Kids mode replacing the rows rather than filtering them, a pinned row order not being inherited, a warm cache not defeating it, the PIN being stored hashed and actually required to leave, and `catalog.peek` still saying None for a row that was never warmed. Also Continue Watching built from this device's own resume points when there is no Trakt account, newest first, with a title TMDB no longer knows dropped rather than drawn blank. |
-| `test_windows.py` | 55 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Pinky window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
+| `test_windows.py` | 56 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Pinky window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
 | `test_details_window.py` | 24 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. Plus the one button acting on the episode its label names, and falling back to the next unwatched one on the season list where the label names none. |
 | `test_sources_window.py` | 54 | The picker, which was crashing on every cached source before it had any tests at all. Plus what a release carries: the file list and the tracks inside the file learned in the background and never on the draw, remembered per file rather than per torrent, an unreadable file not re-asked on every open, and the background pass never taking more than half the shared pool. |
 | `test_play.py` | 72 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. Plus a series carrying its English and translated names, and anime and films not paying for them. |

@@ -114,8 +114,12 @@ class HomeWindow(xbmcgui.WindowXML):
 
     def onInit(self):
         if self.ready:
-            return                # onInit fires again when returning from a dialog
+            # onInit fires again when returning from a dialog - and from the
+            # video, which is the one moment Continue Watching can have moved.
+            self._refresh_continue()
+            return
         self.ready = True
+        self._continue_seen = _continue_signature()
 
         # This used to close on the spot when there was no TMDB key, and offer
         # the wizard instead, because "almost every row is unavailable" and
@@ -498,6 +502,33 @@ class HomeWindow(xbmcgui.WindowXML):
     def _set_title(self, index, title):
         self.setProperty("pinky.row%d.title" % index, title or "")
 
+    def _refresh_continue(self):
+        """Draw Continue Watching again when what it holds has changed.
+
+        The window is built once and stays open under every video, so this
+        row kept what it held when Pinky opened: Top Gun: Maverick was saved
+        at 1:22 and the row went on starting at Hikaru no Go. Only a change
+        in which titles, and in what order, redraws it - the position inside
+        one is saved every few seconds and changes nothing on this row.
+        """
+        signature = _continue_signature()
+        if signature == getattr(self, "_continue_seen", None):
+            return
+        self._continue_seen = signature
+        catalog.invalidate("continue")
+        slots = [index for index, row in enumerate(self.rows)
+                 if row.get("id") == "continue"]
+        if not slots:
+            if signature and "continue" in catalog.enabled_row_ids(self.section):
+                self._rebuild()          # the row was not drawn at all yet
+            return
+        with self.lock:
+            self.filled.discard(slots[0])
+        worker = threading.Thread(target=self._fill, args=(slots[0],),
+                                  name="pinky-continue")
+        worker.daemon = True
+        worker.start()
+
     def _fill(self, index):
         """Populate one row slot from cache, falling back to a live fetch."""
         with self.lock:
@@ -850,6 +881,16 @@ class HomeWindow(xbmcgui.WindowXML):
         self.pages.clear()
         self.exhausted.clear()
         self.barren.clear()
+
+
+def _continue_signature():
+    """The half-watched titles, newest first - what Continue Watching shows."""
+    from .. import bookmarks
+    try:
+        entries = bookmarks.all_entries()
+    except Exception:
+        return ()
+    return tuple(sorted(entries, key=lambda key: -entries[key].get("at", 0)))
 
 
 def _pick_rows(section=catalog.HOME):
