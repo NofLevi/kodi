@@ -535,6 +535,35 @@ def test_an_unnamed_season_is_not_guessed_at(bleach_cours):
     assert bleach_cours.episode_address("", 46, "Thousand-Year Blood War", 50) is None
 
 
+def test_a_new_cour_is_known_by_its_own_name(monkeypatch):
+    """Bleach's fourth cour aired before TMDB knew its name, and every
+    release of it says "Kashin Tan": seven of nine were refused as another
+    show until the cour's Kitsu names became ours."""
+    from pinky.meta import kitsu
+    from pinky.sources import aggregator, scoring
+
+    def fake_get(path, params=None, **kw):
+        if path == "/anime/49444":
+            return {"data": {"attributes": {
+                "canonicalTitle": "BLEACH: Sennen Kessen-hen - Kashin-tan",
+                "titles": {"en": "BLEACH: Thousand-Year Blood War Part 4 - The Calamity"},
+                "abbreviatedTitles": ["BLEACH: Thousand-Year Blood War - The Calamity"]}}}
+        return BLEACH_COURS
+    monkeypatch.setattr(kitsu, "_get", fake_get)
+    monkeypatch.setattr(kitsu, "available", lambda: True)
+    meta = {"type": "episode", "ids": {"tmdb": 30984}, "title": "Bleach",
+            "season": 2, "episode": 46, "extra": {"anime": True},
+            "season_name": "Thousand-Year Blood War", "season_episodes": 50,
+            "aliases": ["Bleach Sennen Kessen-hen", "Bleach - Sennen Kessen hen"]}
+    source = {"title": "[Erai-raws] Bleach - Sennen Kessen Hen - Kashin Tan - 06 "
+                       "[1080p DSNP WEB-DL AVC AAC][MultiSub].mkv"}
+    assert scoring._a_different_series(source, meta)
+
+    assert aggregator._anime_address(meta, "arc")["ids"]["kitsu"] == "49444"
+    assert meta["aliases"][:2] == ["Bleach Sennen Kessen-hen", "Bleach - Sennen Kessen hen"]
+    assert scoring._a_different_series(source, meta) == ""
+
+
 def test_an_episode_past_the_end_is_not_forced_into_the_last_cour(bleach_cours):
     assert bleach_cours.episode_address("Bleach", 51,
                                         "Thousand-Year Blood War", 50) is None

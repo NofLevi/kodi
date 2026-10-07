@@ -782,6 +782,15 @@ def _anime_address(meta, mode="arc"):
     kodi.log("%s S%02dE%02d is also kitsu:%s:%s"
              % (meta.get("title", ""), int(meta.get("season") or 0),
                 int(meta.get("episode") or 0), kitsu_id, episode))
+    # The releases at this address are named after the cour, which TMDB may
+    # not know yet, so the cour's own names are ours too. Appended, because
+    # the first two aliases are what the name queries ask under.
+    try:
+        aliases = list(meta.get("aliases") or [])
+        meta["aliases"] = aliases + [
+            name for name in kitsu.names_of(kitsu_id) if name not in aliases]
+    except Exception:
+        kodi.log_exception("could not read the cour's names")
     address = dict(meta)
     address["ids"] = dict(meta.get("ids") or {}, kitsu=kitsu_id)
     # The kitsu address carries its own numbering, and stream_id prefers an

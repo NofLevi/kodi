@@ -177,6 +177,21 @@ def details(kitsu_id):
     return to_item((payload or {}).get("data"))
 
 
+def names_of(kitsu_id):
+    """Every name one entry goes by, abbreviations included.
+
+    A new cour is released under its own name days before TMDB lists it:
+    Bleach's fourth, "Sennen Kessen-hen - Kashin-tan", aired on 29 August
+    2026 and every release says "Kashin Tan" while TMDB still had none of it.
+    """
+    payload = _get("/anime/%s" % kitsu_id, {
+        "fields[anime]": "canonicalTitle,titles,abbreviatedTitles"},
+        ttl=TTL_DETAILS)
+    attributes = ((payload or {}).get("data") or {}).get("attributes") or {}
+    return _names(attributes) + [
+        n for n in attributes.get("abbreviatedTitles") or [] if n]
+
+
 def current_season():
     """Kitsu names seasons the same way AniList does, in lower case."""
     import time

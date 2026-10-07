@@ -1047,7 +1047,10 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   AniList model each cour as its own entry with its own English, romaji and
   synonym titles, and `kitsu.episode_address` already finds that entry for
   the season being played. Taking the anime engine's names from it, with
-  TMDB as the fallback, is the principled version of `anime_titles`. And
+  TMDB as the fallback, is the principled version of `anime_titles`. The first step of it is taken: once `_anime_address` has found the
+  cour, `kitsu.names_of` adds that cour's own names to `meta["aliases"]`,
+  because a new cour is released under its name before TMDB lists it -
+  Bleach's "Kashin-tan" went 0 -> 6 sources on 7 October 2026. And
   the ceiling on anime subtitle accuracy is not the corpus at all: fansub
   releases say "softsubs", "Multi" and "Dual Audio", and carry an English
   track inside the MKV that is in time by construction. Reading that track
@@ -1617,7 +1620,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2447 tests, all running against Kodi stubs, so no Kodi install is needed:
+2448 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1637,7 +1640,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_aggregator.py` | 36 | The orchestration the well-tested pieces hang off: top-K against "show all" (which used to return the same eight rows it was toggling away from), a debrid cache flag that must be able to come *down*, one batched question for a torrent three providers reported, and a provider that raises not taking the search with it. |
 | `test_providers.py` | 21 | The Stremio adapter three of the four providers speak. Mostly about payloads that are not shaped the way the last one was: a size sent as a string or a float, a fileIdx that is not a number, and one unreadable stream costing only itself. |
 | `test_anilist.py` | 10 | The anime catalog, and specifically that an outage upstream produces a hidden row and a log line rather than a broken screen. A failure is not cached as a result, so the row is retried rather than staying empty for the TTL. |
-| `test_anime_numbering.py` | 81 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. And two found by testing a Japanese source: `S01E66` being the 66th episode (Hikaru no Go's 3x06), and a stated season having to agree - "Oshi no Ko S3 - 06" is not 1x06. Plus `tmdb.romaji_titles` reading only the JP-tagged "romaji" entries out of TMDB's `alternative_titles`, and `meta["aliases"]` actually carrying one out of `build_meta` into a real rejection check. |
+| `test_anime_numbering.py` | 82 | The three separate mistakes that made an anime episode unplayable, each found by surveying a thousand titles rather than by imagining it: the Japanese title searched against an index of romaji names, the season-relative number searched where an absolute one was needed, and nyaa not checking what came back. Plus the traps in reading a number off a name - a year sitting exactly where an episode number sits, a CRC, a version suffix, a batch range, and a season marker that makes the number season-relative. And two found by testing a Japanese source: `S01E66` being the 66th episode (Hikaru no Go's 3x06), and a stated season having to agree - "Oshi no Ko S3 - 06" is not 1x06. Plus `tmdb.romaji_titles` reading only the JP-tagged "romaji" entries out of TMDB's `alternative_titles`, and `meta["aliases"]` actually carrying one out of `build_meta` into a real rejection check. |
 | `test_release_parser.py` | 101 | Resolution, source, codec, HDR, release group, season and episode, absolute anime numbering, Hebrew hints. Source ranking and subtitle matching both depend on it. Plus `normalise` folding a macron and a doubled long vowel to the same plain letter, live-measured against 1,605 real anime releases, and leaving Hebrew - which has no such decomposition - untouched. |
 | `test_sources.py` | 162 | Merging the same torrent from several providers, and the filter and ranking rules: resolution ceiling, disabled codecs, HDR, cam releases, implausible sizes, cached-only, and a cached source always beating an uncached one. Plus every live-measured gap in `_a_different_series`: a macron, a romaji alias, punctuation gluing two words into one, a four-digit padded episode number, a bare "EP01" with no season, and SubsPlease's glued "01A"/"01B" split-episode suffix - each pinned to the real release that exposed it. And the series engine on its own: a Korean drama on a Hebrew interface keeping its releases, a title in another language being the same show, every episode-numbering form, and "The Game", Sealab and Little House on the Prairie still being caught. |
 | `test_seadex.py` | 15 | The anime exception: a curated pick beating a far more seeded release, matching by infohash so a lookalike can never be promoted, a cached source still winning, an uncovered title costing nothing, and a broken SeaDex not breaking the picker. |
