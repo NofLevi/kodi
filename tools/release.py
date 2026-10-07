@@ -125,8 +125,10 @@ def update_readme(repo_version):
         return
     with io.open(path, encoding="utf-8") as handle:
         text = handle.read()
-    updated = re.sub(r"repository\.katan-\d+\.\d+\.\d+\.zip",
+    updated = re.sub(r"repository\.pinky-\d+\.\d+\.\d+\.zip",
                      "repository.pinky-%s.zip" % repo_version, text)
+    updated = re.sub(r"(\*\*Pinky |both at )\d+\.\d+\.\d+",
+                     r"\g<1>%s" % repo_version, updated)
     if updated == text:
         return
     with io.open(path, "w", encoding="utf-8", newline="") as handle:
@@ -180,19 +182,26 @@ def main():
     # disagrees.
     set_version(build.ADDONS[1], new)
     update_readme(new)
+    # The suite above ran before any of this was written, so ask again about
+    # what was just changed - a stale README link failed the release workflow
+    # once while every local run was green.
+    if not skip_tests and subprocess.run(
+            [sys.executable, "-m", "pytest", "-q", "tests/test_addon_integrity.py",
+             "-k", "every_version"], cwd=ROOT).returncode != 0:
+        print("the version is not the same everywhere, not releasing")
+        return 1
 
     if build.main() != 0:
         return 1
 
     print("\nreleased %s. Now:" % new)
     print('    git commit -am "Release %s"' % new)
-    print("    git push origin development")
-    print("    git checkout main && git merge development")
     print('    git tag -a v%s -m "Release %s"' % (new, new))
-    print("    git push origin main --follow-tags")
+    print("    git push origin main v%s" % new)
     print("\nThe tag is what publishes - it runs the suite, cuts the GitHub")
-    print("release and uploads to Pages. Pushing main alone does nothing,")
-    print("and an unannotated tag is not pushed by --follow-tags.")
+    print("release and uploads to Pages. Pushing main alone does nothing.")
+    print("Name the tag rather than --follow-tags, which pushes every old")
+    print("annotated tag along with it.")
     return 0
 
 

@@ -1702,12 +1702,27 @@ is nothing to build per platform, and the whole problem is distribution.
 
 ### Branches, and the one thing that publishes
 
-`development` is where the work happens; `main` only moves on a release. But
-the branch is not what publishes - **a tag is**, and nothing else is.
+Work happens on `main` for now (`development` was deleted on 6 October
+2026). But the branch is not what publishes - **a tag is**, and nothing else
+is.
 
-    git push origin development       nothing happens
     git push origin main              nothing happens
-    git push --follow-tags            .github/workflows/release.yml runs
+    git push origin main v0.0.3       .github/workflows/release.yml runs
+
+Name the tag. `--follow-tags` pushes every annotated tag reachable from the
+branch, and on 7 October 2026 it pushed September's never-published `v0.0.1`
+alongside the release being cut. Neither push fired the workflow that day
+either - the first tag push after the repository went public started
+nothing - so a tag that has been pushed and shows no run is started by hand:
+`gh workflow run release --ref v0.0.3`.
+
+Two settings outside the repository make it work, and both were missing at
+the first public release. The repository has to be **public**, because Kodi
+fetches anonymously. And Pages has to be on with Actions as its source, and
+its `github-pages` environment has to allow **`v*` tags** as well as `main` -
+the environment Pages creates allows `main` alone, and the deploy is refused
+with "not allowed to deploy to github-pages due to environment protection
+rules".
 
 `release.yml` fires on `v*`: it runs the suite, checks the tag against every
 place the version is written, builds `repo/`, cuts the GitHub release with
