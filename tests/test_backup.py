@@ -10,12 +10,12 @@ def test_every_account_and_changed_setting_comes_back(settings_module):
     from pinky import backup, bookmarks
     settings_module.set_many({"torbox.apikey": "TB-KEY", "trakt.access_token": "TR-ACCESS",
                               "trakt.refresh_token": "TR-REFRESH", "subs.ai.gemini_key": "AI-KEY",
-                              "subs.ktuvit.user": "me@example.com"})
+                              "alldebrid.apikey": "AD-KEY"})
     bookmarks.save("movie:tmdb:361743", 82.0, 7800.0)
     data = json.loads(json.dumps(backup.contents()))     # as it would be on disk
 
     for key in ("torbox.apikey", "trakt.access_token", "trakt.refresh_token",
-                "subs.ai.gemini_key", "subs.ktuvit.user"):
+                "subs.ai.gemini_key", "alldebrid.apikey"):
         settings_module.set(key, "")
     bookmarks.clear("movie:tmdb:361743")
 

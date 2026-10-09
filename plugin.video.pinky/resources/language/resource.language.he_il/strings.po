@@ -781,22 +781,6 @@ msgctxt "#30062"
 msgid "SubSource"
 msgstr "SubSource"
 
-msgctxt "#30063"
-msgid "Ktuvit"
-msgstr "כתובית"
-
-msgctxt "#30064"
-msgid "The largest Hebrew subtitle source. It is a members' site, so it needs the account below and returns nothing without one."
-msgstr "מקור הכתוביות הגדול ביותר בעברית. זהו אתר לחברים רשומים, ולכן נדרש החשבון שלהלן ובלעדיו לא יוחזר דבר."
-
-msgctxt "#30065"
-msgid "Ktuvit email"
-msgstr "דוא\"ל בכתובית"
-
-msgctxt "#30066"
-msgid "Ktuvit password"
-msgstr "סיסמה בכתובית"
-
 msgctxt "#30067"
 msgid "OpenSubtitles API key"
 msgstr "מפתח API של OpenSubtitles"
@@ -1377,14 +1361,6 @@ msgctxt "#32489"
 msgid "not in the debrid cache"
 msgstr "לא במטמון"
 
-msgctxt "#32490"
-msgid "OpenSubtitles (subtitle accuracy)"
-msgstr "OpenSubtitles (דיוק כתוביות)"
-
-msgctxt "#30147"
-msgid "Connect OpenSubtitles (scan a code)"
-msgstr "חיבור OpenSubtitles (סריקת קוד)"
-
 msgctxt "#32491"
 msgid "Nothing is ready to stream. %d copies exist but none are on your debrid account yet - start one downloading?"
 msgstr "אין מקור מוכן לצפייה. קיימים %d עותקים אך אף אחד לא בחשבון הדיבריד שלכם - להתחיל להוריד אחד?"
@@ -1669,10 +1645,6 @@ msgctxt "#32544"
 msgid "English subtitle, %d%% fit"
 msgstr "כתובית אנגלית, התאמה %d%%"
 
-msgctxt "#30323"
-msgid "Connect Ktuvit (free account)"
-msgstr "חיבור לכתובית (חשבון חינם)"
-
 msgctxt "#32545"
 msgid "No sources found. Watch %s on %s instead?"
 msgstr "לא נמצאו מקורות. לצפות ב-%s דרך %s?"
@@ -1736,6 +1708,10 @@ msgstr "אין מפיצים"
 msgctxt "#30325"
 msgid "YIFY Subtitles (films, no account needed)"
 msgstr "כתוביות YIFY (סרטים, ללא חשבון)"
+
+msgctxt "#30326"
+msgid "TorrentsDB"
+msgstr "TorrentsDB"
 
 msgctxt "#32559"
 msgid "AI subtitles: finding something to translate"

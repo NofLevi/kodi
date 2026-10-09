@@ -749,8 +749,8 @@ def test_each_connect_button_names_a_service_that_exists():
     from pinky import router
     router._load_handlers()
 
-    known = set(registry.names()) | {"trakt", "tmdb", "debrid", "opensubtitles",
-                                     "mdblist", "gemini", "ktuvit"}
+    known = set(registry.names()) | {"trakt", "tmdb", "debrid",
+                                     "mdblist", "gemini"}
     root = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml")).getroot()
 
     unknown = []

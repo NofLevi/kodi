@@ -77,7 +77,6 @@ def providers(monkeypatch, settings_module):
         "subs.provider.opensubtitles_rest": "true",
         "subs.provider.opensubtitles": "false",
         "subs.provider.subsource": "false",
-        "subs.provider.ktuvit": "false",
     })
     registry = {}
 
@@ -500,10 +499,11 @@ def test_a_provider_may_not_hold_a_worker_thread_past_the_deadline(monkeypatch):
 def test_a_provider_may_not_return_an_unbounded_candidate_list():
     """`outlook` weighs every candidate against every source when the picker
     opens, so one uncapped provider is measured in hundreds of thousands of
-    comparisons. Every other provider caps; this one did not."""
-    from pinky.subs.providers import ktuvit
+    comparisons. Ktuvit was the one that did not cap, and it is gone; this
+    holds the rule for the scraping provider that remains."""
+    from pinky.subs.providers import bsplayer
 
-    assert ktuvit.MAX_RESULTS <= 60
+    assert bsplayer.MAX_RESULTS <= 60
 
 
 # --------------------------------------------------------------------------

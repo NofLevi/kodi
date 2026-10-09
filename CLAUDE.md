@@ -478,18 +478,18 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   Latin. The index is Latin-only in practice, the same way the trackers are.
 
 * `subs/` picks one subtitle: embedded track, then file hash, then release
-  correlation, then AI translation of the best English match. Wizdom and
-  SubSource are anonymous; Ktuvit is a members' site, so it is off until an
-  account is entered and is asked after the faster sources. Ktuvit is entered
-  through **one button in the subtitle settings at normal level**, not the
-  expert toggle and two fields it used to be: it offers the free signup page
-  as a scannable code, asks for the email and password, switches the provider
-  on and *tries the login while somebody is still looking at the screen*,
-  because a stored-but-wrong password otherwise surfaces days later as a film
-  playing with nothing. It cannot ship with a credential of its own - one
-  login shared by every installation is what closes an account, and the dead
-  credential would then be frozen into every installed copy until a release
-  replaced it.
+  correlation, then AI translation of the best English match. Every provider
+  left is anonymous or ships with keys: Wizdom and SubSource need no account,
+  and OpenSubtitles draws on a published list of shared keys, so nothing has
+  to be signed in to before subtitles work.
+
+  **Ktuvit was removed on 9 October 2026**, with its AES helper, its live
+  check and its two settings. It was the one provider that could not ship
+  working: a members' site cannot carry a shared credential - one login for
+  every installation is what closes an account - so it needed an email and a
+  password per household, which nobody entered. Meanwhile it cost a worker
+  out of three on every search. Its measurements below are kept as history;
+  the provider is gone.
 
   **There is no Hebrew subtitle for what this household watches.** This is
   the most important measurement in this file and it was never taken: every
@@ -545,8 +545,9 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   anime and foreign drama, AI translation is not a fallback and not a
   second-best: it is the **only** route, and the quality of the translation
   source is the quality of the subtitle. It also disposes of any remaining
-  argument about Ktuvit adding reach - on a Hebrew-weighted sample it adds
-  neither, because there is nothing there to add.
+  argument about Ktuvit adding reach - on a Hebrew-weighted sample it added
+  neither, because there was nothing there to add, and it has since been
+  removed.
 
   And it is why an engine that is out of quota is not a degraded experience
   but a blank screen, which is what `translator.engines` exists for.

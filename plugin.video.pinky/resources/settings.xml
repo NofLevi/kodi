@@ -260,7 +260,7 @@
                     <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
-                <setting id="sources.provider.torrentsdb" type="boolean" label="30323">
+                <setting id="sources.provider.torrentsdb" type="boolean" label="30326">
                     <level>2</level><default>true</default>
                     <control type="toggle"/>
                 </setting>
@@ -578,48 +578,6 @@
                 <setting id="subs.provider.subsource" type="boolean" label="30062">
                     <level>2</level><default>false</default>
                     <control type="toggle"/>
-                </setting>
-                <setting id="subs.provider.ktuvit" type="boolean" label="30063" help="30064">
-                    <level>2</level><default>false</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting id="subs.ktuvit.user" type="string" label="30065">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>3</level>                    <control type="edit" format="string">
-                        <heading>30065</heading>
-                    </control>
-                    <dependencies>
-                        <dependency type="visible" setting="subs.provider.ktuvit" operator="is">true</dependency>
-                    </dependencies>
-                </setting>
-                <setting id="subs.ktuvit.password" type="string" label="30066">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>3</level>                    <control type="edit" format="string">
-                        <heading>30066</heading>
-                    </control>
-                    <dependencies>
-                        <dependency type="visible" setting="subs.provider.ktuvit" operator="is">true</dependency>
-                    </dependencies>
-                </setting>
-                <setting id="action.connect.ktuvit" type="action" label="30323">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.pinky/?action=connect&amp;service=ktuvit)</data>
-                    <control type="button" format="action">
-                        <close>true</close>
-                    </control>
-                </setting>
-                <setting id="action.connect.opensubtitles" type="action" label="30147">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.pinky/?action=connect&amp;service=opensubtitles)</data>
-                    <control type="button" format="action">
-                        <close>true</close>
-                    </control>
                 </setting>
                 <setting id="subs.opensubtitles.apikey" type="string" label="30067">
                     <default/>

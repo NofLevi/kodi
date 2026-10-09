@@ -1,7 +1,7 @@
 """Upgrading must never cost the viewer their keys.
 
 Twenty-two credentials live in this add-on - four debrid services, Trakt,
-TMDB, MDBList, OpenSubtitles, Ktuvit, Gemini. Re-entering those on a projector
+TMDB, MDBList, OpenSubtitles, Gemini. Re-entering those on a projector
 with a remote control is the difference between an update people accept and
 one they refuse, so the promise this file holds is: an update changes the code
 and nothing else.
@@ -997,7 +997,7 @@ ACCOUNT_SETTINGS_EVER_SHIPPED = (
     "premiumize.client_id", "premiumize.token", "realdebrid.client_id",
     "realdebrid.client_secret", "realdebrid.expires", "realdebrid.refresh",
     "realdebrid.token", "subs.ai.gemini_key", "subs.ai.openai_key",
-    "subs.ai.openrouter_key", "subs.ktuvit.password", "subs.ktuvit.user",
+    "subs.ai.openrouter_key",
     "subs.opensubtitles.apikey", "subs.opensubtitles.password",
     "subs.opensubtitles.user", "tmdb.apikey", "torbox.apikey",
     "trakt.access_token", "trakt.client_id", "trakt.client_secret",

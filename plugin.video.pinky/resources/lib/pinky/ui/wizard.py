@@ -9,8 +9,6 @@ from .. import kodi, settings
 TMDB_SIGNUP = "https://www.themoviedb.org/settings/api"
 GEMINI_SIGNUP = "https://aistudio.google.com/apikey"
 OPENROUTER_SIGNUP = "openrouter.ai/keys"
-OPENSUBTITLES_KEYS = "https://www.opensubtitles.com/en/consumers"
-KTUVIT_SIGNUP = "https://ktuvit.me/Register.aspx"
 
 
 def run(open_home_after=True):
@@ -18,8 +16,6 @@ def run(open_home_after=True):
         (kodi.localize(32310), step_tmdb, lambda: bool(settings.get("tmdb.apikey"))),
         (kodi.localize(32311), step_debrid, lambda: bool(settings.configured_debrid())),
         (kodi.localize(32312), step_trakt, lambda: bool(settings.get("trakt.access_token"))),
-        (kodi.localize(32490), step_opensubtitles,
-         lambda: bool(settings.get("subs.opensubtitles.apikey"))),
         (kodi.localize(32313), step_ai, lambda: bool(settings.get("subs.ai.gemini_key"))),
         # Not an account, and the only step that is already answered when the
         # wizard opens. It is here rather than buried in the settings because
@@ -215,85 +211,6 @@ def step_visuals():
     if choice < 0:
         return
     profiles.set_rich_visuals(choice == 1)
-
-
-def step_opensubtitles():
-    """The single biggest thing that can be done about subtitle accuracy.
-
-    It is the only provider that matches on the *file hash* - not the
-    release name, the actual bytes - which is a certainty rather than an
-    estimate, and it is the largest catalogue by a wide margin. Everything
-    for it is already built and it has been contributing nothing at all,
-    because without a key the provider answers with an empty list.
-
-    The key is free and lives behind one page, so this offers to put that
-    page on a phone rather than describing where to look.
-    """
-    from .. import settings as _settings
-    from . import signin
-
-    entered = signin.ask_for_key(kodi.localize(32490),
-                                 _settings.get("subs.opensubtitles.apikey"),
-                                 help_url=OPENSUBTITLES_KEYS)
-    if entered is None:
-        return
-    _settings.set("subs.opensubtitles.apikey", entered)
-    if not entered:
-        return
-    try:
-        from ..subs.providers import opensubtitles
-    except ImportError:
-        return
-    if opensubtitles.configured():
-        kodi.notify(kodi.localize(32318))
-    else:
-        kodi.notify(kodi.localize(32319))
-
-
-def step_ktuvit():
-    """The one subtitle provider with an account, made findable.
-
-    Ktuvit is a members' site, so it cannot ship with a credential: one login
-    shared by everyone who installs this is precisely what gets an account
-    closed, and the dead credential would then be frozen into every installed
-    copy until a release replaced it. A free account each is the only version
-    of this that keeps working.
-
-    What *was* wrong is that nothing said so. The toggle and its two fields
-    sit at expert level behind a visibility dependency, so finding them meant
-    knowing to raise Kodi's settings level first - and the registration page
-    is not where anybody would guess either. This is one button that offers
-    the signup page as a scannable code and then asks for the two fields,
-    which is how every other account here is entered.
-    """
-    from .. import settings as _settings
-    from . import signin
-
-    email = signin.ask_for_key(kodi.localize(30065),
-                               _settings.get("subs.ktuvit.user"),
-                               help_url=KTUVIT_SIGNUP)
-    if email is None:
-        return
-    password = signin.ask_for_key(kodi.localize(30066),
-                                  _settings.get("subs.ktuvit.password"))
-    if password is None:
-        return
-
-    _settings.set("subs.ktuvit.user", email)
-    _settings.set("subs.ktuvit.password", password)
-    _settings.set("subs.provider.ktuvit", "true" if (email and password) else "false")
-    if not (email and password):
-        return
-
-    try:
-        from ..subs.providers import ktuvit
-    except ImportError:
-        return
-    # A sign-in that is only stored is a sign-in nobody knows failed until a
-    # film plays with no subtitles, so it is tried here while somebody is
-    # still looking at the screen.
-    kodi.notify(kodi.localize(32318) if ktuvit.session_cookie(refresh=True)
-                else kodi.localize(32319))
 
 
 def step_ai():

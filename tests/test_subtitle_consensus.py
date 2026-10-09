@@ -276,7 +276,7 @@ def test_verification_budget_buys_independent_languages_not_duplicates():
 
     rows = [
         {"provider": "wizdom", "language": "he", "score": 78, "release": "A"},
-        {"provider": "ktuvit", "language": "he", "score": 77, "release": "B"},
+        {"provider": "subsource", "language": "he", "score": 77, "release": "B"},
         {"provider": "open", "language": "en", "score": 70, "release": "C"},
         {"provider": "subdl", "language": "es", "score": 63, "release": "D"},
     ]

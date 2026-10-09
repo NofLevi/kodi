@@ -498,8 +498,8 @@ def test_accounts_shows_something_when_run_without_a_handle(monkeypatch,
     handlers.accounts({})
 
     assert shown.get("labels"), "nothing was offered at all"
-    # Trakt, TMDB, OpenSubtitles, AI and "add a debrid service" at the least.
-    assert len(shown["labels"]) >= 5, shown["labels"]
+    # Trakt, TMDB, AI and "add a debrid service" at the least.
+    assert len(shown["labels"]) >= 4, shown["labels"]
     assert not xbmcplugin.ENDED, "it ended a directory that does not exist"
 
 

@@ -98,9 +98,6 @@ DEFAULTS = {
     "subs.provider.subsource": "false",
     # Off by default because it needs an account, and a provider that is on but
     # cannot sign in is a provider that quietly returns nothing.
-    "subs.provider.ktuvit": "false",
-    "subs.ktuvit.user": "",
-    "subs.ktuvit.password": "",
     "subs.opensubtitles.apikey": "",
     "subs.opensubtitles.user": "",
     "subs.opensubtitles.password": "",

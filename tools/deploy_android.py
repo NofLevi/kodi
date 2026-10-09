@@ -69,7 +69,7 @@ def push_settings(targets):
 
     Accounts are the reason this exists. Twenty-two credentials can be entered
     on a keyboard in a couple of minutes and are miserable on a projector with
-    a remote - Ktuvit alone is an email address and a password - so they are
+    a remote - a debrid key alone is thirty-two characters - so they are
     entered once here and copied. Kodi preserves `addon_data` across updates,
     which `test_upgrade.py` holds, so this survives every later release.
 

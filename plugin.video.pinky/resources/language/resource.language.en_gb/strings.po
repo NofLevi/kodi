@@ -781,22 +781,6 @@ msgctxt "#30062"
 msgid "SubSource"
 msgstr ""
 
-msgctxt "#30063"
-msgid "Ktuvit"
-msgstr ""
-
-msgctxt "#30064"
-msgid "The largest Hebrew subtitle source. It is a members' site, so it needs the account below and returns nothing without one."
-msgstr ""
-
-msgctxt "#30065"
-msgid "Ktuvit email"
-msgstr ""
-
-msgctxt "#30066"
-msgid "Ktuvit password"
-msgstr ""
-
 msgctxt "#30067"
 msgid "OpenSubtitles API key"
 msgstr ""
@@ -1417,14 +1401,6 @@ msgctxt "#32489"
 msgid "not in the debrid cache"
 msgstr ""
 
-msgctxt "#32490"
-msgid "OpenSubtitles (subtitle accuracy)"
-msgstr ""
-
-msgctxt "#30147"
-msgid "Connect OpenSubtitles (scan a code)"
-msgstr ""
-
 msgctxt "#32491"
 msgid "Nothing is ready to stream. %d copies exist but none are on your debrid account yet - start one downloading?"
 msgstr ""
@@ -1709,10 +1685,6 @@ msgctxt "#32544"
 msgid "English subtitle, %d%% fit"
 msgstr ""
 
-msgctxt "#30323"
-msgid "Connect Ktuvit (free account)"
-msgstr ""
-
 msgctxt "#32545"
 msgid "No sources found. Watch %s on %s instead?"
 msgstr ""
@@ -1775,6 +1747,10 @@ msgstr ""
 
 msgctxt "#30325"
 msgid "YIFY Subtitles (films, no account needed)"
+msgstr ""
+
+msgctxt "#30326"
+msgid "TorrentsDB"
 msgstr ""
 
 msgctxt "#32559"

@@ -32,8 +32,8 @@ VARIANT_AI = "ai"
 # Languages worth translating *out of* when the wanted one cannot be found.
 # Ordered by how much the subtitle catalogues actually hold, and asking for
 # them costs nothing extra - it is one more value in the same request, and the
-# only provider that reads it is OpenSubtitles. Wizdom and Ktuvit are Hebrew
-# sites and ignore it.
+# only provider that reads it is OpenSubtitles. Wizdom is a Hebrew site
+# and ignores it.
 # Asked for when the viewer chooses AI translation themselves: any language
 # will do, so every one worth translating from is searched.
 WIDE_LANGUAGES = ("en", "es", "ar", "pt", "fr", "ru", "de", "it", "tr", "pl",
@@ -328,15 +328,14 @@ _MODULES = {}
 
 def _modules():
     if not _MODULES:
-        from .providers import (bsplayer, ktuvit, opensubtitles,
-                                opensubtitles_rest, sidecar, subsource, wizdom,
-                                yify)
+        from .providers import (bsplayer, opensubtitles, opensubtitles_rest,
+                                sidecar, subsource, wizdom, yify)
         _MODULES.update({"sidecar": sidecar,
                          "wizdom": wizdom, "opensubtitles": opensubtitles,
                          "opensubtitles_rest": opensubtitles_rest,
                          "yify": yify,
                          "bsplayer": bsplayer,
-                         "subsource": subsource, "ktuvit": ktuvit})
+                         "subsource": subsource})
     return _MODULES
 
 
@@ -358,15 +357,14 @@ def _providers():
     OpenSubtitles, which can match on the file hash but needs a key whose free
     tier is five downloads a day.
 
-    Ktuvit goes second, beside Wizdom. It used to go last, for needing a
-    session - and three workers were then busy with OpenSubtitles, asked once
-    per language, so the site with the best Hebrew catalogue started late
-    and met the deadline. Its session is kept between searches now, so it is
-    as quick as the rest, and Hebrew is what the first list is for.
+    Ktuvit is gone. It was the one provider that could not ship working:
+    a members' site needs an account each, nothing can be bundled, and the
+    two fields went unfilled - so it answered nothing while costing a worker
+    out of three on every search.
     """
     modules = _modules()
     enabled = settings.enabled_subtitle_providers()
-    order = ["sidecar", "wizdom", "ktuvit", "bsplayer", "opensubtitles_rest",
+    order = ["sidecar", "wizdom", "bsplayer", "opensubtitles_rest",
              "yify", "opensubtitles", "subsource"]
     return [(name, modules[name]) for name in order
             if name in enabled and name in modules]

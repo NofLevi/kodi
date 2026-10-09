@@ -837,14 +837,13 @@ def accounts(params):
                     "debrid"))
 
     # Every account the add-on has, so this screen is the whole answer and the
-    # setup wizard is not a second, shorter one. OpenSubtitles and the Gemini
-    # key were only ever reachable through the wizard, which is why removing
-    # it would have quietly removed them.
+    # setup wizard is not a second, shorter one. The Gemini key was only ever
+    # reachable through the wizard, which is why removing it would have
+    # quietly removed it. OpenSubtitles is not here any more: it ships with
+    # shared keys and needs no account of yours.
     for name, label, connected in (
             ("trakt", "Trakt", trakt.authorised()),
             ("tmdb", "TMDB", tmdb.has_key()),
-            ("opensubtitles", "OpenSubtitles",
-             bool(settings.get("subs.opensubtitles.apikey"))),
             ("ai", kodi.localize(32313), _translation_ready())):
         entries.append(("%s %s" % (_mark(connected), label), name))
 
@@ -879,10 +878,6 @@ def connect(params):
         wizard.step_tmdb()
     elif service == "debrid":
         wizard.step_debrid()
-    elif service == "opensubtitles":
-        wizard.step_opensubtitles()
-    elif service == "ktuvit":
-        wizard.step_ktuvit()
     elif service == "ai":
         wizard.step_ai()
     else:
