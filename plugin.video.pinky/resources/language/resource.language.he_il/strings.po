@@ -1913,3 +1913,11 @@ msgctxt "#32604"
 msgid "Version %s is available"
 msgstr "גרסה %s זמינה"
 
+msgctxt "#32605"
+msgid "An extra, not the film"
+msgstr "תוספת, לא הסרט"
+
+msgctxt "#32606"
+msgid "An episode of a series, not the film"
+msgstr "פרק של סדרה, לא הסרט"
+

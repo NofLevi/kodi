@@ -430,6 +430,8 @@ REASON_STRINGS = {
     "HDR is switched off": 32483,
     "Dolby Vision without an HDR10 fallback": 32527,
     "another production of the same name": 32534,
+    "an extra, or another work, rather than the film": 32605,
+    "an episode of a series, not the film": 32606,
     "above the resolution limit": 32484,
     "below the resolution limit": 32485,
     "larger than the size limit": 32486,

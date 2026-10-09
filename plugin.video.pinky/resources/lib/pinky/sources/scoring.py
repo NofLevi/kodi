@@ -661,6 +661,46 @@ def _another_production(source, meta):
     return ""
 
 
+# What a tracker files under a film's own id that is not the film. Measured on
+# The Odyssey (2026), whose 46 sources included - under its real IMDb id, from
+# Torrentio - "the Making of an Epic", "The Odyssey Prologue", and one named
+# "NOT The Chris Nolan FILM" by an uploader being helpful. TorrentsDB added
+# episodes of a television series. Any of them plays, and what plays is not
+# the film somebody chose.
+_EXTRAS = re.compile(
+    r"\b(making[ ._-]of|behind[ ._-]the[ ._-]scenes|featurettes?|bloopers?|"
+    r"deleted[ ._-]scenes?|b-?roll|interviews?|prologue|sample)\b", re.I)
+# An uploader saying so outright, which they do precisely when two works
+# share a name and a year: "NOT The Chris Nolan FILM".
+_DISCLAIMER = re.compile(r"\bnot[ ._-]the\b[^.]{0,40}\b(film|movie)\b", re.I)
+
+
+def _wrong_work(source, meta):
+    """Is this release something other than what was asked for?
+
+    Deliberately not a year check for films: "Blade Runner 2049 2017" parses
+    its own *title* as the year, so the rule that catches a remade series
+    would throw away real films.
+    """
+    meta = meta or {}
+    title = source.get("title") or ""
+    wanted = " ".join(release.normalise(name) for name in
+                      (meta.get("title"), meta.get("original_title"),
+                       meta.get("search_title")) if name)
+    for pattern in (_EXTRAS, _DISCLAIMER):
+        found = pattern.search(title)
+        # A film actually called "Prologue" must still be findable, so the
+        # word only condemns a release when it is not part of the title asked
+        # for.
+        if found and found.group(0).lower() not in wanted:
+            return "an extra, or another work, rather than the film"
+    if (meta.get("type") or "") == "movie":
+        parsed = release.parse(title)
+        if parsed.get("season") and parsed.get("episode"):
+            return "an episode of a series, not the film"
+    return ""
+
+
 def _source_type(source):
     return release.parse(source.get("title", ""))["source"]
 
@@ -850,7 +890,8 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None, annotate=None):
                 or _another_production(source, meta)
                 or _a_different_series(source, meta)
                 or _a_different_film(source, meta)
-                or _before_it_existed(source, meta))
+                or _before_it_existed(source, meta)
+                or _wrong_work(source, meta))
 
     kept = []
     rejected = {}

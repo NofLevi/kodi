@@ -1953,3 +1953,11 @@ msgctxt "#32604"
 msgid "Version %s is available"
 msgstr ""
 
+msgctxt "#32605"
+msgid "An extra, not the film"
+msgstr ""
+
+msgctxt "#32606"
+msgid "An episode of a series, not the film"
+msgstr ""
+
