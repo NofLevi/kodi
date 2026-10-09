@@ -912,6 +912,20 @@ def accounts(params):
     listing.end(handle, content="files", cache_to_disc=False)
 
 
+@router.route("websetup")
+def websetup(params):
+    """Set every key from a computer on the same network."""
+    from . import signin
+
+    changed = signin.run_web_setup()
+    if changed is None:
+        kodi.notify(kodi.localize(32580))
+        return
+    kodi.notify(kodi.localize(32581, changed) if changed
+                else kodi.localize(32582))
+    kodi.refresh_container()
+
+
 @router.route("connect")
 def connect(params):
     """Run the sign-in flow for one service."""

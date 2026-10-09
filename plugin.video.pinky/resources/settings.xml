@@ -34,6 +34,13 @@
             </group>
 
             <group id="2" label="30006">
+                <setting id="action.websetup" type="action" label="30328">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=websetup)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="action.connect.ai" type="action" label="30327">
                     <level>0</level>
                     <data>RunPlugin(plugin://plugin.video.pinky/?action=connect&amp;service=ai)</data>

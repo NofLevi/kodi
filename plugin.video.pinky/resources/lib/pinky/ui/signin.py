@@ -159,6 +159,53 @@ def run_device(title, url, code, poll, lifetime=None, interval=POLL_SECONDS):
     return state["done"]
 
 
+def run_web_setup(lifetime=None):
+    """Put the setup page on the network and wait at the television.
+
+    The same shape as `receive_key`: the address goes on screen as something
+    to scan or to type, the server runs while that screen is up, and it stops
+    the moment the screen closes. Returns how many settings changed.
+    """
+    from .. import websetup
+    from .auth_window import open_auth
+
+    state = {"url": "", "changed": 0}
+    ready = threading.Event()
+    cancelled = threading.Event()
+    span = float(lifetime or websetup.LIFETIME)
+
+    def serve():
+        state["changed"] = websetup.serve(
+            lifetime=span,
+            on_ready=lambda url: (state.__setitem__("url", url), ready.set()),
+            cancelled=cancelled)
+        ready.set()
+
+    thread = threading.Thread(target=serve)
+    thread.daemon = True
+    thread.start()
+
+    if not ready.wait(5) or not state["url"]:
+        return None
+
+    deadline = time.time() + span
+
+    def tick():
+        if cancelled.is_set() or not thread.is_alive():
+            return None
+        if time.time() >= deadline:
+            return None
+        return max(0.0, (deadline - time.time()) / span)
+
+    try:
+        open_auth(title=kodi.localize(32573), url=state["url"], code="",
+                  message=kodi.localize(32579), poll=tick, interval=1)
+    finally:
+        cancelled.set()
+        thread.join(2.0)
+    return state["changed"]
+
+
 def code_image(url):
     """A QR image path for a URL, or "" if one could not be made."""
     try:

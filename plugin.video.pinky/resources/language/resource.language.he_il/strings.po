@@ -1772,3 +1772,48 @@ msgstr "הקובץ הזה אינו גיבוי של Pinky."
 msgctxt "#32572"
 msgid "The backup could not be saved there."
 msgstr "לא ניתן לשמור את הגיבוי במיקום הזה."
+
+msgctxt "#30328"
+msgid "Set up from a computer"
+msgstr "הגדרה ממחשב"
+
+msgctxt "#32573"
+msgid "Pinky setup"
+msgstr "הגדרת Pinky"
+
+msgctxt "#32574"
+msgid "Fill in what you want to change. An empty box keeps what is already there."
+msgstr "מלא את מה שברצונך לשנות. שדה ריק משאיר את מה שכבר קיים."
+
+msgctxt "#32575"
+msgid "Save"
+msgstr "שמירה"
+
+msgctxt "#32576"
+msgid "Saved. You can close this page."
+msgstr "נשמר. אפשר לסגור את הדף."
+
+msgctxt "#32577"
+msgid "set"
+msgstr "מוגדר"
+
+msgctxt "#32578"
+msgid "empty"
+msgstr "ריק"
+
+msgctxt "#32579"
+msgid "Open this on a computer on the same network, or scan it"
+msgstr "פתח את הכתובת במחשב באותה רשת, או סרוק אותה"
+
+msgctxt "#32580"
+msgid "No network address, so the page cannot be opened"
+msgstr "אין כתובת ברשת, לכן לא ניתן לפתוח את הדף"
+
+msgctxt "#32581"
+msgid "Saved %d key(s) from the computer"
+msgstr "נשמרו %d מפתחות מהמחשב"
+
+msgctxt "#32582"
+msgid "Nothing was changed"
+msgstr "לא השתנה דבר"
+

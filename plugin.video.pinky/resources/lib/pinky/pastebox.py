@@ -155,7 +155,7 @@ def code():
     return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
 
 
-def _listen(handler):
+def listen(handler):
     """A server on a short port, or any free one. None if neither works.
 
     The short ports are tried first only so the address is easy to type; port
@@ -192,7 +192,7 @@ def receive(title, placeholder="", lifetime=LIFETIME, on_ready=None,
     state = {"value": "", "done": threading.Event(), "used": False,
              "path": "/%s" % code()}
 
-    server = _listen(_handler_for(state, labels))
+    server = listen(_handler_for(state, labels))
     if server is None:
         kodi.log_exception("could not open the paste page")
         return ""

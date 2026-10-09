@@ -1812,3 +1812,48 @@ msgstr ""
 msgctxt "#32572"
 msgid "The backup could not be saved there."
 msgstr ""
+
+msgctxt "#30328"
+msgid "Set up from a computer"
+msgstr ""
+
+msgctxt "#32573"
+msgid "Pinky setup"
+msgstr ""
+
+msgctxt "#32574"
+msgid "Fill in what you want to change. An empty box keeps what is already there."
+msgstr ""
+
+msgctxt "#32575"
+msgid "Save"
+msgstr ""
+
+msgctxt "#32576"
+msgid "Saved. You can close this page."
+msgstr ""
+
+msgctxt "#32577"
+msgid "set"
+msgstr ""
+
+msgctxt "#32578"
+msgid "empty"
+msgstr ""
+
+msgctxt "#32579"
+msgid "Open this on a computer on the same network, or scan it"
+msgstr ""
+
+msgctxt "#32580"
+msgid "No network address, so the page cannot be opened"
+msgstr ""
+
+msgctxt "#32581"
+msgid "Saved %d key(s) from the computer"
+msgstr ""
+
+msgctxt "#32582"
+msgid "Nothing was changed"
+msgstr ""
+
