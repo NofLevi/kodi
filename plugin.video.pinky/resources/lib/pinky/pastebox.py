@@ -155,6 +155,22 @@ def code():
     return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
 
 
+def _server_class():
+    """A server that refuses a port somebody else already has.
+
+    `HTTPServer` sets `allow_reuse_address`, and on Windows that does not mean
+    "reuse the socket once it is closed" - it means a second socket may bind a
+    port that is still in use, after which requests land on whichever of them
+    the system picks. Two Pinky pages open one after another on the same
+    preferred port, so that is not hypothetical: it is one page answering 404
+    to the address the other page is showing.
+
+    Built here rather than at import, so `HTTPServer` is read when it is
+    needed and a test can still replace it.
+    """
+    return type("PinkyServer", (HTTPServer,), {"allow_reuse_address": False})
+
+
 def listen(handler):
     """A server on a short port, or any free one. None if neither works.
 
@@ -164,7 +180,7 @@ def listen(handler):
     """
     for port in PREFERRED_PORTS + (0,):
         try:
-            return HTTPServer(("0.0.0.0", port), handler)
+            return _server_class()(("0.0.0.0", port), handler)
         except OSError:
             continue
     return None

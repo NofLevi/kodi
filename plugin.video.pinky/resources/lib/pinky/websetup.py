@@ -28,9 +28,11 @@ from . import kodi, pastebox, settings
 LIFETIME = 600
 MAX_BODY_BYTES = 16384
 
-# What can be set from here: everything that is a key somebody can paste.
-# Trakt is deliberately not among them - it signs in through its own device
-# flow, which is a code on the television rather than a key to copy.
+# What can be set from here: the keys that decide whether anything plays.
+# Not everything that has a key - OpenSubtitles ships with shared keys and
+# MDBList only adds lists to the home screen, so neither is worth a box on a
+# page somebody fills in once. Trakt is not here either: it signs in through
+# its own device flow, a code on the television rather than a key to copy.
 FIELDS = (
     ("tmdb.apikey", "TMDB", "the catalogue; nothing plays without it"),
     ("torbox.apikey", "TorBox", "debrid"),
@@ -40,9 +42,6 @@ FIELDS = (
     ("subs.ai.gemini_key", "Gemini", "AI subtitle translation"),
     ("subs.ai.openrouter_key", "OpenRouter", "AI, second engine"),
     ("subs.ai.openai_key", "OpenAI", "AI, compatible endpoint"),
-    ("mdblist.apikey", "MDBList", "lists on the home screen"),
-    ("subs.opensubtitles.apikey", "OpenSubtitles",
-     "optional; shared keys are built in"),
 )
 
 PAGE = u"""<!doctype html><html><head>

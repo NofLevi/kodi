@@ -18,6 +18,30 @@
                         <close>true</close>
                     </control>
                 </setting>
+                <setting id="tmdb.apikey" type="string" label="30003">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>3</level>
+                    <control type="edit" format="string">
+                        <hidden>true</hidden>
+                        <heading>30003</heading>
+                    </control>
+                    <visible>false</visible>
+                </setting>
+                <setting id="mdblist.apikey" type="string" label="30005">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>3</level>
+                    <control type="edit" format="string">
+                        <hidden>true</hidden>
+                        <heading>30005</heading>
+                    </control>
+                    <visible>false</visible>
+                </setting>
                 <setting id="ui.region" type="string" label="30004">
                     <level>0</level>
                     <default>IL</default>
@@ -52,6 +76,7 @@
                         <hidden>true</hidden>
                         <heading>30007</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
                 <setting id="trakt.client_secret" type="string" label="30008">
                     <default/>
@@ -63,6 +88,7 @@
                         <hidden>true</hidden>
                         <heading>30008</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
                 <setting id="trakt.user" type="string" label="30009">
                     <default/>
@@ -116,6 +142,7 @@
                         <hidden>true</hidden>
                         <heading>30011</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
                 <setting id="premiumize.apikey" type="string" label="30012">
                     <default/>
@@ -127,6 +154,7 @@
                         <hidden>true</hidden>
                         <heading>30012</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
                 <setting id="torbox.apikey" type="string" label="30013">
                     <default/>
@@ -138,6 +166,7 @@
                         <hidden>true</hidden>
                         <heading>30013</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
                 <setting id="alldebrid.apikey" type="string" label="30014">
                     <default/>
@@ -149,6 +178,7 @@
                         <hidden>true</hidden>
                         <heading>30014</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
             </group>
             <!-- Written by the sign-in flows and the profile
@@ -262,30 +292,6 @@
                 </setting>
             </group>
 
-            <group id="9" label="30329">
-                <setting id="tmdb.apikey" type="string" label="30003">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>3</level>
-                    <control type="edit" format="string">
-                        <hidden>true</hidden>
-                        <heading>30003</heading>
-                    </control>
-                </setting>
-                <setting id="mdblist.apikey" type="string" label="30005">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>3</level>
-                    <control type="edit" format="string">
-                        <hidden>true</hidden>
-                        <heading>30005</heading>
-                    </control>
-                </setting>
-            </group>
         </category>
 
         <category id="sources" label="30015" help="30016">
@@ -622,6 +628,7 @@
                         <hidden>true</hidden>
                         <heading>30067</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
                 <setting id="subs.opensubtitles.user" type="string" label="30114">
                     <level>2</level>
@@ -632,6 +639,7 @@
                     <control type="edit" format="string">
                         <heading>30114</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
                 <setting id="subs.opensubtitles.password" type="string" label="30115">
                     <level>2</level>
@@ -643,6 +651,7 @@
                         <hidden>true</hidden>
                         <heading>30115</heading>
                     </control>
+                    <visible>false</visible>
                 </setting>
             </group>
         </category>
@@ -678,6 +687,7 @@
                     <dependencies>
                         <dependency type="visible" setting="subs.ai.engine" operator="is">gemini</dependency>
                     </dependencies>
+                    <visible>false</visible>
                 </setting>
                 <setting id="subs.ai.gemini_model" type="string" label="30073">
                     <level>2</level><default>gemini-flash-latest</default>
@@ -701,6 +711,7 @@
                     <dependencies>
                         <dependency type="visible" setting="subs.ai.engine" operator="is">openrouter</dependency>
                     </dependencies>
+                    <visible>false</visible>
                 </setting>
                 <setting id="subs.ai.openrouter_model" type="string" label="30322">
                     <default>deepseek/deepseek-chat-v3-0324:free</default>
@@ -736,6 +747,7 @@
                     <dependencies>
                         <dependency type="visible" setting="subs.ai.engine" operator="is">openai</dependency>
                     </dependencies>
+                    <visible>false</visible>
                 </setting>
                 <setting id="subs.ai.openai_model" type="string" label="30076">
                     <default/>

@@ -1817,7 +1817,3 @@ msgctxt "#32582"
 msgid "Nothing was changed"
 msgstr "לא השתנה דבר"
 
-msgctxt "#30329"
-msgid "Your own keys (optional)"
-msgstr "מפתחות משלך (לא חובה)"
-

@@ -861,9 +861,10 @@ def accounts(params):
 
     entries = []
     for row in rows:
+        # Not the account name. It is an email address on a television in a
+        # living room, it is the same account every time, and it says nothing
+        # about whether the service works - which is what this screen is for.
         parts = [row["plan"] or ""]
-        if row["user"]:
-            parts.insert(0, row["user"])
         if row["expires"]:
             parts.append(kodi.localize(32397, str(row["expires"])[:10]))
         if row["is_free"]:
