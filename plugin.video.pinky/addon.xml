@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.pinky"
        name="Pinky"
-       version="0.0.3"
+       version="0.0.4"
        provider-name="pinky">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -37,6 +37,8 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>v0.0.3</news>
+        <news>v0.0.4
+- The remote's Back and Menu, bound on every box in the house
+- The update could not download, because Android has no /tmp</news>
     </extension>
 </addon>

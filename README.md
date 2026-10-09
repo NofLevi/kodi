@@ -23,13 +23,13 @@ reinstalling.
 
 | | |
 |---|---|
-| Current release | **Pinky 0.0.3** - [releases page](https://github.com/NofLevi/kodi/releases/latest) |
-| Repository zip | <https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.3.zip> |
+| Current release | **Pinky 0.0.4** - [releases page](https://github.com/NofLevi/kodi/releases/latest) |
+| Repository zip | <https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.4.zip> |
 | Add as a Kodi source | `https://noflevi.github.io/kodi/` |
 | Requires | Kodi 19 or newer; developed and tested on Kodi 21 |
 | Installs with it | `inputstream.adaptive`, from Kodi's own repository — the DASH live channels need it |
 
-Two add-ons, both at 0.0.3: **Pinky** is what you watch with, and **Pinky
+Two add-ons, both at 0.0.4: **Pinky** is what you watch with, and **Pinky
 Repository** is the two-kilobyte pointer that tells Kodi where to look for new
 versions of it. Install the repository and the other arrives on its own.
 
@@ -44,7 +44,7 @@ gives instead does not say so.
 
 ## Windows
 
-1. Download the [repository zip](https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.3.zip).
+1. Download the [repository zip](https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.4.zip).
 2. Kodi → **Add-ons** → the box icon (top left) → **Install from zip file**.
 3. Point it at the file you downloaded, usually `C:\Users\<you>\Downloads`.
 4. **Install from repository → Pinky Repository → Video add-ons → Pinky → Install.**
@@ -118,7 +118,7 @@ On LibreELEC, over SSH:
 
 ```
 cd /storage/downloads
-wget https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.3.zip
+wget https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.4.zip
 ```
 
 then install it from that path in step 3.
