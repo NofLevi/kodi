@@ -219,13 +219,20 @@ def step_ai():
     # then reports a connection that cannot translate anything.
     if (settings.get("subs.ai.engine") or "gemini").strip() == "openrouter":
         return _step_openrouter()
-    kodi.ok_dialog(kodi.localize(32326, GEMINI_SIGNUP), kodi.localize(32313))
-    key = kodi.keyboard(settings.get("subs.ai.gemini_key"), kodi.localize(32313))
+    from . import signin
+
+    key = signin.ask_for_key(kodi.localize(32313),
+                             settings.get("subs.ai.gemini_key"),
+                             help_url=GEMINI_SIGNUP)
     if key is None:
         return
     settings.set("subs.ai.gemini_key", key.strip())
     if not key.strip():
         return
+    # A key that is entered is a key that is meant to be used. Leaving the
+    # engine switched off after one has been typed in is the kind of silence
+    # that reads as "the key did not work".
+    settings.set("subs.ai.enabled", "true")
     try:
         from ..subs.ai import gemini
     except ImportError:

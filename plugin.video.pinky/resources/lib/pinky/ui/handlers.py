@@ -768,6 +768,23 @@ def profile(params):
     kodi.notify(kodi.localize(32385, changed))
 
 
+def _tmdb_works():
+    """One real request. Nothing renders without TMDB, so a key that is
+    present but refused is the single most expensive thing to discover late."""
+    from ..meta import tmdb
+
+    return bool(tmdb.movie(550))
+
+
+def _gemini_works():
+    """The engine's own one-token test request."""
+    try:
+        from ..subs.ai import gemini
+    except ImportError:
+        return False
+    return bool(gemini.configured()) and bool(gemini.test_key())
+
+
 def _translation_ready():
     """Any translation engine that is usable, not only a Gemini key."""
     try:
@@ -777,11 +794,42 @@ def _translation_ready():
         return False
 
 
-def _mark(connected):
-    """The signed-in marker. Deliberately not an emoji: the Kodi list font
-    renders one as a box on some Android builds, and a box beside every
-    account is worse than no marker at all."""
-    return "[OK]" if connected else "[  ]"
+# Green for "asked the service and it answered", amber for "a key is stored
+# and nobody has checked it", grey for "nothing here". A geometric dot rather
+# than an emoji: the Kodi list font draws an emoji as a box on some Android
+# builds, and a box beside every account is worse than no marker at all.
+WORKS = "FF4CAF50"
+STORED = "FFFFB300"
+MISSING = "FF9E9E9E"
+
+
+def _mark(connected, checked=True):
+    """The marker beside an account.
+
+    `checked` is the difference this screen exists for: a key that is stored
+    is not a key that works, and the old marker said the same thing for both.
+    A debrid row is asked over the network, so it is green or grey; a key
+    nothing has verified is amber.
+    """
+    if not connected:
+        return "[COLOR %s]●[/COLOR]" % MISSING
+    return "[COLOR %s]●[/COLOR]" % (WORKS if checked else STORED)
+
+
+def _verified(name, check, ttl=3600):
+    """Ask a service whether its key works, at most once an hour.
+
+    The answer is cached because this screen is opened to look at, often
+    twice in a row, and a key that worked a minute ago still works.
+    """
+    from .. import cache
+
+    try:
+        return bool(cache.cached("accounts.works.%s" % name,
+                                 lambda: check() or None, ttl))
+    except Exception:
+        kodi.log_exception("could not check the %s key" % name)
+        return False
 
 
 @router.route("accounts")
@@ -841,11 +889,13 @@ def accounts(params):
     # reachable through the wizard, which is why removing it would have
     # quietly removed it. OpenSubtitles is not here any more: it ships with
     # shared keys and needs no account of yours.
-    for name, label, connected in (
-            ("trakt", "Trakt", trakt.authorised()),
-            ("tmdb", "TMDB", tmdb.has_key()),
-            ("ai", kodi.localize(32313), _translation_ready())):
-        entries.append(("%s %s" % (_mark(connected), label), name))
+    for name, label, connected, checked in (
+            ("trakt", "Trakt", trakt.authorised(), True),
+            ("tmdb", "TMDB", tmdb.has_key(),
+             tmdb.has_key() and _verified("tmdb", _tmdb_works)),
+            ("ai", kodi.localize(32313), _translation_ready(),
+             _translation_ready() and _verified("gemini", _gemini_works))):
+        entries.append(("%s %s" % (_mark(connected, checked), label), name))
 
     if handle < 0:
         choice = kodi.select([label for label, _name in entries],

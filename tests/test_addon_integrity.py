@@ -750,7 +750,7 @@ def test_each_connect_button_names_a_service_that_exists():
     router._load_handlers()
 
     known = set(registry.names()) | {"trakt", "tmdb", "debrid",
-                                     "mdblist", "gemini"}
+                                     "mdblist", "gemini", "ai"}
     root = ET.parse(os.path.join(ADDON_DIR, "resources", "settings.xml")).getroot()
 
     unknown = []

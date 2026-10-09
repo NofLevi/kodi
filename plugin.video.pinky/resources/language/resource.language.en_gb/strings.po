@@ -1753,6 +1753,10 @@ msgctxt "#30326"
 msgid "TorrentsDB"
 msgstr ""
 
+msgctxt "#30327"
+msgid "Connect Gemini (AI subtitles)"
+msgstr ""
+
 msgctxt "#32559"
 msgid "AI subtitles: finding something to translate"
 msgstr ""

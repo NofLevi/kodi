@@ -86,12 +86,23 @@ def choose_method(title, methods, can_paste=True, overrides=None):
 
 
 def ask_for_key(title, current="", help_url=""):
-    """The typed path, with the option of putting the page on a phone first.
+    """How a key gets in: from a phone, or typed on the remote.
 
-    `help_url` is where the key lives on the service's website. Showing it as
-    a code first is the difference between "find your API key" and a link you
-    can actually open, and it costs one extra button.
+    Every key asked for anywhere goes through here, so the ways in are the
+    same ones a debrid service offers - the chooser is the same function, in
+    the same words. The Gemini key was the odd one out: it dropped straight
+    onto the on-screen keyboard, so the phone route existed everywhere except
+    the one key that is sixty characters of base64.
+
+    `help_url` is where the key lives on the service's website. On the typed
+    path it is shown as a code first, which is the difference between "find
+    your API key" and a link you can actually open.
     """
+    method = choose_method(title, (KEY,), can_paste=True)
+    if method is None:
+        return None
+    if method == PASTE:
+        return receive_key(title) or None
     if help_url:
         show_url(title, help_url, kodi.localize(32463))
     entered = kodi.keyboard(current, title)

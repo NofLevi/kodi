@@ -206,20 +206,52 @@ def test_the_link_and_the_code_are_always_on_screen(monkeypatch):
 # --------------------------------------------------------------------------
 
 
-def test_a_typed_key_is_stripped(monkeypatch):
+@pytest.fixture
+def typing(monkeypatch):
+    """Choose "type it on the remote" when asked how the key gets in."""
+    monkeypatch.setattr(signin, "choose_method",
+                        lambda *a, **k: signin.KEY)
+
+
+def test_the_phone_is_offered_for_every_key(monkeypatch):
+    """The Gemini key used to drop straight onto the on-screen keyboard,
+    so the phone route existed for every key except the longest one."""
+    asked = {}
+    monkeypatch.setattr(signin, "choose_method",
+                        lambda title, methods, **k: asked.setdefault(
+                            "methods", (methods, k.get("can_paste"))) and None)
+    signin.ask_for_key("Fake")
+    assert asked["methods"] == ((signin.KEY,), True)
+
+
+def test_a_key_sent_from_the_phone_is_taken(monkeypatch):
+    monkeypatch.setattr(signin, "choose_method", lambda *a, **k: signin.PASTE)
+    monkeypatch.setattr(signin, "receive_key", lambda title, *a, **k: "from-phone")
+    monkeypatch.setattr(signin.kodi, "keyboard",
+                        lambda default="", heading="": pytest.fail("nothing is typed"))
+    assert signin.ask_for_key("Fake") == "from-phone"
+
+
+def test_nothing_sent_from_the_phone_is_not_an_empty_key(monkeypatch):
+    monkeypatch.setattr(signin, "choose_method", lambda *a, **k: signin.PASTE)
+    monkeypatch.setattr(signin, "receive_key", lambda title, *a, **k: "")
+    assert signin.ask_for_key("Fake") is None
+
+
+def test_a_typed_key_is_stripped(monkeypatch, typing):
     monkeypatch.setattr(signin.kodi, "keyboard",
                         lambda default="", heading="": "  abc123  ")
     assert signin.ask_for_key("Fake") == "abc123"
 
 
-def test_cancelling_the_keyboard_is_not_an_empty_key(monkeypatch):
+def test_cancelling_the_keyboard_is_not_an_empty_key(monkeypatch, typing):
     """An empty string means "clear it". None means "I changed my mind"."""
     monkeypatch.setattr(signin.kodi, "keyboard",
                         lambda default="", heading="": None)
     assert signin.ask_for_key("Fake") is None
 
 
-def test_the_key_page_is_offered_before_the_keyboard(monkeypatch):
+def test_the_key_page_is_offered_before_the_keyboard(monkeypatch, typing):
     """Finding an API key on a phone beats hunting for it on a television."""
     order = []
     monkeypatch.setattr(signin, "show_url",
@@ -230,7 +262,7 @@ def test_the_key_page_is_offered_before_the_keyboard(monkeypatch):
     assert order == ["shown", "typed"]
 
 
-def test_no_help_url_means_no_extra_screen(monkeypatch):
+def test_no_help_url_means_no_extra_screen(monkeypatch, typing):
     monkeypatch.setattr(signin, "show_url",
                         lambda *a, **k: pytest.fail("nothing to show"))
     monkeypatch.setattr(signin.kodi, "keyboard",
