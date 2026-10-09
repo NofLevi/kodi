@@ -1817,3 +1817,27 @@ msgctxt "#32582"
 msgid "Nothing was changed"
 msgstr "לא השתנה דבר"
 
+msgctxt "#30330"
+msgid "Fix the remote's buttons"
+msgstr "תיקון כפתורי השלט"
+
+msgctxt "#32583"
+msgid "Remote buttons"
+msgstr "כפתורי השלט"
+
+msgctxt "#32584"
+msgid "Put Kodi's own button behaviour back?"
+msgstr "להחזיר את התנהגות הכפתורים של Kodi?"
+
+msgctxt "#32585"
+msgid "Kodi's own button behaviour is back"
+msgstr "התנהגות הכפתורים של Kodi הוחזרה"
+
+msgctxt "#32586"
+msgid "Bind Back and Menu, and make Back close a film instead of leaving it playing?"
+msgstr "לקשר את כפתורי Back ו-Menu, ושכפתור Back יסגור סרט במקום להשאיר אותו פועל?"
+
+msgctxt "#32587"
+msgid "Done. Back closes a film, Menu opens the menu"
+msgstr "בוצע. Back סוגר סרט, Menu פותח את התפריט"
+

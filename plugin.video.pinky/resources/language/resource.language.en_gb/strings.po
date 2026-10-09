@@ -1857,3 +1857,27 @@ msgctxt "#32582"
 msgid "Nothing was changed"
 msgstr ""
 
+msgctxt "#30330"
+msgid "Fix the remote's buttons"
+msgstr ""
+
+msgctxt "#32583"
+msgid "Remote buttons"
+msgstr ""
+
+msgctxt "#32584"
+msgid "Put Kodi's own button behaviour back?"
+msgstr ""
+
+msgctxt "#32585"
+msgid "Kodi's own button behaviour is back"
+msgstr ""
+
+msgctxt "#32586"
+msgid "Bind Back and Menu, and make Back close a film instead of leaving it playing?"
+msgstr ""
+
+msgctxt "#32587"
+msgid "Done. Back closes a film, Menu opens the menu"
+msgstr ""
+

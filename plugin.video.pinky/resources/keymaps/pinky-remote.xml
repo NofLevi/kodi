@@ -1,0 +1,43 @@
+<keymap>
+  <!-- Copied from what actually works on a Byintek U4 projector, read off its
+       POV IL profile on 9 October 2026, and written to be right on the other
+       two boxes in the house as well.
+
+       One file, every input kind, because the same press arrives differently
+       on each: the projector's remote as a *joystick* (it reports to Android
+       as one), the Mi Box's as a *remote*, a PC keyboard as *backspace*, and
+       Android's own back gesture as *appcommand*. A keymap naming only one of
+       them fixes one box and leaves the others as they were.
+
+       Two separate problems, one file.
+
+       One: that remote reports as an Android joystick rather than a remote,
+       so Kodi sees button numbers and binds nothing to them. Its Back key is
+       button 6 and its Menu key button 7, which the peripheral buttonmap
+       already calls "back" and "start"; these lines give those features
+       something to do.
+
+       Two: Back during fullscreen video minimises playback and leaves it
+       running, which on a projector reads as "the film would not close".
+       Scoped to FullscreenVideo alone, so Back still means Back in menus. -->
+  <global>
+    <joystick>
+      <back>Back</back>
+      <start>ContextMenu</start>
+    </joystick>
+  </global>
+  <FullscreenVideo>
+    <keyboard>
+      <backspace>Stop</backspace>
+    </keyboard>
+    <remote>
+      <back>Stop</back>
+    </remote>
+    <gamepad>
+      <back>Stop</back>
+    </gamepad>
+    <appcommand>
+      <browser_back>Stop</browser_back>
+    </appcommand>
+  </FullscreenVideo>
+</keymap>

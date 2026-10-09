@@ -914,6 +914,22 @@ def accounts(params):
     listing.end(handle, content="files", cache_to_disc=False)
 
 
+@router.route("remotekeys")
+def remotekeys(params):
+    """Bind the remote's Back and Menu, on boxes that leave them unbound."""
+    from .. import remotekeys as keys
+
+    if keys.installed():
+        if kodi.yes_no(kodi.localize(32584), kodi.localize(32583)):
+            kodi.notify(kodi.localize(32585) if keys.remove()
+                        else kodi.localize(32319))
+        return
+    if not kodi.yes_no(kodi.localize(32586), kodi.localize(32583)):
+        return
+    kodi.notify(kodi.localize(32587) if keys.install()
+                else kodi.localize(32319))
+
+
 @router.route("websetup")
 def websetup(params):
     """Set every key from a computer on the same network."""
