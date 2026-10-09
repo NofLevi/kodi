@@ -170,7 +170,10 @@ def download(zip_url, progress=None, expected_version=None):
         kodi.log_error("the update download has unsafe transport metadata")
         return ""
 
-    handle, path = tempfile.mkstemp(suffix=".zip", prefix="pinky-update-")
+    # dir= on purpose: without it mkstemp asks tempfile where to write, and
+    # on Android the answer is an exception rather than a directory.
+    handle, path = tempfile.mkstemp(suffix=".zip", prefix=_DOWNLOAD,
+                                    dir=kodi.temp_dir())
     try:
         with os.fdopen(handle, "wb") as out:
             total = 0
@@ -362,7 +365,7 @@ def sweep(addons_dir, keep=""):
             if not os.path.exists(path):
                 removed.append(path)
 
-    temporary = tempfile.gettempdir()
+    temporary = kodi.temp_dir()
     for name in _listing(temporary):
         if name.startswith(_DOWNLOAD) and name.endswith(".zip"):
             path = os.path.join(temporary, name)

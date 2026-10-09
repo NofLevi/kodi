@@ -830,16 +830,15 @@ def test_an_update_removes_everything_it_leaves_behind(tmp_path, monkeypatch):
     zip per release forever and is where somebody finds an old one months
     later and installs it by hand.
     """
-    import tempfile as tempfile_module
-
-    from pinky import updater
+    from pinky import kodi, updater
 
     addons = tmp_path / "addons"
     packages = addons / "packages"
     packages.mkdir(parents=True)
     temporary = tmp_path / "temp"
     temporary.mkdir()
-    monkeypatch.setattr(tempfile_module, "gettempdir", lambda: str(temporary))
+    # Kodi's own temp, not Python's: there is none of Python's on Android.
+    monkeypatch.setattr(kodi, "temp_dir", lambda: str(temporary))
 
     (addons / "plugin.video.pinky.old").mkdir()
     (addons / "plugin.video.pinky.old" / "addon.xml").write_text("<addon/>")
@@ -1050,3 +1049,82 @@ def test_a_trakt_refresh_that_leaves_out_the_refresh_token_keeps_it(settings_mod
     monkeypatch.setattr(trakt.http, "post", lambda *a, **k: _Refreshed(ValueError("html")))
     assert trakt.refresh_token() == ""
     assert settings_module.get("trakt.access_token") == "NEW"
+
+
+# --------------------------------------------------------------------------
+# the sandbox an Android box actually gives us
+#
+# Measured on the projector, 9 October 2026, with 0.0.3 published and the box
+# still on 0.0.2:
+#
+#   [Pinky] update tidy-up failed
+#   FileNotFoundError ... updater.py:365 in sweep <- tempfile.gettempdir
+#   [Pinky] action check_update failed
+#   FileNotFoundError ... updater.py:173 in download <- tempfile ...
+#
+# Python's tempfile has nowhere to go inside Kodi's Android sandbox: TMPDIR is
+# unset and /tmp does not exist, so the update could neither download nor
+# clean up. Kodi's own special://temp exists on every platform it runs on.
+# --------------------------------------------------------------------------
+
+
+def _android(monkeypatch):
+    """A tempfile module as useless as the one on the box."""
+    import tempfile
+
+    def nowhere(*args, **kwargs):
+        raise FileNotFoundError(
+            "No usable temporary directory found in ['/tmp', '/var/tmp']")
+
+    monkeypatch.setattr(tempfile, "gettempdir", nowhere)
+
+
+def test_the_temp_directory_is_kodis_own(monkeypatch):
+    import os
+    from pinky import kodi
+
+    _android(monkeypatch)
+    path = kodi.temp_dir()
+    assert path and os.path.isdir(path), path
+
+
+def test_an_update_downloads_where_tempfile_cannot(monkeypatch, tmp_path):
+    """The download asked tempfile where to write and was told nothing."""
+    from pinky import http, updater
+
+    _android(monkeypatch)
+
+    class Raw(object):
+        def __init__(self):
+            self.left = [b"PK\x03\x04payload"]
+
+        def read(self, size, decode_content=False):
+            return self.left.pop() if self.left else b""
+
+    class Response(object):
+        status_code = 200
+        headers = {"Content-Length": "13"}
+        raw = Raw()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(http, "get", lambda *a, **k: Response())
+    monkeypatch.setattr(updater, "_is_sane_zip", lambda path, expected_version=None: True)
+    path = updater.download("https://example.test/pinky.zip")
+    assert path, "the download produced nothing"
+    assert os.path.isfile(path)
+    os.remove(path)
+
+
+def test_tidying_up_survives_a_box_with_no_temp(monkeypatch, tmp_path):
+    """`sweep` listed tempfile's directory, which is where it threw."""
+    from pinky import updater
+
+    _android(monkeypatch)
+    addons = tmp_path / "addons"
+    (addons / "packages").mkdir(parents=True)
+    stale = addons / "packages" / "plugin.video.pinky-0.0.1.zip"
+    stale.write_bytes(b"old")
+    removed = updater.sweep(str(addons))
+    assert str(stale) in removed

@@ -48,6 +48,28 @@ def profile_path():
     return path
 
 
+def temp_dir():
+    """A directory this add-on may write a temporary file into.
+
+    Python's `tempfile` has nowhere to go inside Kodi's Android sandbox:
+    TMPDIR is unset and /tmp does not exist, so `gettempdir()` raises
+    FileNotFoundError - which is exactly what stopped every update on the
+    projector, once while downloading and again while tidying up afterwards.
+
+    `special://temp` is Kodi's own, defined on every platform it runs on, and
+    it is cleared by Kodi rather than by us. The profile is the fallback for
+    the case where even that cannot be resolved, because a slower path is
+    better than an update that cannot happen.
+    """
+    try:
+        path = xbmcvfs.translatePath("special://temp")
+    except Exception:
+        path = ""
+    if path and os.path.isdir(path):
+        return path
+    return subdir("temp")
+
+
 def subdir(*parts):
     """Return (and create) a directory beneath the profile path."""
     path = os.path.join(profile_path(), *parts)
