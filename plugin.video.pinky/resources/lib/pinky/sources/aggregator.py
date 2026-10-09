@@ -344,8 +344,13 @@ def uncached(meta):
         return []
     prefs = scoring.Preferences()
     prefs.cached_only = False
+    # The same judgement the picker uses, not merely the settings. Asking only
+    # `rejection_reason` here is what offered The Odyssey's making-of
+    # documentary, its prologue, a release named "NOT The Chris Nolan FILM"
+    # and two episodes of a television series as things to download - and
+    # starting one of those is how the wrong film came to play.
     kept = [source for source in found
-            if not scoring.rejection_reason(source, prefs, _runtime_hours(meta))]
+            if not scoring.refusal(source, prefs, meta, _runtime_hours(meta))]
     # The cached-only filter kept these from being rated the first time.
     _apply_subtitles(kept, meta)
     for source in kept:

@@ -880,18 +880,7 @@ def rank(sources, meta=None, runtime_hours=2.0, limit=None, annotate=None):
     in_cinemas = not prefs.allow_cam and _only_in_cinemas(meta)
 
     def why(source):
-        # One judgement for both passes below. The second used to repeat the
-        # checks by hand, and a check added to one and not the other is how
-        # a film still in cinemas got its cams back: they failed the
-        # resolution floor first, the floor stood aside, and the second pass
-        # had never heard of the cinema rule.
-        return (rejection_reason(source, prefs, runtime_hours)
-                or (in_cinemas and "cam release")
-                or _another_production(source, meta)
-                or _a_different_series(source, meta)
-                or _a_different_film(source, meta)
-                or _before_it_existed(source, meta)
-                or _wrong_work(source, meta))
+        return refusal(source, prefs, meta, runtime_hours, in_cinemas)
 
     kept = []
     rejected = {}
@@ -1024,6 +1013,29 @@ def _dubbed(source, prefs):
 
 
 CINEMA_WINDOW_DAYS = 180
+
+
+def refusal(source, prefs, meta, runtime_hours=2.0, in_cinemas=None):
+    """Why this source cannot be played, or "" - the whole judgement.
+
+    Every caller asks this one question. `rank` used to hold the chain in a
+    closure of its own, so the "start one downloading" list - built by
+    `aggregator.uncached` from the unfiltered results - judged sources on the
+    settings alone: no title checks, no cinema rule. Measured on The Odyssey
+    (2026): it offered the making-of documentary, "The Odyssey Prologue",
+    "NOT The Chris Nolan FILM" and two episodes of a television series, and
+    starting one of those is how the wrong film came to play.
+    """
+    meta = meta or {}
+    if in_cinemas is None:
+        in_cinemas = not prefs.allow_cam and _only_in_cinemas(meta)
+    return (rejection_reason(source, prefs, runtime_hours)
+            or (in_cinemas and "cam release")
+            or _another_production(source, meta)
+            or _a_different_series(source, meta)
+            or _a_different_film(source, meta)
+            or _before_it_existed(source, meta)
+            or _wrong_work(source, meta))
 
 
 def _only_in_cinemas(meta):

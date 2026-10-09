@@ -83,3 +83,22 @@ def test_rank_refuses_them_and_says_why(settings_module):
         "The.Odyssey.2026.1080p.WEBRip.x265-INFINITY.mp4"]
     assert rejected.get("an extra, or another work, rather than the film") == 1
     assert rejected.get("an episode of a series, not the film") == 1
+
+
+def test_the_download_offer_is_judged_like_the_picker(monkeypatch, settings_module):
+    """"Start one downloading" built its list from the unfiltered results and
+    asked only the settings, so everything the picker had refused was offered
+    back - which is how the wrong film came to play."""
+    from pinky import cache
+    from pinky.sources import aggregator
+
+    sources = [make("The Odyssey (2026) the Making of an Epic"),
+               make("ODY.1x01 Iliad.mp4"),
+               make("The Odyssey 2026 NOT The Chris Nolan FILM 1080p WEB-DL-BONE.mkv"),
+               make("The.Odyssey.2026.1080p.WEBRip.x265-INFINITY.mp4")]
+    for source in sources:
+        source["cached"] = False
+    cache.volatile_set(aggregator.unfiltered_key(FILM), sources, 60)
+    offered = aggregator.uncached(dict(FILM))
+    assert [s["title"] for s in offered] == [
+        "The.Odyssey.2026.1080p.WEBRip.x265-INFINITY.mp4"]
