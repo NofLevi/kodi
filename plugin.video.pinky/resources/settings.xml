@@ -4,14 +4,18 @@
 
         <category id="accounts" label="30000" help="30001">
             <group id="1" label="30002">
-                <setting id="tmdb.apikey" type="string" label="30003">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>3</level>
-                    <control type="edit" format="string">
-                        <heading>30003</heading>
+                <setting id="action.websetup" type="action" label="30328">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=websetup)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="action.accounts" type="action" label="32396">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=accounts)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
                     </control>
                 </setting>
                 <setting id="ui.region" type="string" label="30004">
@@ -21,26 +25,9 @@
                         <heading>30101</heading>
                     </control>
                 </setting>
-                <setting id="mdblist.apikey" type="string" label="30005">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>3</level>
-                    <control type="edit" format="string">
-                        <heading>30005</heading>
-                    </control>
-                </setting>
             </group>
 
             <group id="2" label="30006">
-                <setting id="action.websetup" type="action" label="30328">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.pinky/?action=websetup)</data>
-                    <control type="button" format="action">
-                        <close>true</close>
-                    </control>
-                </setting>
                 <setting id="action.connect.ai" type="action" label="30327">
                     <level>0</level>
                     <data>RunPlugin(plugin://plugin.video.pinky/?action=connect&amp;service=ai)</data>
@@ -62,6 +49,7 @@
                     </constraints>
                     <level>3</level>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30007</heading>
                     </control>
                 </setting>
@@ -72,6 +60,7 @@
                     </constraints>
                     <level>3</level>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30008</heading>
                     </control>
                 </setting>
@@ -124,6 +113,7 @@
                     </constraints>
                     <level>3</level>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30011</heading>
                     </control>
                 </setting>
@@ -134,6 +124,7 @@
                     </constraints>
                     <level>3</level>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30012</heading>
                     </control>
                 </setting>
@@ -144,6 +135,7 @@
                     </constraints>
                     <level>3</level>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30013</heading>
                     </control>
                 </setting>
@@ -154,6 +146,7 @@
                     </constraints>
                     <level>3</level>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30014</heading>
                     </control>
                 </setting>
@@ -171,6 +164,7 @@
                     </constraints>
                     <visible>false</visible>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30123</heading>
                     </control>
                 </setting>
@@ -182,6 +176,7 @@
                     </constraints>
                     <visible>false</visible>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30124</heading>
                     </control>
                 </setting>
@@ -253,6 +248,7 @@
                     </constraints>
                     <visible>false</visible>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30131</heading>
                     </control>
                 </setting>
@@ -266,6 +262,30 @@
                 </setting>
             </group>
 
+            <group id="9" label="30329">
+                <setting id="tmdb.apikey" type="string" label="30003">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>3</level>
+                    <control type="edit" format="string">
+                        <hidden>true</hidden>
+                        <heading>30003</heading>
+                    </control>
+                </setting>
+                <setting id="mdblist.apikey" type="string" label="30005">
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <level>3</level>
+                    <control type="edit" format="string">
+                        <hidden>true</hidden>
+                        <heading>30005</heading>
+                    </control>
+                </setting>
+            </group>
         </category>
 
         <category id="sources" label="30015" help="30016">
@@ -599,6 +619,7 @@
                         <allowempty>true</allowempty>
                     </constraints>
                     <level>3</level>                    <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30067</heading>
                     </control>
                 </setting>
@@ -619,6 +640,7 @@
                         <allowempty>true</allowempty>
                     </constraints>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30115</heading>
                     </control>
                 </setting>
@@ -650,6 +672,7 @@
                         <allowempty>true</allowempty>
                     </constraints>
                     <level>0</level>                    <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30103</heading>
                     </control>
                     <dependencies>
@@ -672,6 +695,7 @@
                     </constraints>
                     <level>0</level>
                     <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30321</heading>
                     </control>
                     <dependencies>
@@ -706,6 +730,7 @@
                         <allowempty>true</allowempty>
                     </constraints>
                     <level>3</level>                    <control type="edit" format="string">
+                        <hidden>true</hidden>
                         <heading>30105</heading>
                     </control>
                     <dependencies>

@@ -889,10 +889,11 @@ def accounts(params):
     # reachable through the wizard, which is why removing it would have
     # quietly removed it. OpenSubtitles is not here any more: it ships with
     # shared keys and needs no account of yours.
+    # TMDB is not a row: the add-on ships a key, so it said "connected" for
+    # everybody and told nobody anything. It is in the settings, in a group of
+    # its own, for somebody bringing their own key.
     for name, label, connected, checked in (
             ("trakt", "Trakt", trakt.authorised(), True),
-            ("tmdb", "TMDB", tmdb.has_key(),
-             tmdb.has_key() and _verified("tmdb", _tmdb_works)),
             ("ai", kodi.localize(32313), _translation_ready(),
              _translation_ready() and _verified("gemini", _gemini_works))):
         entries.append(("%s %s" % (_mark(connected, checked), label), name))
