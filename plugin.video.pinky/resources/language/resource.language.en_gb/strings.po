@@ -1881,3 +1881,75 @@ msgctxt "#32587"
 msgid "Done. Back closes a film, Menu opens the menu"
 msgstr ""
 
+msgctxt "#30331"
+msgid "Remote control from a computer"
+msgstr ""
+
+msgctxt "#32588"
+msgid "Pinky console"
+msgstr ""
+
+msgctxt "#32589"
+msgid "Open this on a computer on the same network to read the log and fix things"
+msgstr ""
+
+msgctxt "#32590"
+msgid "Log"
+msgstr ""
+
+msgctxt "#32591"
+msgid "Files"
+msgstr ""
+
+msgctxt "#32592"
+msgid "Repairs"
+msgstr ""
+
+msgctxt "#32593"
+msgid "Refresh"
+msgstr ""
+
+msgctxt "#32594"
+msgid "Download"
+msgstr ""
+
+msgctxt "#32595"
+msgid "Clear the cache"
+msgstr ""
+
+msgctxt "#32596"
+msgid "Rebuild the home rows"
+msgstr ""
+
+msgctxt "#32597"
+msgid "Fix the remote's buttons"
+msgstr ""
+
+msgctxt "#32598"
+msgid "Check for an update"
+msgstr ""
+
+msgctxt "#32599"
+msgid "Not found"
+msgstr ""
+
+msgctxt "#32600"
+msgid "Delete"
+msgstr ""
+
+msgctxt "#32601"
+msgid "The cache is empty again"
+msgstr ""
+
+msgctxt "#32602"
+msgid "The home rows were rebuilt"
+msgstr ""
+
+msgctxt "#32603"
+msgid "The remote's buttons are bound"
+msgstr ""
+
+msgctxt "#32604"
+msgid "Version %s is available"
+msgstr ""
+

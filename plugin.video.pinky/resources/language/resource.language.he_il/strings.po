@@ -1841,3 +1841,75 @@ msgctxt "#32587"
 msgid "Done. Back closes a film, Menu opens the menu"
 msgstr "בוצע. Back סוגר סרט, Menu פותח את התפריט"
 
+msgctxt "#30331"
+msgid "Remote control from a computer"
+msgstr "שליטה מרחוק ממחשב"
+
+msgctxt "#32588"
+msgid "Pinky console"
+msgstr "מסוף Pinky"
+
+msgctxt "#32589"
+msgid "Open this on a computer on the same network to read the log and fix things"
+msgstr "פתח במחשב באותה רשת כדי לקרוא את היומן ולתקן"
+
+msgctxt "#32590"
+msgid "Log"
+msgstr "יומן"
+
+msgctxt "#32591"
+msgid "Files"
+msgstr "קבצים"
+
+msgctxt "#32592"
+msgid "Repairs"
+msgstr "תיקונים"
+
+msgctxt "#32593"
+msgid "Refresh"
+msgstr "רענון"
+
+msgctxt "#32594"
+msgid "Download"
+msgstr "הורדה"
+
+msgctxt "#32595"
+msgid "Clear the cache"
+msgstr "ניקוי המטמון"
+
+msgctxt "#32596"
+msgid "Rebuild the home rows"
+msgstr "בנייה מחדש של שורות הבית"
+
+msgctxt "#32597"
+msgid "Fix the remote's buttons"
+msgstr "תיקון כפתורי השלט"
+
+msgctxt "#32598"
+msgid "Check for an update"
+msgstr "בדיקת עדכון"
+
+msgctxt "#32599"
+msgid "Not found"
+msgstr "לא נמצא"
+
+msgctxt "#32600"
+msgid "Delete"
+msgstr "מחיקה"
+
+msgctxt "#32601"
+msgid "The cache is empty again"
+msgstr "המטמון רוקן"
+
+msgctxt "#32602"
+msgid "The home rows were rebuilt"
+msgstr "שורות הבית נבנו מחדש"
+
+msgctxt "#32603"
+msgid "The remote's buttons are bound"
+msgstr "כפתורי השלט קושרו"
+
+msgctxt "#32604"
+msgid "Version %s is available"
+msgstr "גרסה %s זמינה"
+

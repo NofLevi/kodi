@@ -899,6 +899,13 @@
                         <close>true</close>
                     </control>
                 </setting>
+                <setting id="action.console" type="action" label="30331">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=console)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="action.diagnostics" type="action" label="32370">
                     <level>1</level>
                     <data>RunPlugin(plugin://plugin.video.pinky/?action=diagnostics)</data>

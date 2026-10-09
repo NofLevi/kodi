@@ -206,6 +206,52 @@ def run_web_setup(lifetime=None):
     return state["changed"]
 
 
+def run_console(lifetime=None):
+    """Open the console and hold the screen while it is up.
+
+    The screen is the switch: the server exists while somebody is looking at
+    its address and stops when they leave, so nothing is listening on the
+    network that was forgotten about.
+    """
+    from .. import webconsole
+    from .auth_window import open_auth
+
+    state = {"url": ""}
+    ready = threading.Event()
+    cancelled = threading.Event()
+    span = float(lifetime or webconsole.LIFETIME)
+
+    def serve():
+        webconsole.serve(lifetime=span,
+                         on_ready=lambda url: (state.__setitem__("url", url),
+                                               ready.set()),
+                         cancelled=cancelled)
+        ready.set()
+
+    thread = threading.Thread(target=serve)
+    thread.daemon = True
+    thread.start()
+    if not ready.wait(5) or not state["url"]:
+        return False
+
+    deadline = time.time() + span
+
+    def tick():
+        if cancelled.is_set() or not thread.is_alive():
+            return None
+        if time.time() >= deadline:
+            return None
+        return max(0.0, (deadline - time.time()) / span)
+
+    try:
+        open_auth(title=kodi.localize(32588), url=state["url"], code="",
+                  message=kodi.localize(32589), poll=tick, interval=1)
+    finally:
+        cancelled.set()
+        thread.join(2.0)
+    return True
+
+
 def code_image(url):
     """A QR image path for a URL, or "" if one could not be made."""
     try:

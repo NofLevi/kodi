@@ -930,6 +930,15 @@ def remotekeys(params):
                 else kodi.localize(32319))
 
 
+@router.route("console")
+def console(params):
+    """The log, the add-on's files and the repairs, from a computer."""
+    from . import signin
+
+    if not signin.run_console():
+        kodi.notify(kodi.localize(32580))
+
+
 @router.route("websetup")
 def websetup(params):
     """Set every key from a computer on the same network."""
