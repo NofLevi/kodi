@@ -68,13 +68,18 @@
                     <label>$INFO[Window.Property(pinky.auth.message)]</label>
                 </control>
 
-                <control type="label">
+                <!-- A textbox, not a label: a label draws one line and cuts
+                     whatever does not fit, which is how an address somebody
+                     is meant to type ended at "...8099/k7m" on screen. White
+                     rather than grey for the same reason - it is the thing
+                     being read off the television. -->
+                <control type="textbox">
                     <left>0</left>
-                    <top>160</top>
+                    <top>150</top>
                     <width>730</width>
-                    <height>44</height>
+                    <height>74</height>
                     <font>font16</font>
-                    <textcolor>grey</textcolor>
+                    <textcolor>white</textcolor>
                     <label>$INFO[Window.Property(pinky.auth.url)]</label>
                 </control>
 
@@ -82,7 +87,7 @@
                      room this is the thing that has to be readable. -->
                 <control type="label">
                     <left>0</left>
-                    <top>220</top>
+                    <top>228</top>
                     <width>730</width>
                     <height>90</height>
                     <font>font30_title</font>

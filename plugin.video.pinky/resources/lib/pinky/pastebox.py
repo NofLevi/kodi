@@ -33,6 +33,16 @@ from . import kodi
 LIFETIME = 300
 MAX_BODY_BYTES = 4096
 
+# The address is meant to be typed by hand when the camera route is not
+# convenient, so every part of it is as short as it can be: a port that is
+# four digits rather than five, and a six character code with no character
+# anybody has to think about - no 0 against o, no 1 against l. Six of these
+# is nine hundred million codes, for a server that exists for five minutes
+# on a home network, which is enough.
+CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+CODE_LENGTH = 6
+PREFERRED_PORTS = (8099, 8199, 8299)
+
 PAGE = u"""<!doctype html><html><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%(title)s</title><style>
@@ -139,6 +149,27 @@ def _handler_for(state, labels):
     return Handler
 
 
+def code():
+    """A short code for the address, in characters that survive being read
+    off a television and typed into a phone."""
+    return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+
+
+def _listen(handler):
+    """A server on a short port, or any free one. None if neither works.
+
+    The short ports are tried first only so the address is easy to type; port
+    0 asks the operating system for a free one, which is what keeps this
+    working on a box already using them.
+    """
+    for port in PREFERRED_PORTS + (0,):
+        try:
+            return HTTPServer(("0.0.0.0", port), handler)
+        except OSError:
+            continue
+    return None
+
+
 def receive(title, placeholder="", lifetime=LIFETIME, on_ready=None,
             cancelled=None):
     """Serve the page until something is pasted. Returns it, or "".
@@ -159,13 +190,10 @@ def receive(title, placeholder="", lifetime=LIFETIME, on_ready=None,
         "done": kodi.localize(32512),
     }
     state = {"value": "", "done": threading.Event(), "used": False,
-             "path": "/paste/%s" % secrets.token_urlsafe(24)}
+             "path": "/%s" % code()}
 
-    try:
-        # Port 0 asks the operating system for a free one, which is the only
-        # way to avoid colliding with whatever else the box is running.
-        server = HTTPServer(("0.0.0.0", 0), _handler_for(state, labels))
-    except OSError:
+    server = _listen(_handler_for(state, labels))
+    if server is None:
         kodi.log_exception("could not open the paste page")
         return ""
 
