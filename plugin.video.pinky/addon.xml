@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.pinky"
        name="Pinky"
-       version="0.0.2"
+       version="0.0.3"
        provider-name="pinky">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -37,14 +37,6 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>v0.0.2
-- Anime: a new cour is known by its Kitsu names
-- Setup: a Pinky shortcut on the Desktop and in the Start menu
-- CLAUDE.md: the backup test count
-- Settings: export and import a backup of settings and accounts
-- CLAUDE.md: the upgrade test count
-- Accounts: a bad refresh keeps the token, and no account setting may vanish
-- Next episode: carry on in the same release, with the same subtitles
-- Play and AI: a swapped release is said and keeps its route; first lines sooner</news>
+        <news>v0.0.3</news>
     </extension>
 </addon>
