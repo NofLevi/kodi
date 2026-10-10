@@ -1961,3 +1961,11 @@ msgctxt "#32606"
 msgid "An episode of a series, not the film"
 msgstr ""
 
+msgctxt "#32607"
+msgid "Still only in cinemas - digital on %s. All %d copies are camera recordings. Watch one anyway?"
+msgstr ""
+
+msgctxt "#32608"
+msgid "All %d copies are camera recordings rather than a real release. Watch one anyway?"
+msgstr ""
+

@@ -112,8 +112,14 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
     # Order matters only for which reason gets reported, so the most
     # explanatory check goes first. A cam rip is a cam rip, not merely
     # something that happens to be low resolution.
+    # Consent given on the screen, for this playback and no other. The viewer
+    # was told what these are - a film still in cinemas has nothing but camera
+    # recordings - and said yes anyway; what they must not do is change the
+    # setting for every film without meaning to.
+    allowed = source.get("extra", {}).get("playback_allow_cam")
+
     parsed_source = source.get("extra", {}).get("source_type") or _source_type(source)
-    if parsed_source == "cam" and not prefs.allow_cam:
+    if parsed_source == "cam" and not (prefs.allow_cam or allowed):
         return "cam release"
 
     codec = source.get("codec")
@@ -1029,6 +1035,8 @@ def refusal(source, prefs, meta, runtime_hours=2.0, in_cinemas=None):
     meta = meta or {}
     if in_cinemas is None:
         in_cinemas = not prefs.allow_cam and _only_in_cinemas(meta)
+    if source.get("extra", {}).get("playback_allow_cam"):
+        in_cinemas = False
     return (rejection_reason(source, prefs, runtime_hours)
             or (in_cinemas and "cam release")
             or _another_production(source, meta)

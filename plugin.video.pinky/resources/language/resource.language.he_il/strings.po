@@ -1921,3 +1921,11 @@ msgctxt "#32606"
 msgid "An episode of a series, not the film"
 msgstr "פרק של סדרה, לא הסרט"
 
+msgctxt "#32607"
+msgid "Still only in cinemas - digital on %s. All %d copies are camera recordings. Watch one anyway?"
+msgstr "עדיין רק בבתי הקולנוע - בדיגיטל ב-%s. כל %d העותקים הם הקלטות ממצלמה. לצפות באחד בכל זאת?"
+
+msgctxt "#32608"
+msgid "All %d copies are camera recordings rather than a real release. Watch one anyway?"
+msgstr "כל %d העותקים הם הקלטות ממצלמה ולא מהדורה אמיתית. לצפות באחד בכל זאת?"
+

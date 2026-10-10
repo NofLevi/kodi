@@ -299,6 +299,8 @@ def play(handle, request, force_picker=False):
                     kodi.run_builtin('ActivateWindow(Videos,"%s",return)'
                                      % broadcaster["url"])
                 return
+            sources = _offer_cams(meta)
+        if not sources:
             kodi.notify(kodi.localize(32283))
             listing.resolve_failed(handle)
             return
@@ -735,6 +737,46 @@ def _offer_uncached(meta):
         if isinstance(source, dict):
             source.setdefault("extra", {})["playback_allow_uncached"] = True
     return waiting
+
+
+def _offer_cams(meta):
+    """Say what the copies actually are, and let the viewer decide.
+
+    "No playable sources found" is true and useless when forty-six copies
+    exist. The Odyssey (2026), measured: every one of them a camera recording
+    of a film five weeks from its digital release, and the message said
+    nothing about either - so the only reading left was that the add-on was
+    broken.
+
+    Consent is for this playback alone. The alternative is telling somebody to
+    find `allow cam releases` in the settings, which then stands for every
+    film they play afterwards, including the ones with real copies.
+    """
+    from . import cache
+    from .sources import aggregator, scoring
+
+    found = cache.volatile_get(aggregator.unfiltered_key(meta)) or []
+    if not found:
+        return []
+    prefs = scoring.Preferences()
+    hours = aggregator._runtime_hours(meta)
+    cams = [source for source in found
+            if scoring.refusal(source, prefs, meta, hours) == "cam release"]
+    if not cams:
+        return []
+
+    home = str((((meta.get("item") or {}).get("extra") or {}).get("home")) or "")[:10]
+    kodi.log("%d cams and nothing else for %s%s"
+             % (len(cams), meta.get("title", ""),
+                ", digital on %s" % home if home else ""), kodi.LOG_INFO)
+    question = (kodi.localize(32607, home, len(cams)) if home
+                else kodi.localize(32608, len(cams)))
+    if not kodi.yes_no(question, kodi.localize(32283)):
+        return []
+    for source in cams:
+        source.setdefault("extra", {})["playback_allow_cam"] = True
+    kept, _rejected = scoring.rank_all(cams, meta, hours)
+    return kept
 
 
 def _describe(meta):
