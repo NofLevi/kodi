@@ -71,7 +71,6 @@ def providers(monkeypatch, settings_module):
         "subs.languages": "he,en",
         "subs.threshold": "70",
         "subs.hash_match": "false",
-        "subs.ai.enabled": "false",
         "subs.provider.wizdom": "true",
         "subs.provider.bsplayer": "true",
         "subs.provider.opensubtitles_rest": "true",
@@ -410,7 +409,7 @@ def test_a_superseded_search_writes_no_file(monkeypatch, settings_module):
     the new playback was about to reuse.
     """
     settings_module.set_many({"subs.languages": "he,en", "subs.threshold": "70",
-                             "subs.hash_match": "false", "subs.ai.enabled": "false"})
+                             "subs.hash_match": "false"})
     import os
     from pinky.subs import auto as auto_module
 

@@ -1993,3 +1993,11 @@ msgctxt "#32614"
 msgid "%d buttons learned and bound"
 msgstr ""
 
+msgctxt "#32615"
+msgid "First, press OK three times - this checks the screen is listening"
+msgstr ""
+
+msgctxt "#32616"
+msgid "This screen is not hearing any button, not even OK - tell Pinky"
+msgstr ""
+

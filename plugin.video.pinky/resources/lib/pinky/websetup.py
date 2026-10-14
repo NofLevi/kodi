@@ -119,12 +119,6 @@ def apply_form(form):
             continue
         settings.set(key, value)
         changed += 1
-    if any(settings.get(key) for key in ("subs.ai.gemini_key",
-                                         "subs.ai.openrouter_key",
-                                         "subs.ai.openai_key")):
-        # The same rule as entering a key on the television: a key that was
-        # typed in is a key that is meant to be used.
-        settings.set("subs.ai.enabled", "true")
     return changed
 
 

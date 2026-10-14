@@ -658,10 +658,6 @@
 
         <category id="ai" label="30068" help="30069">
             <group id="1" label="30070">
-                <setting id="subs.ai.enabled" type="boolean" label="30071">
-                    <level>0</level><default>true</default>
-                    <control type="toggle"/>
-                </setting>
                 <setting id="subs.ai.engine" type="string" label="30070">
                     <level>2</level><default>gemini</default>
                     <constraints>
@@ -921,13 +917,6 @@
                 <setting id="action.learnremote" type="action" label="30332">
                     <level>0</level>
                     <data>RunPlugin(plugin://plugin.video.pinky/?action=learnremote)</data>
-                    <control type="button" format="action">
-                        <close>true</close>
-                    </control>
-                </setting>
-                <setting id="action.remotekeys" type="action" label="30330">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.pinky/?action=remotekeys)</data>
                     <control type="button" format="action">
                         <close>true</close>
                     </control>

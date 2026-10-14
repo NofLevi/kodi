@@ -229,10 +229,6 @@ def step_ai():
     settings.set("subs.ai.gemini_key", key.strip())
     if not key.strip():
         return
-    # A key that is entered is a key that is meant to be used. Leaving the
-    # engine switched off after one has been typed in is the kind of silence
-    # that reads as "the key did not work".
-    settings.set("subs.ai.enabled", "true")
     try:
         from ..subs.ai import gemini
     except ImportError:

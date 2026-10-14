@@ -42,8 +42,7 @@ def test_the_key_is_all_it_needs(settings_module):
 
 
 def test_the_engine_is_selected_by_the_setting(settings_module):
-    settings_module.set_many({"subs.ai.enabled": "true",
-                              "subs.ai.engine": "openrouter",
+    settings_module.set_many({                              "subs.ai.engine": "openrouter",
                               "subs.ai.openrouter_key": "sk-or-v1-x"})
     assert translator.engine() is openrouter
     assert translator.available() is True

@@ -14,12 +14,20 @@ import pytest
 from pinky import remotekeys
 
 
-def test_the_probe_leaves_navigation_alone():
+def test_the_probe_leaves_the_directions_alone():
     """A box whose arrows stop working is a box nobody can answer on."""
     probe = remotekeys.probe_keymap()
-    for taken in ("<up>", "<down>", "<left>", "<right>", "<a>", "<select>",
-                  "<return>", "<enter>"):
+    for taken in ("<up>", "<down>", "<left>", "<right>"):
         assert taken not in probe, "%s must stay bound to Kodi's own action" % taken
+
+
+def test_the_probe_listens_for_ok_as_its_control():
+    """The first version asked only for buttons that did not work, so
+    "nothing arrived" could not tell an unreachable remote apart from a
+    broken screen. OK is the button we know works - it is how anybody got
+    to the screen at all."""
+    probe = remotekeys.probe_keymap()
+    assert "<a>" in probe and "<return>" in probe and "<select>" in probe
 
 
 def test_the_probe_asks_every_input_kind_to_announce_itself():

@@ -130,7 +130,6 @@ def _labels():
 ACTIONS = (
     ("cache", 32595),
     ("rows", 32596),
-    ("keymap", 32597),
     ("update", 32598),
 )
 
@@ -250,9 +249,6 @@ def run_action(name):
         catalog.invalidate()
         catalog.warm(force=True)
         return kodi.localize(32602)
-    if name == "keymap":
-        from . import remotekeys
-        return kodi.localize(32603) if remotekeys.install() else kodi.localize(32319)
     if name == "update":
         from . import updater
         found = updater.check()

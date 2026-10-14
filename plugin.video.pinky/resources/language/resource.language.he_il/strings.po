@@ -1953,3 +1953,11 @@ msgctxt "#32614"
 msgid "%d buttons learned and bound"
 msgstr "%d כפתורים נלמדו והוגדרו"
 
+msgctxt "#32615"
+msgid "First, press OK three times - this checks the screen is listening"
+msgstr "קודם כל, לחץ שלוש פעמים על OK - כדי לוודא שהמסך מקשיב"
+
+msgctxt "#32616"
+msgid "This screen is not hearing any button, not even OK - tell Pinky"
+msgstr "המסך הזה לא שומע אף כפתור, גם לא OK - דווח ל-Pinky"
+

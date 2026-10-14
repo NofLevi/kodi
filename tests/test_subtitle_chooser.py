@@ -142,10 +142,6 @@ def chooser(monkeypatch, settings_module, player_with_tracks):
     from pinky.subs import auto
 
     settings_module.set("subs.languages", "he,en")
-    # Off, so these tests keep describing the hierarchy of subtitles that
-    # exist. The AI row is not one of those - it is an offer to make one - and
-    # it has its own tests below and in test_subtitle_ai_ondemand.py.
-    settings_module.set("subs.ai.enabled", "false")
 
     state = {"found": []}
     monkeypatch.setattr(auto, "video_hash_for", lambda meta: "")
@@ -174,14 +170,25 @@ def downloadable(release, language="he", **kwargs):
     return entry
 
 
+def existing(labels):
+    """The subtitles that exist, without the offers to make one.
+
+    Translation is no longer a setting somebody can switch off, so every
+    chooser ends with the two AI rows. These tests are about the order of
+    what already exists, which is a different question.
+    """
+    return [row for row in labels if not row.startswith(kodi.localize(32494))]
+
+
 def test_embedded_tracks_are_listed_before_downloads(chooser):
     labels = chooser(
         [{"index": 0, "language": "heb", "name": "Hebrew"}],
         [downloadable("X.2024.1080p.WEB-DL-FLUX")])
 
-    assert len(labels) == 2
-    assert "embedded" in labels[0], "the embedded track should lead"
-    assert "embedded" not in labels[1]
+    rows = existing(labels)
+    assert len(rows) == 2
+    assert "embedded" in rows[0], "the embedded track should lead"
+    assert "embedded" not in rows[1]
 
 
 def test_an_exact_download_beats_a_weaker_one(chooser):
@@ -202,19 +209,21 @@ def test_the_full_hierarchy_reads_top_to_bottom(chooser):
             downloadable("X.2024.720p.HDTV-OTHER"),
         ])
 
-    assert len(labels) == 3
-    assert labels[0].startswith("100%") and "embedded" in labels[0]
-    assert labels[1] == labels[1] and labels[1].startswith("100%")
-    assert "embedded" not in labels[1]
-    assert "estimate" in labels[2]
+    rows = existing(labels)
+    assert len(rows) == 3
+    assert rows[0].startswith("100%") and "embedded" in rows[0]
+    assert rows[1].startswith("100%")
+    assert "embedded" not in rows[1]
+    assert "estimate" in rows[2]
 
 
-def test_an_empty_chooser_tells_the_viewer(chooser):
-    import xbmcgui
-    del xbmcgui.NOTIFICATIONS[:]
+def test_an_empty_chooser_still_offers_a_translation(chooser):
+    """It used to say "nothing found" and stop there. Now that translation
+    cannot be switched off, a film with no subtitles at all still has
+    something to press - which is the whole point of the row."""
     labels = chooser([], [])
-    assert labels == []
-    assert xbmcgui.NOTIFICATIONS
+    assert existing(labels) == []
+    assert len(labels) == 2, "one offer per language"
 
 
 def test_a_provider_that_blows_up_still_closes_the_dialog(chooser, monkeypatch):
@@ -315,7 +324,6 @@ def test_the_ai_row_comes_last(chooser, settings_module):
     """A real subtitle in the right language is usually the better answer and
     takes seconds rather than minutes, so the offer to make one sits under
     every subtitle that already exists."""
-    settings_module.set("subs.ai.enabled", "true")
     labels = chooser(
         [{"index": 0, "language": "heb", "name": "Hebrew"}],
         [downloadable("X.2024.1080p.WEB-DL-FLUX")])
@@ -339,7 +347,6 @@ def test_a_film_with_nothing_is_still_offered_a_translation(chooser,
     translation can be made is not.
     """
     import xbmcgui
-    settings_module.set("subs.ai.enabled", "true")
     del xbmcgui.NOTIFICATIONS[:]
 
     labels = chooser([], [])

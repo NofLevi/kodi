@@ -31,11 +31,16 @@ def pipeline(monkeypatch, settings_module):
         "subs.languages": "he,en",
         "subs.threshold": "70",
         "subs.hash_match": "false",
-        "subs.ai.enabled": "false",
         "subs.provider.wizdom": "true",
         "subs.provider.opensubtitles": "false",
         "subs.provider.subsource": "false",
     })
+
+    # No engine, rather than a setting that no longer exists: translation is
+    # always on now, so a test about what happens without it has to take away
+    # the engine itself.
+    from pinky.subs.ai import translator
+    monkeypatch.setattr(translator, "engine", lambda: None)
 
     state = {"candidates": [], "downloads": {}, "downloaded": [],
              "expected": [], "searched_languages": []}
@@ -114,7 +119,6 @@ def test_a_weak_hebrew_subtitle_comes_before_a_translation(
     """Strictly Hebrew, then AI, then English: a Hebrew subtitle somebody made
     for this title, even one below the threshold, comes ahead of one a model
     makes. It used to be the other way round."""
-    settings_module.set("subs.ai.enabled", "true")
     exact = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
     weak = "Dune.Part.Two.2024.DVDRip-XYZ"
     english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX.en"
@@ -273,7 +277,6 @@ def test_download_budget_keeps_languages_separate_in_one_archive(monkeypatch):
 def test_consensus_failure_tries_another_accepted_target_before_translation(
         pipeline, monkeypatch, settings_module):
     """Foreign evidence must not hide a usable accepted Hebrew candidate."""
-    settings_module.set("subs.ai.enabled", "true")
     broken = "Dune.Part.Two.2024.1080p.WEB-DL.H264-AAA"
     usable = "Dune.Part.Two.2024.1080p.WEB-DL.H264-BBB"
     english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-ENG"
@@ -318,7 +321,6 @@ def test_a_weak_match_is_still_used_as_a_last_resort(pipeline):
 
 def test_english_is_translated_when_no_hebrew_is_good_enough(pipeline, monkeypatch,
                                                             settings_module):
-    settings_module.set("subs.ai.enabled", "true")
     english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
     pipeline["candidates"] = [candidate(english, language="en")]
     pipeline["downloads"][english] = srt_bytes(count=12, text="english")
@@ -530,7 +532,6 @@ def test_failed_partial_translation_is_removed_from_player(
         monkeypatch, settings_module):
     from pinky.subs.ai import translator
 
-    settings_module.set("subs.ai.enabled", "true")
     cues = srt.parse(srt.decode(srt_bytes(count=4)))
     visibility = []
 
@@ -554,7 +555,6 @@ def test_a_partial_translation_reaches_the_player_while_it_runs(pipeline,
                                                                 monkeypatch,
                                                                 settings_module):
     """The viewer should see subtitles from the first chunk, not at the end."""
-    settings_module.set("subs.ai.enabled", "true")
     english = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"
     pipeline["candidates"] = [candidate(english, language="en")]
     pipeline["downloads"][english] = srt_bytes(count=24, text="english")
@@ -602,8 +602,7 @@ def test_a_partial_translation_reaches_the_player_while_it_runs(pipeline,
 def test_a_gender_marking_language_is_preferred_as_the_translation_source(
         pipeline, monkeypatch, settings_module):
     """Spanish carries the speaker's gender into Hebrew; English cannot."""
-    settings_module.set_many({"subs.ai.enabled": "true",
-                              "subs.languages": "he,en,es"})
+    settings_module.set_many({                              "subs.languages": "he,en,es"})
     # Identical release names, so the only thing separating them is the
     # language. A better-matching English subtitle would rightly still win.
     release = "Dune.Part.Two.2024.1080p.WEB-DL.H264-FLUX"

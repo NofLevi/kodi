@@ -49,7 +49,6 @@ def fake_world(monkeypatch, settings_module):
         "subs.hash_match": "false",
         "subs.provider.wizdom": "true",
         "subs.provider.opensubtitles": "true",
-        "subs.ai.enabled": "true",
     })
 
     state = {"candidates": [], "downloads": {}, "asked_for": [],
@@ -284,19 +283,11 @@ def test_the_row_still_appears_without_a_key_and_says_so(fake_world,
     learns the feature is there."""
     from pinky.subs.ai import translator
     monkeypatch.setattr(translator, "available", lambda: False)
-    settings_module.set("subs.ai.enabled", "true")
 
     entry = service._ai_entry([], "he")
 
     assert entry is not None
     assert entry["release"].startswith(service.kodi.localize(32497))
-
-
-def test_no_row_when_ai_is_switched_off(fake_world, settings_module):
-    """That is somebody saying they do not want it, which is different from
-    not having got round to entering a key."""
-    settings_module.set("subs.ai.enabled", "false")
-    assert service._ai_entry([], "he") is None
 
 
 def test_the_row_names_the_language_it_would_translate_from(fake_world):

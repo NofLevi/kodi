@@ -111,12 +111,12 @@ def _named(name):
 
 
 def engine():
-    """The engine a translation starts on, or None when it is switched off.
+    """The engine a translation starts on.
 
-    With no key for the chosen one, Google's free endpoint, so switching AI
-    on is enough to get Hebrew."""
-    if not settings.get_bool("subs.ai.enabled"):
-        return None
+    With no key for the chosen one, Google's free endpoint, so a box with no
+    keys at all still gets Hebrew. There is no longer a switch to consult:
+    translation is what this add-on is for, and a viewer who did not want it
+    would simply not be reading subtitles."""
     return _named(settings.get("subs.ai.engine")) or _named("google")
 
 

@@ -60,18 +60,6 @@ def test_a_key_mangled_by_a_phone_keyboard_is_cleaned(settings_module):
     assert settings_module.get("torbox.apikey") == "ab-cd"
 
 
-def test_an_ai_key_switches_translation_on(settings_module):
-    settings_module.set("subs.ai.enabled", "false")
-    websetup.apply_form({"subs.ai.gemini_key": ["gem-key"]})
-    assert settings_module.get("subs.ai.enabled") == "true"
-
-
-def test_nothing_switches_on_without_a_key(settings_module):
-    settings_module.set("subs.ai.enabled", "false")
-    websetup.apply_form({"tmdb.apikey": ["only-tmdb"]})
-    assert settings_module.get("subs.ai.enabled") == "false"
-
-
 # --------------------------------------------------------------------------
 # the server itself
 # --------------------------------------------------------------------------

@@ -66,7 +66,6 @@ def world(monkeypatch, settings_module):
         "subs.hash_match": "false",
         "subs.provider.wizdom": "true",
         "subs.provider.opensubtitles": "true",
-        "subs.ai.enabled": "false",
     })
     state = {"candidates": [], "downloads": {}, "downloaded": []}
 

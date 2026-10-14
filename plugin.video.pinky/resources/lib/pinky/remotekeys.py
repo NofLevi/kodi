@@ -1,24 +1,20 @@
 # -*- coding: utf-8 -*-
 """Make a television remote behave, on the boxes where it does not.
 
-Measured on a Byintek U4 projector: its remote reports to Android as a
-joystick rather than a remote, so Kodi receives button *numbers* and has
-nothing bound to them - Back does nothing, Menu does nothing. The buttonmap
-already names those two "back" and "start"; what was missing was a keymap
-giving those names an action.
-
-The second half is Kodi's own default rather than the box's fault: Back
-during fullscreen video minimises playback and leaves it running, which on a
-projector reads as a film that will not close.
-
 A keymap cannot ship inside an add-on - Kodi only reads them from the
-profile - so this copies one in and asks Kodi to reload. Reversible: the
-same screen takes it out again, and nothing else in the profile is touched.
+profile - so this writes one in and asks Kodi to reload. Reversible: the
+same screen writes it again, and nothing else in the profile is touched.
+
+What it writes is no longer a copy of a keymap from a box where the remote
+happened to work. Two of those were shipped and neither changed anything,
+because Kodi's own joystick keymap already binds the features they named:
+the projector's buttons were never arriving as `back` and `start` at all.
+The bindings now come from what the remote was heard to send - see the
+second half of this file, and `ui/learn_remote.py`.
 """
 import io
 import json
 import os
-import shutil
 import time
 
 import xbmc
@@ -27,10 +23,6 @@ import xbmcvfs
 from . import kodi
 
 FILE = "pinky-remote.xml"
-
-
-def source():
-    return os.path.join(kodi.addon_path(), "resources", "keymaps", FILE)
 
 
 def keymap_dir():
@@ -53,36 +45,6 @@ def target():
 def installed():
     path = target()
     return bool(path) and os.path.isfile(path)
-
-
-def install():
-    """Copy the keymap in and reload. True when it is in place."""
-    destination = target()
-    if not destination:
-        return False
-    try:
-        shutil.copyfile(source(), destination)
-    except (IOError, OSError):
-        kodi.log_exception("could not write the remote keymap")
-        return False
-    _reload()
-    kodi.log("remote keymap installed")
-    return True
-
-
-def remove():
-    """Take it out again and reload. True when it is gone."""
-    destination = target()
-    if not destination or not os.path.isfile(destination):
-        return True
-    try:
-        os.remove(destination)
-    except OSError:
-        kodi.log_exception("could not remove the remote keymap")
-        return False
-    _reload()
-    kodi.log("remote keymap removed")
-    return True
 
 
 def _reload():
@@ -111,15 +73,20 @@ def _reload():
 PROBE = "pinky-probe.xml"
 HEARD = "remote-heard.json"
 
-# Navigation and Select are deliberately absent: the probe has to stay
-# installed while somebody uses a dialog, and a box whose arrow keys have
-# been taken away is a box nobody can answer the question on.
+# The arrow keys are deliberately absent: the probe stays installed while
+# somebody answers a dialog, and a box whose directions have been taken away
+# is a box nobody can finish on. Select *is* here, because the first question
+# asked is "press OK", and a run where even OK is not heard means the probe
+# itself is broken rather than the remote being unreachable - a distinction
+# the first version could not make, and the one that mattered.
 PROBE_INPUTS = (
-    ("joystick", ("b", "x", "y", "start", "back", "guide", "leftbumper",
+    ("joystick", ("a", "b", "x", "y", "start", "back", "guide", "leftbumper",
                   "rightbumper", "leftthumbbutton", "rightthumbbutton")),
-    ("keyboard", ("backspace", "escape", "menu", "c", "i", "tab")),
-    ("remote", ("back", "title", "menu", "info", "display")),
-    ("gamepad", ("back", "start", "b", "y")),
+    ("keyboard", ("backspace", "escape", "menu", "c", "i", "tab",
+                  "return", "enter", "space")),
+    ("remote", ("back", "title", "menu", "info", "display",
+                "select", "enter")),
+    ("gamepad", ("back", "start", "a", "b", "y")),
     ("appcommand", ("browser_back", "browser_home", "menu")),
 )
 

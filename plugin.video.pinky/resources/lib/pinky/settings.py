@@ -101,7 +101,6 @@ DEFAULTS = {
     "subs.opensubtitles.apikey": "",
     "subs.opensubtitles.user": "",
     "subs.opensubtitles.password": "",
-    "subs.ai.enabled": "true",
     "subs.ai.engine": "gemini",
     "subs.ai.gemini_key": "",
     "subs.ai.openrouter_key": "",

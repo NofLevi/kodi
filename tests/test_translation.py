@@ -59,7 +59,7 @@ def cues(count=10):
 
 @pytest.fixture
 def use_engine(monkeypatch, settings_module):
-    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.chunk": "8"})
+    settings_module.set_many({"subs.ai.chunk": "8"})
 
     def install(mode="good"):
         engine = FakeEngine(mode)
@@ -185,7 +185,7 @@ def test_cancellation_during_final_model_call_discards_its_reply(
             return json.dumps({key: "HE:" + value
                                for key, value in payload.items()})
 
-    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.chunk": "20"})
+    settings_module.set_many({"subs.ai.chunk": "20"})
     monkeypatch.setattr(translator, "engine", lambda: Engine())
     with pytest.raises(translator.TranslationCancelled):
         translator.translate(cues(2), "he",
@@ -209,12 +209,12 @@ def test_chunk_keys_stay_absolute_across_chunks(use_engine):
         assert cue.text == "HE:line %d" % position
 
 
-def test_translation_is_off_when_no_engine_is_configured(settings_module):
-    settings_module.set("subs.ai.enabled", "false")
-    assert translator.engine() is None
-    assert translator.available() is False
-    with pytest.raises(translator.TranslationError):
-        translator.translate(cues(2), "he")
+def test_there_is_always_an_engine(settings_module):
+    """Translation used to be a setting, and a box where nobody had found it
+    played English. It is not a setting any more: with no key for the chosen
+    engine, Google's free endpoint answers, so every box can make Hebrew."""
+    assert translator.engine() is not None
+    assert translator.available() is True
 
 
 def test_partial_results_are_offered_after_each_chunk(use_engine):
@@ -581,15 +581,13 @@ class _Answer(object):
 
 
 def test_google_is_there_when_no_key_is(settings_module):
-    """Switching AI on is enough: with no key for the chosen engine, Google's
-    free endpoint, which is what Kodi POV IL and DarkSubs fall back to."""
+    """With no key for the chosen engine, Google's free endpoint, which is
+    what Kodi POV IL and DarkSubs fall back to."""
     from pinky.subs.ai import google_web
 
-    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.gemini_key": ""})
+    settings_module.set_many({"subs.ai.gemini_key": ""})
     assert translator.engine() is google_web
     assert translator.engines()[-1] is google_web
-    settings_module.set("subs.ai.enabled", "false")
-    assert translator.engine() is None, "switched off is still off"
 
 
 def test_google_answers_only_when_every_line_came_back(monkeypatch):
@@ -614,7 +612,7 @@ def test_an_engine_refusing_everything_hands_over_at_once(monkeypatch, settings_
     """Both Gemini models answered 503 to every request: each chunk waited
     out its refusals before the next engine was asked, and the episode played
     in English meanwhile."""
-    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.chunk": "8"})
+    settings_module.set_many({"subs.ai.chunk": "8"})
     refused = []
 
     class Busy(object):
@@ -633,7 +631,7 @@ def test_the_whole_episode_goes_to_the_fast_model_then_the_full_one_goes_over_it
         monkeypatch, settings_module):
     """Hikaru no Go: 40 lines in Hebrew from the fast model, then English,
     because every later chunk waited on a full model that was busy all day."""
-    settings_module.set_many({"subs.ai.enabled": "true", "subs.ai.chunk": "8"})
+    settings_module.set_many({"subs.ai.chunk": "8"})
 
     class Model(FakeEngine):
         def __init__(self, tag, busy=False):

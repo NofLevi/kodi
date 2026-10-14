@@ -205,14 +205,12 @@ def _ai_entry(ranked, target):
     The row appears without a key configured, and says so. Hiding it until a
     key exists means the one viewer who most needs it - the one staring at a
     film with no subtitles - is shown nothing and has no way to find out the
-    feature is there. Switching AI off in the settings does hide it, because
-    that is somebody saying they do not want it rather than not having got to
-    it yet.
+    feature is there. There is no longer a switch that hides it either: a
+    viewer who did not want translated subtitles would not be looking at this
+    list.
     """
     from .ai import translator
 
-    if not settings.get_bool("subs.ai.enabled"):
-        return None
     ready = translator.available()
 
     # Label it with the source it would most likely use, when the search just
