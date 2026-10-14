@@ -33,7 +33,7 @@ def test_the_probe_listens_for_ok_as_its_control():
 def test_the_probe_asks_every_input_kind_to_announce_itself():
     probe = remotekeys.probe_keymap()
     for section in ("joystick", "keyboard", "remote", "gamepad", "appcommand"):
-        assert "<%s>" % section in probe
+        assert "<%s" % section in probe
     assert "action=learn&amp;key=joystick.back" in probe, "& must be XML-escaped"
 
 
@@ -82,3 +82,43 @@ def test_a_remote_that_said_nothing_binds_nothing():
     keymap = remotekeys.learned_keymap({})
     assert "<FullscreenVideo>" not in keymap
     assert keymap.strip().startswith("<keymap>")
+
+
+def test_the_joystick_section_says_which_controller_it_means():
+    """Kodi reads a joystick section only when it names the controller
+    profile - every example in its own joystick.xml carries the attribute.
+    The first probe left it off, which is the likeliest reason the projector
+    heard nothing at all. Read off a Kodi 21 install, 14 October 2026."""
+    for keymap in (remotekeys.probe_keymap(),
+                   remotekeys.learned_keymap({"Back": "joystick.b"})):
+        assert '<joystick profile="game.controller.default">' in keymap
+        assert "<joystick>" not in keymap
+
+
+def test_every_name_the_probe_binds_is_one_kodi_knows():
+    """A name Kodi has no feature for is a line it ignores in silence, which
+    is indistinguishable from a button nobody pressed. These are the names in
+    Kodi 21's own keymaps; `leftthumbbutton` is a gamepad name and was wrong
+    under joystick, and appcommand has no `menu` at all."""
+    known = {
+        "joystick": {"a", "b", "x", "y", "start", "back", "guide", "up",
+                     "down", "left", "right", "leftbumper", "rightbumper",
+                     "leftthumb", "rightthumb", "lefttrigger", "righttrigger"},
+        "gamepad": {"a", "b", "x", "y", "back", "start", "white", "black",
+                    "leftthumbbutton", "rightthumbbutton", "lefttrigger",
+                    "righttrigger", "dpadup", "dpaddown"},
+        "appcommand": {"browser_back", "browser_home", "browser_stop",
+                       "browser_favorites", "play", "pause", "stop"},
+    }
+    for section, names in remotekeys.PROBE_INPUTS:
+        if section not in known:
+            continue
+        unknown = set(names) - known[section]
+        assert not unknown, "%s has no %s" % (section, ", ".join(sorted(unknown)))
+
+
+def test_the_probe_is_well_formed_xml():
+    """Kodi drops a keymap it cannot parse without saying anything useful."""
+    import xml.etree.ElementTree as ET
+    ET.fromstring(remotekeys.probe_keymap())
+    ET.fromstring(remotekeys.learned_keymap({"Back": "keyboard.escape"}))

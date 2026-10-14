@@ -81,14 +81,21 @@ HEARD = "remote-heard.json"
 # the first version could not make, and the one that mattered.
 PROBE_INPUTS = (
     ("joystick", ("a", "b", "x", "y", "start", "back", "guide", "leftbumper",
-                  "rightbumper", "leftthumbbutton", "rightthumbbutton")),
+                  "rightbumper", "leftthumb", "rightthumb")),
     ("keyboard", ("backspace", "escape", "menu", "c", "i", "tab",
                   "return", "enter", "space")),
-    ("remote", ("back", "title", "menu", "info", "display",
-                "select", "enter")),
-    ("gamepad", ("back", "start", "a", "b", "y")),
-    ("appcommand", ("browser_back", "browser_home", "menu")),
+    ("remote", ("back", "title", "menu", "info", "display", "select",
+                "enter", "contentsmenu", "rootmenu")),
+    ("gamepad", ("back", "start", "a", "b", "y", "leftthumbbutton")),
+    ("appcommand", ("browser_back", "browser_home", "browser_stop")),
 )
+
+# Kodi reads the joystick section only when it says which controller profile
+# the names belong to - every example in its own joystick.xml carries this
+# attribute, and the first version of the probe left it off, which is the
+# likeliest reason the projector heard nothing at all. Read off Kodi 21 on
+# 14 October 2026.
+SECTION_ATTRS = {"joystick": ' profile="game.controller.default"'}
 
 
 def heard_file():
@@ -99,7 +106,7 @@ def probe_keymap():
     """The keymap that makes every candidate button announce itself."""
     rows = ["<keymap>", "  <global>"]
     for section, names in PROBE_INPUTS:
-        rows.append("    <%s>" % section)
+        rows.append("    <%s%s>" % (section, SECTION_ATTRS.get(section, "")))
         for name in names:
             rows.append(
                 "      <%s>RunPlugin(plugin://plugin.video.pinky/"
@@ -200,7 +207,7 @@ def learned_keymap(roles):
             sections.setdefault(section, []).append((name, action))
     rows = ["<keymap>", "  <global>"]
     for section in sorted(sections):
-        rows.append("    <%s>" % section)
+        rows.append("    <%s%s>" % (section, SECTION_ATTRS.get(section, "")))
         for name, action in sections[section]:
             rows.append("      <%s>%s</%s>" % (name, action, name))
         rows.append("    </%s>" % section)
@@ -208,7 +215,8 @@ def learned_keymap(roles):
     back = roles.get("Back")
     if back and "." in back:
         section, _, name = back.partition(".")
-        rows += ["  <FullscreenVideo>", "    <%s>" % section,
+        rows += ["  <FullscreenVideo>",
+                 "    <%s%s>" % (section, SECTION_ATTRS.get(section, "")),
                  "      <%s>Stop</%s>" % (name, name),
                  "    </%s>" % section, "  </FullscreenVideo>"]
     rows += ["</keymap>", ""]
