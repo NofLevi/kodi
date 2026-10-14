@@ -1961,3 +1961,7 @@ msgctxt "#32616"
 msgid "This screen is not hearing any button, not even OK - tell Pinky"
 msgstr "המסך הזה לא שומע אף כפתור, גם לא OK - דווח ל-Pinky"
 
+msgctxt "#32617"
+msgid "nothing heard yet"
+msgstr "עדיין לא נשמע דבר"
+

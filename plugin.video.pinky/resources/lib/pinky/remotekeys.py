@@ -151,16 +151,16 @@ def record(key):
     """One press, written down. Called by the probe keymap through the
     plugin, so it has to be cheap and never raise into Kodi."""
     try:
-        heard = _heard()
-        heard.append({"key": key, "at": time.time()})
+        rows = heard()
+        rows.append({"key": key, "at": time.time()})
         with io.open(heard_file(), "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(heard[-50:]))
+            handle.write(json.dumps(rows[-50:]))
         kodi.log("remote learned a press: %s" % key, kodi.LOG_INFO)
     except Exception:
         kodi.log_exception("could not write down a key press")
 
 
-def _heard():
+def heard():
     try:
         with io.open(heard_file(), encoding="utf-8") as handle:
             found = json.loads(handle.read())
@@ -185,7 +185,7 @@ def pressed_since(moment, least=2):
     passes and one they retry.
     """
     counts = {}
-    for row in _heard():
+    for row in heard():
         if row.get("at", 0) >= moment and row.get("key"):
             counts[row["key"]] = counts.get(row["key"], 0) + 1
     if not counts:

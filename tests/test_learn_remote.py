@@ -39,14 +39,14 @@ def test_the_probe_asks_every_input_kind_to_announce_itself():
 
 def test_one_press_is_not_an_answer(settings_module, monkeypatch):
     """A remote that repeats, or a thumb that slips, must not decide."""
-    monkeypatch.setattr(remotekeys, "_heard",
+    monkeypatch.setattr(remotekeys, "heard",
                         lambda: [{"key": "joystick.b", "at": time.time()}])
     assert remotekeys.pressed_since(time.time() - 5) == ""
 
 
 def test_the_button_pressed_most_wins(settings_module, monkeypatch):
     now = time.time()
-    monkeypatch.setattr(remotekeys, "_heard", lambda: [
+    monkeypatch.setattr(remotekeys, "heard", lambda: [
         {"key": "keyboard.escape", "at": now},
         {"key": "joystick.b", "at": now},
         {"key": "joystick.b", "at": now},
@@ -57,7 +57,7 @@ def test_the_button_pressed_most_wins(settings_module, monkeypatch):
 def test_presses_from_the_last_question_do_not_answer_this_one(
         settings_module, monkeypatch):
     old = time.time() - 60
-    monkeypatch.setattr(remotekeys, "_heard", lambda: [
+    monkeypatch.setattr(remotekeys, "heard", lambda: [
         {"key": "joystick.b", "at": old}, {"key": "joystick.b", "at": old}])
     assert remotekeys.pressed_since(time.time() - 5) == ""
 
@@ -122,3 +122,50 @@ def test_the_probe_is_well_formed_xml():
     import xml.etree.ElementTree as ET
     ET.fromstring(remotekeys.probe_keymap())
     ET.fromstring(remotekeys.learned_keymap({"Back": "keyboard.escape"}))
+
+
+def test_the_screen_has_nothing_on_it_that_can_be_pressed():
+    """The first version used Kodi's progress dialog, which carries a Cancel
+    button - so the opening instruction, "press OK", pressed Cancel and
+    closed the screen. A question has to survive its own answer."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    window = ET.parse(os.path.join(
+        here, "plugin.video.pinky", "resources", "skins", "default", "1080i",
+        "pinky-learn.xml")).getroot()
+    kinds = [control.get("type") for control in window.iter("control")]
+    assert "button" not in kinds, "nothing here may be pressable"
+    assert "label" in kinds, "it still has to ask the question"
+
+
+def test_a_press_never_closes_the_screen():
+    """onAction is overridden to do nothing, which is the whole fix."""
+    import inspect
+
+    from pinky.ui import learn_remote
+    source = inspect.getsource(learn_remote._Asking.onAction)
+    assert "close" not in source, "a press must not end the question"
+    assert "doModal" not in source
+
+
+def test_a_press_really_survives_the_round_trip(settings_module):
+    """Every other test here monkeypatches what was heard, so the one path
+    that matters on the box - a plugin call writing a file that a window
+    thread reads back - was never actually run. `record` swallows its own
+    exceptions so it cannot raise into Kodi, which means a broken write
+    looks exactly like a remote nobody pressed."""
+    import os
+
+    remotekeys.forget()
+    moment = time.time() - 1
+    remotekeys.record("joystick.b")
+    remotekeys.record("joystick.b")
+
+    assert os.path.isfile(remotekeys.heard_file()), "nothing was written down"
+    assert len(remotekeys.heard()) == 2
+    assert remotekeys.pressed_since(moment) == "joystick.b"
+
+    remotekeys.forget()
+    assert remotekeys.heard() == [], "forgetting has to actually forget"

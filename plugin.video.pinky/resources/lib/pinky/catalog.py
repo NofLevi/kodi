@@ -142,7 +142,10 @@ SECTION_ORDER = {
         "shows_documentary", "shows_reality",
     ],
     LIVE: [
-        "israel_live", "israel_radio", "israel_vod",
+        # Radio last: it is the one row here that is not television, and it
+        # used to be off by default, which is a different way of saying the
+        # same thing about where it belongs.
+        "israel_live", "israel_vod", "israel_radio",
         # the per-broadcaster rows follow, in the catalogue's own order
     ],
 }
@@ -529,7 +532,7 @@ def _build_rows():
         # names are already Hebrew in the data.
         _row("israel_radio", S["israel_radio"],
              lambda page: _israel_radio(page), TTL_LONG, needs=("vod",),
-             default=False, sections=(LIVE,)),
+             default=True, sections=(LIVE,)),
     ] + [
 
         # Kids mode rows. These are never in the default set: kids.rows_allowed

@@ -112,10 +112,6 @@ DEFAULTS = {
     "subs.ai.chunk": "100",
     "subs.cache_files": "30",
     # israeli vod
-    "vod.channels_url": "",
-    "vod.series_url": "",
-    "vod.show_radio": "false",
-    "vod.show_broken_channels": "false",
     # ui
     "ui.language": "auto",
     "ui.rows": "",

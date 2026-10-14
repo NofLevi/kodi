@@ -169,10 +169,14 @@ def test_home_offers_setup_when_tmdb_is_not_configured(settings_module):
 
 
 def test_live_tv_lists_real_channels():
+    """Radio is the one folder among them - it was behind a setting that
+    defaulted to off, so the stations existed and nobody could find them."""
     dispatch("live_tv")
     assert len(xbmcplugin.ITEMS) > 20
-    assert all("action=play_channel" in url
-               for url, _item, _folder in xbmcplugin.ITEMS)
+    urls = [url for url, _item, _folder in xbmcplugin.ITEMS]
+    assert sum("kind=radio" in url for url in urls) == 1
+    assert all("action=play_channel" in url or "kind=radio" in url
+               for url in urls)
 
 
 def test_vod_lists_broadcasters():

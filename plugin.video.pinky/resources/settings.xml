@@ -765,71 +765,6 @@
             </group>
         </category>
 
-        <category id="israel" label="30078" help="30079">
-            <group id="1" label="30080">
-                <setting id="vod.show_radio" type="boolean" label="30081">
-                    <level>0</level><default>false</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting id="vod.channels_url" type="string" label="30082">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>2</level>                    <control type="edit" format="string">
-                        <heading>30107</heading>
-                    </control>
-                </setting>
-            </group>
-            <group id="2" label="30083">
-                <setting id="vod.series_url" type="string" label="30084">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>2</level>                    <control type="edit" format="string">
-                        <heading>30108</heading>
-                    </control>
-                </setting>
-                <setting id="vod.show_broken_channels" type="boolean" label="30113">
-                    <level>2</level>
-                    <default>false</default>
-                    <control type="toggle"/>
-                </setting>
-            </group>
-        </category>
-
-        <category id="kids" label="30085" help="30086">
-            <group id="1" label="30085">
-                <setting id="kids.enabled" type="boolean" label="30085" help="30087">
-                    <level>0</level><default>false</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting id="kids.age" type="string" label="30088">
-                    <level>0</level><default>older</default>
-                    <constraints>
-                        <options>
-                            <option>young</option>
-                            <option>older</option>
-                            <option>teen</option>
-                        </options>
-                    </constraints>
-                    <control type="list" format="string">
-                        <heading>30088</heading>
-                    </control>
-                </setting>
-                <setting id="kids.pin_hash" type="string" label="30089" help="30090">
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <level>3</level>                    <control type="edit" format="string">
-                        <heading>30089</heading>
-                    </control>
-                </setting>
-            </group>
-        </category>
-
         <category id="tools" label="30145" help="30146">
             <group id="1" label="30145">
                 <setting id="action.setup" type="action" label="32260">
@@ -846,23 +781,40 @@
                         <close>true</close>
                     </control>
                 </setting>
+                <setting id="kids.enabled" type="boolean" label="30085" help="30087">
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="kids.age" type="string" label="30088">
+                    <level>4</level><default>older</default>
+                    <visible>false</visible>
+                    <constraints>
+                        <options>
+                            <option>young</option>
+                            <option>older</option>
+                            <option>teen</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>30088</heading>
+                    </control>
+                </setting>
+                <setting id="kids.pin_hash" type="string" label="30089" help="30090">
+                    <level>4</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <visible>false</visible>
+                    <control type="edit" format="string">
+                        <hidden>true</hidden>
+                        <heading>30089</heading>
+                    </control>
+                </setting>
                 <setting id="action.kids" type="action" label="32226">
                     <level>0</level>
                     <data>RunPlugin(plugin://plugin.video.pinky/?action=kids_toggle)</data>
-                    <control type="button" format="action">
-                        <close>true</close>
-                    </control>
-                </setting>
-                <setting id="action.backup_export" type="action" label="32564">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.pinky/?action=backup_export)</data>
-                    <control type="button" format="action">
-                        <close>true</close>
-                    </control>
-                </setting>
-                <setting id="action.backup_import" type="action" label="32565">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.pinky/?action=backup_import)</data>
                     <control type="button" format="action">
                         <close>true</close>
                     </control>

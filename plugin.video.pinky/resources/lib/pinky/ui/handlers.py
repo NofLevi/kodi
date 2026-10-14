@@ -525,10 +525,13 @@ def live_tv(params):
     from ..vod import channels
 
     entries = channels.live_channels(kind="tv")
-    if settings.get_bool("vod.show_radio"):
-        listing.add_directory(handle, kodi.localize(32360),
-                              router.url_for("channels", kind="radio"),
-                              art={"icon": "DefaultMusicVideos.png"})
+    # Radio used to be behind a setting that defaulted to off, which meant
+    # the stations existed and nobody could find them. It is one folder at
+    # the end of a list of channels: there was nothing to protect anybody
+    # from.
+    listing.add_directory(handle, kodi.localize(32360),
+                          router.url_for("channels", kind="radio"),
+                          art={"icon": "DefaultMusicVideos.png"})
     listing.add_items(handle, entries, content="videos", cache_to_disc=False)
 
 
