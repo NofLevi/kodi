@@ -256,10 +256,13 @@ def select(options, heading=None, preselect=-1, use_details=False):
 def keyboard_layouts():
     """Every layout name Kodi knows, read out of its own layout files.
 
-    Asking rather than assuming, because the name is what the setting
-    stores and a name that is one word out is a layout that silently never
-    appears. The projector showed "English QWERTY" and "IP address" and no
-    Hebrew at all, which is exactly what a wrong name looks like.
+    The name is not written in those files. Each one holds
+    `<layout language="Hebrew" layout="QWERTY">` and Kodi makes the name
+    callers see - and the setting stores - by putting the two together:
+    "Hebrew QWERTY". Read from a copy of Kodi 21 on 14 October 2026.
+
+    Asking rather than assuming, because the name is what the setting stores
+    and a name one word out is a layout that silently never appears.
     """
     folder = xbmcvfs.translatePath("special://xbmc/system/keyboardlayouts")
     names = []
@@ -275,8 +278,11 @@ def keyboard_layouts():
             root = ET.parse(os.path.join(folder, name)).getroot()
         except Exception:
             continue
-        for element in root.iter():
-            found = element.get("name")
+        for element in root.iter("layout"):
+            language = (element.get("language") or "").strip()
+            shape = (element.get("layout") or "").strip()
+            found = (" ".join(part for part in (language, shape) if part)
+                     or element.get("name") or "")
             if found and found not in names:
                 names.append(found)
     return names

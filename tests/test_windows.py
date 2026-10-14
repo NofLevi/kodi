@@ -1629,3 +1629,40 @@ def test_coming_back_from_a_video_redraws_continue_watching(monkeypatch, configu
         time.sleep(0.05)
     assert invalidated == ["continue"]
     assert window.getControl(home_window.LIST_BASE).size() == 3
+
+
+def test_the_layout_name_is_built_the_way_kodi_builds_it(monkeypatch, tmp_path):
+    """Kodi's own layout files carry no name. Each holds
+
+        <layout language="Hebrew" layout="QWERTY">
+
+    and the name the setting stores is the two put together. Read off a
+    Kodi 21 install on 14 October 2026, after a first attempt looked for a
+    `name` attribute, found none anywhere, and would have concluded that no
+    Kodi on earth has a Hebrew keyboard.
+    """
+    import xbmcvfs
+    from pinky import kodi
+
+    folder = tmp_path / "keyboardlayouts"
+    folder.mkdir()
+    (folder / "hebrew.xml").write_text(
+        '<keyboardlayouts><layout language="Hebrew" layout="QWERTY">'
+        '</layout></keyboardlayouts>', encoding="utf-8")
+    (folder / "english.xml").write_text(
+        '<keyboardlayouts><layout language="English" layout="QWERTY">'
+        '</layout></keyboardlayouts>', encoding="utf-8")
+    monkeypatch.setattr(xbmcvfs, "translatePath", lambda path: str(folder))
+
+    assert kodi.keyboard_layouts() == ["English QWERTY", "Hebrew QWERTY"]
+    assert kodi.hebrew_layout() == "Hebrew QWERTY"
+
+
+def test_a_kodi_whose_layouts_cannot_be_read_adds_nothing(monkeypatch):
+    """Rather than writing a name nobody asked for into the settings."""
+    import xbmcvfs
+    from pinky import kodi
+
+    monkeypatch.setattr(xbmcvfs, "translatePath", lambda path: "/nowhere")
+    assert kodi.keyboard_layouts() == []
+    assert kodi.hebrew_layout() == ""
