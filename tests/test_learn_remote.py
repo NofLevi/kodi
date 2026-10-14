@@ -202,3 +202,17 @@ def test_actions_from_the_previous_question_do_not_answer_this_one():
     old = time.time() - 60
     screen.seen += [{"id": 7, "at": old}, {"id": 7, "at": old}]
     assert screen._acted_since(time.time() - 1) is None
+
+
+def test_kodi_is_asked_to_reload_the_way_kodi_understands(monkeypatch):
+    """`ReloadKeymaps` is an action name, not a builtin. Called as a builtin
+    it does nothing and says nothing, which is why a probe keymap written
+    onto the projector was never read - there is no second "load keymapping"
+    line in its log anywhere after the write. The builtin that runs an action
+    by name is `Action`."""
+    import xbmc
+
+    ran = []
+    monkeypatch.setattr(xbmc, "executebuiltin", lambda command: ran.append(command))
+    remotekeys._reload()
+    assert ran == ["Action(reloadkeymaps)"]

@@ -48,11 +48,18 @@ def installed():
 
 
 def _reload():
-    """Kodi reads keymaps at startup; this is how it is told to look again,
-    so the buttons change under somebody's thumb rather than after a
-    restart they were not told about."""
+    """Ask Kodi to read the keymaps again.
+
+    `Action(reloadkeymaps)`, not `ReloadKeymaps`: it is an action name, and
+    the builtin that runs an action by name is `Action`. Called the wrong way
+    it is simply not a builtin, Kodi does nothing, and nothing says so - the
+    projector's log has no second "load keymapping" line anywhere after the
+    probe was installed, which is why the probe heard nothing it was
+    listening for. Copied from script.fentastic.helper, which does this and
+    works.
+    """
     try:
-        xbmc.executebuiltin("ReloadKeymaps")
+        xbmc.executebuiltin("Action(reloadkeymaps)")
     except Exception:
         kodi.log_exception("could not reload the keymaps")
 
