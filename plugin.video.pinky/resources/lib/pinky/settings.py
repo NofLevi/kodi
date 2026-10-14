@@ -90,7 +90,7 @@ DEFAULTS = {
     # The subtitles that ship inside the release. See sidecar.py.
     "subs.provider.sidecar": "true",
     "subs.provider.wizdom": "true",
-    "subs.provider.opensubtitles": "true",
+    "subs.provider.opensubtitles": "false",
     "subs.provider.opensubtitles_rest": "true",
     "subs.provider.yify": "true",
     # Off: every host stopped answering. See bsplayer.py.
@@ -130,6 +130,7 @@ DEFAULTS = {
     # Bookkeeping, not a preference: whether Kodi's own keyboard layouts have
     # been offered Hebrew yet. Asked once so that removing it again sticks.
     "ui.keyboard_hebrew_added": "false",
+    "ui.providers_reviewed": "false",
     "ui.window_home": "true",
     "ui.window_search": "true",
     # Go straight into Pinky when Kodi starts. Off, because taking over
@@ -297,3 +298,42 @@ def resolution_rank(name):
         return RESOLUTIONS.index((name or "").lower())
     except ValueError:
         return -1
+
+
+# Providers that stopped being a question *and* stopped working. The toggles
+# left the settings screen, so a box with one of these switched on had no way
+# left to switch it off - and each of these costs a search that cannot
+# succeed. BSPlayer's three hosts all resolve to one address that accepts no
+# connection, twelve seconds against a ten second deadline. SubSource moved
+# behind a login in September 2026 and has no anonymous search left. The
+# OpenSubtitles account provider was replaced by the built-in keys behind its
+# REST sibling.
+#
+# Deliberately only these three. Which *working* providers run is the
+# Performance profile's business - Powerful turns Comet, MediaFusion and
+# Zilean on - and a one-off catch-up that overruled somebody's chosen profile
+# would be a reset wearing a different hat.
+RETIRED_PROVIDERS = {
+    "subs.provider.bsplayer": "false",
+    "subs.provider.subsource": "false",
+    "subs.provider.opensubtitles": "false",
+}
+
+
+def catch_up():
+    """Apply answers that changed after boxes were already running.
+
+    Kodi writes every declared setting into its own file at install, so a
+    changed `<default>` reaches new installs and nobody else: a box that
+    stored `true` two releases ago keeps storing it. With the toggle gone
+    from the settings screen there is nowhere left to change it by hand, so
+    this is the one place that difference is made up. It runs once.
+
+    Not a reset: it touches three dead providers and nothing else.
+    """
+    if get_bool("ui.providers_reviewed", False):
+        return False
+    for key, value in RETIRED_PROVIDERS.items():
+        set(key, value)
+    set("ui.providers_reviewed", True)
+    return True

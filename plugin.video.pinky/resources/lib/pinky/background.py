@@ -305,6 +305,11 @@ class Service(xbmc.Monitor):
         # rather than in the search window because it is a once-per-install
         # question about Kodi, not about a press.
         try:
+            settings.catch_up()
+        except Exception:
+            kodi.log_exception("could not catch the settings up")
+
+        try:
             kodi.ensure_hebrew_keyboard()
         except Exception:
             kodi.log_exception("could not offer Kodi a Hebrew keyboard")

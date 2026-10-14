@@ -297,35 +297,43 @@
         <category id="sources" label="30015" help="30016">
             <group id="1" label="30017">
                 <setting id="sources.provider.torrentio" type="boolean" label="30018">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>true</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.torrentsdb" type="boolean" label="30326">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>true</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.comet" type="boolean" label="30019" help="30143">
-                    <level>2</level><default>false</default>
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.mediafusion" type="boolean" label="30020" help="30143">
-                    <level>2</level><default>false</default>
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.zilean" type="boolean" label="30021" help="30144">
-                    <level>2</level><default>false</default>
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.nyaa" type="boolean" label="30022">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>true</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.animetosho" type="boolean" label="30023">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>true</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="sources.provider.external" type="boolean" label="30024">
-                    <level>2</level><default>false</default>
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
             </group>
@@ -586,11 +594,13 @@
 
             <group id="2" label="30017">
                 <setting id="subs.provider.sidecar" type="boolean" label="30324">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>true</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.wizdom" type="boolean" label="30060">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>true</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.consensus" type="boolean" label="30320">
@@ -599,24 +609,29 @@
                 </setting>
                 <setting id="subs.provider.bsplayer" type="boolean"
                          label="30319">
-                    <level>2</level><default>false</default>
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.opensubtitles_rest" type="boolean"
                          label="30318">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>true</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.yify" type="boolean" label="30325">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>true</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.opensubtitles" type="boolean" label="30061">
-                    <level>2</level><default>true</default>
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.provider.subsource" type="boolean" label="30062">
-                    <level>2</level><default>false</default>
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
                     <control type="toggle"/>
                 </setting>
                 <setting id="subs.opensubtitles.apikey" type="string" label="30067">
@@ -780,6 +795,11 @@
                     <control type="button" format="action">
                         <close>true</close>
                     </control>
+                </setting>
+                <setting id="ui.providers_reviewed" type="boolean" label="30085">
+                    <level>4</level><default>false</default>
+                    <visible>false</visible>
+                    <control type="toggle"/>
                 </setting>
                 <setting id="kids.enabled" type="boolean" label="30085" help="30087">
                     <level>4</level><default>false</default>
