@@ -60,6 +60,7 @@ class _Asking(xbmcgui.WindowXMLDialog):
         super(_Asking, self).__init__()
         self.seen = []
         self.roles = {}
+        self.found = {}
         self.heard_anything = False
         self.done = threading.Event()
 
@@ -71,10 +72,29 @@ class _Asking(xbmcgui.WindowXMLDialog):
         thread.start()
 
     def onAction(self, action):
+        """Every press, with the moment it arrived.
+
+        This is the channel that demonstrably works. The keymap probe is the
+        only way to learn a button Kodi has no action for, but the projector
+        answered `[7, 7, 7]` to three presses of OK while the probe heard
+        nothing at all - so what Kodi makes of a press is the evidence to
+        lead with, and the probe is the second opinion.
+        """
         try:
-            self.seen.append(action.getId())
+            self.seen.append({"id": action.getId(), "at": time.time()})
         except Exception:
             pass
+
+    def _acted_since(self, moment, least=2):
+        """The action id produced most often since `moment`, or None."""
+        counts = {}
+        for row in list(self.seen):
+            if row.get("at", 0) >= moment:
+                counts[row["id"]] = counts.get(row["id"], 0) + 1
+        if not counts:
+            return None
+        best = max(counts, key=counts.get)
+        return best if counts[best] >= least else None
 
     def say(self, text):
         try:
@@ -83,42 +103,52 @@ class _Asking(xbmcgui.WindowXMLDialog):
             pass
 
     def _listen(self, prompt):
-        """Wait for one button, pressed more than once. "" when nobody did.
+        """Wait for one button, pressed more than once.
 
-        Whatever has been heard so far is on screen while it waits, because
-        the difference between "this box hears nothing" and "I have the wrong
-        name for what it hears" is the whole question, and a screen that only
-        counts down answers neither.
+        Returns (name, action) - the probe's name for it, or "", and the
+        action Kodi made of it, or None. Either one is an answer; both being
+        empty is the only real "nothing happened".
         """
         remotekeys.forget()
         started = time.time()
         while time.time() - started < WAIT:
             left = int(WAIT - (time.time() - started)) + 1
-            self.say("%s   (%d)\n%s" % (prompt, left, self._so_far(started)))
-            found = remotekeys.pressed_since(started)
-            if found:
-                return found
+            name = remotekeys.pressed_since(started)
+            acted = self._acted_since(started)
+            self.say("%s   (%d)\n%s"
+                     % (prompt, left,
+                        self._so_far(started, name, acted)))
+            if name or acted is not None:
+                kodi.sleep(400)   # let a third press land before deciding
+                return (remotekeys.pressed_since(started),
+                        self._acted_since(started))
             kodi.sleep(int(STEP * 1000))
-        return ""
+        return "", None
 
-    @staticmethod
-    def _so_far(started):
+    def _so_far(self, started, name, acted):
         heard = [row.get("key") for row in remotekeys.heard()
                  if row.get("at", 0) >= started and row.get("key")]
-        if not heard:
-            return kodi.localize(32617)
-        return "%s x%d" % (heard[-1], len(heard))
+        bits = []
+        if heard:
+            bits.append("%s x%d" % (heard[-1], len(heard)))
+        presses = [row for row in list(self.seen) if row.get("at", 0) >= started]
+        if presses:
+            bits.append("action %s x%d" % (presses[-1]["id"], len(presses)))
+        return "   ".join(bits) or kodi.localize(32617)
 
     def _ask(self):
         try:
-            self.heard_anything = bool(self._listen(kodi.localize(CONTROL)))
-            if self.heard_anything:
-                for action, prompt_id in ROLES:
-                    found = self._listen(kodi.localize(prompt_id))
-                    if found:
-                        self.roles[action] = found
-                        kodi.log("remote: %s is %s" % (action, found),
-                                 kodi.LOG_INFO)
+            name, acted = self._listen(kodi.localize(CONTROL))
+            self.heard_anything = bool(name) or acted is not None
+            if not self.heard_anything:
+                return
+            for action, prompt_id in ROLES:
+                name, acted = self._listen(kodi.localize(prompt_id))
+                self.found[action] = (name, acted)
+                if name:
+                    self.roles[action] = name
+                kodi.log("remote: %s -> probe %s, Kodi action %s"
+                         % (action, name or "nothing", acted), kodi.LOG_INFO)
         except Exception:
             kodi.log_exception("the remote screen gave up")
         finally:
@@ -149,13 +179,24 @@ def run():
              kodi.LOG_INFO)
 
     if not screen.heard_anything:
-        kodi.log("remote probe heard nothing at all, not even OK",
+        kodi.log("the remote screen heard nothing at all, not even OK",
                  kodi.LOG_INFO)
         kodi.notify(kodi.localize(32616))
         return False
+
+    # Two different answers, and they want different things said. A button
+    # Kodi already has an action for is not a keymap problem at all - it
+    # reaches Kodi, and whatever it fails to do afterwards is this add-on's
+    # doing. Only a button Kodi makes nothing of needs binding, and only the
+    # probe can name that one.
+    already = [action for action, (name, acted) in screen.found.items()
+               if not name and acted is not None]
+    if already:
+        kodi.log("Kodi already acts on: %s" % ", ".join(sorted(already)),
+                 kodi.LOG_INFO)
     if not screen.roles:
-        kodi.notify(kodi.localize(32613))
-        return False
+        kodi.notify(kodi.localize(32618 if already else 32613))
+        return bool(already)
     if not remotekeys.install_learned(screen.roles):
         kodi.notify(kodi.localize(32319))
         return False

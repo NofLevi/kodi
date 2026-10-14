@@ -2005,3 +2005,7 @@ msgctxt "#32617"
 msgid "nothing heard yet"
 msgstr ""
 
+msgctxt "#32618"
+msgid "Kodi already receives those buttons - the remote is fine, so the fault is in Pinky"
+msgstr ""
+

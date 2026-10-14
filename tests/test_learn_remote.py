@@ -169,3 +169,36 @@ def test_a_press_really_survives_the_round_trip(settings_module):
 
     remotekeys.forget()
     assert remotekeys.heard() == [], "forgetting has to actually forget"
+
+
+def _screen():
+    from pinky.ui import learn_remote
+    screen = learn_remote._Asking.__new__(learn_remote._Asking)
+    screen.seen = []
+    return screen
+
+
+def test_what_kodi_makes_of_a_press_is_evidence_on_its_own():
+    """The projector answered `[7, 7, 7]` to three presses of OK while the
+    keymap probe heard nothing, so the screen reported "nothing arrived" for
+    a button Kodi had plainly received. What Kodi does with a press is now
+    the evidence it leads with."""
+    screen = _screen()
+    moment = time.time()
+    for _ in range(3):
+        screen.seen.append({"id": 7, "at": time.time()})
+    assert screen._acted_since(moment) == 7
+
+
+def test_one_stray_action_decides_nothing():
+    screen = _screen()
+    moment = time.time()
+    screen.seen.append({"id": 7, "at": time.time()})
+    assert screen._acted_since(moment) is None
+
+
+def test_actions_from_the_previous_question_do_not_answer_this_one():
+    screen = _screen()
+    old = time.time() - 60
+    screen.seen += [{"id": 7, "at": old}, {"id": 7, "at": old}]
+    assert screen._acted_since(time.time() - 1) is None
