@@ -930,6 +930,26 @@ def remotekeys(params):
                 else kodi.localize(32319))
 
 
+@router.route("learn")
+def learn(params):
+    """One press, heard by the probe keymap while the remote is being
+    learned. Silent on purpose: a notification per press would bury the
+    screen that is asking the question."""
+    from .. import remotekeys
+
+    key = params.get("key")
+    if key:
+        remotekeys.record(key)
+
+
+@router.route("learnremote")
+def learnremote(params):
+    """Find out what this box's remote actually sends, and bind it."""
+    from . import learn_remote
+
+    learn_remote.run()
+
+
 @router.route("console")
 def console(params):
     """The log, the add-on's files and the repairs, from a computer."""

@@ -1929,3 +1929,27 @@ msgctxt "#32608"
 msgid "All %d copies are camera recordings rather than a real release. Watch one anyway?"
 msgstr "כל %d העותקים הם הקלטות ממצלמה ולא מהדורה אמיתית. לצפות באחד בכל זאת?"
 
+msgctxt "#30332"
+msgid "Teach Pinky this remote"
+msgstr "ללמד את Pinky את השלט הזה"
+
+msgctxt "#32610"
+msgid "Pinky will listen to your remote. You will be asked to press a button three times, twice. Nothing else on the box changes."
+msgstr "Pinky יאזין לשלט שלך. תתבקש ללחוץ על כפתור שלוש פעמים, פעמיים. שום דבר אחר במכשיר לא משתנה."
+
+msgctxt "#32611"
+msgid "Press the button you want for Back - three times"
+msgstr "לחץ שלוש פעמים על הכפתור שישמש לחזרה אחורה"
+
+msgctxt "#32612"
+msgid "Press the button you want for the menu - three times"
+msgstr "לחץ שלוש פעמים על הכפתור שיפתח את התפריט"
+
+msgctxt "#32613"
+msgid "Nothing arrived from the remote - Kodi never sees those buttons"
+msgstr "שום דבר לא הגיע מהשלט - Kodi לא מקבל את הכפתורים האלה"
+
+msgctxt "#32614"
+msgid "%d buttons learned and bound"
+msgstr "%d כפתורים נלמדו והוגדרו"
+

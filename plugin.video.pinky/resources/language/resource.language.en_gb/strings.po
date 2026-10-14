@@ -1969,3 +1969,27 @@ msgctxt "#32608"
 msgid "All %d copies are camera recordings rather than a real release. Watch one anyway?"
 msgstr ""
 
+msgctxt "#30332"
+msgid "Teach Pinky this remote"
+msgstr ""
+
+msgctxt "#32610"
+msgid "Pinky will listen to your remote. You will be asked to press a button three times, twice. Nothing else on the box changes."
+msgstr ""
+
+msgctxt "#32611"
+msgid "Press the button you want for Back - three times"
+msgstr ""
+
+msgctxt "#32612"
+msgid "Press the button you want for the menu - three times"
+msgstr ""
+
+msgctxt "#32613"
+msgid "Nothing arrived from the remote - Kodi never sees those buttons"
+msgstr ""
+
+msgctxt "#32614"
+msgid "%d buttons learned and bound"
+msgstr ""
+

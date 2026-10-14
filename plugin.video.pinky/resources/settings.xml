@@ -918,6 +918,13 @@
 
         <category id="interface" label="30091" help="30092">
             <group id="0" label="30091">
+                <setting id="action.learnremote" type="action" label="30332">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=learnremote)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="action.remotekeys" type="action" label="30330">
                     <level>0</level>
                     <data>RunPlugin(plugin://plugin.video.pinky/?action=remotekeys)</data>
