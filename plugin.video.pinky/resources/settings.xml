@@ -926,7 +926,7 @@
                 <!-- Bookkeeping rather than a preference, so it is not shown:
                      whether Kodi's own keyboard layouts have been offered
                      Hebrew yet. Asked once, so removing it again sticks. -->
-                <setting id="ui.keyboard_hebrew_done" type="boolean"
+                <setting id="ui.keyboard_hebrew_added" type="boolean"
                          label="30094" visible="false">
                     <level>4</level><default>false</default>
                     <control type="toggle"/>

@@ -251,35 +251,83 @@ def select(options, heading=None, preselect=-1, use_details=False):
     )
 
 
-HEBREW_LAYOUT = "Hebrew QWERTY"
+
+
+def keyboard_layouts():
+    """Every layout name Kodi knows, read out of its own layout files.
+
+    Asking rather than assuming, because the name is what the setting
+    stores and a name that is one word out is a layout that silently never
+    appears. The projector showed "English QWERTY" and "IP address" and no
+    Hebrew at all, which is exactly what a wrong name looks like.
+    """
+    folder = xbmcvfs.translatePath("special://xbmc/system/keyboardlayouts")
+    names = []
+    try:
+        files = sorted(os.listdir(folder))
+    except OSError:
+        return names
+    import xml.etree.ElementTree as ET
+    for name in files:
+        if not name.endswith(".xml"):
+            continue
+        try:
+            root = ET.parse(os.path.join(folder, name)).getroot()
+        except Exception:
+            continue
+        for element in root.iter():
+            found = element.get("name")
+            if found and found not in names:
+                names.append(found)
+    return names
+
+
+def hebrew_layout():
+    """What Kodi calls its Hebrew layout here, or "" when it has none."""
+    for name in keyboard_layouts():
+        if "hebrew" in name.lower() or u"עברית" in name:
+            return name
+    return ""
 
 
 def ensure_hebrew_keyboard():
     """Put Hebrew among Kodi's own keyboard layouts, once.
 
-    Kodi's keyboard is where this add-on now sends anybody who wants to type
-    or talk, and it ships with **English QWERTY alone**: pressing the layout
-    button cycled between English and accented Latin, so a catalogue titled
-    entirely in Hebrew could not be searched in Hebrew at all. `hebrew.xml`
-    is already in Kodi's own `system/keyboardlayouts`; it is simply not
-    enabled.
+    Kodi's keyboard is where this add-on sends anybody who wants to type or
+    to talk, and it ships with **English QWERTY alone**: pressing the layout
+    button cycled between English and accented Latin - the row of á à â ä
+    that reads as gibberish when what you wanted was Hebrew - so a catalogue
+    titled entirely in Hebrew could not be searched in Hebrew at all.
+
+    Two things used to stop this working and both are fixed here. The layout
+    name was written out by hand, and a name Kodi does not use adds nothing;
+    it is now read from Kodi's own files. And the "already done" flag was
+    written *before* the attempt, so a single failure - a name that did not
+    match, a settings call that did not land - was remembered forever as
+    success. It is now written only when the layout is really in the list.
 
     Additive, and only ever additive: whatever else is configured stays, and
-    a viewer who removes Hebrew again is not overruled on the next start -
-    this only acts when the list has never contained it, which is why the
-    answer is remembered rather than the list re-checked.
+    a viewer who removes Hebrew again is not overruled on the next start.
     """
     from . import settings          # lazy: settings imports this module
-    if settings.get_bool("ui.keyboard_hebrew_done", False):
+    if settings.get_bool("ui.keyboard_hebrew_added", False):
         return False
-    settings.set("ui.keyboard_hebrew_done", True)
     layouts = _setting_value("locale.keyboardlayouts")
-    if not isinstance(layouts, list) or HEBREW_LAYOUT in layouts:
+    if not isinstance(layouts, list):
         return False
-    if not _set_setting_value("locale.keyboardlayouts",
-                              layouts + [HEBREW_LAYOUT]):
+    wanted = hebrew_layout()
+    if not wanted:
+        log("Kodi here has no Hebrew keyboard layout; it offers %s"
+            % ", ".join(keyboard_layouts()), LOG_INFO)
         return False
-    log("added %s to Kodi's keyboard layouts" % HEBREW_LAYOUT)
+    if wanted in layouts:
+        settings.set("ui.keyboard_hebrew_added", True)
+        return False
+    if not _set_setting_value("locale.keyboardlayouts", layouts + [wanted]):
+        log("could not add %s to Kodi's keyboard layouts" % wanted, LOG_INFO)
+        return False
+    settings.set("ui.keyboard_hebrew_added", True)
+    log("added %s to Kodi's keyboard layouts" % wanted, LOG_INFO)
     return True
 
 

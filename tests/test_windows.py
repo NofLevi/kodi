@@ -1490,49 +1490,98 @@ def test_voice_input_is_the_platform_question(monkeypatch):
     assert asked == ["System.Platform.Android"]
 
 
-def test_kodis_keyboard_is_offered_hebrew_once(monkeypatch, settings_module):
-    """Kodi ships English QWERTY alone, so the layout button cycled between
-    English and accented Latin - and a catalogue titled entirely in Hebrew
-    could not be typed in Hebrew at all. `hebrew.xml` is already in Kodi's own
-    system/keyboardlayouts; it is simply not enabled."""
+def _kodi_answering(monkeypatch, layouts, writes_fail=False):
+    """Kodi with `layouts` already configured, recording what is written."""
+    import json
     import xbmc
-    from pinky import kodi
-
     calls = []
 
     def fake_rpc(request):
-        import json
         sent = json.loads(request)
         calls.append(sent)
         if sent["method"] == "Settings.GetSettingValue":
-            return json.dumps({"result": {"value": ["English QWERTY"]}})
+            return json.dumps({"result": {"value": list(layouts)}})
+        if writes_fail:
+            return json.dumps({"error": {"message": "no"}})
         return json.dumps({"result": True})
 
     monkeypatch.setattr(xbmc, "executeJSONRPC", fake_rpc)
+    return calls
+
+
+def test_kodis_keyboard_is_offered_hebrew_once(monkeypatch, settings_module):
+    """Kodi ships English QWERTY alone, so the layout button cycled between
+    English and accented Latin - the row of a-acute and friends that reads as
+    gibberish when what you wanted was Hebrew - and a catalogue titled
+    entirely in Hebrew could not be typed in Hebrew at all."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    calls = _kodi_answering(monkeypatch, ["English QWERTY"])
+
     assert kodi.ensure_hebrew_keyboard() is True
     written = [c for c in calls if c["method"] == "Settings.SetSettingValue"]
-    assert written[0]["params"]["value"] == ["English QWERTY", "Hebrew QWERTY"], \
-        "additive - whatever else is configured has to survive"
+    assert written[0]["params"]["value"] == ["English QWERTY", "Hebrew QWERTY"],         "additive - whatever else is configured has to survive"
 
     calls[:] = []
     assert kodi.ensure_hebrew_keyboard() is False
     assert calls == [], "asked once, so removing it again sticks"
 
 
-def test_a_keyboard_that_already_has_hebrew_is_left_alone(monkeypatch,
-                                                          settings_module):
-    import xbmc
+def test_the_layout_name_comes_from_kodi_rather_than_from_us(monkeypatch,
+                                                             settings_module):
+    """The projector showed "English QWERTY" and "IP address" and no Hebrew,
+    which is what a hand-written name one word out looks like. Whatever this
+    Kodi calls its Hebrew layout is the name that gets written."""
     from pinky import kodi
 
-    def fake_rpc(request):
-        import json
-        sent = json.loads(request)
-        if sent["method"] == "Settings.GetSettingValue":
-            return json.dumps({"result": {"value": ["Hebrew QWERTY"]}})
-        raise AssertionError("wrote a layout list that needed no change")
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew"])
+    calls = _kodi_answering(monkeypatch, ["English QWERTY"])
 
-    monkeypatch.setattr(xbmc, "executeJSONRPC", fake_rpc)
+    assert kodi.ensure_hebrew_keyboard() is True
+    written = [c for c in calls if c["method"] == "Settings.SetSettingValue"]
+    assert written[0]["params"]["value"][-1] == "Hebrew"
+
+
+def test_a_failure_is_not_remembered_as_success(monkeypatch, settings_module):
+    """The flag used to be written before the attempt, so one failed call was
+    remembered forever and the keyboard never got Hebrew again."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    _kodi_answering(monkeypatch, ["English QWERTY"], writes_fail=True)
     assert kodi.ensure_hebrew_keyboard() is False
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    calls = _kodi_answering(monkeypatch, ["English QWERTY"])
+    assert kodi.ensure_hebrew_keyboard() is True, "it has to try again"
+    assert [c for c in calls if c["method"] == "Settings.SetSettingValue"]
+
+
+def test_a_kodi_with_no_hebrew_layout_at_all_says_so(monkeypatch,
+                                                     settings_module):
+    """Nothing to add, and nothing pretended: the log names what was offered
+    so the next person is not guessing at it either."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts", lambda: ["English QWERTY"])
+    _kodi_answering(monkeypatch, ["English QWERTY"])
+    assert kodi.ensure_hebrew_keyboard() is False
+
+
+def test_a_keyboard_that_already_has_hebrew_is_left_alone(monkeypatch,
+                                                          settings_module):
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    calls = _kodi_answering(monkeypatch, ["Hebrew QWERTY"])
+    assert kodi.ensure_hebrew_keyboard() is False
+    assert not [c for c in calls if c["method"] == "Settings.SetSettingValue"]
 
 
 def test_a_kodi_that_refuses_the_question_is_not_a_crash(monkeypatch,
