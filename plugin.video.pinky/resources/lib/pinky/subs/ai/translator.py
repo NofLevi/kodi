@@ -66,9 +66,39 @@ The people in this scene, for choosing the right gendered forms:
 HEBREW_GUIDANCE = """- Hebrew marks the speaker's gender on verbs and adjectives. Use the cast
   list above, speaker labels and surrounding lines to choose the right form.
   When genuinely unclear, choose natural phrasing rather than defaulting to
-  masculine."""
+  masculine.
+- Write every line in Hebrew letters only, names included. Transliterate
+  Japanese and Western names into Hebrew; never leave or complete a word in
+  Arabic, Cyrillic or Greek script."""
 
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.M)
+
+# Scripts a target language does not use. Latin and digits are always fine:
+# a subtitle carries names, numbers and the occasional English word on
+# purpose, and rejecting those would reject most correct lines.
+_FOREIGN_SCRIPTS = {
+    "Hebrew": ((0x0600, 0x06FF), (0x0750, 0x077F), (0xFB50, 0xFDFF),
+               (0xFE70, 0xFEFF), (0x0400, 0x04FF), (0x0370, 0x03FF)),
+    "Arabic": ((0x0590, 0x05FF), (0xFB1D, 0xFB4F), (0x0400, 0x04FF)),
+}
+
+
+def wrong_script(line, language):
+    """True when a line is partly written in an alphabet it should not be.
+
+    Measured on Hikaru no Go: the model finished Hebrew names in Arabic
+    letters, mid-word, 24 times in one episode. Clean UTF-8 throughout - it
+    is the text that is wrong, not the bytes.
+    """
+    ranges = _FOREIGN_SCRIPTS.get(language)
+    if not ranges or not line:
+        return False
+    for character in line:
+        code = ord(character)
+        for first, last in ranges:
+            if first <= code <= last:
+                return True
+    return False
 
 
 class TranslationError(Exception):
@@ -436,8 +466,14 @@ def _translate_batch(backend, batch, language, offset, context="", depth=0,
         if parsed is None:
             last_error = "reply was not JSON"
             continue
-        missing = [key for key in payload if not parsed.get(key)]
-        expected = {key: parsed[key] for key in payload if parsed.get(key)}
+        # A line in the wrong alphabet is as useless as one that never
+        # came back, and the retry path below already asks for exactly the
+        # keys named here.
+        missing = [key for key in payload
+                   if not parsed.get(key)
+                   or wrong_script(parsed[key], language)]
+        expected = {key: parsed[key] for key in payload
+                    if parsed.get(key) and not wrong_script(parsed[key], language)}
         if not missing:
             return expected
         if len(missing) <= max(1, len(payload) // 10):
