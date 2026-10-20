@@ -1500,7 +1500,10 @@ def _kodi_answering(monkeypatch, layouts, writes_fail=False):
         sent = json.loads(request)
         calls.append(sent)
         if sent["method"] == "Settings.GetSettingValue":
-            return json.dumps({"result": {"value": list(layouts)}})
+            # Not list(layouts): a string is a sequence of characters, and
+            # wrapping one turns "a|b" into ["a", "|", "b"].
+            value = layouts if isinstance(layouts, str) else list(layouts)
+            return json.dumps({"result": {"value": value}})
         if writes_fail:
             return json.dumps({"error": {"message": "no"}})
         return json.dumps({"result": True})
@@ -1666,3 +1669,56 @@ def test_a_kodi_whose_layouts_cannot_be_read_adds_nothing(monkeypatch):
     monkeypatch.setattr(xbmcvfs, "translatePath", lambda path: "/nowhere")
     assert kodi.keyboard_layouts() == []
     assert kodi.hebrew_layout() == ""
+
+
+def test_the_layout_setting_may_arrive_as_a_delimited_string(monkeypatch,
+                                                             settings_module):
+    """Kodi declares it `list[string]` with a `|` delimiter, and hands it
+    back as a list on one box and a string on another. Reading only the list
+    shape is why the Mi Box got Hebrew and the projector did not: it
+    answered a string, a string is not a list, and the function returned
+    without logging anything at all."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    calls = _kodi_answering(monkeypatch, "English QWERTY|IP address")
+
+    assert kodi.ensure_hebrew_keyboard() is True
+    written = [c for c in calls if c["method"] == "Settings.SetSettingValue"]
+    assert "Hebrew QWERTY" in written[0]["params"]["value"]
+    assert "English QWERTY" in written[0]["params"]["value"], "still additive"
+
+
+def test_a_full_layout_list_makes_room_rather_than_failing(monkeypatch,
+                                                           settings_module):
+    """Kodi caps the list at three. A box already holding three would have
+    had Hebrew refused outright."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    calls = _kodi_answering(
+        monkeypatch, ["English QWERTY", "IP address", "English Dvorak"])
+
+    assert kodi.ensure_hebrew_keyboard() is True
+    value = [c for c in calls
+             if c["method"] == "Settings.SetSettingValue"][0]["params"]["value"]
+    assert len(value) <= kodi.KEYBOARD_LAYOUT_CAP
+    assert value[-1] == "Hebrew QWERTY"
+    assert value[0] == "English QWERTY", "the one everybody types on stays"
+
+
+def test_nothing_fails_without_saying_so(monkeypatch, settings_module, caplog):
+    """A feature that fails silently costs more to diagnose than it cost to
+    write - this one burned a fortnight."""
+    import xbmc
+    from pinky import kodi
+
+    monkeypatch.setattr(xbmc, "executeJSONRPC",
+                        lambda request: '{"error": {"message": "no"}}')
+    logged = []
+    monkeypatch.setattr(kodi, "log",
+                        lambda message, *a, **k: logged.append(message))
+    assert kodi.ensure_hebrew_keyboard() is False
+    assert logged, "it has to leave a trace of why"

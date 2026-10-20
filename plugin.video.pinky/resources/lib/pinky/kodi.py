@@ -253,6 +253,10 @@ def select(options, heading=None, preselect=-1, use_details=False):
 
 
 
+# Kodi's own settings.xml: <maximumitems>3</maximumitems>.
+KEYBOARD_LAYOUT_CAP = 3
+
+
 def keyboard_layouts():
     """Every layout name Kodi knows, read out of its own layout files.
 
@@ -296,21 +300,41 @@ def hebrew_layout():
     return ""
 
 
+def _layout_list(value):
+    """Kodi's layout setting, however it came back, as a list.
+
+    It is declared `list[string]` with a `|` delimiter, and what arrives
+    over JSON-RPC is a list on some boxes and one delimited string on
+    others. Reading only the list shape is why the Mi Box ended up with
+    Hebrew and the projector did not: the projector answered a string, and
+    a string is not a list, and the function returned there without a word.
+    """
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    if isinstance(value, str):
+        return [part.strip() for part in value.split("|") if part.strip()]
+    return None
+
+
 def ensure_hebrew_keyboard():
     """Put Hebrew among Kodi's own keyboard layouts, once.
 
     Kodi's keyboard is where this add-on sends anybody who wants to type or
     to talk, and it ships with **English QWERTY alone**: pressing the layout
-    button cycled between English and accented Latin - the row of á à â ä
+    button cycled between English and accented Latin - the row of a-acute
     that reads as gibberish when what you wanted was Hebrew - so a catalogue
     titled entirely in Hebrew could not be searched in Hebrew at all.
 
-    Two things used to stop this working and both are fixed here. The layout
-    name was written out by hand, and a name Kodi does not use adds nothing;
-    it is now read from Kodi's own files. And the "already done" flag was
-    written *before* the attempt, so a single failure - a name that did not
-    match, a settings call that did not land - was remembered forever as
-    success. It is now written only when the layout is really in the list.
+    Three things have stopped this working, in order. The layout name was
+    written out by hand, when Kodi builds it from two attributes of its own
+    layout files. The "already done" flag was written *before* the attempt,
+    so one failure was remembered forever as success. And the setting was
+    read as a list when it can arrive as a delimited string, which failed
+    silently and left nothing in the log to find it by.
+
+    So nothing here returns quietly any more. Every path says what it saw,
+    because a feature that fails without a word costs more to diagnose than
+    it ever cost to write.
 
     Additive, and only ever additive: whatever else is configured stays, and
     a viewer who removes Hebrew again is not overruled on the next start.
@@ -318,22 +342,41 @@ def ensure_hebrew_keyboard():
     from . import settings          # lazy: settings imports this module
     if settings.get_bool("ui.keyboard_hebrew_added", False):
         return False
-    layouts = _setting_value("locale.keyboardlayouts")
-    if not isinstance(layouts, list):
+
+    raw = _setting_value("locale.keyboardlayouts")
+    layouts = _layout_list(raw)
+    if layouts is None:
+        log("Kodi would not say which keyboard layouts are on (%r)" % (raw,),
+            LOG_INFO)
         return False
+
     wanted = hebrew_layout()
     if not wanted:
         log("Kodi here has no Hebrew keyboard layout; it offers %s"
-            % ", ".join(keyboard_layouts()), LOG_INFO)
+            % (", ".join(keyboard_layouts()) or "nothing"), LOG_INFO)
         return False
     if wanted in layouts:
+        log("Kodi already offers %s" % wanted, LOG_INFO)
         settings.set("ui.keyboard_hebrew_added", True)
         return False
-    if not _set_setting_value("locale.keyboardlayouts", layouts + [wanted]):
-        log("could not add %s to Kodi's keyboard layouts" % wanted, LOG_INFO)
+
+    # Kodi caps this list at three. A box already holding three keeps them
+    # and Hebrew is simply refused, so make room rather than fail: the
+    # layout nobody chose is the one to drop.
+    room = layouts + [wanted]
+    if len(room) > KEYBOARD_LAYOUT_CAP:
+        room = layouts[:KEYBOARD_LAYOUT_CAP - 1] + [wanted]
+        log("keyboard layouts are capped at %d, so %s makes way for %s"
+            % (KEYBOARD_LAYOUT_CAP, ", ".join(layouts[KEYBOARD_LAYOUT_CAP - 1:]),
+               wanted), LOG_INFO)
+
+    if not _set_setting_value("locale.keyboardlayouts", room):
+        log("Kodi refused %s; it was holding %s"
+            % (wanted, ", ".join(layouts)), LOG_INFO)
         return False
     settings.set("ui.keyboard_hebrew_added", True)
-    log("added %s to Kodi's keyboard layouts" % wanted, LOG_INFO)
+    log("added %s to Kodi's keyboard layouts, now %s"
+        % (wanted, ", ".join(room)), LOG_INFO)
     return True
 
 
