@@ -239,3 +239,53 @@ def install_learned(roles):
     kodi.log("remote keymap written from %d learned buttons" % len(roles),
              kodi.LOG_INFO)
     return True
+
+
+# What to do when the buttons simply are not there.
+#
+# Measured on a Byintek U4 on 20 October 2026: a keymap binding every named
+# joystick, remote, gamepad and appcommand feature, plus a sweep of all 156
+# virtual-key codes in Kodi's block, was installed on the box and three
+# presses each of Back and Menu produced no log line, no action, and no
+# controller layout load. Its firmware consumes them. Nothing a keymap can
+# say will bind a key the application never receives.
+#
+# OK does arrive - as joystick `a`. So the two lost functions come back
+# through the button that works, by hold time, which is Kodi's own documented
+# example in system/keymaps/joystick.xml. A short press still selects.
+HOLD_BACK_MS = 800
+HOLD_MENU_MS = 2000
+
+
+def hold_keymap(select="joystick.a"):
+    """Back and the context menu on hold times of a button that arrives."""
+    section, _, name = select.partition(".")
+    attrs = SECTION_ATTRS.get(section, "")
+    return "\n".join([
+        "<keymap>",
+        "  <global>",
+        "    <%s%s>" % (section, attrs),
+        "      <%s>Select</%s>" % (name, name),
+        '      <%s holdtime="%d">Back</%s>' % (name, HOLD_BACK_MS, name),
+        '      <%s holdtime="%d">ContextMenu</%s>' % (name, HOLD_MENU_MS, name),
+        "    </%s>" % section,
+        "  </global>",
+        "  <FullscreenVideo>",
+        "    <%s%s>" % (section, attrs),
+        '      <%s holdtime="%d">Stop</%s>' % (name, HOLD_BACK_MS, name),
+        "    </%s>" % section,
+        "  </FullscreenVideo>",
+        "</keymap>",
+        "",
+    ])
+
+
+def install_hold_fallback(select="joystick.a"):
+    """Write the hold-time keymap and reload. True when it is in place."""
+    destination = target()
+    if not destination or not _write(destination, hold_keymap(select)):
+        return False
+    _reload()
+    kodi.log("back and the menu are now hold times on %s" % select,
+             kodi.LOG_INFO)
+    return True

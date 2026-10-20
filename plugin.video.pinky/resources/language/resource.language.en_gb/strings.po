@@ -2009,3 +2009,11 @@ msgctxt "#32618"
 msgid "Kodi already receives those buttons - the remote is fine, so the fault is in Pinky"
 msgstr ""
 
+msgctxt "#32619"
+msgid "Kodi never receives those buttons - the projector keeps them. Use a long press of OK for Back, and a longer one for the menu?"
+msgstr ""
+
+msgctxt "#32620"
+msgid "Done - tap OK to select, hold it for Back, hold it longer for the menu"
+msgstr ""
+

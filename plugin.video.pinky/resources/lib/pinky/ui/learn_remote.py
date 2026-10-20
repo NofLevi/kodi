@@ -61,6 +61,7 @@ class _Asking(xbmcgui.WindowXMLDialog):
         self.seen = []
         self.roles = {}
         self.found = {}
+        self.control = ""
         self.heard_anything = False
         self.done = threading.Event()
 
@@ -140,10 +141,19 @@ class _Asking(xbmcgui.WindowXMLDialog):
         try:
             name, acted = self._listen(kodi.localize(CONTROL))
             self.heard_anything = bool(name) or acted is not None
+            self.control = name
             if not self.heard_anything:
                 return
             for action, prompt_id in ROLES:
                 name, acted = self._listen(kodi.localize(prompt_id))
+                if name and name == self.control:
+                    # OK again, not the button being asked for. Three presses
+                    # of it arrive as one record and a straggler lands in the
+                    # next question; binding that straggler is what took the
+                    # OK key out of a projector for an evening.
+                    kodi.log("ignoring %s as %s - that is the OK button"
+                             % (name, action), kodi.LOG_INFO)
+                    name = ""
                 self.found[action] = (name, acted)
                 if name:
                     self.roles[action] = name
@@ -195,8 +205,19 @@ def run():
         kodi.log("Kodi already acts on: %s" % ", ".join(sorted(already)),
                  kodi.LOG_INFO)
     if not screen.roles:
-        kodi.notify(kodi.localize(32618 if already else 32613))
-        return bool(already)
+        if already:
+            kodi.notify(kodi.localize(32618))
+            return True
+        # Not reachable by any keymap - so offer the one button that is.
+        if screen.control and kodi.yes_no(kodi.localize(32619),
+                                          kodi.localize(32583)):
+            if remotekeys.install_hold_fallback(screen.control):
+                kodi.notify(kodi.localize(32620))
+                return True
+            kodi.notify(kodi.localize(32319))
+            return False
+        kodi.notify(kodi.localize(32613))
+        return False
     if not remotekeys.install_learned(screen.roles):
         kodi.notify(kodi.localize(32319))
         return False

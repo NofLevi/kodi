@@ -1969,3 +1969,11 @@ msgctxt "#32618"
 msgid "Kodi already receives those buttons - the remote is fine, so the fault is in Pinky"
 msgstr "Kodi כבר מקבל את הכפתורים האלה - השלט תקין, אז התקלה היא ב-Pinky"
 
+msgctxt "#32619"
+msgid "Kodi never receives those buttons - the projector keeps them. Use a long press of OK for Back, and a longer one for the menu?"
+msgstr "Kodi לא מקבל את הכפתורים האלה - המקרן שומר אותם לעצמו. להשתמש בלחיצה ארוכה על OK לחזרה אחורה, ובלחיצה ארוכה יותר לתפריט?"
+
+msgctxt "#32620"
+msgid "Done - tap OK to select, hold it for Back, hold it longer for the menu"
+msgstr "בוצע - לחיצה קצרה על OK לבחירה, ארוכה לחזרה אחורה, ארוכה יותר לתפריט"
+

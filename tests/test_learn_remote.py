@@ -216,3 +216,44 @@ def test_kodi_is_asked_to_reload_the_way_kodi_understands(monkeypatch):
     monkeypatch.setattr(xbmc, "executebuiltin", lambda command: ran.append(command))
     remotekeys._reload()
     assert ran == ["Action(reloadkeymaps)"]
+
+
+def test_the_ok_button_is_never_accepted_as_another_one():
+    """It was, on the projector: three presses of OK arrived as one record,
+    a straggler landed inside "press the button you want for Back", and the
+    keymap written bound `a` to Back - which took the OK key out."""
+    import inspect
+
+    from pinky.ui import learn_remote
+    source = inspect.getsource(learn_remote._Asking._ask)
+    assert "self.control" in source
+    assert "name = \"\"" in source, "the control answer has to be discarded"
+
+
+def test_a_hold_keymap_keeps_select_working():
+    """A fallback that took OK away as well would be worse than nothing."""
+    keymap = remotekeys.hold_keymap("joystick.a")
+    assert "<a>Select</a>" in keymap
+    assert '<a holdtime="%d">Back</a>' % remotekeys.HOLD_BACK_MS in keymap
+    assert '<a holdtime="%d">ContextMenu</a>' % remotekeys.HOLD_MENU_MS in keymap
+
+
+def test_the_hold_keymap_names_the_controller_and_parses():
+    import xml.etree.ElementTree as ET
+
+    keymap = remotekeys.hold_keymap("joystick.a")
+    ET.fromstring(keymap)
+    assert '<joystick profile="game.controller.default">' in keymap
+
+
+def test_a_hold_also_stops_a_film():
+    keymap = remotekeys.hold_keymap("joystick.a")
+    assert "<FullscreenVideo>" in keymap
+    assert '<a holdtime="%d">Stop</a>' % remotekeys.HOLD_BACK_MS in keymap
+
+
+def test_the_fallback_follows_whichever_button_actually_arrives():
+    """`a` is this projector's OK. Another box's may not be."""
+    keymap = remotekeys.hold_keymap("keyboard.escape")
+    assert "<escape>Select</escape>" in keymap
+    assert "<keyboard>" in keymap
