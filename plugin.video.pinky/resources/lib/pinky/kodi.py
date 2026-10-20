@@ -340,8 +340,7 @@ def ensure_hebrew_keyboard():
     a viewer who removes Hebrew again is not overruled on the next start.
     """
     from . import settings          # lazy: settings imports this module
-    if settings.get_bool("ui.keyboard_hebrew_added", False):
-        return False
+    added_before = settings.get_bool("ui.keyboard_hebrew_added", False)
 
     raw = _setting_value("locale.keyboardlayouts")
     layouts = _layout_list(raw)
@@ -356,9 +355,16 @@ def ensure_hebrew_keyboard():
             % (", ".join(keyboard_layouts()) or "nothing"), LOG_INFO)
         return False
     if wanted in layouts:
-        log("Kodi already offers %s" % wanted, LOG_INFO)
-        settings.set("ui.keyboard_hebrew_added", True)
+        if not added_before:
+            log("Kodi already offers %s" % wanted, LOG_INFO)
+            settings.set("ui.keyboard_hebrew_added", True)
         return False
+    if added_before:
+        # It was added and is gone: a settings reset, a rebuilt profile, or a
+        # firmware update that rewrote userdata. Put it back rather than
+        # trusting a flag that says the job is done.
+        log("%s had been added and is gone; putting it back" % wanted,
+            LOG_INFO)
 
     # Kodi caps this list at three. A box already holding three keeps them
     # and Hebrew is simply refused, so make room rather than fail: the

@@ -1538,7 +1538,8 @@ def test_kodis_keyboard_is_offered_hebrew_once(monkeypatch, settings_module):
 
     calls[:] = []
     assert kodi.ensure_hebrew_keyboard() is False
-    assert calls == [], "asked once, so removing it again sticks"
+    assert not [c for c in calls if c["method"] == "Settings.SetSettingValue"],         "it reads once per start, but must not write every start"
+    assert calls, "and it does read, so a layout wiped by a reset comes back"
 
 
 def test_the_layout_name_comes_from_kodi_rather_than_from_us(monkeypatch,
@@ -1753,3 +1754,35 @@ def test_a_write_that_is_accepted_and_dropped_is_not_a_success(monkeypatch,
     assert kodi.ensure_hebrew_keyboard() is False
     assert settings_module.get_bool("ui.keyboard_hebrew_added") is False, \
         "a write that did nothing must not be remembered as having worked"
+
+
+def test_hebrew_goes_back_if_something_took_it_away(monkeypatch,
+                                                    settings_module):
+    """An upgrade cannot lose it - Kodi keeps guisettings.xml and the
+    add-on's profile data across one. A settings reset or a firmware update
+    that rewrites userdata can, and the flag would then have stopped it ever
+    being added again. So the list is read rather than the flag trusted."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    settings_module.set("ui.keyboard_hebrew_added", "true")
+    calls = _kodi_answering(monkeypatch, "English QWERTY")
+
+    assert kodi.ensure_hebrew_keyboard() is True
+    written = [c for c in calls if c["method"] == "Settings.SetSettingValue"]
+    assert written, "it has to put the layout back"
+
+
+def test_a_layout_already_there_is_not_written_again(monkeypatch,
+                                                     settings_module):
+    """Once per start it reads; it must not write every start as well."""
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    settings_module.set("ui.keyboard_hebrew_added", "true")
+    calls = _kodi_answering(monkeypatch, "English QWERTY|Hebrew QWERTY")
+
+    assert kodi.ensure_hebrew_keyboard() is False
+    assert not [c for c in calls if c["method"] == "Settings.SetSettingValue"]
