@@ -131,6 +131,7 @@ DEFAULTS = {
     # been offered Hebrew yet. Asked once so that removing it again sticks.
     "ui.keyboard_hebrew_added": "false",
     "ui.providers_reviewed": "false",
+    "ui.projector_remote": "false",
     "ui.window_home": "true",
     "ui.window_search": "true",
     # Go straight into Pinky when Kodi starts. Off, because taking over

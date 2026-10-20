@@ -64,228 +64,146 @@ def _reload():
         kodi.log_exception("could not reload the keymaps")
 
 
-# --- Learning a remote we have never seen -------------------------------
+# --- The projector's remote --------------------------------------------
 #
-# The shipped keymap was written by copying another box's profile, and on the
-# Byintek projector it did nothing at all - because Kodi's own joystick keymap
-# already binds the `back` and `start` features, so a file repeating those
-# bindings changes nothing. The buttons were never arriving as those features.
+# Measured on a Byintek U4 on 20 October 2026, over FTP, by borrowing feature
+# names from the buttonmap and pressing the keys: its Back key is joystick
+# button 6 and its menu key button 7. Kodi's generated buttonmap named
+# neither, and a button with no feature name produces no action at all -
+# invisible to keymaps, to a sweep of all 156 virtual-key codes, and to any
+# screen listening for presses. That is why two releases of remote fixes
+# changed nothing: they were binding features the remote never sends.
 #
-# Guessing twice is enough. This asks the box instead: bind every input a
-# television remote plausibly sends to a plugin call that writes down its
-# name, then invite somebody to press the button they mean. Whatever is
-# written down is what that button really sends, on that box, through that
-# firmware - no log reading, no debug logging, no settings to find.
+# `back` and `start` were pointed at buttons 9 and 11, which are other keys.
+# The left stick is dropped: the D-pad arrives as buttons 18-21 *and* as that
+# stick's axes, so every press moved the selection twice.
+#
+# Opt-in, and only ever opt-in. A Mi Box's remote already works.
 
-PROBE = "pinky-probe.xml"
-HEARD = "remote-heard.json"
+DEVICE_FILE = "Hi_keyboard_v0001_p0001_39b_2a.xml"
+JOYSTICK = ' profile="game.controller.default"'
 
-# The arrow keys are deliberately absent: the probe stays installed while
-# somebody answers a dialog, and a box whose directions have been taken away
-# is a box nobody can finish on. Select *is* here, because the first question
-# asked is "press OK", and a run where even OK is not heard means the probe
-# itself is broken rather than the remote being unreachable - a distinction
-# the first version could not make, and the one that mattered.
-PROBE_INPUTS = (
-    ("joystick", ("a", "b", "x", "y", "start", "back", "guide", "leftbumper",
-                  "rightbumper", "leftthumb", "rightthumb")),
-    ("keyboard", ("backspace", "escape", "menu", "c", "i", "tab",
-                  "return", "enter", "space")),
-    ("remote", ("back", "title", "menu", "info", "display", "select",
-                "enter", "contentsmenu", "rootmenu")),
-    ("gamepad", ("back", "start", "a", "b", "y", "leftthumbbutton")),
-    ("appcommand", ("browser_back", "browser_home", "browser_stop")),
+PROJECTOR_FEATURES = (
+    ("a", 22), ("b", 1), ("back", 6), ("down", 20), ("guide", 10),
+    ("left", 21), ("leftbumper", 12), ("leftthumb", 16), ("lefttrigger", 14),
+    ("right", 19), ("rightbumper", 13), ("rightthumb", 17),
+    ("righttrigger", 15), ("start", 7), ("up", 18), ("x", 3), ("y", 4),
 )
 
-# Kodi reads the joystick section only when it says which controller profile
-# the names belong to - every example in its own joystick.xml carries this
-# attribute, and the first version of the probe left it off, which is the
-# likeliest reason the projector heard nothing at all. Read off Kodi 21 on
-# 14 October 2026.
-SECTION_ATTRS = {"joystick": ' profile="game.controller.default"'}
 
-
-def heard_file():
-    return os.path.join(kodi.profile_path(), HEARD)
-
-
-def probe_keymap():
-    """The keymap that makes every candidate button announce itself."""
-    rows = ["<keymap>", "  <global>"]
-    for section, names in PROBE_INPUTS:
-        rows.append("    <%s%s>" % (section, SECTION_ATTRS.get(section, "")))
-        for name in names:
-            rows.append(
-                "      <%s>RunPlugin(plugin://plugin.video.pinky/"
-                "?action=learn&amp;key=%s.%s)</%s>" % (name, section, name, name))
-        rows.append("    </%s>" % section)
-    rows += ["  </global>", "</keymap>", ""]
-    return "\n".join(rows)
-
-
-def _write(path, text):
-    try:
-        with io.open(path, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        return True
-    except (IOError, OSError):
-        kodi.log_exception("could not write %s" % path)
-        return False
-
-
-def probe_on():
-    """Install the listening keymap. False when the folder is not writable."""
-    folder = keymap_dir()
-    if not folder or not _write(os.path.join(folder, PROBE), probe_keymap()):
-        return False
-    forget()
-    _reload()
-    return True
-
-
-def probe_off():
-    """Take the listening keymap out again, whatever else has happened."""
-    folder = keymap_dir()
-    if folder:
+def buttonmap_dir():
+    """Where peripheral.joystick keeps what it has learned about a device."""
+    path = xbmcvfs.translatePath(
+        "special://profile/addon_data/peripheral.joystick/resources/"
+        "buttonmaps/xml/android")
+    if path and not os.path.isdir(path):
         try:
-            os.remove(os.path.join(folder, PROBE))
+            os.makedirs(path)
         except OSError:
-            pass
-    _reload()
+            kodi.log_exception("could not make the buttonmap folder")
+            return ""
+    return path or ""
 
 
-def record(key):
-    """One press, written down. Called by the probe keymap through the
-    plugin, so it has to be cheap and never raise into Kodi."""
-    try:
-        rows = heard()
-        rows.append({"key": key, "at": time.time()})
-        with io.open(heard_file(), "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(rows[-50:]))
-        kodi.log("remote learned a press: %s" % key, kodi.LOG_INFO)
-    except Exception:
-        kodi.log_exception("could not write down a key press")
-
-
-def heard():
-    try:
-        with io.open(heard_file(), encoding="utf-8") as handle:
-            found = json.loads(handle.read())
-        return found if isinstance(found, list) else []
-    except (IOError, OSError, ValueError):
-        return []
-
-
-def forget():
-    try:
-        os.remove(heard_file())
-    except OSError:
-        pass
-
-
-def pressed_since(moment, least=2):
-    """The input pressed most often since `moment`, or "".
-
-    `least` presses rather than one because a remote that repeats, or a
-    thumb that slips, should not decide what a button means. Asking for
-    three and accepting two is the difference between a test somebody
-    passes and one they retry.
-    """
-    counts = {}
-    for row in heard():
-        if row.get("at", 0) >= moment and row.get("key"):
-            counts[row["key"]] = counts.get(row["key"], 0) + 1
-    if not counts:
-        return ""
-    best = max(counts, key=counts.get)
-    return best if counts[best] >= least else ""
-
-
-def learned_keymap(roles):
-    """A keymap from {action: "section.name"} - what was actually pressed.
-
-    Back is written twice over: once globally, and once for fullscreen video
-    where Kodi's own default only minimises playback.
-    """
-    sections = {}
-    for action, where in sorted(roles.items()):
-        section, _, name = (where or "").partition(".")
-        if section and name:
-            sections.setdefault(section, []).append((name, action))
-    rows = ["<keymap>", "  <global>"]
-    for section in sorted(sections):
-        rows.append("    <%s%s>" % (section, SECTION_ATTRS.get(section, "")))
-        for name, action in sections[section]:
-            rows.append("      <%s>%s</%s>" % (name, action, name))
-        rows.append("    </%s>" % section)
-    rows += ["  </global>"]
-    back = roles.get("Back")
-    if back and "." in back:
-        section, _, name = back.partition(".")
-        rows += ["  <FullscreenVideo>",
-                 "    <%s%s>" % (section, SECTION_ATTRS.get(section, "")),
-                 "      <%s>Stop</%s>" % (name, name),
-                 "    </%s>" % section, "  </FullscreenVideo>"]
-    rows += ["</keymap>", ""]
+def projector_buttonmap():
+    rows = ['<?xml version="1.0" ?>', "<buttonmap>",
+            '    <device name="Hi keyboard" provider="android" vid="0001" '
+            'pid="0001" buttoncount="39" axiscount="2">',
+            "        <configuration />",
+            '        <controller id="game.controller.default">']
+    for name, button in PROJECTOR_FEATURES:
+        rows.append('            <feature name="%s" button="%d" />'
+                    % (name, button))
+    rows += ["        </controller>", "    </device>", "</buttonmap>", ""]
     return "\n".join(rows)
 
 
-def install_learned(roles):
-    """Replace the shipped keymap with what this box actually sends."""
-    destination = target()
-    if not destination or not _write(destination, learned_keymap(roles)):
-        return False
-    _reload()
-    kodi.log("remote keymap written from %d learned buttons" % len(roles),
-             kodi.LOG_INFO)
-    return True
+def projector_keymap():
+    """What those two features should do once they have names.
 
+    Kodi's own defaults for them are ActivateWindow(Home) and
+    ActivateWindow(PlayerControls), which is neither key's job. And Kodi's
+    Back during playback merely minimises the film and leaves it running,
+    which on a projector reads as a film that will not close.
 
-# What to do when the buttons simply are not there.
-#
-# Measured on a Byintek U4 on 20 October 2026: a keymap binding every named
-# joystick, remote, gamepad and appcommand feature, plus a sweep of all 156
-# virtual-key codes in Kodi's block, was installed on the box and three
-# presses each of Back and Menu produced no log line, no action, and no
-# controller layout load. Its firmware consumes them. Nothing a keymap can
-# say will bind a key the application never receives.
-#
-# OK does arrive - as joystick `a`. So the two lost functions come back
-# through the button that works, by hold time, which is Kodi's own documented
-# example in system/keymaps/joystick.xml. A short press still selects.
-HOLD_BACK_MS = 800
-HOLD_MENU_MS = 2000
-
-
-def hold_keymap(select="joystick.a"):
-    """Back and the context menu on hold times of a button that arrives."""
-    section, _, name = select.partition(".")
-    attrs = SECTION_ATTRS.get(section, "")
+    During a film the menu key opens Pinky's subtitle list rather than an
+    information screen: OK already shows the seek bar and Back now closes the
+    film, and subtitles are what actually goes wrong mid-film here.
+    """
     return "\n".join([
         "<keymap>",
         "  <global>",
-        "    <%s%s>" % (section, attrs),
-        "      <%s>Select</%s>" % (name, name),
-        '      <%s holdtime="%d">Back</%s>' % (name, HOLD_BACK_MS, name),
-        '      <%s holdtime="%d">ContextMenu</%s>' % (name, HOLD_MENU_MS, name),
-        "    </%s>" % section,
+        "    <joystick%s>" % JOYSTICK,
+        "      <back>Back</back>",
+        "      <start>ContextMenu</start>",
+        "    </joystick>",
         "  </global>",
         "  <FullscreenVideo>",
-        "    <%s%s>" % (section, attrs),
-        '      <%s holdtime="%d">Stop</%s>' % (name, HOLD_BACK_MS, name),
-        "    </%s>" % section,
+        "    <joystick%s>" % JOYSTICK,
+        "      <back>Stop</back>",
+        "      <start>ActivateWindow(SubtitleSearch)</start>",
+        "    </joystick>",
         "  </FullscreenVideo>",
         "</keymap>",
         "",
     ])
 
 
-def install_hold_fallback(select="joystick.a"):
-    """Write the hold-time keymap and reload. True when it is in place."""
+def apply_projector_remote():
+    """Name the projector's buttons and bind them. True when both landed."""
+    folder = buttonmap_dir()
     destination = target()
-    if not destination or not _write(destination, hold_keymap(select)):
+    if not folder or not destination:
+        return False
+    if not _write(os.path.join(folder, DEVICE_FILE), projector_buttonmap()):
+        return False
+    if not _write(destination, projector_keymap()):
         return False
     _reload()
-    kodi.log("back and the menu are now hold times on %s" % select,
-             kodi.LOG_INFO)
+    kodi.log("the projector's remote is set up: back=6, menu=7", kodi.LOG_INFO)
     return True
+
+
+def projector_remote_chosen():
+    from . import settings
+    return settings.get_bool("ui.projector_remote", False)
+
+
+def choose_projector_remote():
+    """Apply it and remember, so it survives what might undo it."""
+    from . import settings
+    if not apply_projector_remote():
+        return False
+    settings.set("ui.projector_remote", True)
+    return True
+
+
+def _matches(path, wanted):
+    try:
+        with io.open(path, encoding="utf-8") as handle:
+            return handle.read() == wanted
+    except (IOError, OSError):
+        return False
+
+
+def reassert_projector_remote():
+    """Put it back if something has taken it away. True when it rewrote.
+
+    An add-on upgrade cannot lose these - they live in the profile, not in
+    the add-on - but `peripheral.joystick` writes that buttonmap itself and
+    will happily regenerate one without button 6 or 7 in it, at which point
+    the remote silently goes back to having no Back key. So the choice is
+    remembered and checked once per start, and only rewritten when what is
+    on disk is not what was chosen.
+    """
+    if not projector_remote_chosen():
+        return False
+    folder = buttonmap_dir()
+    if not folder:
+        return False
+    if (_matches(os.path.join(folder, DEVICE_FILE), projector_buttonmap())
+            and _matches(target(), projector_keymap())):
+        return False
+    kodi.log("the projector's remote had been undone; putting it back",
+             kodi.LOG_INFO)
+    return apply_projector_remote()

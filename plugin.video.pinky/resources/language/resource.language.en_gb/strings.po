@@ -2017,3 +2017,11 @@ msgctxt "#32620"
 msgid "Done - tap OK to select, hold it for Back, hold it longer for the menu"
 msgstr ""
 
+msgctxt "#32621"
+msgid "For the Byintek U4 projector, whose Back and menu keys Kodi cannot see until they are named. Other remotes are left alone. Kodi must be restarted afterwards."
+msgstr ""
+
+msgctxt "#32622"
+msgid "Done - restart Kodi and the remote's Back and menu keys will work"
+msgstr ""
+

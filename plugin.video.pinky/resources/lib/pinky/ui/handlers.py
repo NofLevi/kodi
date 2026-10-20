@@ -917,24 +917,15 @@ def accounts(params):
     listing.end(handle, content="files", cache_to_disc=False)
 
 
-@router.route("learn")
-def learn(params):
-    """One press, heard by the probe keymap while the remote is being
-    learned. Silent on purpose: a notification per press would bury the
-    screen that is asking the question."""
+@router.route("projectorremote")
+def projectorremote(params):
+    """Name the projector remote's buttons, for the box that needs it."""
     from .. import remotekeys
 
-    key = params.get("key")
-    if key:
-        remotekeys.record(key)
-
-
-@router.route("learnremote")
-def learnremote(params):
-    """Find out what this box's remote actually sends, and bind it."""
-    from . import learn_remote
-
-    learn_remote.run()
+    if not kodi.yes_no(kodi.localize(32621), kodi.localize(32583)):
+        return
+    kodi.notify(kodi.localize(32622) if remotekeys.choose_projector_remote()
+                else kodi.localize(32319))
 
 
 @router.route("console")

@@ -1490,22 +1490,31 @@ def test_voice_input_is_the_platform_question(monkeypatch):
     assert asked == ["System.Platform.Android"]
 
 
-def _kodi_answering(monkeypatch, layouts, writes_fail=False):
-    """Kodi with `layouts` already configured, recording what is written."""
+def _kodi_answering(monkeypatch, layouts, writes_fail=False,
+                    ignores_writes=False):
+    """Kodi with `layouts` configured, recording and honouring what is written.
+
+    A write changes what the next read answers, because a fake that always
+    answers the same thing cannot tell a write that took from one that was
+    accepted and dropped - and that difference is the whole bug here.
+    `ignores_writes` is the projector: the call succeeds, nothing changes.
+    """
     import json
     import xbmc
     calls = []
+    # Not list(layouts): a string is a sequence of characters, and wrapping
+    # one turns "a|b" into ["a", "|", "b"].
+    state = {"value": layouts if isinstance(layouts, str) else list(layouts)}
 
     def fake_rpc(request):
         sent = json.loads(request)
         calls.append(sent)
         if sent["method"] == "Settings.GetSettingValue":
-            # Not list(layouts): a string is a sequence of characters, and
-            # wrapping one turns "a|b" into ["a", "|", "b"].
-            value = layouts if isinstance(layouts, str) else list(layouts)
-            return json.dumps({"result": {"value": value}})
+            return json.dumps({"result": {"value": state["value"]}})
         if writes_fail:
             return json.dumps({"error": {"message": "no"}})
+        if not ignores_writes:
+            state["value"] = sent["params"]["value"]
         return json.dumps({"result": True})
 
     monkeypatch.setattr(xbmc, "executeJSONRPC", fake_rpc)
@@ -1722,3 +1731,25 @@ def test_nothing_fails_without_saying_so(monkeypatch, settings_module, caplog):
                         lambda message, *a, **k: logged.append(message))
     assert kodi.ensure_hebrew_keyboard() is False
     assert logged, "it has to leave a trace of why"
+
+
+def test_a_write_that_is_accepted_and_dropped_is_not_a_success(monkeypatch,
+                                                               settings_module):
+    """What the projector did for a fortnight. Over FTP, afterwards:
+
+        guisettings.xml: locale.keyboardlayouts default="true" English QWERTY
+        Pinky settings:  ui.keyboard_hebrew_added  true
+
+    The call returned true, Kodi kept its default, and the flag then stopped
+    it ever trying again. Nothing is recorded as done now until the setting
+    has been read back and really contains Hebrew.
+    """
+    from pinky import kodi
+
+    monkeypatch.setattr(kodi, "keyboard_layouts",
+                        lambda: ["English QWERTY", "Hebrew QWERTY"])
+    _kodi_answering(monkeypatch, "English QWERTY", ignores_writes=True)
+
+    assert kodi.ensure_hebrew_keyboard() is False
+    assert settings_module.get_bool("ui.keyboard_hebrew_added") is False, \
+        "a write that did nothing must not be remembered as having worked"

@@ -305,6 +305,12 @@ class Service(xbmc.Monitor):
         # rather than in the search window because it is a once-per-install
         # question about Kodi, not about a press.
         try:
+            from . import remotekeys
+            remotekeys.reassert_projector_remote()
+        except Exception:
+            kodi.log_exception("could not check the projector's remote")
+
+        try:
             settings.catch_up()
         except Exception:
             kodi.log_exception("could not catch the settings up")

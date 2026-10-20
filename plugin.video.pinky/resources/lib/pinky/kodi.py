@@ -370,14 +370,26 @@ def ensure_hebrew_keyboard():
             % (KEYBOARD_LAYOUT_CAP, ", ".join(layouts[KEYBOARD_LAYOUT_CAP - 1:]),
                wanted), LOG_INFO)
 
-    if not _set_setting_value("locale.keyboardlayouts", room):
-        log("Kodi refused %s; it was holding %s"
-            % (wanted, ", ".join(layouts)), LOG_INFO)
-        return False
-    settings.set("ui.keyboard_hebrew_added", True)
-    log("added %s to Kodi's keyboard layouts, now %s"
-        % (wanted, ", ".join(room)), LOG_INFO)
-    return True
+    # Back in the shape it arrived in. The projector stores this as a
+    # `|`-joined string and answered one, and a list handed back to it was
+    # accepted and ignored - the call returned true and the setting kept its
+    # default, which is how a fortnight of "it says it worked" happened.
+    shapes = ([("|".join(room)), room] if isinstance(raw, str)
+              else [room, "|".join(room)])
+    for shape in shapes:
+        if not _set_setting_value("locale.keyboardlayouts", shape):
+            continue
+        if wanted in (_layout_list(_setting_value("locale.keyboardlayouts"))
+                      or []):
+            settings.set("ui.keyboard_hebrew_added", True)
+            log("added %s to Kodi's keyboard layouts, now %s"
+                % (wanted, ", ".join(room)), LOG_INFO)
+            return True
+        log("Kodi accepted %s as %s and kept its old value"
+            % (wanted, type(shape).__name__), LOG_INFO)
+    log("Kodi would not take %s; it was holding %s"
+        % (wanted, ", ".join(layouts)), LOG_INFO)
+    return False
 
 
 def _rpc(method, params):
