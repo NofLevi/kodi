@@ -442,3 +442,20 @@ def test_an_item_that_has_an_id_is_never_looked_up(window, monkeypatch):
                                           "1080i")
     detail.item = {"type": "show", "title": "Silo", "ids": {"tmdb": 125988}}
     assert detail._tmdb_id() == 125988
+
+
+def test_on_a_film_the_menu_key_opens_the_description(window, monkeypatch):
+    """A film has no episode to pick a source for, and the Play button
+    already opens the picker from the same position. What the screen was
+    missing is the rest of the plot: on screen it is a 210px textbox that
+    autoscrolls, so a long description is read a sentence at a time."""
+    import xbmcgui
+
+    detail = window(MOVIE)
+    del xbmcgui.Dialog.TEXTVIEWED[:]
+    calls = _picker_calls(monkeypatch)
+
+    detail.onAction(FakeAction(details_window.ACTION_CONTEXT_MENU))
+
+    assert not calls, "a film has no episode to pick a source for"
+    assert xbmcgui.Dialog.TEXTVIEWED, "the plot should be shown in full"

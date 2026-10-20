@@ -13,9 +13,7 @@ The bindings now come from what the remote was heard to send - see the
 second half of this file, and `ui/learn_remote.py`.
 """
 import io
-import json
 import os
-import time
 
 import xbmc
 import xbmcvfs
@@ -89,6 +87,16 @@ PROJECTOR_FEATURES = (
     ("right", 19), ("rightbumper", 13), ("rightthumb", 17),
     ("righttrigger", 15), ("start", 7), ("up", 18), ("x", 3), ("y", 4),
 )
+
+
+def _write(path, text):
+    try:
+        with io.open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        return True
+    except (IOError, OSError):
+        kodi.log_exception("could not write %s" % path)
+        return False
 
 
 def buttonmap_dir():

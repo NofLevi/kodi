@@ -56,7 +56,16 @@ class DetailsWindow(xbmcgui.WindowXML):
             # on rather than the one they left.
             self._update_action_label()
         if code == ACTION_CONTEXT_MENU:
-            self._choose_source(self._selected_episode())
+            # With an episode highlighted the menu key still picks a source
+            # for *that* episode, which is the only way to reach it. On a
+            # film there is no episode and nothing to pick - the Play button
+            # already opens the picker from the same position - so the key
+            # does the thing the screen was missing instead.
+            episode = self._selected_episode()
+            if episode:
+                self._choose_source(episode)
+            else:
+                self._describe()
             return
         if code not in (ACTION_PREVIOUS_MENU, ACTION_NAV_BACK):
             return
@@ -241,6 +250,24 @@ class DetailsWindow(xbmcgui.WindowXML):
             return None
         entry = self.entries[position]
         return entry if entry.get("type") == "episode" else None
+
+    def _describe(self):
+        """The whole plot, and then the buttons.
+
+        The plot on screen is a 210px textbox that autoscrolls, so anything
+        longer than a few lines is read a sentence at a time or not at all.
+        The menu key now opens it in full - and leaves the cursor on the row
+        of buttons afterwards, because wanting to read about a film and then
+        do something about it is one gesture, not two.
+
+        It used to open the source picker, which is already what the Play
+        button does from the same position.
+        """
+        plot = (self.item.get("plot") or "").strip()
+        if plot:
+            xbmcgui.Dialog().textviewer(
+                self.item.get("title") or kodi.localize(32623), plot)
+        self.setFocusId(BUTTON_PLAY)
 
     def _choose_source(self, entry=None):
         """Open the picker for one episode, or for whatever Play would start.

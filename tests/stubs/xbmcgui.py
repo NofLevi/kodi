@@ -178,6 +178,11 @@ class WindowXMLDialog(WindowXML):
 
 
 class Dialog(object):
+    TEXTVIEWED = []
+
+    def textviewer(self, heading, text, usemono=False):
+        Dialog.TEXTVIEWED.append((heading, text))
+
     def ok(self, heading, message):
         return DIALOG_ANSWERS["ok"]
 

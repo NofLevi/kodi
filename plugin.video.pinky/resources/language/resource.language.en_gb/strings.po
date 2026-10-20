@@ -2025,3 +2025,7 @@ msgctxt "#32622"
 msgid "Done - restart Kodi and the remote's Back and menu keys will work"
 msgstr ""
 
+msgctxt "#32623"
+msgid "Description"
+msgstr ""
+
