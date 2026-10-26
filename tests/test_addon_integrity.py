@@ -230,15 +230,13 @@ def test_the_home_screen_has_a_slot_for_every_row_on_by_default():
            "rows would be dropped" if home_window.ROW_SLOTS > len(in_skin)
            else "controls exist that nothing can fill"))
 
-    on_by_default = [row["id"] for row in catalog.rows() if row.get("default")]
-    assert len(on_by_default) <= home_window.ROW_SLOTS, (
-        "%d rows ship switched on but only %d can be drawn, so a fully "
-        "configured install would never see %s"
-        % (len(on_by_default), home_window.ROW_SLOTS,
-           on_by_default[home_window.ROW_SLOTS:]))
-
-    # And the same for every tab, which is the bigger number now: the Films
-    # tab is the one that decides how many row controls the skin needs.
+    # Counting every row that is on, across all sections, was the test when
+    # the screen was one long mixed list. The tabs replaced that: the window
+    # only ever draws one section, and the HOME set - "every row switched
+    # on" - is what the plain directory listing and the background service
+    # use, neither of which is limited by a skin control. Films now carries
+    # sixteen rows and the sum carries thirty-eight, so the sum would refuse
+    # a screen that is not drawn. The check that matters is per tab.
     for section in catalog.section_ids():
         ids = catalog.enabled_row_ids(section)
         assert len(ids) <= home_window.ROW_SLOTS, (

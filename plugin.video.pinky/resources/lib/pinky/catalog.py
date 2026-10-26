@@ -125,19 +125,18 @@ DEFAULT_SECTION = MOVIES
 SECTION_ORDER = {
     MOVIES: [
         "continue", "because_you_watched",
-        "trending_movies", "movies_new", "movies_popular",
-        "top_rated_movies", "movies_classics", "movies_gems",
-        "movies_blockbusters", "israeli_movies", "coming_soon",
-        "movies_nineties", "movies_eighties",
+        "trending_movies", "movies_new", "top_rated_movies", "israeli_movies",
         "movies_action", "movies_comedy", "movies_drama", "movies_thriller",
         "movies_scifi", "movies_horror", "movies_animation",
         "movies_documentary",
+        # The decades last: browsing by year is a mood somebody arrives at,
+        # not one they open the screen in.
+        "movies_nineties", "movies_eighties",
     ],
     SHOWS: [
         "continue", "because_you_watched",
-        "trending_shows", "shows_new", "airing_today", "shows_popular",
-        "top_rated_shows", "shows_classics", "shows_gems", "returning",
-        "israeli_shows", "foreign_dramas", "anime_trending",
+        "trending_shows", "shows_new", "airing_today", "top_rated_shows",
+        "israeli_shows", "anime_trending", "foreign_dramas",
         "shows_drama", "shows_comedy", "shows_crime", "shows_scifi",
         "shows_documentary", "shows_reality",
     ],
@@ -178,10 +177,20 @@ GENRE_TV = {
 }
 
 
+# A genre row with no vote floor is not a trending row, it is a noisy one:
+# TMDB popularity decays with time, so it already reads as "current", but an
+# obscure title with a spike of activity outranks what people are actually
+# watching. The topic rows below use floors for the same reason. Films are
+# rated far more than episodes, hence two numbers.
+GENRE_VOTES = {"movie": 200, "tv": 50}
+
+
 def _by_genre(media_type, genre_id, page):
-    """One TMDB discover call, most popular first."""
-    return _tmdb().discover(media_type, page=page, with_genres=str(genre_id),
-                            sort_by="popularity.desc")
+    """One TMDB discover call: what is current in this genre."""
+    return _tmdb().discover(
+        media_type, page=page, with_genres=str(genre_id),
+        sort_by="popularity.desc",
+        **{"vote_count.gte": GENRE_VOTES.get(media_type, 50)})
 
 
 # --------------------------------------------------------------------------
@@ -372,7 +381,7 @@ def _build_rows():
              lambda page: _tmdb().discover(
                  "tv", page=page, with_original_language="tr|es|it",
                  with_genres=str(GENRE_TV["drama"]), sort_by="popularity.desc"),
-             TTL_LONG, default=False, sections=(SHOWS,)),
+             TTL_LONG, sections=(SHOWS,)),
 
         # "Trending this week" and "Popular" are the same films in a slightly
         # different order, and having both on one tab reads as a mistake -
@@ -433,10 +442,10 @@ def _build_rows():
 
         _row("top_rated_movies", S["top_rated_movies"],
              lambda page: _tmdb().top_rated("movie", page), TTL_LONG,
-             default=False, sections=(MOVIES,)),
+             sections=(MOVIES,)),
         _row("top_rated_shows", S["top_rated_shows"],
              lambda page: _tmdb().top_rated("tv", page), TTL_LONG,
-             default=False, sections=(SHOWS,)),
+             sections=(SHOWS,)),
 
         _row("watchlist", S["watchlist"],
              lambda page: _watchlist(), 900, needs=("trakt",), paged=False,
@@ -448,7 +457,7 @@ def _build_rows():
         # the problem the tabs were added to solve.
         _row("movies_new", S["movies_new"],
              lambda page: _newest("movie", page), TTL_MEDIUM,
-             default=False, sections=(MOVIES,)),
+             sections=(MOVIES,)),
         _row("movies_popular", S["movies_popular"],
              lambda page: _popular("movie", page), TTL_MEDIUM,
              default=False, sections=(MOVIES,)),
@@ -463,40 +472,40 @@ def _build_rows():
              default=False, sections=(MOVIES,)),
         _row("movies_nineties", S["movies_nineties"],
              lambda page: _decade("movie", 1990, page), TTL_LONG,
-             default=False, sections=(MOVIES,)),
+             sections=(MOVIES,)),
         _row("movies_eighties", S["movies_eighties"],
              lambda page: _decade("movie", 1980, page), TTL_LONG,
-             default=False, sections=(MOVIES,)),
+             sections=(MOVIES,)),
 
         _row("movies_action", S["movies_action"],
              lambda page: _by_genre("movie", GENRE_MOVIE["action"], page),
-             TTL_LONG, default=False, sections=(MOVIES,)),
+             TTL_LONG, sections=(MOVIES,)),
         _row("movies_comedy", S["movies_comedy"],
              lambda page: _by_genre("movie", GENRE_MOVIE["comedy"], page),
-             TTL_LONG, default=False, sections=(MOVIES,)),
+             TTL_LONG, sections=(MOVIES,)),
         _row("movies_drama", S["movies_drama"],
              lambda page: _by_genre("movie", GENRE_MOVIE["drama"], page),
-             TTL_LONG, default=False, sections=(MOVIES,)),
+             TTL_LONG, sections=(MOVIES,)),
         _row("movies_thriller", S["movies_thriller"],
              lambda page: _by_genre("movie", GENRE_MOVIE["thriller"], page),
-             TTL_LONG, default=False, sections=(MOVIES,)),
+             TTL_LONG, sections=(MOVIES,)),
         _row("movies_scifi", S["movies_scifi"],
              lambda page: _by_genre("movie", GENRE_MOVIE["scifi"], page),
-             TTL_LONG, default=False, sections=(MOVIES,)),
+             TTL_LONG, sections=(MOVIES,)),
         _row("movies_horror", S["movies_horror"],
              lambda page: _by_genre("movie", GENRE_MOVIE["horror"], page),
-             TTL_LONG, default=False, sections=(MOVIES,)),
+             TTL_LONG, sections=(MOVIES,)),
         _row("movies_animation", S["movies_animation"],
              lambda page: _by_genre("movie", GENRE_MOVIE["animation"], page),
-             TTL_LONG, default=False, sections=(MOVIES,)),
+             TTL_LONG, sections=(MOVIES,)),
         _row("movies_documentary", S["movies_documentary"],
              lambda page: _by_genre("movie", GENRE_MOVIE["documentary"], page),
-             TTL_LONG, default=False, sections=(MOVIES,)),
+             TTL_LONG, sections=(MOVIES,)),
 
         # --- the Series tab -----------------------------------------------
         _row("shows_new", S["shows_new"],
              lambda page: _newest("tv", page), TTL_MEDIUM,
-             default=False, sections=(SHOWS,)),
+             sections=(SHOWS,)),
         _row("shows_popular", S["shows_popular"],
              lambda page: _popular("tv", page), TTL_MEDIUM,
              default=False, sections=(SHOWS,)),
@@ -509,22 +518,22 @@ def _build_rows():
 
         _row("shows_drama", S["shows_drama"],
              lambda page: _by_genre("tv", GENRE_TV["drama"], page),
-             TTL_LONG, default=False, sections=(SHOWS,)),
+             TTL_LONG, sections=(SHOWS,)),
         _row("shows_comedy", S["shows_comedy"],
              lambda page: _by_genre("tv", GENRE_TV["comedy"], page),
-             TTL_LONG, default=False, sections=(SHOWS,)),
+             TTL_LONG, sections=(SHOWS,)),
         _row("shows_crime", S["shows_crime"],
              lambda page: _by_genre("tv", GENRE_TV["crime"], page),
-             TTL_LONG, default=False, sections=(SHOWS,)),
+             TTL_LONG, sections=(SHOWS,)),
         _row("shows_scifi", S["shows_scifi"],
              lambda page: _by_genre("tv", GENRE_TV["scifi"], page),
-             TTL_LONG, default=False, sections=(SHOWS,)),
+             TTL_LONG, sections=(SHOWS,)),
         _row("shows_documentary", S["shows_documentary"],
              lambda page: _by_genre("tv", GENRE_TV["documentary"], page),
-             TTL_LONG, default=False, sections=(SHOWS,)),
+             TTL_LONG, sections=(SHOWS,)),
         _row("shows_reality", S["shows_reality"],
              lambda page: _by_genre("tv", GENRE_TV["reality"], page),
-             TTL_LONG, default=False, sections=(SHOWS,)),
+             TTL_LONG, sections=(SHOWS,)),
 
         # --- the Live tab -------------------------------------------------
         # One row per broadcaster is built below rather than listed here,
