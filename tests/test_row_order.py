@@ -11,7 +11,8 @@ from pinky import catalog
 
 MOVIES_WANTED = [
     "continue", "because_you_watched",
-    "trending_movies", "movies_new", "top_rated_movies", "israeli_movies",
+    "trending_movies", "movies_new", "movies_blockbusters",
+    "top_rated_movies", "israeli_movies",
     "movies_action", "movies_comedy", "movies_drama", "movies_thriller",
     "movies_scifi", "movies_horror", "movies_animation", "movies_documentary",
     "movies_nineties", "movies_eighties",
