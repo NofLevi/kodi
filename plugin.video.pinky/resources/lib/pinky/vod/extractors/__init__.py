@@ -41,7 +41,10 @@ def episodes(module, ref, mode=""):
         kodi.log("no extractor for %s yet" % module)
         return []
     try:
-        return handler.episodes(ref, mode) or []
+        # Numbered here rather than in each extractor: only Reshet ever
+        # filled these fields in, and this is the one path all of them take.
+        from .. import numbering
+        return numbering.number(handler.episodes(ref, mode) or [])
     except Exception:
         kodi.log_exception("listing episodes for %s failed" % module)
         return []

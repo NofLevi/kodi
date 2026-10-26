@@ -131,7 +131,19 @@ def display_title(item):
 
 
 def label(item):
-    """The one-line label shown in a list."""
+    """The one-line label shown in a list.
+
+    A VOD episode is labelled like any other episode once its number is
+    known. It used to fall through to the plain-title branch, so an Israeli
+    programme listed as a column of bare names with nothing to say which
+    episode was which - the broadcasters write the number in the title and
+    `vod.numbering` now reads it back out.
+    """
+    if item.get("type") == "vod" and item.get("episode"):
+        season = item.get("season") or 0
+        title = item.get("title") or ""
+        head = "%dx%02d" % (season, item["episode"]) if season             else "%d" % item["episode"]
+        return "%s. %s" % (head, title) if title else head
     if item.get("type") == "episode":
         season = item.get("season") or 0
         episode = item.get("episode") or 0
