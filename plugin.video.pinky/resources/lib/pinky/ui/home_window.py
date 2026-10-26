@@ -379,11 +379,40 @@ class HomeWindow(xbmcgui.WindowXML):
                 return True
             return False
 
+        # The column, kept. Focusing a list leaves it on whatever it was
+        # last on, which for a row nobody has visited is the first item - so
+        # moving down the screen walked diagonally back to the left edge
+        # every time, and a title six across could not be stepped past.
+        column = self._column_of(LIST_BASE + current)
         self.setFocusId(LIST_BASE + later[0])
+        self._keep_column(LIST_BASE + later[0], column)
         self._update_hero()
         self._fill_ahead()
         self._extend_ahead()
         return True
+
+    def _column_of(self, control_id):
+        try:
+            return int(self.getControl(control_id).getSelectedPosition())
+        except Exception:
+            return 0
+
+    def _keep_column(self, control_id, column):
+        """Land on the same column one row up or down, as far as it reaches.
+
+        A shorter row gets its last item rather than a position it does not
+        have: stepping down from the tenth of a long row onto a row of three
+        should land on the third, not fail and leave the cursor nowhere.
+        """
+        if column <= 0:
+            return
+        try:
+            control = self.getControl(control_id)
+            size = int(control.size())
+            if size > 0:
+                control.selectItem(min(column, size - 1))
+        except Exception:
+            kodi.log_exception("could not keep the column between rows")
 
     # -- sections ----------------------------------------------------------
 

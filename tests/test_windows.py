@@ -1786,3 +1786,47 @@ def test_a_layout_already_there_is_not_written_again(monkeypatch,
 
     assert kodi.ensure_hebrew_keyboard() is False
     assert not [c for c in calls if c["method"] == "Settings.SetSettingValue"]
+
+
+def test_moving_between_rows_keeps_the_column(monkeypatch):
+    """Focusing a list leaves it wherever it was last, which for a row nobody
+    has visited is the first item - so moving down the screen walked
+    diagonally back to the left edge every time, and a title six across could
+    not be stepped past."""
+    from pinky.ui import home_window
+
+    window = _home_with_rows(monkeypatch, [0, 1, 2])
+    # The fixture fills `data`, which is the model; the column lives on the
+    # controls, so they need items for there to be a column at all.
+    for row in (0, 1, 2):
+        window.getControl(home_window.LIST_BASE + row).addItems(
+            ["item %d" % n for n in range(8)])
+    window.setFocusId(home_window.LIST_BASE)
+    window.getControl(home_window.LIST_BASE).selectItem(3)
+
+    window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
+    assert window.getFocusId() == home_window.LIST_BASE + 1
+    assert window.getControl(
+        home_window.LIST_BASE + 1).getSelectedPosition() == 3
+
+    window.onAction(MoveAction(home_window.ACTION_MOVE_UP))
+    assert window.getControl(
+        home_window.LIST_BASE).getSelectedPosition() == 3
+
+
+def test_a_shorter_row_gets_its_last_item_rather_than_nothing(monkeypatch):
+    """Stepping down from the tenth of a long row onto a row of three should
+    land on the third, not on a position that row does not have."""
+    from pinky.ui import home_window
+
+    window = _home_with_rows(monkeypatch, [0, 1])
+    window.getControl(home_window.LIST_BASE).addItems(
+        ["item %d" % n for n in range(8)])
+    short = window.getControl(home_window.LIST_BASE + 1)
+    short.addItems(["a", "b", "c"])
+
+    window.setFocusId(home_window.LIST_BASE)
+    window.getControl(home_window.LIST_BASE).selectItem(4)
+    window.onAction(MoveAction(home_window.ACTION_MOVE_DOWN))
+
+    assert short.getSelectedPosition() == len(short.items) - 1
