@@ -20,6 +20,12 @@ def search(meta):
 
     season = int(meta.get("season") or 0)
     episode = int(meta.get("episode") or 0)
+    # The episode counted from the first, which is how fansub groups number
+    # anime. Without it a release named "Bleach - 049" was accepted for
+    # Bleach 2x49 - a different episode of the same show, offered
+    # confidently - because the season-relative number was compared against
+    # an absolute one. Every other provider already passes this.
+    absolute = int(meta.get("absolute") or 0)
     is_episode = meta.get("type") == "episode"
 
     sources = []
@@ -32,7 +38,8 @@ def search(meta):
             continue
         if is_episode:
             parsed = release.parse(title)
-            if not release.matches_episode(parsed, season, episode):
+            if not release.matches_episode(parsed, season, episode,
+                                           absolute):
                 continue
         try:
             size = int(entry.get("size") or 0)

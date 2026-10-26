@@ -1415,3 +1415,26 @@ def test_a_word_beginning_like_a_domain_is_not_a_site(name):
     assert scoring._WESTERN_PREFIX.sub("", name) == name
     assert scoring.stated_series(
         "Crazy4TV.com - Silicon.Valley.S04E05.720p") == "silicon valley"
+
+
+def test_zilean_is_given_the_absolute_episode_number(settings_module, monkeypatch):
+    """Measured on Bleach 2x49, which is episode 415 of 416: with no absolute
+    number the matcher compares a release's absolute number against the
+    season-relative one, so "Bleach - 049" was accepted - a different episode
+    of the same show, offered confidently. Every other provider already
+    passed it; this one did not."""
+    from pinky.sources.providers import zilean
+
+    monkeypatch.setattr(zilean, "_query", lambda base, meta: [
+        {"raw_title": "Bleach - 049 [720p]", "info_hash": "a" * 40,
+         "size": 700 * 1024 ** 2},
+        {"raw_title": "Bleach - 415 [1080p]", "info_hash": "b" * 40,
+         "size": 1400 * 1024 ** 2},
+    ])
+
+    found = zilean.search({"type": "episode", "season": 2, "episode": 49,
+                           "absolute": 415, "title": "Bleach"})
+
+    names = [source.get("name") or source.get("title", "") for source in found]
+    assert len(found) == 1, "only the right episode: %s" % names
+    assert "415" in (names[0] or "")
