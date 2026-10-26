@@ -75,3 +75,39 @@ def test_the_genre_query_asks_for_current_and_well_rated(monkeypatch):
     assert asked["sort_by"] == "popularity.desc"
     assert asked["vote_count.gte"] == catalog.GENRE_VOTES["movie"]
     assert asked["with_genres"] == "28"
+
+
+def test_top_rated_needs_an_audience_not_just_a_score(monkeypatch):
+    """Measured against the live API on 26 October 2026.
+
+    TMDB's own /movie/top_rated admits a film on about 300 votes, and the
+    first page came back led by "Batman: Knightfall" on 483 votes,
+    "Accidental Partners" on 403 and "Young Hearts" on 333 - none of which
+    anybody on this box had heard of, which is what "weird films in top
+    rated" was. With a 4000-vote floor the same call returns Shawshank, The
+    Godfather, 12 Angry Men, Schindler's List and The Dark Knight.
+
+    The floor drops the obscure rather than the foreign: Spirited Away and
+    Dilwale Dulhania Le Jayenge both still clear it, because both have an
+    audience. Excluding by language would have taken them, Parasite and
+    Seven Samurai with them.
+    """
+    asked = {}
+
+    class FakeTmdb(object):
+        @staticmethod
+        def discover(media_type, page=1, **filters):
+            asked.update(filters, media_type=media_type)
+            return []
+
+        @staticmethod
+        def top_rated(*args, **kwargs):
+            raise AssertionError("that endpoint's floor is too low")
+
+    monkeypatch.setattr(catalog, "_tmdb", lambda: FakeTmdb)
+    catalog._top_rated("movie", 1)
+
+    assert asked["sort_by"] == "vote_average.desc"
+    assert asked["vote_count.gte"] == catalog.VOTES_TOP_RATED["movie"]
+    assert catalog.VOTES_TOP_RATED["movie"] >= 2000, \
+        "a few hundred votes is how an unknown film reaches the top"

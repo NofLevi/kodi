@@ -210,6 +210,15 @@ def _by_genre(media_type, genre_id, page):
 _DATE_FIELD = {"movie": "primary_release_date", "tv": "first_air_date"}
 
 VOTES_MAINSTREAM = 300      # enough people to mean the score is real
+# TMDB's own /top_rated endpoint admits a film on about 300 votes, which is
+# how a regional release with four hundred very high ratings outranks The
+# Godfather - the row filled with films nobody on this box had heard of.
+# "Top rated" has to mean widely seen as well as well scored, so the row is
+# a discover call with a real floor rather than that endpoint. A film with
+# this many votes is a film with an audience, whatever language it is in:
+# this drops the obscure, not the foreign, and Parasite and Spirited Away
+# both clear it comfortably.
+VOTES_TOP_RATED = {"movie": 4000, "tv": 600}
 VOTES_CLASSIC = 800         # a classic is by definition widely seen
 VOTES_GEM_MIN = 80          # a gem is well liked...
 VOTES_GEM_MAX = 900         # ...and not already famous
@@ -242,6 +251,13 @@ def _newest(media_type, page):
 
 def _popular(media_type, page):
     return _tmdb().popular(media_type, page)
+
+
+def _top_rated(media_type, page):
+    """Best scored among films enough people have actually seen."""
+    return _tmdb().discover(
+        media_type, page=page, sort_by="vote_average.desc",
+        **{"vote_count.gte": VOTES_TOP_RATED.get(media_type, 600)})
 
 
 def _classics(media_type, page):
@@ -442,10 +458,10 @@ def _build_rows():
              TTL_LONG, default=False, sections=(HOME,)),
 
         _row("top_rated_movies", S["top_rated_movies"],
-             lambda page: _tmdb().top_rated("movie", page), TTL_LONG,
+             lambda page: _top_rated("movie", page), TTL_LONG,
              sections=(MOVIES,)),
         _row("top_rated_shows", S["top_rated_shows"],
-             lambda page: _tmdb().top_rated("tv", page), TTL_LONG,
+             lambda page: _top_rated("tv", page), TTL_LONG,
              sections=(SHOWS,)),
 
         _row("watchlist", S["watchlist"],
