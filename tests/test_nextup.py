@@ -44,8 +44,21 @@ def watching(monkeypatch, at, credits=True):
     return monitor
 
 
+def watched_into_the_credits(monkeypatch, no_upnext_unused=None):
+    """Somebody who watched the episode and reached the credits.
+
+    The distinction matters: starting *at* the credits is what a resume two
+    minutes from the end looks like, and a countdown then runs on a playback
+    nobody chose to start there.
+    """
+    monitor = watching(monkeypatch, 2000.0)
+    monitor.tick()                      # a tick before the credits
+    monitor.at = 2850.0
+    return monitor
+
+
 def test_the_card_comes_up_with_the_credits(monkeypatch, no_upnext):
-    monitor = watching(monkeypatch, 2850.0)
+    monitor = watched_into_the_credits(monkeypatch)
     monitor.tick()
     card = monitor._next_card
     assert isinstance(card, nextup_window.NextUpCard)
@@ -61,7 +74,7 @@ def test_not_before_the_credits(monkeypatch, no_upnext):
 
 
 def test_the_countdown_starts_the_next_episode(monkeypatch, no_upnext):
-    monitor = watching(monkeypatch, 2850.0)
+    monitor = watched_into_the_credits(monkeypatch)
     monitor.tick()
     card = monitor._next_card
     card.opened_at -= player.PinkyPlayer.NEXT_COUNTDOWN + 1
@@ -144,3 +157,30 @@ def test_switched_off_with_up_next(monkeypatch, no_upnext, settings_module):
     monitor = watching(monkeypatch, 2850.0)
     monitor.tick()
     assert monitor._next_card is None
+
+
+def test_resuming_into_the_credits_does_not_start_the_next_episode(
+        monkeypatch, no_upnext):
+    """Stop an episode with two or three minutes left and the resume point
+    lands inside the credits. The card was then up from the first tick and
+    ten seconds later the viewer was in the next episode - the opposite of
+    what pressing resume asked for.
+    """
+    monitor = watching(monkeypatch, 2850.0)   # straight in, as a resume does
+    monitor.tick()
+
+    card = monitor._next_card
+    assert card is not None, "the offer is still right to make"
+    assert not card.autoplay, "but it must wait to be pressed"
+
+    card.opened_at -= player.PinkyPlayer.NEXT_COUNTDOWN + 1
+    monitor.tick()
+    assert not xbmc.Player.PLAYED, "nothing may start on its own"
+
+
+def test_pressing_play_on_that_card_still_works(monkeypatch, no_upnext):
+    """Suppressing the countdown must not suppress the button."""
+    monitor = watching(monkeypatch, 2850.0)
+    monitor.tick()
+    monitor._next_card.on_play()
+    assert xbmc.Player.PLAYED[-1][0][0] == NEXT_URL

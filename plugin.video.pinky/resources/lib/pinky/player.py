@@ -363,6 +363,9 @@ class PinkyPlayer(xbmc.Player):
     def _forget_position(self):
         self._position = 0.0
         self._bookmarked_at = 0.0
+        # Where this playback began, which is not always zero: a resume lands
+        # wherever it was stopped. `None` until the first tick reads it.
+        self._began_at = None
 
     # How often the place is saved while playing, on top of the save at stop:
     # a projector is as likely to be switched off at the wall as stopped from
@@ -375,6 +378,8 @@ class PinkyPlayer(xbmc.Player):
             return
         self._maybe_prefetch()
         progress = self._progress()          # and records where we are
+        if getattr(self, "_began_at", None) is None:
+            self._began_at = getattr(self, "_position", 0.0)
         self._maybe_skip_intro()
         self._offer_skip_button()
         self._offer_next_card(progress)
@@ -572,9 +577,14 @@ class PinkyPlayer(xbmc.Player):
         card = getattr(self, "_next_card", None)
         if card is None and wanted:
             from .ui import nextup_window
+            # Resuming into the credits is somebody asking to see the end of
+            # *this* episode. The card may offer the next one; it may not
+            # start it on their behalf.
+            countdown = (self.NEXT_COUNTDOWN
+                         if wanted == "countdown" and not self._began_in_credits()
+                         else 0)
             self._next_card = nextup_window.open_card(
-                self._next,
-                self.NEXT_COUNTDOWN if wanted == "countdown" else 0,
+                self._next, countdown,
                 on_play=self._play_next, on_dismiss=self._dismiss_next)
         elif card is not None and not wanted:
             self._close_next_card()         # the viewer went back before it
@@ -584,6 +594,24 @@ class PinkyPlayer(xbmc.Player):
                 self._play_next()
             else:
                 card.set_countdown(int(left + 0.999))
+
+    def _began_in_credits(self):
+        """Did this playback start where the card would already be up?
+
+        A resume point two minutes from the end sits inside the credits, and
+        the card is then open from the first tick - so a countdown is a
+        countdown nobody chose to start.
+        """
+        began = getattr(self, "_began_at", None)
+        if not began:
+            return False
+        from . import skip
+        credits = skip.usable(getattr(self, "_segments", None),
+                              self.total_time).get("credits")
+        if not credits:
+            return self.total_time and (
+                0 < self.total_time - began <= self.NEXT_WITHOUT_CREDITS)
+        return credits[0] <= began < (credits[1] or self.total_time)
 
     def _next_card_mode(self):
         """"countdown" in the credits, "wait" near an end with no credits
