@@ -484,7 +484,6 @@ msgctxt "#32402"
 msgid "embedded, forced only"
 msgstr "מובנה, כפויות בלבד"
 
-
 msgctxt "#32222"
 msgid "Films for children"
 msgstr "סרטים לילדים"
@@ -1989,3 +1988,10 @@ msgctxt "#32623"
 msgid "Description"
 msgstr "תקציר"
 
+msgctxt "#32624"
+msgid "Next episode"
+msgstr "הפרק הבא"
+
+msgctxt "#32625"
+msgid "Not out yet - %s"
+msgstr "טרם יצא - %s"

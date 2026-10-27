@@ -241,6 +241,10 @@ def play(handle, request, force_picker=False):
         listing.resolve_failed(handle)
         return
 
+    if _not_out_yet(meta):
+        listing.resolve_failed(handle)
+        return
+
     try:
         from .sources import aggregator
     except ImportError:
@@ -378,6 +382,31 @@ def play(handle, request, force_picker=False):
 # of first byte before the second request that actually opened the film.
 _MIMES = {".mkv": "video/x-matroska", ".mp4": "video/mp4", ".m4v": "video/mp4",
           ".avi": "video/x-msvideo", ".webm": "video/webm", ".ts": "video/mp2t"}
+
+
+def _not_out_yet(meta):
+    """Say so, and stop, when the thing has not been released. True if so.
+
+    Before the search rather than after it: searching for a film that does
+    not exist takes the full deadline, asks every provider, and ends on "no
+    sources found" - which is the same message a working film gives when the
+    trackers are down, so it reads as the add-on being broken. Avengers:
+    Doomsday was the one that prompted this; TMDB had 47 release dates for
+    it, all of them in December.
+
+    The cams and the uncached offers below it are skipped for the same
+    reason: there is nothing to offer, cammed or otherwise.
+    """
+    from .meta import items as meta_items
+
+    day = meta_items.out_on(meta.get("item") or {})
+    if not day:
+        return False
+    kodi.log("%s %s is not out until %s, so there is nothing to search for"
+             % (meta.get("title", ""), _describe(meta), day), kodi.LOG_INFO)
+    kodi.notify(kodi.localize(32625, meta_items.day_of(day)),
+                heading=meta.get("title") or None, time_ms=6000)
+    return True
 
 
 def _mime_of(source):

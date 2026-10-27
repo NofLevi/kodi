@@ -95,14 +95,20 @@
                 <texturenofocus border="2">special://home/addons/plugin.video.pinky/resources/media/button.png</texturenofocus>
             </control>
             <control type="button" id="9102">
-                <width>230</width>
+                <width>320</width>
                 <height>60</height>
                 <font>font14</font>
                 <textcolor>white</textcolor>
                 <focusedcolor>FF141414</focusedcolor>
                 <align>center</align>
-                <label>$ADDON[plugin.video.pinky 32253]</label>
-                <visible>!String.IsEmpty(Window.Property(pinky.detail.trailer))</visible>
+                <!-- "Trailer" on a film, "Next episode   3x09" once the
+                     episodes are listed, and absent when neither applies.
+                     Both the label and the visibility come from the one
+                     property, set by _update_action_label, so the button can
+                     never be on screen saying nothing. 320 to match Play:
+                     the label now carries an episode number too. -->
+                <label>$INFO[Window.Property(pinky.detail.altlabel)]</label>
+                <visible>!String.IsEmpty(Window.Property(pinky.detail.altlabel))</visible>
                 <texturefocus border="2">special://home/addons/plugin.video.pinky/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.pinky/resources/media/button.png</texturenofocus>
             </control>

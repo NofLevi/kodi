@@ -57,6 +57,20 @@ def test_back_closes_a_film_rather_than_hiding_it(box):
     assert "<back>Stop</back>" in keymap
 
 
+def test_the_menu_key_opens_the_player_bar_during_a_film(box):
+    """It opened the subtitle search instead - one item off the bar it skipped.
+
+    Kodi binds `OSD` to `x` and `guide` in FullscreenVideo, so this is the
+    action, not a window to activate; outside a film the same key is the
+    context menu.
+    """
+    remotekeys.choose_projector_remote()
+    keymap = (box["keymaps"] / remotekeys.FILE).read_text("utf-8")
+    assert "SubtitleSearch" not in keymap
+    assert "<start>OSD</start>" in keymap
+    assert "<start>ContextMenu</start>" in keymap
+
+
 def test_nothing_happens_to_a_box_that_did_not_ask(box, settings_module):
     """The whole point: a Mi Box is left exactly as it was."""
     assert remotekeys.reassert_projector_remote() is False

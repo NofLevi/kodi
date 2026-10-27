@@ -154,6 +154,38 @@ def label(item):
     return "%s (%d)" % (title, year) if year else title
 
 
+# TMDB dates a film by the day it opens somewhere and an episode by the day it
+# airs, and either date can be in the future. Avengers: Doomsday was dated
+# 2026-12-16 with 47 release dates against it and not one copy of it in
+# existence; the source search ran its whole course and reported "no sources
+# found", which is true, useless, and reads as a broken add-on rather than a
+# film that has not been made yet.
+def out_on(item):
+    """The day this is first out, if that day is still ahead. "" if it is out.
+
+    The earliest date TMDB has, because a festival premiere counts: once a
+    thing has been shown anywhere, a copy of it can exist. `first_shown` is
+    only on a full movie fetch and `premiered` is on every item, so a row
+    knows this much without another call.
+    """
+    import time
+
+    days = [str(day)[:10] for day in
+            (item.get("premiered"), (item.get("extra") or {}).get("first_shown"))
+            if day]
+    days = [day for day in days if len(day) == 10 and day[:4].isdigit()]
+    if not days:
+        return ""
+    first = min(days)
+    return first if first > time.strftime("%Y-%m-%d") else ""
+
+
+def day_of(iso):
+    """"2026-12-16" as "16/12/2026", which is the order it is read in here."""
+    bits = str(iso or "")[:10].split("-")
+    return "/".join(reversed(bits)) if len(bits) == 3 else str(iso or "")
+
+
 def unique_key(item):
     """A stable identity used for de-duplicating rows across sources."""
     ids = item.get("ids") or {}

@@ -292,6 +292,63 @@ def test_no_sources_found_says_so(film, spoken, monkeypatch):
     assert spoken
 
 
+def test_a_film_that_is_not_out_is_not_searched_for(film, spoken, monkeypatch):
+    """Avengers: Doomsday: 47 release dates, all in December, no copy anywhere.
+
+    The search ran its whole course and ended on "no sources found", which is
+    the same message a working film gives when the trackers are down - so it
+    read as a broken add-on rather than a film that does not exist yet.
+    """
+    monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
+        "ids": {"tmdb": 1003596}, "title": "Avengers: Doomsday",
+        "year": 2026, "art": {}, "premiered": "2099-12-16",
+        "extra": {"first_shown": "2099-12-16"}})
+    searched = []
+    from pinky.sources import aggregator
+    monkeypatch.setattr(aggregator, "find",
+                        lambda meta, **kw: searched.append(meta) or [])
+
+    play.play(-1, {"type": "movie", "tmdb": "1003596"})
+
+    assert spoken, "the viewer has to be told why there is nothing"
+    assert "16/12/2099" in str(spoken), spoken
+    assert searched == [], "there is nothing to search for"
+
+
+def test_an_episode_that_has_not_aired_is_not_searched_for(film, spoken,
+                                                           monkeypatch):
+    monkeypatch.setattr(tmdb, "show", lambda tmdb_id: {
+        "ids": {"tmdb": 66732}, "title": "A Show", "year": 2016, "art": {},
+        "original_title": "A Show", "extra": {}})
+    monkeypatch.setattr(tmdb, "episodes", lambda tmdb_id, season: [
+        {"type": "episode", "episode": 4, "title": "Next week",
+         "premiered": "2099-01-08", "extra": {}}])
+    searched = []
+    from pinky.sources import aggregator
+    monkeypatch.setattr(aggregator, "find",
+                        lambda meta, **kw: searched.append(meta) or [])
+
+    play.play(-1, {"type": "episode", "tmdb": "66732", "season": "5",
+                   "episode": "4"})
+
+    assert spoken and "08/01/2099" in str(spoken), spoken
+    assert searched == []
+
+
+def test_a_film_that_is_out_today_is_searched_for(film, spoken, monkeypatch):
+    """The boundary is the only part of this worth getting wrong once."""
+    import time
+    monkeypatch.setattr(tmdb, "movie", lambda tmdb_id: {
+        "ids": {"tmdb": 278}, "title": "Out today", "year": 2026, "art": {},
+        "premiered": time.strftime("%Y-%m-%d")})
+    from pinky.sources import aggregator
+    monkeypatch.setattr(aggregator, "find", lambda meta, **kw: list(SOURCES))
+    monkeypatch.setattr(play, "_resolve", lambda source: "http://x/f.mkv")
+
+    play.play(-1, {"type": "movie", "tmdb": "278"})
+    assert not spoken, "a film released today is released"
+
+
 def test_a_source_that_will_not_resolve_says_so(film, spoken, monkeypatch):
     from pinky.sources import aggregator
     monkeypatch.setattr(aggregator, "find", lambda meta, **kw: list(SOURCES))

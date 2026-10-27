@@ -24,7 +24,11 @@ MOVE_ACTIONS = (1, 2, 3, 4, 6, 7, 104, 105, 107)
 
 LIST_CONTENT = 5300
 BUTTON_PLAY = 9100
-BUTTON_TRAILER = 9102
+# One button, two jobs, because which one is useful depends on what is on
+# screen: the trailer for a film or a season list, the next episode once the
+# episodes are showing. A trailer is the least interesting thing on a screen
+# that has reached episode nine of season three.
+BUTTON_ALT = 9102
 BUTTON_WATCHLIST = 9103
 
 
@@ -34,6 +38,10 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.item = {}
         self.entries = []          # seasons, then episodes once one is chosen
         self.season = None
+        # The episode the second button offers, worked out when the list is
+        # filled rather than on every cursor move: with a finished season on
+        # screen, finding it means a TMDB call per remaining season.
+        self.next_episode = None
         self.played = False
         self.ready = False
         # Whether the name-to-TMDB lookup has been tried, so a title TMDB
@@ -89,7 +97,13 @@ class DetailsWindow(xbmcgui.WindowXML):
             # unwatched episode when nothing is highlighted, which is the
             # case on the season list and the one Play existed for.
             self._choose_source()
-        elif control_id == BUTTON_TRAILER:
+        elif control_id == BUTTON_ALT:
+            if self.season is not None:
+                # Through the picker, like Play, because autoplay is gone and
+                # every other route to a stream on this screen opens it.
+                if self.next_episode is not None:
+                    self._choose_source(self.next_episode)
+                return
             trailer = (self.item.get("extra") or {}).get("trailer")
             if trailer:
                 kodi.play_media(trailer)
@@ -112,10 +126,11 @@ class DetailsWindow(xbmcgui.WindowXML):
         self.setProperty("pinky.detail.fanart", art.get("fanart") or "")
         self.setProperty("pinky.detail.meta", _meta_line(self.item))
         self.setProperty("pinky.detail.cast", _cast_line(self.item))
-        self.setProperty("pinky.detail.trailer",
-                         (self.item.get("extra") or {}).get("trailer", ""))
         self.setProperty("pinky.detail.listheading", "")
-        self.setProperty("pinky.detail.playlabel", kodi.localize(32390))
+        # Both button labels, here as well as on every move: a film never
+        # fills the list, so `_fill` never runs and the second button would
+        # have no label to be visible by.
+        self._update_action_label()
 
     def _update_action_label(self):
         """Name the episode Play will act on, on the button itself.
@@ -136,9 +151,29 @@ class DetailsWindow(xbmcgui.WindowXML):
             label = "%s   %dx%02d" % (label, int(entry.get("season") or 0),
                                       int(entry.get("episode") or 0))
         self.setProperty("pinky.detail.playlabel", label)
+        self.setProperty("pinky.detail.altlabel", self._alt_label())
+
+    def _alt_label(self):
+        """What the second button offers here, or "" to leave it off screen.
+
+        It is the label that decides: the skin shows the button only when
+        this is set, so a film with no trailer and a finished season both
+        leave one fewer control on the row rather than a dead one.
+        """
+        if self.season is not None:
+            entry = self.next_episode
+            if entry is None:
+                return ""
+            return "%s   %dx%02d" % (kodi.localize(32624),
+                                     int(entry.get("season") or 0),
+                                     int(entry.get("episode") or 0))
+        return (kodi.localize(32253)
+                if (self.item.get("extra") or {}).get("trailer") else "")
 
     def _fill(self, entries, heading):
         self.entries = entries or []
+        self.next_episode = (self._next_unwatched()
+                             if self.season is not None else None)
         self.setProperty("pinky.detail.listheading", heading if entries else "")
         self._update_action_label()
         try:
@@ -408,7 +443,7 @@ class DetailsWindow(xbmcgui.WindowXML):
 
     def _cleanup(self):
         for name in ("title", "plot", "poster", "fanart", "meta", "cast",
-                     "trailer", "listheading", "playlabel"):
+                     "altlabel", "listheading", "playlabel"):
             self.clearProperty("pinky.detail.%s" % name)
         self.entries = []
 
@@ -423,6 +458,13 @@ def _first_unwatched(entries):
 
 def _meta_line(item):
     bits = []
+    # First, because it is the one fact that decides whether pressing Play is
+    # worth doing at all. A film dated next December sat here looking exactly
+    # like one that is out, and the only way to find out was to press Play and
+    # wait for "no sources found".
+    not_out = meta_items.out_on(item)
+    if not_out:
+        bits.append(kodi.localize(32625, meta_items.day_of(not_out)))
     if item.get("year"):
         bits.append(str(item["year"]))
     if item.get("rating"):

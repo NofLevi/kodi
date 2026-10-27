@@ -134,9 +134,12 @@ def projector_keymap():
     Back during playback merely minimises the film and leaves it running,
     which on a projector reads as a film that will not close.
 
-    During a film the menu key opens Pinky's subtitle list rather than an
-    information screen: OK already shows the seek bar and Back now closes the
-    film, and subtitles are what actually goes wrong mid-film here.
+    During a film the menu key opens the player's own bottom bar - the `OSD`
+    action, which is what Kodi binds `x` and `guide` to there. It used to open
+    Pinky's subtitle list directly, on the reasoning that subtitles are what
+    goes wrong mid-film; but that is one item on a bar that also holds audio
+    track, subtitle offset, video settings and the playlist, and the key that
+    reaches a menu should reach the menu. Subtitles are the first thing on it.
     """
     return "\n".join([
         "<keymap>",
@@ -149,7 +152,7 @@ def projector_keymap():
         "  <FullscreenVideo>",
         "    <joystick%s>" % JOYSTICK,
         "      <back>Stop</back>",
-        "      <start>ActivateWindow(SubtitleSearch)</start>",
+        "      <start>OSD</start>",
         "    </joystick>",
         "  </FullscreenVideo>",
         "</keymap>",

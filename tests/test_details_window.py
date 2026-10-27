@@ -185,10 +185,68 @@ def test_playing_a_show_with_no_seasons_loaded_says_so(window):
     assert detail._next_unwatched() is None
 
 
-def test_the_trailer_button_is_hidden_without_one(window):
-    assert window(MOVIE).getProperty("pinky.detail.trailer")
+def test_the_second_button_offers_the_trailer_on_a_film(window):
+    assert "trailer" in window(MOVIE).getProperty("pinky.detail.altlabel")
     plain = dict(MOVIE, extra={})
-    assert window(plain).getProperty("pinky.detail.trailer") == ""
+    assert window(plain).getProperty("pinky.detail.altlabel") == "",         "no trailer, no button: the label is what the skin shows it by"
+
+
+def test_the_second_button_becomes_the_next_episode(window):
+    """On an episode list the trailer is the least useful thing on screen.
+
+    Season one's episode one is watched in the fixture, so the next episode
+    is 1x02 - and the button says which, the way Play does.
+    """
+    detail = window(SHOW)
+    assert "trailer" not in detail.getProperty("pinky.detail.altlabel")
+
+    detail.getControl(details_window.LIST_CONTENT).position = 0
+    detail.onClick(details_window.LIST_CONTENT)          # open season 1
+
+    label = detail.getProperty("pinky.detail.altlabel")
+    assert "Next episode" in label and "1x02" in label
+    assert detail.next_episode["episode"] == 2
+
+
+def test_the_next_episode_button_opens_the_picker_for_it(window):
+    detail = window(SHOW)
+    detail.getControl(details_window.LIST_CONTENT).position = 1
+    detail.onClick(details_window.LIST_CONTENT)          # season 2, none watched
+
+    asked = []
+    detail._choose_source = lambda entry=None: asked.append(entry)
+    detail.onClick(details_window.BUTTON_ALT)
+    assert len(asked) == 1 and asked[0]["season"] == 2 and asked[0]["episode"] == 1
+
+
+def test_the_button_goes_away_when_the_season_is_finished(window, monkeypatch):
+    """Nothing left to watch is not a button that does nothing when pressed."""
+    from pinky.meta import tmdb
+    watched = {n: [dict(e, playcount=1) for e in tmdb.episodes(1399, n)]
+               for n in (1, 2)}
+    monkeypatch.setattr(tmdb, "episodes",
+                        lambda tmdb_id, season: watched[int(season)])
+    detail = window(SHOW)
+    detail.getControl(details_window.LIST_CONTENT).position = 0
+    detail.onClick(details_window.LIST_CONTENT)
+    assert detail.getProperty("pinky.detail.altlabel") == ""
+
+    pressed = []
+    detail._choose_source = lambda entry=None: pressed.append(entry)
+    detail.onClick(details_window.BUTTON_ALT)
+    assert pressed == [], "an absent button must not act when its id arrives"
+
+
+def test_a_film_that_is_not_out_says_so(window):
+    """Avengers: Doomsday, dated December, looked exactly like a film that is out.
+
+    The only way to find out was to press Play and wait for the search to
+    finish on "no sources found".
+    """
+    unreleased = dict(MOVIE, premiered="2099-12-16")
+    meta = window(unreleased).getProperty("pinky.detail.meta")
+    assert "16/12/2099" in meta and "Not out yet" in meta
+    assert "Not out yet" not in window(MOVIE).getProperty("pinky.detail.meta")
 
 
 def test_properties_are_cleared_on_close(window):
