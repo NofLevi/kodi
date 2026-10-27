@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.pinky"
        name="Pinky"
-       version="0.0.10"
+       version="0.0.11"
        provider-name="pinky">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -37,10 +37,12 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>v0.0.10
-- The poster was the smallest thing on a screen for choosing posters
-- Zilean was offered Bleach 49 when Bleach 415 was asked for
-- Most VOD episodes had no number, in six providers out of seven
-- Resuming two minutes from the end threw you into the next episode</news>
+        <news>v0.0.11
+- Fourteen genre rows were written, translated, and never once drawn
+- Top rated was led by a film with 483 votes, now it needs an audience
+- Biggest hits, between New releases and Top rated
+- The menu key during a film opens the player's bar, not the subtitle list
+- On an episode list the trailer button is now "Next episode"
+- A film or episode that is not out yet says so, rather than finding nothing</news>
     </extension>
 </addon>
