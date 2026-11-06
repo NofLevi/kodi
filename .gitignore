@@ -142,3 +142,19 @@ repo/
 # two ADDONS folders, so this directory is invisible to packaging regardless.
 # --------------------------------------------------------------------------
 research/
+
+# --------------------------------------------------------------------------
+# The portable Android emulator
+#
+# android-lab/lab.py downloads about 1.1 GB from Google - the platform tools,
+# the emulator and one system image - plus the Kodi APK, and the device it
+# builds writes an 8 GB disk image. Only lab.py itself is worth committing.
+# The logs it pulls are already covered by the *.log rule above, but the
+# Addons*.db it pulls to flip a flag is not, and a Kodi profile is where this
+# add-on keeps its API keys.
+# --------------------------------------------------------------------------
+android-lab/sdk/
+android-lab/avd/
+android-lab/downloads/
+android-lab/home/
+android-lab/logs/
