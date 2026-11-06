@@ -315,6 +315,54 @@ def test_home_fills_further_rows_as_focus_moves(home):
     assert len(home.filled) >= before
 
 
+def test_up_and_down_land_on_the_first_item_of_the_row(home):
+    """A row scrolled into earlier used to hand the cursor back where it was.
+
+    Six titles in, with the row's own heading off to the left and nothing to
+    say why this row started in the middle while the one above it started at
+    the edge.
+    """
+    second = home.getControl(home_window.LIST_BASE + 1)
+    second.selectItem(3)                      # been down this row before
+
+    home.setFocusId(home_window.LIST_BASE)
+    home.onAction(FakeAction(home_window.ACTION_MOVE_DOWN))
+
+    assert home._focused_row() == 1
+    assert second.getSelectedPosition() == 0
+
+
+def test_it_lands_on_the_first_item_going_up_as_well(home):
+    first = home.getControl(home_window.LIST_BASE)
+    first.selectItem(4)
+
+    home.setFocusId(home_window.LIST_BASE + 1)
+    home.onAction(FakeAction(home_window.ACTION_MOVE_UP))
+
+    assert home._focused_row() == 0
+    assert first.getSelectedPosition() == 0
+
+
+def test_the_hero_describes_the_item_arrived_at_not_the_one_left(home):
+    """The hero used to be read before the move, so it named the wrong title."""
+    home.getControl(home_window.LIST_BASE + 1).selectItem(3)
+    home.setFocusId(home_window.LIST_BASE)
+    home.onAction(FakeAction(home_window.ACTION_MOVE_DOWN))
+
+    shown = home.getProperty("pinky.hero.title")
+    assert shown, "the hero has to say something for this to be a test"
+    assert shown == home.data[1][0]["title"], shown
+    assert shown != home.data[1][3]["title"], "that is the item it moved past"
+
+
+def test_arriving_from_the_top_bar_starts_at_the_first_item(home):
+    home.getControl(home_window.LIST_BASE).selectItem(2)
+    home.setFocusId(home_window.BUTTON_SEARCH)
+    home.onAction(FakeAction(home_window.ACTION_MOVE_DOWN))
+
+    assert home.getControl(home_window.LIST_BASE).getSelectedPosition() == 0
+
+
 def test_an_empty_row_hides_itself(monkeypatch):
     from pinky import catalog
     from pinky.meta import trakt_state

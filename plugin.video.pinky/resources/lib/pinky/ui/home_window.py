@@ -220,6 +220,7 @@ class HomeWindow(xbmcgui.WindowXML):
         for index in sorted(self.data):
             if self.data.get(index):
                 self.setFocusId(LIST_BASE + index)
+                self._start_of_row(LIST_BASE + index)
                 return True
         # Nothing filled: every row is hidden, so row zero is not there to
         # focus either and the screen would be black with no way off it but
@@ -380,10 +381,38 @@ class HomeWindow(xbmcgui.WindowXML):
             return False
 
         self.setFocusId(LIST_BASE + later[0])
-        self._update_hero()
         self._fill_ahead()
         self._extend_ahead()
+        # Last, and the hero after it: filling a row resets it, so a reset
+        # done before the fill would be undone by it, and the hero read
+        # before the move would describe the item the cursor just left.
+        self._start_of_row(LIST_BASE + later[0])
+        self._update_hero()
         return True
+
+    def _start_of_row(self, control_id):
+        """Land on the row's first item, whatever it was left on before.
+
+        A list keeps its own cursor, so a row scrolled into earlier handed it
+        back six titles in - with the row's own heading off to the left and no
+        way to tell, from looking, why this row started in the middle while
+        the one above it started at the edge. Up and down are how this screen
+        is read, and they now read it the same way every time.
+
+        Carrying the *column* across was tried instead and taken back out:
+        `_fill` does reset() then addItems(), so a row that arrived late
+        dropped the cursor to the start anyway, and the column survived only
+        on the rows that happened to be filled already. Going to the start
+        deliberately is the behaviour those resets were producing by accident
+        on half the screen, which is the version that cannot disagree with
+        itself.
+        """
+        try:
+            self.getControl(control_id).selectItem(0)
+        except Exception:
+            # A row that is hidden or not in this skin: nothing to select,
+            # and nothing worth a line in the log on every press.
+            pass
 
     # -- sections ----------------------------------------------------------
 
