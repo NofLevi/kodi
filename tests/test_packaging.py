@@ -23,7 +23,12 @@ from conftest import ROOT
 # per seek. That is why Cloudflare had to go. GitHub answers 206, so the
 # ceiling can move - but it stays a ceiling, because nothing else notices an
 # add-on growing a megabyte at a time.
-MAX_ZIP_KB = 700
+# 700 caught the growth to 716 when offline downloads were added: three new
+# modules, a route block, a catalog row and a skin button. Measured again at
+# that point - 137 KB is still the Israeli VOD catalogue and the rest is
+# Python, with no new asset of any kind - so the ceiling moves rather than the
+# feature. It stays a ceiling for the reason above.
+MAX_ZIP_KB = 800
 
 
 @pytest.fixture(scope="module")

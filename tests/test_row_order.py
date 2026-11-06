@@ -10,7 +10,7 @@ good" could not be answered by looking, because they were not there.
 from pinky import catalog
 
 MOVIES_WANTED = [
-    "continue", "because_you_watched",
+    "continue", "downloaded", "because_you_watched",
     "trending_movies", "movies_new", "movies_blockbusters",
     "top_rated_movies", "israeli_movies",
     "movies_action", "movies_comedy", "movies_drama", "movies_thriller",
@@ -19,7 +19,7 @@ MOVIES_WANTED = [
 ]
 
 SHOWS_WANTED = [
-    "continue", "because_you_watched",
+    "continue", "downloaded", "because_you_watched",
     "trending_shows", "shows_new", "airing_today", "top_rated_shows",
     "israeli_shows", "anime_trending", "foreign_dramas",
     "shows_drama", "shows_comedy", "shows_crime", "shows_scifi",
@@ -28,13 +28,14 @@ SHOWS_WANTED = [
 
 
 def _shown(section):
-    on = {row["id"] for row in catalog.rows() if row.get("default", True)}
-    members = {row["id"] for row in catalog.rows()
-               if section in (row.get("sections") or ())}
-    order = catalog.SECTION_ORDER.get(section, [])
-    shown = [r for r in order if r in members and r in on]
-    shown += [r for r in sorted(members) if r not in order and r in on]
-    return shown
+    """What the tab really draws - the add-on's own function, not a copy.
+
+    This used to re-implement the rule, and filtered by `default`, which
+    `enabled_row_ids` does not do for a tab: a row that is off on the mixed
+    Home set is still shown on the tab it belongs to. The copy would have
+    called the Downloaded row hidden while the screen showed it.
+    """
+    return list(catalog.enabled_row_ids(section))
 
 
 def test_the_films_tab_is_what_was_asked_for():

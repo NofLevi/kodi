@@ -2035,3 +2035,107 @@ msgstr ""
 msgctxt "#32625"
 msgid "Not out yet - %s"
 msgstr ""
+
+msgctxt "#30333"
+msgid "Offline downloads"
+msgstr ""
+
+msgctxt "#30334"
+msgid "Where downloads are kept"
+msgstr ""
+
+msgctxt "#30335"
+msgid "Choose the downloads folder"
+msgstr ""
+
+msgctxt "#30336"
+msgid "Save a subtitle beside each download"
+msgstr ""
+
+msgctxt "#30337"
+msgid "Remove every download"
+msgstr ""
+
+msgctxt "#30338"
+msgid "The folder downloads are written to. Internal storage by default; an SD card or a USB stick holds more."
+msgstr ""
+
+msgctxt "#30339"
+msgid "Deletes every downloaded film and episode from the disk."
+msgstr ""
+
+msgctxt "#32626"
+msgid "Download"
+msgstr ""
+
+msgctxt "#32627"
+msgid "Remove the download"
+msgstr ""
+
+msgctxt "#32628"
+msgid "%s is ready to watch offline"
+msgstr ""
+
+msgctxt "#32629"
+msgid "the source could not be fetched"
+msgstr ""
+
+msgctxt "#32630"
+msgid "there is not enough room on the disk"
+msgstr ""
+
+msgctxt "#32631"
+msgid "the downloads folder cannot be written to"
+msgstr ""
+
+msgctxt "#32632"
+msgid "the connection dropped, it will carry on"
+msgstr ""
+
+msgctxt "#32633"
+msgid "Downloaded"
+msgstr ""
+
+msgctxt "#32634"
+msgid "%s is downloading"
+msgstr ""
+
+msgctxt "#32635"
+msgid "This whole season (%d episodes)"
+msgstr ""
+
+msgctxt "#32636"
+msgid "One episode"
+msgstr ""
+
+msgctxt "#32637"
+msgid "Remove %d downloads and free %s?"
+msgstr ""
+
+msgctxt "#32638"
+msgid "Nothing is downloaded"
+msgstr ""
+
+msgctxt "#32639"
+msgid "Only a cached source can be downloaded"
+msgstr ""
+
+msgctxt "#32640"
+msgid "It is already downloaded"
+msgstr ""
+
+msgctxt "#32641"
+msgid "%d downloads removed, %s freed"
+msgstr ""
+
+msgctxt "#32642"
+msgid "That folder cannot be written to, so it was not used"
+msgstr ""
+
+msgctxt "#32643"
+msgid "Downloads go to %s"
+msgstr ""
+
+msgctxt "#32644"
+msgid "Queued %d episodes"
+msgstr ""

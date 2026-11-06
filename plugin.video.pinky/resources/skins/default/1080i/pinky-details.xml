@@ -112,6 +112,21 @@
                 <texturefocus border="2">special://home/addons/plugin.video.pinky/resources/media/button-focus.png</texturefocus>
                 <texturenofocus border="2">special://home/addons/plugin.video.pinky/resources/media/button.png</texturenofocus>
             </control>
+            <!-- Keep a copy on the device. 240: one word in both
+                 languages, and the row has the space - 320 + 320 + 240 + 360
+                 with three 14px gaps is 1282 of the 1400 this grouplist
+                 has. -->
+            <control type="button" id="9104">
+                <width>240</width>
+                <height>60</height>
+                <font>font14</font>
+                <textcolor>white</textcolor>
+                <focusedcolor>FF141414</focusedcolor>
+                <align>center</align>
+                <label>$ADDON[plugin.video.pinky 32626]</label>
+                <texturefocus border="2">special://home/addons/plugin.video.pinky/resources/media/button-focus.png</texturefocus>
+                <texturenofocus border="2">special://home/addons/plugin.video.pinky/resources/media/button.png</texturenofocus>
+            </control>
             <!-- Widest on purpose. "Add to Trakt watchlist" is four words in
                  Hebrew and one Latin word, and at 270 it was clipped at both
                  ends: the label read as a fragment with no beginning. -->

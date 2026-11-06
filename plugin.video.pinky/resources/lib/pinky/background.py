@@ -23,6 +23,9 @@ PRUNE_INTERVAL = 24 * 3600
 # A projector that phones home on every boot is a projector that is
 # slower to open. Once a week is enough to hear about a release.
 UPDATE_INTERVAL = 7 * 24 * 3600
+# A download queue left over from a restart has to be picked up without
+# anybody asking again, so the clock asks as well as the plugin.
+DOWNLOAD_INTERVAL = 60
 STARTUP_DELAY = 20        # let Kodi finish booting before touching the network
 
 # Opening on start-up waits for Kodi to be ready rather than for a clock. The
@@ -53,6 +56,10 @@ class Service(xbmc.Monitor):
         self.next_warm = now + STARTUP_DELAY
         self.next_sync = now + STARTUP_DELAY + 10
         self.next_prune = now + 300
+        # After the startup delay: a box switched on with a queue should
+        # finish booting before it starts pulling gigabytes.
+        self.next_downloads = now + STARTUP_DELAY + 10
+        self.downloads = None
         self.next_update = now + STARTUP_DELAY + 40
         self.open_deadline = now + OPEN_DEADLINE
         self.home_seen_at = 0.0
@@ -205,6 +212,44 @@ class Service(xbmc.Monitor):
             kodi.notify(kodi.localize(32501, updater.installed_version(),
                                       found[0]))
 
+    def check_downloads(self, now):
+        """Work the download queue, on a thread, one file at a time.
+
+        Woken two ways on purpose. The plugin sets a property when something
+        is queued, so a download starts within the second of being asked for;
+        and the clock asks once a minute, so a queue interrupted by a restart
+        or a flat wifi resumes on its own without anybody pressing anything.
+
+        One thread, and refused while that thread is alive - the same
+        arrangement `check_translation_request` uses, and for the same
+        reason: two of these at once would fight for the disk and the
+        bandwidth and finish neither. The running thread re-reads the queue
+        between files, so anything queued while it works is picked up without
+        being woken again.
+        """
+        import threading
+
+        woken = kodi.get_property("offline.wake")
+        if woken:
+            kodi.clear_property("offline.wake")
+        elif now < self.next_downloads:
+            return
+        self.next_downloads = now + DOWNLOAD_INTERVAL
+        if self.downloads is not None and self.downloads.is_alive():
+            return
+        try:
+            from .offline import library
+            if library.next_queued() is None:
+                return
+            from .offline import downloader
+            self.downloads = threading.Thread(target=downloader.run,
+                                              args=(self,),
+                                              name="pinky-downloads")
+            self.downloads.daemon = True
+            self.downloads.start()
+        except Exception:
+            kodi.log_exception("could not start the download worker")
+
     def prune_cache(self):
         try:
             cache.maybe_prune(force=True)
@@ -336,6 +381,7 @@ class Service(xbmc.Monitor):
                     self.player.tick()
             self.check_translation_request()
             now = time.time()
+            self.check_downloads(now)
             if not self.opened:
                 self.opened = self.open_on_boot(now)
             else:

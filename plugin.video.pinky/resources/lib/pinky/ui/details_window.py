@@ -30,6 +30,7 @@ BUTTON_PLAY = 9100
 # that has reached episode nine of season three.
 BUTTON_ALT = 9102
 BUTTON_WATCHLIST = 9103
+BUTTON_DOWNLOAD = 9104
 
 
 class DetailsWindow(xbmcgui.WindowXML):
@@ -107,6 +108,8 @@ class DetailsWindow(xbmcgui.WindowXML):
             trailer = (self.item.get("extra") or {}).get("trailer")
             if trailer:
                 kodi.play_media(trailer)
+        elif control_id == BUTTON_DOWNLOAD:
+            self._download()
         elif control_id == BUTTON_WATCHLIST:
             self._add_to_watchlist()
         elif control_id == LIST_CONTENT:
@@ -434,6 +437,66 @@ class DetailsWindow(xbmcgui.WindowXML):
         self._cleanup()
         self.close()
         kodi.play_media(url, entry)
+
+    def _download(self):
+        """Keep a copy on the device. Acts on whatever the cursor is on.
+
+        The same principle as Play: the button does the thing to the item
+        being looked at. An episode highlighted is that episode; a season
+        highlighted is the whole season, after saying how many episodes that
+        is; a film is the film.
+
+        One item goes through the source picker, because a download commits
+        several gigabytes of a small disk and the sizes are on those rows. A
+        season cannot - fourteen pickers is not a feature - so the service
+        takes the best cached source for each, one at a time.
+        """
+        entry = self._selected_episode()
+        if entry is not None:
+            self._queue_one("episode", season=entry.get("season"),
+                            episode=entry.get("episode"))
+            return
+
+        season = self._selected_season()
+        if season is not None:
+            count = (season.get("extra") or {}).get("episode_count") or 0
+            if not kodi.yes_no(kodi.localize(32635, int(count))):
+                return
+            kodi.run_builtin("RunPlugin(%s)" % router.url_for(
+                "offline_season", tmdb=self._tmdb_id(),
+                season=season.get("season")))
+            return
+
+        if self.item.get("type") == "movie":
+            self._queue_one("movie")
+
+    def _queue_one(self, item_type, season=None, episode=None):
+        """Hand one item to the picker, then to the queue.
+
+        The window closes first, as it does for the source picker: this
+        opens that same picker, and opening one modal window from inside
+        another is what `_choose_source` already refuses to do.
+        """
+        ids = self.item.get("ids") or {}
+        url = router.url_for("offline_add", tmdb=self._tmdb_id()
+                             or ids.get("tmdb"), imdb=ids.get("imdb"),
+                             type=item_type, season=season, episode=episode)
+        self._cleanup()
+        self.close()
+        kodi.run_builtin("RunPlugin(%s)" % url)
+
+    def _selected_season(self):
+        """The season under the cursor, when the list is showing seasons."""
+        if self.season is not None:
+            return None
+        try:
+            position = self.getControl(LIST_CONTENT).getSelectedPosition()
+        except Exception:
+            return None
+        if not (0 <= position < len(self.entries)):
+            return None
+        entry = self.entries[position]
+        return entry if entry.get("type") == "season" else None
 
     def _add_to_watchlist(self):
         ids = self.item.get("ids") or {}

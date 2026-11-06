@@ -228,6 +228,8 @@ def _still_wanted(ticket):
 def play(handle, request, force_picker=False):
     """Route entry point for playing a movie or an episode."""
     ticket = _take_ticket()
+    if not force_picker and _play_downloaded(handle, request):
+        return
     meta = build_meta(request)
     if not meta.get("title"):
         # The one failure with no explanation anywhere. An episode reached
@@ -382,6 +384,58 @@ def play(handle, request, force_picker=False):
 # of first byte before the second request that actually opened the film.
 _MIMES = {".mkv": "video/x-matroska", ".mp4": "video/mp4", ".m4v": "video/mp4",
           ".avi": "video/x-msvideo", ".webm": "video/webm", ".ts": "video/mp2t"}
+
+
+def _play_downloaded(handle, request):
+    """Play the copy on the disk, if there is one. True when it started.
+
+    First in `play`, and deliberately **before `build_meta`**. That function
+    needs TMDB for a title and this one refuses to go on without one - and
+    TMDB needs a network, which is the one thing a download exists to do
+    without. Routed the ordinary way, a downloaded film would have failed on
+    a plane and worked at home, which is precisely backwards.
+
+    So nothing here touches the network: the key is built from the route's
+    own parameters and the item comes from the snapshot stored when it was
+    queued. Skipped when the viewer asked for the picker, because asking to
+    choose a source is asking to stream.
+    """
+    from .offline import library
+
+    record = library.find(request)
+    if record is None:
+        return False
+    path = record["file"]
+    item = dict(record.get("item") or {})
+    try:
+        from .meta import trakt_state
+        if item:
+            trakt_state.annotate([item])      # so it resumes where it was left
+    except Exception:
+        kodi.log_exception("could not read the resume point")
+
+    from . import player
+    meta = {
+        "type": record.get("type") or "movie",
+        "ids": record.get("ids") or {},
+        "season": int(record.get("season") or 0),
+        "episode": int(record.get("episode") or 0),
+        "title": item.get("title") or "",
+        "show_title": item.get("show_title") or "",
+        "year": item.get("year") or 0,
+        "item": item,
+        "duration": int(item.get("duration") or 0),
+        "stream_url": path,
+        # No fallbacks: there is nothing to fall back to, and nothing to fall
+        # back from. The file either opens or the disk is broken.
+        "offline": True,
+    }
+    kodi.log("playing %s from the disk: %s" % (record["key"], path),
+             kodi.LOG_INFO)
+    player.set_now_playing(meta)
+    listing.resolve(handle, path, item, mime=_mime_of(
+        {"file_name": path, "title": path}))
+    return True
 
 
 def _not_out_yet(meta):

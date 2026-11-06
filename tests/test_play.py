@@ -4,6 +4,8 @@ This module decides what every viewer actually sees and had no tests at all.
 The autoplay decision in particular is the difference between a film starting
 by itself and a list of eight releases appearing.
 """
+import io
+
 import pytest
 
 from pinky import kodi, play
@@ -347,6 +349,89 @@ def test_a_film_that_is_out_today_is_searched_for(film, spoken, monkeypatch):
 
     play.play(-1, {"type": "movie", "tmdb": "278"})
     assert not spoken, "a film released today is released"
+
+
+def test_a_downloaded_film_plays_with_tmdb_dead(monkeypatch, tmp_path,
+                                                settings_module):
+    """The test this whole feature stands on.
+
+    `build_meta` gives up when TMDB has no title, and TMDB has no title when
+    there is no network - which is the one condition a download exists for.
+    Routed the ordinary way a downloaded film would have worked at home and
+    failed on a plane, which is precisely backwards. So nothing in the
+    offline path may touch TMDB, and here TMDB raises if it is asked.
+    """
+    from pinky import kodi
+    from pinky.offline import library, queueing
+    from pinky.ui import listing
+
+    profile = tmp_path / "p"
+    films = tmp_path / "f"
+    profile.mkdir(exist_ok=True)
+    films.mkdir(exist_ok=True)
+    monkeypatch.setattr(kodi, "profile_path", lambda: str(profile))
+    monkeypatch.setattr(kodi, "subdir", lambda *parts: str(films))
+    settings_module.set("offline.folder", str(films))
+    library._seen.update(stamp=None, data={})
+
+    meta = {"type": "movie", "ids": {"tmdb": 278}, "season": 0, "episode": 0,
+            "item": {"type": "movie", "ids": {"tmdb": 278},
+                     "title": "The Shawshank Redemption", "year": 1994,
+                     "art": {"poster": "p.jpg"}, "duration": 8520}}
+    monkeypatch.setattr(kodi, "notify", lambda *a, **kw: None)
+    key = queueing.one(meta, {"hash": "a" * 40, "cached": True,
+                              "cached_by": "torbox", "file_size": 4,
+                              "file_name": "film.mkv", "title": "A Film"})
+    target = library.entry(key)["file"]
+    io.open(target, "w", encoding="utf-8").write(u"film")
+    library.update(key, state=library.DONE)
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("the offline path must not ask TMDB anything")
+
+    monkeypatch.setattr(tmdb, "movie", no_network)
+    monkeypatch.setattr(tmdb, "show", no_network)
+
+    played = []
+    monkeypatch.setattr(listing, "resolve",
+                        lambda handle, url, item=None, **kw:
+                        played.append((url, item)))
+
+    play.play(-1, {"type": "movie", "tmdb": "278"})
+
+    assert played, "a downloaded film has to play"
+    url, item = played[0]
+    assert url == target
+    assert item["title"] == "The Shawshank Redemption",         "the title comes from the stored snapshot, not from TMDB"
+
+
+def test_choosing_a_source_still_streams_over_the_downloaded_copy(
+        monkeypatch, tmp_path, film, settings_module):
+    """Asking for the picker is asking to stream, so the copy is skipped."""
+    from pinky import kodi
+    from pinky.offline import library, queueing
+    from pinky.sources import aggregator
+
+    profile = tmp_path / "p2"
+    profile.mkdir(exist_ok=True)
+    monkeypatch.setattr(kodi, "profile_path", lambda: str(profile))
+    monkeypatch.setattr(kodi, "subdir", lambda *parts: str(profile))
+    settings_module.set("offline.folder", str(profile))
+    library._seen.update(stamp=None, data={})
+    monkeypatch.setattr(kodi, "notify", lambda *a, **kw: None)
+
+    key = queueing.one(
+        {"type": "movie", "ids": {"tmdb": 278}, "item": {"title": "x"}},
+        {"hash": "a" * 40, "cached": True, "cached_by": "torbox",
+         "file_name": "f.mkv"})
+    io.open(library.entry(key)["file"], "w", encoding="utf-8").write(u"f")
+    library.update(key, state=library.DONE)
+
+    searched = []
+    monkeypatch.setattr(aggregator, "find",
+                        lambda meta, **kw: searched.append(meta) or [])
+    play.play(-1, {"type": "movie", "tmdb": "278"}, force_picker=True)
+    assert searched, "the picker was asked for, so the trackers are asked"
 
 
 def test_a_source_that_will_not_resolve_says_so(film, spoken, monkeypatch):

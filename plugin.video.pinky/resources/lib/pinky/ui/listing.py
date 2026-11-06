@@ -210,6 +210,22 @@ def target_url(item):
     return "", False
 
 
+def _downloaded_state(item_type, ids, item):
+    """This item's key in the download index, or "" when it is not in it."""
+    try:
+        from ..offline import library
+
+        key = library.key_for(
+            item_type,
+            {"tmdb": (item.get("extra") or {}).get("tmdb_show")
+             or ids.get("tmdb"), "imdb": ids.get("imdb")},
+            item.get("season"), item.get("episode"))
+        return key if key and library.entry(key) else ""
+    except Exception:
+        kodi.log_exception("could not read the download index")
+        return ""
+
+
 def context_menu(item):
     """Right-click actions. Kept short; long menus are slow to open on a remote."""
     ids = item.get("ids") or {}
@@ -232,6 +248,28 @@ def context_menu(item):
                             imdb=ids.get("imdb"),
                             type=item_type, season=item.get("season"),
                             episode=item.get("episode"))))
+    if item_type in ("movie", "episode"):
+        # Download, or Remove when there is already a copy on the disk -
+        # never both. Asked of the index rather than of the item, because an
+        # item from Trending carries no download state: only the Downloaded
+        # row sets it, so reading the item would offer Download for a film
+        # that is already downloaded everywhere but on one row. The index is
+        # a stamped read of a small JSON file and this runs on a key press,
+        # not on every poster drawn.
+        held = _downloaded_state(item_type, ids, item)
+        if held:
+            entries.append((kodi.localize(32627),
+                            "RunPlugin(%s)" % router.url_for(
+                                "offline_remove", key=held)))
+        else:
+            entries.append((kodi.localize(32626),
+                            "RunPlugin(%s)" % router.url_for(
+                                "offline_add",
+                                tmdb=(item.get("extra") or {}).get("tmdb_show")
+                                or ids.get("tmdb"),
+                                imdb=ids.get("imdb"),
+                                type=item_type, season=item.get("season"),
+                                episode=item.get("episode"))))
     if item_type in ("movie", "show"):
         # Only the watchlist row knows an item is on the watchlist - nothing
         # mirrors membership locally - so that is where Remove is offered, and

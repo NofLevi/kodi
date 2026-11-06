@@ -149,6 +149,12 @@ DEFAULTS = {
     # replaces - which is nowhere anybody meant to go. Off is still one toggle
     # away, and the top bar's settings button is the door out.
     "ui.stay_in_pinky": "true",
+    # Offline downloads. Empty folder means the profile's own "downloads"
+    # directory; the browse button in the settings writes a real path here.
+    # Not in profiles.LOW_MEMORY: what the disk holds is not a memory profile's
+    # business, and the test there only asks that the keys it does name agree.
+    "offline.folder": "",
+    "offline.subtitles": "true",
     "device.profile": "low_memory",
     # advanced
     "service.warm": "true",

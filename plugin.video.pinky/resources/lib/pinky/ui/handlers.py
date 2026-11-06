@@ -1017,6 +1017,142 @@ def _connect_or_disconnect(client):
     return True
 
 
+# --------------------------------------------------------------------------
+# offline downloads
+#
+# Not "download": `router.is_subtitle_request` intercepts that action name
+# before the route table is consulted, because it is what Kodi's own subtitle
+# dialog sends. A route called download would never be reached.
+# --------------------------------------------------------------------------
+
+
+@router.route("offline_add")
+def offline_add(params):
+    """Queue one film or episode, through the picker so the size is seen."""
+    from .. import play
+    from ..offline import queueing
+    from ..sources import aggregator
+
+    request = {
+        "type": params.get("type", "movie"),
+        "tmdb": params.get("tmdb"),
+        "imdb": params.get("imdb"),
+        "season": int(params.get("season") or 0),
+        "episode": int(params.get("episode") or 0),
+    }
+    meta = play.build_meta(request)
+    if not meta.get("title"):
+        kodi.notify(kodi.localize(32280))
+        return
+    sources = aggregator.find(meta)
+    if not sources:
+        kodi.notify(kodi.localize(32283))
+        return
+    from .sources_window import pick_source
+    chosen = pick_source(sources, meta)
+    if not chosen:
+        return
+    queueing.one(meta, chosen)
+
+
+@router.route("offline_season")
+def offline_season(params):
+    """Queue a whole season. The sources are found later, one at a time."""
+    from ..meta import tmdb, trakt_state
+    from ..offline import queueing
+
+    tmdb_id = params.get("tmdb")
+    season_number = int(params.get("season") or 0)
+    if not tmdb_id:
+        return
+    show = tmdb.show(tmdb_id) or {}
+    episodes = tmdb.episodes(tmdb_id, season_number) or []
+    if not settings.get_bool("ui.show_unaired"):
+        episodes = [e for e in episodes if _has_aired(e)]
+    queueing.season(tmdb_id, season_number,
+                    trakt_state.annotate(episodes), show)
+    kodi.refresh_container()
+
+
+@router.route("offline_remove")
+def offline_remove(params):
+    """Delete one download, its part file and its subtitles."""
+    from ..offline import library
+
+    key = params.get("key") or library.key_for_request({
+        "type": params.get("type", "movie"),
+        "tmdb": params.get("tmdb"),
+        "imdb": params.get("imdb"),
+        "season": int(params.get("season") or 0),
+        "episode": int(params.get("episode") or 0),
+    })
+    if not key:
+        return
+    record = library.entry(key) or {}
+    freed = int(record.get("got") or record.get("size") or 0)
+    if library.remove(key):
+        catalog.invalidate("downloaded")
+        kodi.notify(kodi.localize(32641, 1, _size(freed)))
+        kodi.refresh_container()
+
+
+@router.route("offline_clear")
+def offline_clear(params):
+    """Every download, after saying how much is about to go (Tools)."""
+    from ..offline import library
+
+    records = library.all_entries()
+    if not records:
+        kodi.notify(kodi.localize(32638))
+        return
+    freed = library.total_bytes()
+    if not kodi.yes_no(kodi.localize(32637, len(records), _size(freed))):
+        return
+    gone = library.clear_all()
+    catalog.invalidate("downloaded")
+    kodi.notify(kodi.localize(32641, gone, _size(freed)))
+    kodi.refresh_container()
+
+
+@router.route("offline_folder")
+def offline_folder(params):
+    """Pick the folder downloads go to, and prove it can be written to.
+
+    A browse dialog rather than a path setting, which this add-on has none
+    of - `backup.export_to_file` does the same thing for the same reason. The
+    probe matters: Kodi can list plenty of places Python cannot write to,
+    and finding that out at the first download means a failure with no
+    obvious cause an hour later.
+    """
+    import os
+
+    import xbmcgui
+
+    from ..offline import library
+
+    chosen = xbmcgui.Dialog().browse(3, kodi.localize(30335), "files",
+                                     "", False, False, library.folder())
+    if not chosen:
+        return
+    probe = os.path.join(chosen, ".pinky-write-test")
+    try:
+        with open(probe, "wb") as handle:
+            handle.write(b"pinky")
+        os.remove(probe)
+    except OSError:
+        kodi.ok_dialog(kodi.localize(32642))
+        return
+    settings.set("offline.folder", chosen)
+    kodi.notify(kodi.localize(32643, chosen))
+
+
+def _size(count):
+    count = int(count or 0)
+    if count >= 1024 ** 3:
+        return "%.1f GB" % (count / float(1024 ** 3))
+    return "%d MB" % (count / float(1024 ** 2))
+
+
 @router.route("backup_export")
 def backup_export(params):
     """Settings and accounts to a file the viewer keeps (Tools)."""

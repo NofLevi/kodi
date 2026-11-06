@@ -20,6 +20,7 @@ from .meta import items
 # String ids from resources/language/*/strings.po
 S = {
     "continue": 32200,
+    "downloaded": 32633,
     "trending_movies": 32201,
     "trending_shows": 32202,
     "popular_week_movies": 32203,
@@ -124,7 +125,7 @@ DEFAULT_SECTION = MOVIES
 # Rows in a section but missing from its order follow, in table order.
 SECTION_ORDER = {
     MOVIES: [
-        "continue", "because_you_watched",
+        "continue", "downloaded", "because_you_watched",
         "trending_movies", "movies_new", "movies_blockbusters",
         "top_rated_movies", "israeli_movies",
         "movies_action", "movies_comedy", "movies_drama", "movies_thriller",
@@ -135,7 +136,7 @@ SECTION_ORDER = {
         "movies_nineties", "movies_eighties",
     ],
     SHOWS: [
-        "continue", "because_you_watched",
+        "continue", "downloaded", "because_you_watched",
         "trending_shows", "shows_new", "airing_today", "top_rated_shows",
         "israeli_shows", "anime_trending", "foreign_dramas",
         "shows_drama", "shows_comedy", "shows_crime", "shows_scifi",
@@ -366,6 +367,14 @@ def _build_rows():
         _row("continue", S["continue"],
              lambda page: _continue_watching(), ttl=300,
              paged=False, sections=(HOME, MOVIES, SHOWS)),
+        # The one row in the add-on that needs no network of any kind. Every
+        # other rebuilds its items from TMDB; this one draws from the
+        # snapshots stored when each download was queued, which is what makes
+        # a downloaded film findable on a plane.
+        _row("downloaded", S["downloaded"],
+             lambda page: _downloaded(), ttl=30,
+             needs=("downloads",), default=False, paged=False,
+             sections=(HOME, MOVIES, SHOWS)),
         _row("because_you_watched", S["because_you_watched"],
              lambda page: _because_you_watched(page), TTL_MEDIUM,
              needs=("trakt",), sections=(HOME, MOVIES, SHOWS)),
@@ -667,6 +676,13 @@ def available(row):
     for need in row["needs"]:
         if need == "tmdb" and not tmdb.has_key():
             return False
+        if need == "downloads" and not _anything_downloaded():
+            # Not a credential, but the same question: is there any point
+            # drawing this row. An empty row hides itself anyway, and the
+            # difference matters on a box with no TMDB key, where this would
+            # otherwise be the only "available" row on the Films tab and the
+            # window would settle on a tab it could draw nothing on.
+            return False
         if need == "trakt" and not settings.get("trakt.access_token"):
             return False
         if need == "anilist":
@@ -702,8 +718,17 @@ def enabled_row_ids(section=HOME):
         members = [row for row in rows()
                    if section in row["sections"] and not row.get("kids_only")]
         order = SECTION_ORDER.get(section, [])
-        rank = {row_id: n for n, row_id in enumerate(order)}
-        members.sort(key=lambda row: rank.get(row["id"], len(order)))
+        if order:
+            # The order *is* the tab. Members that are not in it used to be
+            # appended after the last ordered row, which meant four rows
+            # nobody asked for sat below the decades on the Films tab -
+            # "Coming soon" among them, which had been named as a bad idea
+            # and was removed from the order and drawn anyway. A tab with an
+            # editorial order shows that order and nothing else; the Live tab
+            # has no order and still takes every broadcaster it finds.
+            rank = {row_id: n for n, row_id in enumerate(order)}
+            members = [row for row in members if row["id"] in rank]
+            members.sort(key=lambda row: rank[row["id"]])
         return [row["id"] for row in members]
 
     configured = settings.get_list("ui.rows")
@@ -953,6 +978,30 @@ def invalidate(row_id=None):
 # of the add-on is not built or configured yet, so a missing feature degrades
 # to a hidden row rather than a broken home screen.
 # --------------------------------------------------------------------------
+
+
+def _anything_downloaded():
+    try:
+        from .offline import library
+        return bool(library.all_entries())
+    except Exception:
+        return False
+
+
+def _downloaded():
+    """What is on the disk, finished first and newest within that.
+
+    Deliberately includes what is still coming: a row that only appeared
+    once a film had finished would leave somebody who just pressed Download
+    with no evidence that anything was happening.
+    """
+    from .offline import library
+
+    try:
+        return library.snapshots()
+    except Exception:
+        kodi.log_exception("could not read the download index")
+        return []
 
 
 def _continue_watching():

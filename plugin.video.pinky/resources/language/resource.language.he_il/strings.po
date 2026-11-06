@@ -1995,3 +1995,107 @@ msgstr "הפרק הבא"
 msgctxt "#32625"
 msgid "Not out yet - %s"
 msgstr "טרם יצא - %s"
+
+msgctxt "#30333"
+msgid "Offline downloads"
+msgstr "הורדות לצפייה ללא אינטרנט"
+
+msgctxt "#30334"
+msgid "Where downloads are kept"
+msgstr "איפה נשמרות ההורדות"
+
+msgctxt "#30335"
+msgid "Choose the downloads folder"
+msgstr "בחר תיקייה להורדות"
+
+msgctxt "#30336"
+msgid "Save a subtitle beside each download"
+msgstr "שמור כתובית ליד כל הורדה"
+
+msgctxt "#30337"
+msgid "Remove every download"
+msgstr "מחק את כל ההורדות"
+
+msgctxt "#30338"
+msgid "The folder downloads are written to. Internal storage by default; an SD card or a USB stick holds more."
+msgstr "התיקייה שבה נשמרות ההורדות. כברירת המחדל היא הזיכרון הפנימי; כרטיס SD או התקן USB מכיל יותר."
+
+msgctxt "#30339"
+msgid "Deletes every downloaded film and episode from the disk."
+msgstr "מוחק מהדיסק כל סרט ופרק שהורדו."
+
+msgctxt "#32626"
+msgid "Download"
+msgstr "הורד"
+
+msgctxt "#32627"
+msgid "Remove the download"
+msgstr "מחק את ההורדה"
+
+msgctxt "#32628"
+msgid "%s is ready to watch offline"
+msgstr "%s מוכן לצפייה ללא אינטרנט"
+
+msgctxt "#32629"
+msgid "the source could not be fetched"
+msgstr "לא היה ניתן להוריד את המקור"
+
+msgctxt "#32630"
+msgid "there is not enough room on the disk"
+msgstr "אין מקום פנוי בדיסק"
+
+msgctxt "#32631"
+msgid "the downloads folder cannot be written to"
+msgstr "לא ניתן לכתוב לתיקיית ההורדות"
+
+msgctxt "#32632"
+msgid "the connection dropped, it will carry on"
+msgstr "החיבור נפל, ההורדה תמשיך"
+
+msgctxt "#32633"
+msgid "Downloaded"
+msgstr "הורדו"
+
+msgctxt "#32634"
+msgid "%s is downloading"
+msgstr "%s בהורדה"
+
+msgctxt "#32635"
+msgid "This whole season (%d episodes)"
+msgstr "כל העונה (%d פרקים)"
+
+msgctxt "#32636"
+msgid "One episode"
+msgstr "פרק אחד"
+
+msgctxt "#32637"
+msgid "Remove %d downloads and free %s?"
+msgstr "למחוק %d הורדות ולפנות %s?"
+
+msgctxt "#32638"
+msgid "Nothing is downloaded"
+msgstr "לא הורד שום דבר"
+
+msgctxt "#32639"
+msgid "Only a cached source can be downloaded"
+msgstr "רק מקור שמוכן בשרת ניתן להורדה"
+
+msgctxt "#32640"
+msgid "It is already downloaded"
+msgstr "הפריט כבר הורד"
+
+msgctxt "#32641"
+msgid "%d downloads removed, %s freed"
+msgstr "נמחקו %d הורדות, התפנו %s"
+
+msgctxt "#32642"
+msgid "That folder cannot be written to, so it was not used"
+msgstr "לא ניתן לכתוב לתיקייה הזו, ולכן היא לא נבחרה"
+
+msgctxt "#32643"
+msgid "Downloads go to %s"
+msgstr "ההורדות נשמרות ב-%s"
+
+msgctxt "#32644"
+msgid "Queued %d episodes"
+msgstr "%d פרקים נכנסו לתור"

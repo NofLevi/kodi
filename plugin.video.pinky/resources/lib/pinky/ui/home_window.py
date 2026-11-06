@@ -117,9 +117,11 @@ class HomeWindow(xbmcgui.WindowXML):
             # onInit fires again when returning from a dialog - and from the
             # video, which is the one moment Continue Watching can have moved.
             self._refresh_continue()
+            self._refresh_downloads()
             return
         self.ready = True
         self._continue_seen = _continue_signature()
+        self._downloads_seen = _downloads_signature()
 
         # This used to close on the spot when there was no TMDB key, and offer
         # the wizard instead, because "almost every row is unavailable" and
@@ -525,6 +527,10 @@ class HomeWindow(xbmcgui.WindowXML):
         if LIST_BASE <= control_id < LIST_BASE + ROW_SLOTS:
             self._absorb()
             self._fill_ahead()
+            # The only event that fires while somebody waits for a download,
+            # so this is where the bar advances. Costs a stamped read of a
+            # small JSON file, and rebuilds nothing unless it has moved.
+            self._refresh_downloads()
 
     # -- filling rows ------------------------------------------------------
 
@@ -540,21 +546,36 @@ class HomeWindow(xbmcgui.WindowXML):
         in which titles, and in what order, redraws it - the position inside
         one is saved every few seconds and changes nothing on this row.
         """
-        signature = _continue_signature()
-        if signature == getattr(self, "_continue_seen", None):
+        self._refresh_row("continue", _continue_signature(), "_continue_seen")
+
+    def _refresh_downloads(self):
+        """Draw Downloaded again as files arrive, and when one is removed.
+
+        The same problem as Continue Watching and a worse version of it: the
+        progress bar under a downloading poster is fed by a ListItem property,
+        which is fixed when the item is built, so the only way it moves is to
+        build the row again. The signature rounds to 32 MB, because the bar is
+        190 pixels wide and anything finer is a redraw nobody can see.
+        """
+        self._refresh_row("downloaded", _downloads_signature(),
+                          "_downloads_seen")
+
+    def _refresh_row(self, row_id, signature, attr):
+        """Rebuild one row, if what it holds has changed since last time."""
+        if signature == getattr(self, attr, None):
             return
-        self._continue_seen = signature
-        catalog.invalidate("continue")
+        setattr(self, attr, signature)
+        catalog.invalidate(row_id)
         slots = [index for index, row in enumerate(self.rows)
-                 if row.get("id") == "continue"]
+                 if row.get("id") == row_id]
         if not slots:
-            if signature and "continue" in catalog.enabled_row_ids(self.section):
+            if signature and row_id in catalog.enabled_row_ids(self.section):
                 self._rebuild()          # the row was not drawn at all yet
             return
         with self.lock:
             self.filled.discard(slots[0])
         worker = threading.Thread(target=self._fill, args=(slots[0],),
-                                  name="pinky-continue")
+                                  name="pinky-%s" % row_id)
         worker.daemon = True
         worker.start()
 
@@ -920,6 +941,19 @@ def _continue_signature():
     except Exception:
         return ()
     return tuple(sorted(entries, key=lambda key: -entries[key].get("at", 0)))
+
+
+def _downloads_signature():
+    """What is downloaded and roughly how far each has got."""
+    try:
+        from ..offline import library
+        entries = library.all_entries()
+    except Exception:
+        return ()
+    return tuple(sorted(
+        (key, record.get("state"),
+         int(record.get("got") or 0) // (32 * 1024 ** 2))
+        for key, record in entries.items()))
 
 
 def _pick_rows(section=catalog.HOME):

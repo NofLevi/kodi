@@ -882,6 +882,47 @@
                     </control>
                 </setting>
             </group>
+            <group id="2" label="30333">
+                <!-- Where the files land. A browse button rather than a
+                     type="path" setting, because this add-on has no path
+                     control anywhere and backup.py already establishes the
+                     imperative form: Dialog().browse(3, ...) writes the
+                     chosen folder into the hidden string below. The button
+                     also probes the folder, so a path Kodi can list but
+                     Python cannot write to is refused at the moment it is
+                     picked rather than on the first download. -->
+                <setting id="action.offline.folder" type="action" label="30334"
+                         help="30338">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=offline_folder)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="offline.folder" type="string" label="30334"
+                         visible="false">
+                    <level>4</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30335</heading>
+                    </control>
+                </setting>
+                <setting id="offline.subtitles" type="boolean" label="30336">
+                    <level>0</level><default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="action.offline.clear" type="action" label="30337"
+                         help="30339">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.pinky/?action=offline_clear)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+            </group>
         </category>
 
         <category id="interface" label="30091" help="30092">
