@@ -10,8 +10,13 @@ Google's own repository, so there is nothing to install.
     python android-lab/lab.py accel      is hardware acceleration available
     python android-lab/lab.py driver     fetch Google's hypervisor driver
     python android-lab/lab.py up         boot it
-    python android-lab/lab.py install    Kodi + Pinky, with debug logging on
+    python android-lab/lab.py clean      wipe Kodi, install it fresh, stage
+                                         the zips - the real install journey
+                                         (clean 20.2-Nexus for the other Kodi)
+    python android-lab/lab.py install    the shortcut: drop Pinky straight in
     python android-lab/lab.py logs       pull kodi.log, kodi.old.log, crashlogs
+    python android-lab/lab.py shot       screenshot what is on screen
+    python android-lab/lab.py press ...  DPAD_DOWN ENTER BACK, to drive Kodi
     python android-lab/lab.py down       shut it down
     python android-lab/lab.py adb ...    anything else, against this device
 
@@ -47,10 +52,22 @@ IMAGES = {
     29: ("x86", "x86-29_r08-windows.zip"),
 }
 EMULATOR_ZIP = "emulator-windows_x64-16847572.zip"
-KODI_APK = "kodi-21.3-Omega-x86.apk"
-KODI_APK_URL = "https://mirrors.kodi.tv/releases/android/x86/" + KODI_APK
+
+# The official Kodi releases, as published by Kodi. These are the same builds
+# the Play Store distributes - same version, same source, same signature -
+# only the ABI differs, because the Play Store would serve this phone arm64
+# and nothing here can run that. Two of them because a dependency floor that
+# resolves on one Kodi can fail on another, and that is precisely the kind of
+# thing worth catching.
+KODI_APKS = {
+    "21.3-Omega": "kodi-21.3-Omega-x86.apk",
+    "20.2-Nexus": "kodi-20.2-Nexus-x86.apk",
+}
+DEFAULT_KODI = "21.3-Omega"
+APK_BASE = "https://mirrors.kodi.tv/releases/android/x86/"
 PACKAGE = "org.xbmc.kodi"
-KODI_HOME = "/sdcard/Android/data/%s/files/.kodi" % PACKAGE
+FILES = "/sdcard/Android/data/%s/files" % PACKAGE
+KODI_HOME = FILES + "/.kodi"
 
 
 # -- the pieces ----------------------------------------------------------
@@ -329,46 +346,165 @@ def down():
 # -- Kodi and Pinky ------------------------------------------------------
 
 
-def install():
-    """Kodi, then Pinky, then debug logging, then start it."""
+def _require_device():
     if _shell("getprop sys.boot_completed", timeout=20) != "1":
         print("the device is not up: run up first")
         return False
-
     abis = _shell("getprop ro.product.cpu.abilist")
     if "x86" not in abis.split(","):
         print("this image cannot run a 32-bit x86 app (abis: %s).\n"
               "Kodi ships no x86_64 APK, so rebuild on API 29:\n"
               "    python android-lab/lab.py get 29" % abis)
         return False
+    return True
 
-    if PACKAGE not in _shell("pm list packages %s" % PACKAGE):
-        apk = os.path.join(DOWNLOADS, KODI_APK)
-        if not _fetch(KODI_APK_URL, apk):
-            return False
-        print("  installing Kodi")
-        # -g grants the permissions up front, so no dialog blocks the boot.
-        result = _adb("install", "-r", "-g", apk, timeout=900)
-        if "Success" not in (result.stdout + result.stderr):
-            print((result.stdout + result.stderr).strip()[:600])
-            return False
-    print("Kodi installed")
 
-    # Kodi has to run once before its folders exist to push anything into.
+def _install_kodi(version):
+    """Put the chosen official Kodi on the device, replacing any other."""
+    name = KODI_APKS[version]
+    apk = os.path.join(DOWNLOADS, name)
+    if not _fetch(APK_BASE + name, apk):
+        return False
+    print("  installing Kodi %s" % version)
+    # -g grants the permissions up front, so no dialog blocks the start.
+    result = _adb("install", "-r", "-g", apk, timeout=900)
+    if "Success" not in (result.stdout + result.stderr):
+        print((result.stdout + result.stderr).strip()[:600])
+        return False
+    return True
+
+
+def _first_run():
+    """Start Kodi once so it writes its profile, then stop it again."""
+    print("  starting Kodi once so it builds its profile")
+    _adb("shell", "monkey", "-p", PACKAGE, "-c",
+         "android.intent.category.LAUNCHER", "1", timeout=120)
+    for _ in range(60):
+        if _shell("ls %s/userdata 2>/dev/null" % KODI_HOME, timeout=30):
+            break
+    _adb("shell", "am", "force-stop", PACKAGE, timeout=60)
     if not _shell("ls %s/userdata 2>/dev/null" % KODI_HOME):
-        print("  starting Kodi once so it creates its folders")
-        _adb("shell", "monkey", "-p", PACKAGE, "-c",
-             "android.intent.category.LAUNCHER", "1", timeout=120)
-        for _ in range(60):
-            if _shell("ls %s/userdata 2>/dev/null" % KODI_HOME, timeout=30):
-                break
-        _adb("shell", "am", "force-stop", PACKAGE, timeout=60)
-
-    if not _shell("ls %s/userdata 2>/dev/null" % KODI_HOME):
-        print("Kodi never created its profile, so it is dying at startup with\n"
-              "no add-on of ours installed. That is worth knowing on its own.\n"
+        print("Kodi never wrote a profile, so it is dying at startup with no\n"
+              "add-on of ours anywhere near it. That is a finding in itself.\n"
               "Run: python android-lab/lab.py logs")
         return False
+    return True
+
+
+def clean(version=DEFAULT_KODI):
+    """The whole journey a real install takes, from nothing.
+
+    Kodi is removed outright and its folder deleted first, so this starts
+    from a genuinely clean Android rather than from whatever the last run
+    left behind. Then the official Kodi goes on, unknown sources is turned
+    on, and the repository zip is put where a person would have downloaded
+    it - and it stops there, because what happens next is the part worth
+    watching rather than scripting.
+    """
+    if version not in KODI_APKS:
+        print("kodi must be one of: %s" % ", ".join(sorted(KODI_APKS)))
+        return False
+    if not _require_device():
+        return False
+
+    print("wiping Kodi off the device")
+    _adb("uninstall", PACKAGE, timeout=300)
+    _shell("rm -rf %s" % FILES, timeout=300)
+
+    if not _install_kodi(version):
+        return False
+    if not _first_run():
+        return False
+
+    _debug_logging()
+    _unknown_sources()
+
+    # Built from the working tree, so this is exactly what a release would
+    # carry - the unreleased commits included.
+    print("  building the zips")
+    built = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build.py")],
+                           cwd=ROOT, capture_output=True, text=True)
+    if built.returncode:
+        print(built.stdout[-800:] + built.stderr[-800:])
+        return False
+
+    zips = []
+    for addon_id in ADDONS:
+        folder = os.path.join(ROOT, "repo", "zips", addon_id)
+        zips += [os.path.join(folder, n) for n in sorted(os.listdir(folder))
+                 if n.endswith(".zip")]
+    # Both places, because a file browser that cannot see one can see the
+    # other: Download is where a person's own download lands, and Kodi's own
+    # folder is readable whatever scoped storage decides.
+    for target in ("/sdcard/Download", FILES):
+        _shell("mkdir -p %s" % target)
+        for path in zips:
+            _adb("push", path, target + "/", timeout=300)
+    print("  put %s in /sdcard/Download and in Kodi's own folder"
+          % ", ".join(os.path.basename(p) for p in zips))
+
+    _adb("shell", "monkey", "-p", PACKAGE, "-c",
+         "android.intent.category.LAUNCHER", "1", timeout=120)
+    print("\nclean Kodi %s is running, with unknown sources on and the zips\n"
+          "in place. The emulator window is on your screen - install it the\n"
+          "way you would on the phone:\n\n"
+          "  Add-ons -> Install from zip file -> Download ->\n"
+          "      repository.pinky-*.zip\n"
+          "  Add-ons -> Install from repository -> Katan -> Video add-ons ->\n"
+          "      Pinky\n\n"
+          "That second step is the one that matters: it makes Kodi fetch our\n"
+          "addons.xml, download the zip and resolve the dependencies itself.\n"
+          "I will read what it did:  python android-lab/lab.py logs" % version)
+    return True
+
+
+def _unknown_sources():
+    """Kodi refuses to install from a zip until this is on.
+
+    Patched rather than written whole: Kodi has just saved a full settings
+    file and will save it again on exit, so replacing it would lose the rest.
+    """
+    import xml.etree.ElementTree as ET
+
+    remote = "%s/userdata/guisettings.xml" % KODI_HOME
+    local = os.path.join(LOGS, "guisettings.xml")
+    _adb("pull", remote, local, timeout=120)
+    if not os.path.isfile(local):
+        print("  no guisettings.xml yet; turn unknown sources on by hand")
+        return False
+    tree = ET.parse(local)
+    root = tree.getroot()
+    found = None
+    for setting in root.iter("setting"):
+        if setting.get("id") == "addons.unknownsources":
+            found = setting
+            break
+    if found is None:
+        found = ET.SubElement(root, "setting")
+        found.set("id", "addons.unknownsources")
+    found.attrib.pop("default", None)
+    found.text = "true"
+    tree.write(local, encoding="utf-8", xml_declaration=True)
+    _adb("push", local, remote, timeout=120)
+    print("  unknown sources on")
+    return True
+
+
+def install():
+    """The developer shortcut: drop the add-on straight in and enable it.
+
+    Not the path a person takes - `clean` is that - but the quick one when
+    the question is whether the code runs, not whether it installs.
+    """
+    if not _require_device():
+        return False
+    if PACKAGE not in _shell("pm list packages %s" % PACKAGE):
+        if not _install_kodi(DEFAULT_KODI):
+            return False
+    print("Kodi installed")
+    if not _shell("ls %s/userdata 2>/dev/null" % KODI_HOME):
+        if not _first_run():
+            return False
 
     _shell("mkdir -p %s/addons" % KODI_HOME)
     for addon_id in ADDONS:
@@ -427,6 +563,40 @@ def _debug_logging():
     print("  debug logging on")
 
 
+def shot():
+    """A screenshot off the device, so what is on screen can be looked at."""
+    if not os.path.isdir(LOGS):
+        os.makedirs(LOGS)
+    exe = os.path.join(SDK, "platform-tools", "adb.exe")
+    result = subprocess.run([exe, "-s", "emulator-5554", "exec-out",
+                             "screencap", "-p"], env=_env(),
+                            capture_output=True, timeout=120)
+    if not result.stdout.startswith(b"\x89PNG"):
+        print("no screenshot: %s" % result.stderr.decode(errors="replace")[:300])
+        return False
+    path = os.path.join(LOGS, "screen.png")
+    with open(path, "wb") as handle:
+        handle.write(result.stdout)
+    print("%s  (%.0f KB)" % (path, len(result.stdout) / 1024.0))
+    return True
+
+
+def press(*keys):
+    """Send remote-control key presses, for driving Kodi's own screens.
+
+    Kodi on Android takes these as a remote would: DPAD_* to move, ENTER to
+    choose, BACK to go back. Named keys so a run reads like what a person did.
+    """
+    if not keys:
+        print("press DPAD_DOWN ENTER BACK ...")
+        return False
+    for key in keys:
+        name = key if key.startswith("KEYCODE_") else "KEYCODE_" + key.upper()
+        _adb("shell", "input", "keyevent", name, timeout=60)
+    print("pressed %s" % " ".join(keys))
+    return True
+
+
 def logs():
     """Pull every log Kodi leaves and print what matters out of them.
 
@@ -471,8 +641,9 @@ def logs():
 
 
 def main():
-    actions = {"get": get, "up": up, "down": down, "install": install,
-               "logs": logs, "accel": accel_check, "driver": driver}
+    actions = {"get": get, "up": up, "down": down, "clean": clean,
+               "install": install, "logs": logs, "shot": shot, "press": press,
+               "accel": accel_check, "driver": driver}
     args = sys.argv[1:]
     if not args or (args[0] not in actions and args[0] != "adb"):
         print(__doc__)
@@ -480,8 +651,12 @@ def main():
     if args[0] == "adb":
         exe = os.path.join(SDK, "platform-tools", "adb.exe")
         return subprocess.run([exe] + args[1:], env=_env()).returncode
-    if args[0] == "get" and len(args) > 1:
-        return 0 if get(int(args[1])) else 1
+    if args[0] == "get":
+        return 0 if get(int(args[1]) if len(args) > 1 else 30) else 1
+    if args[0] == "clean":
+        return 0 if clean(*args[1:2]) else 1
+    if args[0] == "press":
+        return 0 if press(*args[1:]) else 1
     return 0 if actions[args[0]]() else 1
 
 
