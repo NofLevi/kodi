@@ -28,6 +28,7 @@ routes, and it will show nothing at all about an arm64 native crash.
 """
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -613,6 +614,61 @@ def _debug_logging():
     print("  debug logging on")
 
 
+def sideload():
+    """Stage a lab-only Pinky with the inputstream.adaptive floor removed.
+
+    Kodi builds inputstream.adaptive for Android as android-aarch64 and
+    android-armv7 and nothing else, so on an x86 device the dependency
+    cannot be satisfied and Pinky will not install - which says nothing
+    about a real device and stops every other question being asked.
+
+    So this writes a copy with that one import dropped. It is written into
+    the lab's own ignored folder, it is never built by tools/build.py, and
+    it must never be published: on a Mi Box, a projector or a PC the import
+    is what makes Kodi fetch inputstream.adaptive in the first place, and
+    without it those devices would install happily and then fail to play.
+    The shipped addon.xml is deliberately untouched.
+    """
+    import xml.etree.ElementTree as ET
+
+    if not _require_device():
+        return False
+    staging = os.path.join(LOGS, "sideload")
+    if os.path.isdir(staging):
+        shutil.rmtree(staging)
+    source = os.path.join(ROOT, "plugin.video.pinky")
+    target = os.path.join(staging, "plugin.video.pinky")
+    shutil.copytree(source, target,
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+
+    manifest = os.path.join(target, "addon.xml")
+    tree = ET.parse(manifest)
+    dropped = []
+    for requires in tree.getroot().iter("requires"):
+        for node in list(requires):
+            if node.get("addon") == "inputstream.adaptive":
+                requires.remove(node)
+                dropped.append(node.get("version"))
+    if not dropped:
+        print("  no inputstream.adaptive import found - nothing to relax")
+    tree.write(manifest, encoding="utf-8", xml_declaration=True)
+
+    archive = os.path.join(staging, "plugin.video.pinky-lab.zip")
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+        for folder, _dirs, files in os.walk(target):
+            for name in files:
+                full = os.path.join(folder, name)
+                bundle.write(full, os.path.relpath(full, staging))
+    print("built %s (%.0f KB), without inputstream.adaptive %s"
+          % (os.path.basename(archive), os.path.getsize(archive) / 1024.0,
+             ", ".join(dropped)))
+    if not _push(archive, "/sdcard/Download/"):
+        return False
+    print("staged in /sdcard/Download. Install it from zip, then:\n"
+          "    python android-lab/lab.py logs")
+    return True
+
+
 def shot():
     """A screenshot off the device, so what is on screen can be looked at."""
     if not os.path.isdir(LOGS):
@@ -692,7 +748,8 @@ def logs():
 
 def main():
     actions = {"get": get, "up": up, "down": down, "clean": clean,
-               "install": install, "logs": logs, "shot": shot, "press": press,
+               "install": install, "logs": logs, "shot": shot,
+               "press": press, "sideload": sideload,
                "accel": accel_check, "driver": driver}
     args = sys.argv[1:]
     if not args or (args[0] not in actions and args[0] != "adb"):
