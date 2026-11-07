@@ -30,6 +30,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import zipfile
 
 LAB = os.path.dirname(os.path.abspath(__file__))
@@ -226,11 +227,21 @@ def make_device(api, abi):
 
 
 def _env():
-    """Every tool is pointed inside this folder, so nothing leaks out."""
+    """Every tool is pointed inside this folder, so nothing leaks out.
+
+    The folders are made here rather than in `get`, because the emulator does
+    not create its own home and does not fail usefully without it: it writes
+    a lock file there, and if the directory is missing it reports "error: 3"
+    once per attempt and retries for ever instead of starting.
+    """
+    home = os.path.join(LAB, "home")
+    avd = os.path.join(LAB, "avd")
+    for folder in (home, avd, LOGS):
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
     env = dict(os.environ)
     env.update(ANDROID_SDK_ROOT=SDK, ANDROID_HOME=SDK,
-               ANDROID_AVD_HOME=os.path.join(LAB, "avd"),
-               ANDROID_EMULATOR_HOME=os.path.join(LAB, "home"),
+               ANDROID_AVD_HOME=avd, ANDROID_EMULATOR_HOME=home,
                ANDROID_SDK_HOME=LAB)
     return env
 
@@ -247,6 +258,25 @@ def _adb(*args, **kwargs):
 
 def _shell(line, timeout=300):
     return _adb("shell", line, timeout=timeout).stdout.strip()
+
+
+def _push(local, remote):
+    """Copy a file to the device as the shell user, never as root.
+
+    This is not fussiness. Android 11 serves /sdcard through a FUSE layer,
+    and a root adb writes underneath it: the file lands, root can read it
+    back, and the app that owns the folder sees something it cannot use. It
+    cost an afternoon here - Kodi answered "unable to load settings from
+    guisettings.xml" and then "failed to save" the replacement, on a file
+    that looked perfectly good from the shell and had the right owner and
+    mode. Deleting it and letting Kodi write its own fixed it at once.
+
+    So: root for reading, never for writing.
+    """
+    _adb("unroot", timeout=60)
+    _adb("wait-for-device", timeout=120)
+    result = _adb("push", local, remote, timeout=900)
+    return "error" not in (result.stdout + result.stderr).lower()
 
 
 def accel_check():
@@ -326,16 +356,38 @@ def up():
                           "-no-snapshot", "-gpu", "host", "-accel", "auto"],
                          env=_env(), cwd=SDK, stdout=handle,
                          stderr=subprocess.STDOUT)
-    _adb("wait-for-device", timeout=600)
-    for _ in range(120):
-        if _shell("getprop sys.boot_completed", timeout=30) == "1":
-            print("up: %s / API %s / abis %s"
-                  % (_shell("getprop ro.product.model"),
+    # Polled rather than waited on: `adb wait-for-device` blocks for its whole
+    # timeout when the emulator never comes up at all, which turns a startup
+    # failure into a long silence instead of a message.
+    for waited in range(0, 300, 5):
+        if _shell("getprop sys.boot_completed", timeout=20) == "1":
+            print("up in about %ds: %s / API %s / abis %s"
+                  % (waited, _shell("getprop ro.product.model"),
                      _shell("getprop ro.build.version.sdk"),
                      _shell("getprop ro.product.cpu.abilist")))
             return True
-    print("it did not finish booting; see android-lab/logs/emulator.log")
+        time.sleep(5)
+    print("it did not finish booting. The last distinct thing the emulator "
+          "said:")
+    for line in _emulator_complaints():
+        print("  " + line)
     return False
+
+
+def _emulator_complaints():
+    """The emulator repeats one line thousands of times; show each once."""
+    path = os.path.join(LOGS, "emulator.log")
+    seen, out = set(), []
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.rstrip()
+                if line and line not in seen:
+                    seen.add(line)
+                    out.append(line[:200])
+    except OSError:
+        return ["no emulator.log"]
+    return out[-8:]
 
 
 def down():
@@ -350,6 +402,13 @@ def _require_device():
     if _shell("getprop sys.boot_completed", timeout=20) != "1":
         print("the device is not up: run up first")
         return False
+    # Android 11 closed /sdcard/Android/data to everything but the app that
+    # owns it, and that includes the adb shell - a plain `ls` of Kodi's own
+    # folder answers "Permission denied", which reads exactly like the folder
+    # not existing. Root is why the image is the AOSP one rather than a Play
+    # Store one: only AOSP builds allow it.
+    _adb("root", timeout=60)
+    _adb("wait-for-device", timeout=120)
     abis = _shell("getprop ro.product.cpu.abilist")
     if "x86" not in abis.split(","):
         print("this image cannot run a 32-bit x86 app (abis: %s).\n"
@@ -366,27 +425,35 @@ def _install_kodi(version):
     if not _fetch(APK_BASE + name, apk):
         return False
     print("  installing Kodi %s" % version)
-    # -g grants the permissions up front, so no dialog blocks the start.
     result = _adb("install", "-r", "-g", apk, timeout=900)
     if "Success" not in (result.stdout + result.stderr):
         print((result.stdout + result.stderr).strip()[:600])
         return False
+    # -g above grants the runtime permissions, but not this one. All-files
+    # access is an app operation rather than a runtime permission, so it is
+    # granted separately - and without it Kodi does not start: it puts up
+    # "Kodi requires access to your device media and files to function...
+    # or Kodi will exit", waits on a button, and never writes a profile.
+    _shell("appops set %s MANAGE_EXTERNAL_STORAGE allow" % PACKAGE, timeout=60)
+    print("  granted all-files access")
     return True
 
 
 def _first_run():
     """Start Kodi once so it writes its profile, then stop it again."""
     print("  starting Kodi once so it builds its profile")
-    _adb("shell", "monkey", "-p", PACKAGE, "-c",
-         "android.intent.category.LAUNCHER", "1", timeout=120)
+    _adb("shell", "am", "start", "-n", PACKAGE + "/.Splash", timeout=120)
     for _ in range(60):
         if _shell("ls %s/userdata 2>/dev/null" % KODI_HOME, timeout=30):
             break
+        # Slept, because the loop without it asks sixty times in four seconds
+        # and then declares Kodi dead before it has finished starting.
+        time.sleep(2)
     _adb("shell", "am", "force-stop", PACKAGE, timeout=60)
     if not _shell("ls %s/userdata 2>/dev/null" % KODI_HOME):
-        print("Kodi never wrote a profile, so it is dying at startup with no\n"
-              "add-on of ours anywhere near it. That is a finding in itself.\n"
-              "Run: python android-lab/lab.py logs")
+        print("Kodi never wrote a profile. Look at what is on its screen "
+              "before believing anything else:\n"
+              "    python android-lab/lab.py shot")
         return False
     return True
 
@@ -396,10 +463,14 @@ def clean(version=DEFAULT_KODI):
 
     Kodi is removed outright and its folder deleted first, so this starts
     from a genuinely clean Android rather than from whatever the last run
-    left behind. Then the official Kodi goes on, unknown sources is turned
-    on, and the repository zip is put where a person would have downloaded
-    it - and it stops there, because what happens next is the part worth
-    watching rather than scripting.
+    left behind. Then the official Kodi goes on and the zips are put where a
+    person's own download would have landed - and it stops there, because
+    what happens next is the part worth watching rather than scripting.
+
+    Nothing is written into Kodi's own folder, including the settings: see
+    `_push` for the afternoon that taught us why. Unknown sources and debug
+    logging are left to Kodi's own screens, which is where a person turns
+    them on anyway.
     """
     if version not in KODI_APKS:
         print("kodi must be one of: %s" % ", ".join(sorted(KODI_APKS)))
@@ -416,9 +487,6 @@ def clean(version=DEFAULT_KODI):
     if not _first_run():
         return False
 
-    _debug_logging()
-    _unknown_sources()
-
     # Built from the working tree, so this is exactly what a release would
     # carry - the unreleased commits included.
     print("  building the zips")
@@ -433,21 +501,20 @@ def clean(version=DEFAULT_KODI):
         folder = os.path.join(ROOT, "repo", "zips", addon_id)
         zips += [os.path.join(folder, n) for n in sorted(os.listdir(folder))
                  if n.endswith(".zip")]
-    # Both places, because a file browser that cannot see one can see the
-    # other: Download is where a person's own download lands, and Kodi's own
-    # folder is readable whatever scoped storage decides.
-    for target in ("/sdcard/Download", FILES):
-        _shell("mkdir -p %s" % target)
-        for path in zips:
-            _adb("push", path, target + "/", timeout=300)
-    print("  put %s in /sdcard/Download and in Kodi's own folder"
+    # Download only: it is where a person's own download lands, and it is
+    # outside Android/data, so the shell can write it without root.
+    for path in zips:
+        if not _push(path, "/sdcard/Download/"):
+            print("  could not stage %s" % os.path.basename(path))
+            return False
+    print("  put %s in /sdcard/Download"
           % ", ".join(os.path.basename(p) for p in zips))
 
-    _adb("shell", "monkey", "-p", PACKAGE, "-c",
-         "android.intent.category.LAUNCHER", "1", timeout=120)
-    print("\nclean Kodi %s is running, with unknown sources on and the zips\n"
-          "in place. The emulator window is on your screen - install it the\n"
-          "way you would on the phone:\n\n"
+    _adb("shell", "am", "start", "-n", PACKAGE + "/.Main", timeout=120)
+    print("\nclean Kodi %s is running and the zips are in Downloads. The\n"
+          "emulator window is on your screen - install it the way you would\n"
+          "on the phone:\n\n"
+          "  Settings -> System -> Add-ons -> Unknown sources: on\n"
           "  Add-ons -> Install from zip file -> Download ->\n"
           "      repository.pinky-*.zip\n"
           "  Add-ons -> Install from repository -> Katan -> Video add-ons ->\n"
@@ -458,45 +525,28 @@ def clean(version=DEFAULT_KODI):
     return True
 
 
-def _unknown_sources():
-    """Kodi refuses to install from a zip until this is on.
-
-    Patched rather than written whole: Kodi has just saved a full settings
-    file and will save it again on exit, so replacing it would lose the rest.
-    """
-    import xml.etree.ElementTree as ET
-
-    remote = "%s/userdata/guisettings.xml" % KODI_HOME
-    local = os.path.join(LOGS, "guisettings.xml")
-    _adb("pull", remote, local, timeout=120)
-    if not os.path.isfile(local):
-        print("  no guisettings.xml yet; turn unknown sources on by hand")
-        return False
-    tree = ET.parse(local)
-    root = tree.getroot()
-    found = None
-    for setting in root.iter("setting"):
-        if setting.get("id") == "addons.unknownsources":
-            found = setting
-            break
-    if found is None:
-        found = ET.SubElement(root, "setting")
-        found.set("id", "addons.unknownsources")
-    found.attrib.pop("default", None)
-    found.text = "true"
-    tree.write(local, encoding="utf-8", xml_declaration=True)
-    _adb("push", local, remote, timeout=120)
-    print("  unknown sources on")
-    return True
-
-
 def install():
     """The developer shortcut: drop the add-on straight in and enable it.
 
     Not the path a person takes - `clean` is that - but the quick one when
-    the question is whether the code runs, not whether it installs.
+    the question is whether the code runs rather than whether it installs.
+
+    It only works below Android 11. From API 30 the shell cannot write into
+    an app's own folder at all, and doing it as root does not count: the
+    write lands under the FUSE layer the app reads through, so Kodi sees a
+    file it cannot use. There is no version of this shortcut that works on
+    API 30, so it says so rather than quietly leaving a broken add-on
+    behind.
     """
     if not _require_device():
+        return False
+    api = _shell("getprop ro.build.version.sdk")
+    if api.isdigit() and int(api) >= 30:
+        print("the shortcut cannot work on Android %s: nothing but Kodi may\n"
+              "write into Kodi's folder. Use the real path instead:\n"
+              "    python android-lab/lab.py clean\n"
+              "or build a device that still allows it:\n"
+              "    python android-lab/lab.py get 29" % api)
         return False
     if PACKAGE not in _shell("pm list packages %s" % PACKAGE):
         if not _install_kodi(DEFAULT_KODI):
