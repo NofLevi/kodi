@@ -797,9 +797,16 @@ def test_every_version_in_the_project_is_the_same_one():
             news.text.strip().splitlines()[0].strip(), addon)
 
     readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
-    linked = set(re.findall(r"repository\.pinky-(\d+\.\d+\.\d+)\.zip", readme))
-    assert linked <= {addon}, \
-        "the README links to %s, which is not %s" % (sorted(linked), addon)
+    # Every version number in it, not only the download links. The links
+    # alone were checked - here and in the release workflow - so a release
+    # bumped them and left "Current release: Pinky 0.0.10" and "both at
+    # 0.0.10" sitting in the prose beside them. The prose is what a reader
+    # actually reads. There is exactly one three-part version in this file by
+    # design; if a genuinely different one ever belongs here, this is the
+    # line to teach about it.
+    stated = set(re.findall(r"\d+\.\d+\.\d+", readme))
+    assert stated <= {addon}, \
+        "the README says %s, the add-on is %s" % (sorted(stated), addon)
 
 
 def test_the_screen_shows_the_version_kodi_installed():

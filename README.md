@@ -23,15 +23,21 @@ reinstalling.
 
 | | |
 |---|---|
-| Current release | **Pinky 0.0.10** - [releases page](https://github.com/NofLevi/kodi/releases/latest) |
+| Current release | **Pinky 0.0.12** - [releases page](https://github.com/NofLevi/kodi/releases/latest) |
 | Repository zip | <https://github.com/NofLevi/kodi/releases/latest/download/repository.pinky-0.0.12.zip> |
 | Add as a Kodi source | `https://noflevi.github.io/kodi/` |
 | Requires | Kodi 19 or newer; developed and tested on Kodi 21 |
 | Installs with it | `inputstream.adaptive`, from Kodi's own repository — the DASH live channels need it |
 
-Two add-ons, both at 0.0.10: **Pinky** is what you watch with, and **Pinky
+Two add-ons, both at 0.0.12: **Pinky** is what you watch with, and **Pinky
 Repository** is the two-kilobyte pointer that tells Kodi where to look for new
-versions of it. Install the repository and the other arrives on its own.
+versions of it.
+
+**The repository zip is the first of two installs.** It only teaches Kodi where
+Pinky lives; you then install Pinky from it. A repository has nothing to open
+and no settings of its own, so its info screen offers just Uninstall, Disable,
+Versions and Auto-update — that screen means the first half worked, not that
+you are finished.
 
 ### Step 0, on every platform: allow unknown sources
 
@@ -90,6 +96,17 @@ gives no way to automate:
 > **Add-ons → Install from zip file → Download → the file**
 
 **With a USB stick.** Copy the zip on, plug it in, browse to it in step 3.
+
+### Then, whichever route you took
+
+> **Add-ons → Install from repository → Pinky Repository → Video add-ons
+> → Pinky → Install**
+
+This is the second install, and the one that actually puts Pinky on the box.
+Until you do it you have only the repository, and its info screen has no
+**Open** and no **Configure** — nothing is broken, there is simply nothing
+there to open yet. Once Pinky itself is installed it appears under **Add-ons
+→ Video add-ons → Pinky**, and that screen does have **Open**.
 
 ### Nothing extra on Android
 
