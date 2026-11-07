@@ -197,7 +197,19 @@ def write_listings():
 
 
 def copy_assets(addon_id):
-    """Kodi shows the icon and changelog from the repository, not the zip."""
+    """Kodi shows the icon and changelog from the repository, not the zip.
+
+    At two different addresses, which is the part that was missing. The flat
+    names beside the zip are what the generated listing links. The add-on
+    browser asks somewhere else entirely: <datadir>/<id>/ followed by the
+    path <assets> declares, so "resources/media/icon.png" rather than
+    "icon.png". Only the flat copies were ever written, so every icon in the
+    browser answered 404 and Kodi drew its generic grey box instead - which
+    is what a real install showed on Android:
+
+        CCurlFile::Open - <.../zips/plugin.video.pinky/resources/media/
+        icon.png> Failed with code 404
+    """
     source = os.path.join(ROOT, addon_id)
     target = os.path.join(OUTPUT, "zips", addon_id)
     for name in ("icon.png", "fanart.jpg", "changelog.txt"):
@@ -206,6 +218,25 @@ def copy_assets(addon_id):
             if os.path.isfile(candidate):
                 shutil.copy2(candidate, os.path.join(target, name))
                 break
+
+    # And again at whatever the add-on says its art is called.
+    try:
+        node, _version, _path = addon_info(addon_id)
+    except (ET.ParseError, IOError):
+        return
+    for assets in node.iter("assets"):
+        for asset in assets:
+            relative = (asset.text or "").strip().replace("\\", "/")
+            if not relative or relative.startswith("/") or ".." in relative:
+                continue
+            original = os.path.join(source, *relative.split("/"))
+            if not os.path.isfile(original):
+                continue
+            destination = os.path.join(target, *relative.split("/"))
+            folder = os.path.dirname(destination)
+            if not os.path.isdir(folder):
+                os.makedirs(folder)
+            shutil.copy2(original, destination)
 
 
 def check():
