@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.pinky"
        name="Pinky"
-       version="0.0.11"
+       version="0.0.12"
        provider-name="pinky">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -37,12 +37,15 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>v0.0.11
-- Fourteen genre rows were written, translated, and never once drawn
-- Top rated was led by a film with 483 votes, now it needs an audience
-- Biggest hits, between New releases and Top rated
-- The menu key during a film opens the player's bar, not the subtitle list
-- On an episode list the trailer button is now "Next episode"
-- A film or episode that is not out yet says so, rather than finding nothing</news>
+        <news>
+        v0.0.12
+        - Download a film or an episode and watch it with the wifi off
+        - A whole season goes in from the Download button's own menu
+        - Remove one download where you started it, or all of them from Settings
+        - Downloaded shows what has arrived, and how far the rest has got
+        - Up and down on the home screen start each row at its first item again
+        - The Films tab drew four rows below the decades that belong above them
+        - Pinky's own icon in the add-on browser, instead of Kodi's grey box
+    </news>
     </extension>
 </addon>
