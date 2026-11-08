@@ -57,6 +57,16 @@
             <top>200</top>
             <width>1740</width>
             <height>790</height>
+            <!-- Up out of the list, at the top item, back to the field.
+                 Without this there was no way back: a container keeps up and
+                 down for its own items and wraps at the edge unless its
+                 navigation points somewhere else, so pressing up on the
+                 first recent search jumped to the last one and the field
+                 could not be reached again - the window had to be closed and
+                 reopened to type anything. The sideways pair point at the
+                 list itself for the opposite reason: there is nothing either
+                 side of it and left or right should stay put. -->
+            <onup>3100</onup>
             <onleft>5100</onleft>
             <onright>5100</onright>
             <orientation>vertical</orientation>

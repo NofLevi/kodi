@@ -64,6 +64,11 @@ EDIT_QUERY = 3100
 DEBOUNCE_SECONDS = 0.25
 MIN_QUERY = 2
 
+# How often the field is read while the window is open. See `_watch_field`:
+# this is what makes suggestions appear at all on Android, and it is cheap -
+# one `getText` on one control, and a changed value is what costs anything.
+POLL_SECONDS = 0.2
+
 
 def _typed_character(action):
     """The printable character an action carries, if this Kodi exposes one.
@@ -93,6 +98,7 @@ class SearchWindow(xbmcgui.WindowXML):
         self.submitted = None
         self.lock = threading.Lock()
         self.ready = False
+        self.stop = threading.Event()
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -116,6 +122,38 @@ class SearchWindow(xbmcgui.WindowXML):
         # of them opens the PVR channel list. A remote presses OK on it and
         # gets Kodi's keyboard, which is where the microphone is.
         self.setFocusId(EDIT_QUERY)
+        watcher = threading.Thread(target=self._watch_field,
+                                   name="pinky-search-field")
+        watcher.daemon = True
+        watcher.start()
+
+    def close(self):
+        self.stop.set()
+        super(SearchWindow, self).close()
+
+    def _watch_field(self):
+        """Read the field on a timer, whatever put text in it.
+
+        Suggestions used to depend on Kodi sending this window a click when
+        its keyboard closed. On Android Kodi's keyboard is the system IME -
+        that is the whole reason this window uses Kodi's keyboard and not a
+        grid of its own - and what comes back from it does not reliably reach
+        the control that opened it, so the list sat on the recent searches
+        and nothing was ever suggested. On the one platform this add-on is
+        written for, the feature was invisible.
+
+        Asking the control directly needs none of that to be true. A physical
+        keyboard, Kodi's keyboard, Android's IME and a phone remote all end up
+        writing into the same edit control, and this notices within a fifth of
+        a second. Where the IME writes as the viewer types rather than only at
+        the end, it also means suggestions while they are still typing, which
+        is what was wanted and what a modal keyboard otherwise forbids.
+        """
+        while not self.stop.wait(POLL_SECONDS):
+            try:
+                self._sync_from_field()
+            except Exception:
+                return                  # the window is gone; so is this
 
     def onAction(self, action):
         code = action.getId()
@@ -137,6 +175,16 @@ class SearchWindow(xbmcgui.WindowXML):
                 # the field, Enter and OK both mean "search", so the keyboard
                 # is closed again and the search runs. With nothing typed OK
                 # still opens it, which is what a remote needs.
+                #
+                # Unless this exact query has just been run. Then OK means the
+                # other thing it could mean - "let me change what I typed" -
+                # and the keyboard Kodi has just opened is left alone, with
+                # the text already in it. Without that, a remote had no way to
+                # add a word to a query: the only route to the keyboard is OK
+                # on the field, and OK on the field searched again. Refining a
+                # search is how anybody arrives at the title they meant.
+                if self.text.strip() == (self.submitted or ""):
+                    return
                 kodi.run_builtin("Dialog.Close(virtualkeyboard,true)")
                 self._submit()
             return

@@ -4,6 +4,8 @@ These are the main interface, so an error in them is a black screen. The stub
 WindowXML records controls and properties, which is enough to check that rows
 are filled, the hero updates, and typing produces suggestions.
 """
+import time
+
 import pytest
 
 from pinky.ui import home_window, search_window
@@ -413,7 +415,8 @@ def search(monkeypatch):
 
     window = search_window.SearchWindow()
     window.onInit()
-    return window
+    yield window
+    window.close()
 
 
 def test_search_starts_with_recent_queries(search):
@@ -473,6 +476,82 @@ def test_ok_on_an_empty_field_leaves_kodis_keyboard_open(search):
     _type_into_field(search, "", search_window.ACTION_SELECT_ITEM)
     assert search.submitted is None
     assert search.closed is not True
+
+
+def test_ok_on_a_query_already_run_reopens_the_keyboard_instead(search,
+                                                                monkeypatch):
+    """A remote has to be able to add a word to a search.
+
+    The only route to Kodi's keyboard is OK on the field, and OK on the field
+    searched - so once a query had been run there was no way to change it. The
+    second OK on the same text now leaves the keyboard Kodi has just opened
+    alone, with the text already in it.
+    """
+    ran = []
+    monkeypatch.setattr(search_window.kodi, "run_builtin", ran.append)
+
+    _type_into_field(search, "hikaru", search_window.ACTION_SELECT_ITEM)
+    assert search.submitted == "hikaru"
+    assert any("virtualkeyboard" in command for command in ran),         "the first OK searches, so the keyboard has to be closed"
+
+    del ran[:]
+    _type_into_field(search, "hikaru", search_window.ACTION_SELECT_ITEM)
+    assert not ran, "the keyboard must be left open to be typed into"
+
+    # And adding to it searches again, rather than being stuck.
+    _type_into_field(search, "hikaru no go", search_window.ACTION_SELECT_ITEM)
+    assert search.submitted == "hikaru no go"
+
+
+def test_the_field_is_read_on_a_timer_not_only_when_kodi_reports_it(search):
+    """Suggestions have to appear however the text arrived.
+
+    They used to wait for Kodi to send this window a click when its keyboard
+    closed. Android's keyboard is the system IME and what it returns does not
+    reliably reach the control that opened it, so on the platform this add-on
+    is written for the list stayed on the recent searches and nothing was ever
+    suggested. Nothing below touches an action or a click - which is exactly
+    what that case looks like.
+    """
+    search.getControl(search_window.EDIT_QUERY).setText("severance")
+    assert search.text == "", "the window has not been told anything yet"
+
+    deadline = time.time() + 3
+    while search.text != "severance" and time.time() < deadline:
+        time.sleep(0.01)
+    assert search.text == "severance",         "the field watcher never read the field"
+    assert search.getProperty("pinky.search.text") == "severance"
+
+
+def test_the_search_results_list_can_be_left_upwards():
+    """Up from the first row has to reach the field again.
+
+    A container keeps up and down for its own items and wraps at the edge
+    unless its navigation points elsewhere, so with no `onup` the list was a
+    trap: pressing up on the first recent search went to the last one, and the
+    only way back to the field was to close the window and open it again.
+
+    Read from the skin, because that is where the bug was - the Python was
+    right throughout. The buttons are covered by the test above; this is the
+    list, which that one does not look at.
+    """
+    import os
+    import xml.etree.ElementTree as ET
+
+    from conftest import ROOT
+
+    skin = os.path.join(ROOT, "plugin.video.pinky", "resources", "skins",
+                        "default", "1080i", "pinky-search.xml")
+    root = ET.parse(skin).getroot()
+    lists = [c for c in root.iter("control")
+             if c.get("type") == "list" and c.get("id")]
+    assert lists, "no list in the search skin - has it been restructured?"
+
+    for control in lists:
+        control_id = control.get("id")
+        target = (control.findtext("onup") or "").strip()
+        assert target, "list %s declares no onup, so it cannot be left" % control_id
+        assert target != control_id,             "list %s points up at itself, which keeps the focus inside it" % control_id
 
 
 
