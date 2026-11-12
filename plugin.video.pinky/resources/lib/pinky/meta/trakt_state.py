@@ -53,12 +53,14 @@ def annotate(entries):
     if not entries:
         return entries
     from .. import bookmarks
+    from ..watched import all_entries as watched_locally
 
     trakt_on = enabled()
     watched = _watched_map() if trakt_on else {}
     playback = _playback_map() if trakt_on else {}
     local = bookmarks.all_entries()
-    if not watched and not playback and not local:
+    finished = watched_locally()
+    if not watched and not playback and not local and not finished:
         return entries
     for item in entries:
         item_type = item.get("type")
@@ -71,6 +73,11 @@ def annotate(entries):
             continue
         if watched.get(key):
             item["playcount"] = int(watched[key])
+        elif key in finished:
+            # The local half, which is the only half on a box with no Trakt
+            # account. Trakt still wins where it answers: it knows every box
+            # and this file knows one.
+            item["playcount"] = 1
         resume = playback.get(key)
         if resume:
             progress = resume.get("progress")

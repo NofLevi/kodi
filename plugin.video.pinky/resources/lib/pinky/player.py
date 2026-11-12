@@ -446,12 +446,16 @@ class PinkyPlayer(xbmc.Player):
         """
         if not meta or meta.get("type") not in ("movie", "episode"):
             return
-        from . import bookmarks
+        from . import bookmarks, watched
         from .meta import trakt_state
         key = trakt_state.state_key(meta.get("type"), meta.get("ids"),
                                     meta.get("season"), meta.get("episode"))
         try:
             if completed or progress >= 95:
+                # Written before the place is cleared, not instead of it.
+                # Clearing alone is what left no record at all that this had
+                # been watched, on every box with no Trakt account.
+                watched.mark(key)
                 bookmarks.clear(key)
             elif progress > 1 and self.total_time > 0:
                 bookmarks.save(key, self.total_time * progress / 100.0,

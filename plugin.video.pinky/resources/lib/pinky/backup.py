@@ -15,7 +15,7 @@ written; it is written only where they choose.
 import json
 import time
 
-from . import bookmarks, kodi, settings
+from . import bookmarks, kodi, settings, watched
 
 FORMAT = 1
 # Buttons, not values.
@@ -37,6 +37,7 @@ def contents():
         "created": time.strftime("%Y-%m-%d %H:%M"),
         "settings": changed,
         "resume_points": bookmarks.all_entries(),
+        "watched": watched.all_entries(),
     }
 
 
@@ -58,6 +59,9 @@ def restore(data):
     places = data.get("resume_points")
     if isinstance(places, dict):
         bookmarks.merge(places)
+    seen = data.get("watched")
+    if isinstance(seen, dict):
+        watched.merge(seen)
     return len(values)
 
 

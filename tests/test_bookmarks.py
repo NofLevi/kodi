@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from pinky import bookmarks
+from pinky import bookmarks, watched
 from pinky.meta import trakt_state
 
 MOVIE = {"type": "movie", "title": "A Film", "ids": {"tmdb": 7}}
@@ -149,3 +149,109 @@ def test_a_false_start_saves_nothing(monitor):
     monitor.tick()
     monitor.onPlayBackStopped()
     assert MOVIE_KEY not in bookmarks.all_entries()
+
+
+# --------------------------------------------------------------------------
+# and what was finished, which nothing recorded at all
+# --------------------------------------------------------------------------
+
+
+def test_finishing_records_that_it_was_watched(monitor):
+    """Clearing the place used to be the whole of it.
+
+    So on a box with no Trakt account - which is every box, because Trakt
+    needs an application registered with it before it can be signed into on
+    a remote - finishing an episode deleted the only record that it had ever
+    been played.
+    """
+    monitor.tick()
+    monitor.onPlayBackEnded()
+    assert MOVIE_KEY in watched.all_entries()
+    assert MOVIE_KEY not in bookmarks.all_entries(),         "the resume point still has to go"
+
+
+def test_without_trakt_a_listing_knows_what_was_watched():
+    watched.mark(MOVIE_KEY)
+    item = dict(MOVIE)
+    trakt_state.annotate([item])
+    assert item.get("playcount") == 1
+
+
+def test_trakt_still_wins_on_what_was_watched(monkeypatch):
+    """It knows every box in the house; this file knows one."""
+    watched.mark(MOVIE_KEY)
+    monkeypatch.setattr(trakt_state, "enabled", lambda: True)
+    monkeypatch.setattr(trakt_state, "_watched_map", lambda: {MOVIE_KEY: 3})
+    monkeypatch.setattr(trakt_state, "_playback_map", lambda: {})
+    item = dict(MOVIE)
+    trakt_state.annotate([item])
+    assert item.get("playcount") == 3
+
+
+def test_the_next_episode_moves_on_once_one_is_finished():
+    """The symptom, rather than the cause.
+
+    `_first_unwatched` reads `playcount` and nothing else, so with nothing
+    ever filling it in, pressing Play on a show somebody had worked through
+    twenty episodes of started it again at episode one. A fifty-episode anime
+    arc is where that is unmistakable.
+    """
+    from pinky.ui.details_window import _first_unwatched
+
+    def episodes():
+        return [{"type": "episode", "season": 1, "episode": number,
+                 "ids": {"tmdb": 900 + number},
+                 "extra": {"tmdb_show": 55}}
+                for number in (1, 2, 3)]
+
+    first = episodes()
+    trakt_state.annotate(first)
+    assert _first_unwatched(first)["episode"] == 1
+
+    watched.mark(trakt_state.state_key("episode", {"tmdb": 55}, 1, 1))
+    watched.mark(trakt_state.state_key("episode", {"tmdb": 55}, 1, 2))
+    later = episodes()
+    trakt_state.annotate(later)
+    assert _first_unwatched(later)["episode"] == 3
+
+
+def test_the_same_episode_is_written_once_not_once_a_tick(monkeypatch):
+    """`_keep_place` runs on the playback tick as well as at the end, so
+    between 95% and the credits this is asked some thirty times for one
+    episode. A device with slow storage should not write for each."""
+    writes = []
+    real_write = watched._write
+    monkeypatch.setattr(watched, "_write",
+                        lambda data: (writes.append(1), real_write(data))[1])
+    for _ in range(30):
+        watched.mark(MOVIE_KEY)
+    assert len(writes) == 1
+
+
+def test_a_corrupt_watched_file_reads_as_nothing():
+    with io.open(watched.path(), "w", encoding="utf-8") as handle:
+        handle.write('{"movie:tmdb:7": {"a')
+    assert watched.all_entries() == {}
+
+
+def test_the_oldest_viewing_goes_first_past_the_limit(monkeypatch):
+    monkeypatch.setattr(watched, "LIMIT", 3)
+    for number in range(5):
+        monkeypatch.setattr(watched.time, "time", lambda n=number: 1000 + n)
+        watched.mark("episode:tmdb:1:1:%d" % number)
+    assert sorted(watched.all_entries()) == ["episode:tmdb:1:1:2",
+                                            "episode:tmdb:1:1:3",
+                                            "episode:tmdb:1:1:4"]
+
+
+def test_a_backup_carries_what_was_watched():
+    from pinky import backup
+
+    watched.mark(MOVIE_KEY)
+    written = backup.contents()
+    assert MOVIE_KEY in written["watched"]
+
+    watched._write({})
+    assert watched.all_entries() == {}
+    backup.restore(written)
+    assert MOVIE_KEY in watched.all_entries()
