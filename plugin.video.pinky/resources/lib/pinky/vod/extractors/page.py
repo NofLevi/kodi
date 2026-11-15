@@ -122,6 +122,25 @@ def kaltura_url(html):
             % (partner.group(1), partner.group(1), entry.group(1)))
 
 
+# **Not everything a broadcaster publishes is video.** Kan's podcasts - 266
+# of its 827 catalogue entries, plus twenty more for children - are hosted on
+# Omny Studio and the page carries a plain MP3. The ladder had no rung for a
+# media *file*, so every one of them listed its episodes and then played
+# nothing at all. Last in the ladder on purpose: a page that has both a
+# manifest and an audio file is a video page with a podcast version of itself
+# somewhere on it, and the manifest is the better answer.
+_AUDIO_FILE = re.compile(
+    r'https?://[^"\'\s\\]+?\.(?:mp3|m4a|aac)(?:\?[^"\'\s\\]*)?', re.I)
+
+
+def audio_from_html(html):
+    """The first plain audio file in the markup, for a radio or podcast page."""
+    match = _AUDIO_FILE.search((html or "").replace("\\/", "/"))
+    # Unescaped because it came out of an attribute: Kan writes the second
+    # copy of its own URL as `...audio.mp3?DIST=KAN&amp;DIST=KAN`.
+    return unescape(match.group(0)) if match else ""
+
+
 def extract_stream(html, page_url=""):
     """Run the ladder and return (url, is_adaptive, strategy)."""
     for name, finder in (("ld+json", video_from_ld_json),
@@ -134,6 +153,10 @@ def extract_stream(html, page_url=""):
     video = youtube_id(html) or youtube_id(page_url)
     if video:
         return YOUTUBE_PLUGIN % video, False, "youtube"
+
+    audio = audio_from_html(html)
+    if audio:
+        return audio, False, "audio file"
 
     return "", False, ""
 
