@@ -388,6 +388,16 @@ def _hebrew_dub_fit(source):
     first on purpose: it is the provider stating what is in the file, where
     everything else here is a reading of what somebody called it.
     """
+    # **The file's own track list, which is the only reading here that is not
+    # a guess.** Matroska declares its audio tracks, `bundled` reads them in
+    # the background out of bytes it was already fetching for the subtitle
+    # tracks, and only TorBox can reach inside a torrent to do it. It leads
+    # because it settles the case nothing else can: a Disney+ or iTunes
+    # release whose flag list names a dozen languages and never says which
+    # are audio - 140 such rows over a 347-film corpus.
+    from ..sources import bundled
+    if "he" in (bundled.recall_audio(source) or []):
+        return release.HEBREW_DUB_STATED
     if "he" in (source.get("audio_languages") or []):
         return DUB_PROVIDER_STATED
     stated = source.get("heb_dub")

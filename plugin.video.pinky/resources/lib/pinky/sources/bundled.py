@@ -260,12 +260,72 @@ def _look_inside(source):
     tracks = matroska.subtitle_tracks(data) if data else None
     if tracks is None:
         return [_UNKNOWN]
+    # The audio tracks are declared in the same bytes, already fetched, so
+    # this costs no request at all - and it is the one place anything here
+    # learns what language the film actually speaks rather than what its
+    # uploader called it. Only TorBox can reach inside a torrent to ask.
+    _remember_audio(source, data)
     _remember_readable(source, link)
     languages = []
     for track in tracks:
         if not track["partial"] and track["language"] not in languages:
             languages.append(track["language"])
     return languages
+
+
+def _audio_key(source):
+    """Per file, like the subtitle one: a season pack holds every episode."""
+    from .. import cache
+    return cache.make_key("sources", "audio", _inside_key(source))
+
+
+def recall_audio(source):
+    """The languages of the audio tracks inside this source's file.
+
+    **The only reading in the add-on that is not a guess.** A Hebrew dub is
+    otherwise inferred from a release name, which spells it nine ways and
+    omits it more often than not, or from Torrentio's flag list, which on a
+    Disney+ or iTunes release names a dozen languages and never says which
+    are audio - 140 rows over a 347-film corpus that nothing could settle.
+    Matroska declares its tracks, so the file settles it.
+
+    A cache read only, filled by the same background pass and the same two
+    ranged requests that read the subtitle tracks, so it costs no request of
+    its own and the draw never waits. None until that pass has looked.
+    """
+    from .. import cache
+    if not source.get("cached") or not source.get("hash"):
+        return None
+    known = cache.get(_audio_key(source))
+    if known is None:
+        return None
+    return [] if known == [_UNKNOWN] else known
+
+
+def _remember_audio(source, data):
+    """Read the audio track languages out of bytes already in hand."""
+    from .. import cache
+    from ..utils import matroska
+
+    tracks = matroska.audio_tracks(data)
+    if tracks is None:
+        # Not that there are none - that this file could not be read. Stored
+        # briefly rather than for a year, the same distinction `_look_inside`
+        # makes, because a refusal from the CDN is not an answer.
+        cache.set(_audio_key(source), [_UNKNOWN], _UNKNOWN_TTL)
+        return
+    languages = []
+    for track in tracks:
+        language = track["language"]
+        # An audio track naming no language is English by the Matroska
+        # specification, and that rule is too generous to lean on here: an
+        # unlabelled track on a Hebrew rip could be the Hebrew. Dropped
+        # rather than guessed either way, because guessing wrong puts an
+        # English film behind a Hebrew label.
+        if language in ("und", "") or language in languages:
+            continue
+        languages.append(language)
+    cache.set(_audio_key(source), languages or [_UNKNOWN], _INSIDE_TTL)
 
 
 def _remember_readable(source, link):

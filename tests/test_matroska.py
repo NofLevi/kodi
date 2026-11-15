@@ -96,3 +96,43 @@ def test_a_segment_of_unknown_size():
     data = (_el(0x1A45DFA3, b"") + (0x18538067).to_bytes(4, "big")
             + b"\x01\xff\xff\xff\xff\xff\xff\xff" + tracks_element)
     assert matroska.subtitle_tracks(data)[0]["language"] == "en"
+
+
+# --------------------------------------------------------------------------
+# the audio tracks, which are what a Hebrew dub actually is
+# --------------------------------------------------------------------------
+
+
+def test_the_audio_tracks_are_read_from_the_same_bytes():
+    """A Disney remux carries a dozen audio tracks and its name says none of
+    them. The file declares them, so this is the one reading of a Hebrew dub
+    that is not a guess - and it costs no request, because these are the
+    bytes already fetched for the subtitle tracks."""
+    data = _mkv(_track(kind=1, codec=b"V_MPEG4/ISO/AVC"),
+                _track(kind=2, codec=b"A_AAC", language=b"eng"),
+                _track(kind=2, codec=b"A_AC3", language=b"heb"),
+                _track(kind=2, codec=b"A_AAC", language=b"ita"),
+                _track(name=b"Hebrew", language=b"heb"))
+    assert [t["language"] for t in matroska.audio_tracks(data)] == \
+        ["en", "he", "it"]
+
+
+def test_the_audio_and_subtitle_readings_do_not_bleed_into_each_other():
+    """The case that matters: Hebrew *subtitles* over English audio must not
+    read as a Hebrew dub, which is the mistake the release names make."""
+    data = _mkv(_track(kind=2, codec=b"A_AAC", language=b"eng"),
+                _track(language=b"heb"))
+    assert [t["language"] for t in matroska.audio_tracks(data)] == ["en"]
+    assert [t["language"] for t in matroska.subtitle_tracks(data)] == ["he"]
+
+
+def test_a_file_with_no_audio_tracks_reads_as_none_rather_than_unreadable():
+    data = _mkv(_track(kind=1, codec=b"V_MPEG4/ISO/AVC"), _track())
+    assert matroska.audio_tracks(data) == []
+
+
+def test_a_file_that_is_not_matroska_has_no_audio_answer():
+    """None, not [] - "could not read this" and "has no Hebrew" are
+    different, and storing the first as the second poisoned the subtitle
+    readings for a year once already."""
+    assert matroska.audio_tracks(b"RIFF....AVI ") is None

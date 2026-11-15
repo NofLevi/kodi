@@ -211,25 +211,95 @@ _HEBREW_ALONE = re.compile(r"(?<![a-z])hebrew(?![a-z])", re.I)
 # The groups are the only place the file says it. They are read off `raw`
 # rather than the normalised text because `normalise` strips brackets, which
 # is where the whole distinction lives.
-_DUB_GROUP = re.compile(r"\bdub\w*\s*\(([^)]{0,90})\)", re.I)
-_SUB_GROUP = re.compile(r"\bsubs?\w*\s*\(([^)]{0,90})\)", re.I)
-_HEBREW_WORD = re.compile(r"\b(heb|hebr|hebrew)\b", re.I)
+# Which track the Hebrew belongs to, read by looking for the nearest marker
+# rather than by adding one pattern per layout. The layouts in the wild are:
+#
+#   Dub (Rus Heb) + Sub (Eng)              bracketed, either way round
+#   Sub Rus Ukr Eng Deu Fra Heb            no brackets at all
+#   the secret world of arrietty Hebrew subtitles    marker *after* the word
+#   Dub (Русский ARA CHI HRV DAN ... HEB)  a list longer than any window
+#
+# A pattern for each of those is four patterns and a fifth layout tomorrow.
+# Walking out from the Hebrew token to whichever marker is closest reads all
+# of them, and it is the question actually being asked: this name mentions
+# Hebrew, so is it talking about the soundtrack or the text?
+_TOKEN = re.compile(r"[A-Za-z֐-׿]+")
+_DUB_MARK = re.compile(r"^(dub|dubs|dubbed|dublado|dubbing)$", re.I)
+_SUB_MARK = re.compile(r"^(sub|subs|subbed|subtitle|subtitles|subtitulos)$", re.I)
+_HEBREW_TOKEN = re.compile(
+    r"^(heb|hebr|hebrew|עברית|מדובב)$", re.I)
+# Far enough to cross a long language list, short enough not to reach the
+# other half of "Dub (...) + Sub (...)" from inside the wrong one.
+_MARKER_WINDOW = 12
+
+
+def _hebrew_track_kind(raw):
+    """"audio", "text" or "" - which track this name says Hebrew is.
+
+    The closest marker wins, looking backwards further than forwards because
+    a list follows its label ("Sub Rus Eng Heb") far more often than it
+    precedes one ("Hebrew subtitles").
+    """
+    words = _TOKEN.findall(raw or "")
+    kinds = []
+    for index, word in enumerate(words):
+        if not _HEBREW_TOKEN.match(word):
+            continue
+        kinds.append(_marker_for(words, index))
+    # A name can label Hebrew twice - "Dub (Heb) + Sub (Heb)" ships both -
+    # and the audio claim is the one this is asked about and is true.
+    if "audio" in kinds:
+        return "audio"
+    return "text" if "text" in kinds else ""
+
+
+def _marker_for(words, index):
+    """The marker labelling the Hebrew token at `index`, backwards first.
+
+    **Backwards wins outright rather than by distance**, which is not a
+    tie-break detail: in "Dub (Rus Heb) + Sub (Eng)" the nearest marker by
+    distance is the *following* "Sub", one token away, and it labels the next
+    group rather than this one. A list follows its label, so the label behind
+    is the one that owns it. Looking forward at all is for the one shape
+    where nothing precedes it - "arrietty Hebrew subtitles".
+    """
+    for back in range(1, _MARKER_WINDOW + 1):
+        if index - back < 0:
+            break
+        previous = words[index - back]
+        if _DUB_MARK.match(previous):
+            return "audio"
+        if _SUB_MARK.match(previous):
+            return "text"
+    for ahead in (1, 2):
+        if index + ahead >= len(words):
+            break
+        following = words[index + ahead]
+        if _DUB_MARK.match(following):
+            return "audio"
+        if _SUB_MARK.match(following):
+            return "text"
+    return ""
 
 
 def _hebrew_dubbed(text, raw, languages, dub):
     """How strongly this name claims the audio is Hebrew: 100, 70 or 0."""
-    # The track lists first, because they are the file being explicit and
-    # everything below them is inference from a word's neighbours.
-    if any(_HEBREW_WORD.search(group) for group in _DUB_GROUP.findall(raw)):
-        return HEBREW_DUB_STATED
-    if (any(_HEBREW_WORD.search(group) for group in _SUB_GROUP.findall(raw))
-            and not _HEBREW_AUDIO.search(text)):
-        # Hebrew is named, and named as a subtitle. Nothing further to infer.
-        return 0
-    if _HEBREW_TEXT_ONLY.search(text) and not _HEBREW_AUDIO.search(text):
-        return 0
+    # The glued spellings first - "HebDub" is one token and no marker walk
+    # will see it - and then what the name says the Hebrew *is*. Both of
+    # those are the name being explicit; everything below is inference.
     if _HEBREW_AUDIO.search(text):
         return HEBREW_DUB_STATED
+    kind = _hebrew_track_kind(raw)
+    if kind == "audio":
+        return HEBREW_DUB_STATED
+    if kind == "text":
+        # Named, and named as a subtitle. Nothing further to infer, and this
+        # is the branch that stops a Russian dub with Hebrew subtitles being
+        # offered as a Hebrew dub - ten of them, well seeded, straight to the
+        # top of the rung.
+        return 0
+    if _HEBREW_TEXT_ONLY.search(text):
+        return 0
     if "he" in (languages or []) and dub in ("dub", "dual"):
         return HEBREW_DUB_LIKELY
     # Both of these are "probably", and deliberately not more. Each was

@@ -428,3 +428,51 @@ def test_a_file_holding_two_episodes_is_both_of_them(name, season, episode, matc
     episode; every copy of Modern Family's finale, "S11E17E18", named none."""
     from pinky.utils import release
     assert release.matches_episode(release.parse(name), season, episode) is matches
+
+
+# --------------------------------------------------------------------------
+# which track the Hebrew is: the soundtrack, or the text
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", [
+    # Bracketed, and the trap: the nearest marker by distance is the
+    # *following* "Sub", which labels the next group and not this one.
+    "A Film [2026] Dub (Rus Heb) + Sub (Eng)",
+    # No brackets at all.
+    "A Film [2026] Dub Heb + Sub Eng",
+    # A list longer than any fixed window could cross from the far end.
+    "How to Train Your Dragon [2010 WEBRip] "
+    "Dub (Russian ARA CHI HRV DAN DUT ENG FIN HEB ITA)",
+    # Labelled twice; the audio claim is the one being asked about.
+    "A Film [2026] Dub (Heb) + Sub (Heb)",
+])
+def test_hebrew_labelled_as_a_dub_is_audio(name):
+    assert release.parse(name)["heb_dub"] == release.HEBREW_DUB_STATED
+
+
+@pytest.mark.parametrize("name", [
+    # The ten rows that sorted to the top of the dub rung while every dub on
+    # them was Russian, Ukrainian or Kazakh.
+    "Hoppers [2026] Dub (MovieDalen) + Dub (Ukr Kaz) + Sub (Rus Eng Chi Heb Rom Ukr)",
+    # The same claim with no brackets, which no bracket rule could see.
+    "Havoc [2025 WEB-DL] Dub (Videofilm Int.) + Dub Ukr + Sub Rus Ukr Eng Deu Fra Heb",
+    # The marker *after* the word, and spelled out in full - neither "sub"
+    # nor "subs", so a word-bounded test for those missed it.
+    "the secret world of arrietty Hebrew subtitles",
+    "ocean waves movie Hebrew subtitles",
+    "A Film [2026] Dub (Ukr) + Sub (Rus Heb)",
+])
+def test_hebrew_labelled_as_a_subtitle_is_not_a_dub(name):
+    assert release.parse(name)["heb_dub"] == 0
+
+
+@pytest.mark.parametrize("name", [
+    "Madagascar Hebrew",
+    "Hotel.Transylvania.2012.in Hebrew",
+    "Pokemon: The First Movie - Mewtwo Strikes Back in Hebrew",
+])
+def test_hebrew_with_no_marker_either_side_stays_probable(name):
+    """Nothing says which track, so neither does this: the looser reading
+    takes it, and the picker prints "probably" rather than stating it."""
+    assert release.parse(name)["heb_dub"] == release.HEBREW_DUB_LIKELY

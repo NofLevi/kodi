@@ -725,3 +725,33 @@ def test_the_track_list_wins_over_the_loose_reading(found):
         source(RUTRACKER, 1, seeders=207),
         source("A Film [2026] Dub (Rus Heb) + Sub (Eng)", 2, seeders=4)])
     assert [row["subs_fit"] for row in rows] == [100]
+
+
+def test_the_files_own_audio_track_beats_every_reading_of_its_name(found, monkeypatch):
+    """The file declaring a Hebrew audio track is the only evidence here that
+    is not a guess, so it leads - and it settles the case nothing else can: a
+    Disney+ or iTunes release whose flag list names a dozen languages and
+    never says which of them are audio. 140 such rows over 347 films."""
+    from pinky.sources import bundled
+    monkeypatch.setattr(bundled, "recall_audio", lambda s: ["en", "it", "he"])
+    rows = outlook.dub_rows(META, [source(
+        "Toy.Story.5.2026.2160p.WEB-DL.x264-NOTHINGSAYSHEBREW", 1, seeders=8)])
+    assert [row["subs_fit"] for row in rows] == [100]
+
+
+def test_a_file_with_no_hebrew_track_is_not_promoted(found, monkeypatch):
+    from pinky.sources import bundled
+    monkeypatch.setattr(bundled, "recall_audio", lambda s: ["en", "it"])
+    assert outlook.dub_rows(META, [source(
+        "A.Film.2026.1080p.WEB-DL.x264-GRP", 1, seeders=8)]) == []
+
+
+def test_a_file_not_looked_inside_yet_falls_back_to_the_name(found, monkeypatch):
+    """`recall_audio` is a cache read and answers None until the background
+    pass has been. The name has to keep working meanwhile, because that pass
+    only ever runs for cached sources."""
+    from pinky.sources import bundled
+    monkeypatch.setattr(bundled, "recall_audio", lambda s: None)
+    rows = outlook.dub_rows(META, [source(
+        "Aladdin.1992.1080p.BluRay.HebDub.x264", 1, seeders=4)])
+    assert [row["subs_fit"] for row in rows] == [100]

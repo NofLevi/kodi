@@ -30,6 +30,8 @@ FLAG_FORCED = 0x55AA
 CLUSTER = 0x1F43B675
 
 SUBTITLE = 0x11
+# Matroska track types: 1 video, 2 audio, 0x11 subtitle.
+AUDIO = 0x02
 
 # ISO 639-2 as Matroska writes it, to the two letters the rest of the add-on
 # uses. Only what anybody here reads or translates from.
@@ -126,6 +128,34 @@ def subtitle_tracks(data):
     not know. Matroska's default language is English, so a track that
     names none is English by the specification, not by a guess.
     """
+    return _tracks_of_type(data, SUBTITLE)
+
+
+def audio_tracks(data):
+    """Every audio track declared in these leading bytes, or None.
+
+    **The only thing in this add-on that knows what a file actually says, as
+    opposed to what somebody called it.** Hebrew dubs were read off release
+    names, which spell it nine different ways and lie by omission, and off
+    Torrentio's flag list, which on a Disney+ or iTunes release names ten to
+    twenty languages and never says which are audio and which are subtitles -
+    140 rows in a 347-film corpus that nothing could settle either way.
+
+    The file settles it. Matroska declares its tracks before the first
+    cluster, so this is the same two ranged requests `subtitle_tracks`
+    already makes on the same bytes, and only TorBox can reach inside a
+    torrent to make them.
+
+    A track naming no language is English by the specification, which is the
+    one place that rule is a little generous here - an unlabelled audio track
+    on a Hebrew-dubbed rip could be the Hebrew. `inside`'s caller treats a
+    lone `und` as nothing rather than as Hebrew, because guessing the wrong
+    way puts an English film behind a Hebrew label.
+    """
+    return _tracks_of_type(data, AUDIO)
+
+
+def _tracks_of_type(data, wanted):
     data = bytes(data or b"")
     top = _element(data, 0)
     if top is None or top[0] != EBML:
@@ -146,7 +176,7 @@ def subtitle_tracks(data):
             if child != TRACK_ENTRY or cut:
                 continue
             track = _track(raw)
-            if track["type"] != SUBTITLE:
+            if track["type"] != wanted:
                 continue
             found.append(_described(track))
         return found
