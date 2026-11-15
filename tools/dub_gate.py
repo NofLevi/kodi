@@ -236,6 +236,41 @@ def score(records):
     return found
 
 
+def _after_the_filters(records, found):
+    """Which of the dubs found would actually reach the picker.
+
+    `scoring.rejection_reason` on the shipped defaults, which is what every
+    source passes through before a window ever draws it. A Hebrew dub is
+    exempt from the resolution floor and the size ceiling - preferences,
+    where there is no better copy that is also in Hebrew - and refused by
+    the capability checks exactly like anything else, because a release the
+    projector cannot decode is not a Hebrew dub, it is a stutter.
+    """
+    from pinky.sources import scoring
+    from pinky.sources.providers import stremio
+
+    prefs = scoring.Preferences()
+    prefs.original_language = "en"
+    refused = collections.Counter()
+    reaching, titles = 0, set()
+    for record in records:
+        for _fit, row in found.get(record["imdb"], []):
+            source = stremio._parse_stream(
+                {"title": row.get("title") or row["release"],
+                 "name": row.get("stream_name") or "",
+                 "infoHash": "0" * 40}, "torrentio")
+            if source is None:
+                continue
+            source["seeders"] = row["seeders"]
+            why = scoring.rejection_reason(source, prefs)
+            if why:
+                refused[why] += 1
+                continue
+            reaching += 1
+            titles.add(record["imdb"])
+    return refused, reaching, titles
+
+
 def report(records, found):
     titles = len(records)
     if not titles:
@@ -260,6 +295,19 @@ def report(records, found):
         print("  %3d  %-40s %d" % (fit, label, tiers.get(fit, 0)))
     print("most on any one title   : %d"
           % max([len(v) for v in found.values()] or [0]))
+
+    # **The number that actually matters**, and the one this gate did not
+    # have at first: a dub the detector finds and the add-on's own filters
+    # then throw away never reaches the picker, so finding it is worth
+    # nothing. On the first run 64 of 91 were thrown away here.
+    refused, reaching, reaching_titles = _after_the_filters(records, found)
+    print("\nwhat survives our own filters, on the shipped defaults:")
+    print("  reaches the picker    : %d rows across %d titles (%.0f%%)"
+          % (reaching, len(reaching_titles),
+             100.0 * len(reaching_titles) / titles))
+    for reason, count in refused.most_common():
+        print("  refused: %-30s %d" % (reason, count))
+
     by = collections.Counter(r["stratum"] for r in records if found.get(r["imdb"]))
     seen = collections.Counter(r["stratum"] for r in records)
     print("\nby stratum:")

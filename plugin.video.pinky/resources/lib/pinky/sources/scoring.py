@@ -103,6 +103,20 @@ class Preferences(object):
         self.min_rank = settings.resolution_rank(self.min_resolution)
 
 
+def _is_hebrew_dub(source):
+    """Does this release carry Hebrew audio?
+
+    Either the name says so (`release.parse`'s `heb_dub`) or the provider
+    named a Hebrew audio track (`stremio._audio_languages`). Only the two
+    readings that are about *audio*: "he" in `languages` is a claim about
+    Hebrew being in the file somewhere, which is usually a subtitle, and
+    exempting on that would stand the size cap aside for half the catalogue.
+    """
+    if "he" in (source.get("audio_languages") or ()):
+        return True
+    return bool(source.get("heb_dub"))
+
+
 def rejection_reason(source, prefs, runtime_hours=2.0):
     """Why this source cannot be used, or an empty string when it is fine.
 
@@ -142,6 +156,26 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
             and not prefs.allow_dv):
         return "Dolby Vision without an HDR10 fallback"
 
+    # **The only copy that speaks Hebrew is not competing on picture.** The
+    # floor and the size ceiling are there so a worse release is not taken
+    # *instead of* a better one, and for a Hebrew dub there is no better one
+    # that is also in Hebrew: the alternative is English audio, which for a
+    # child who cannot read subtitles is not an alternative at all. Measured
+    # over 347 films, the add-on's own filters threw away 64 of the 91 dubs
+    # it had found, and of the ones with a living swarm, eleven went for
+    # being over the 8 GB cap - Ratatouille's 1080p HEBDUB at 11.9 GB and ten
+    # seeders among them. Seven titles had no playable dub left purely
+    # because of that cap.
+    #
+    # The same reasoning as the floor standing aside below when fewer than a
+    # page clear it, and the same limit: this exempts the two checks that are
+    # *preferences* and none of the ones that are about what the box can
+    # decode. HEVC, AV1, HDR and Dolby Vision are refused exactly as before,
+    # because a release the device cannot play is not a Hebrew dub either -
+    # it is a purple and green screen - and so is the resolution *ceiling*,
+    # since a 4K file on a 720p projector is a stutter rather than a picture.
+    only_hebrew_copy = _is_hebrew_dub(source) and "he" in (prefs.languages or ())
+
     rank = settings.resolution_rank(source.get("quality"))
     # An unknown resolution is judged by neither limit. Treating it as the
     # bottom of the ladder meant every release whose name does not mention
@@ -151,7 +185,8 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
     if rank >= 0:
         if prefs.max_rank >= 0 and rank > prefs.max_rank:
             return "above the resolution limit"
-        if prefs.min_rank >= 0 and rank < prefs.min_rank:
+        if (prefs.min_rank >= 0 and rank < prefs.min_rank
+                and not only_hebrew_copy):
             return "below the resolution limit"
 
     size = source.get("size") or 0
@@ -178,7 +213,8 @@ def rejection_reason(source, prefs, runtime_hours=2.0):
     episodes = (span[1] - span[0] + 1) if span and span[1] > span[0] else 1
     per_episode_size = size / float(episodes) if episodes > 1 else size
 
-    if prefs.max_size and per_episode_size > prefs.max_size:
+    if (prefs.max_size and per_episode_size > prefs.max_size
+            and not only_hebrew_copy):
         return "larger than the size limit"
 
     if size:

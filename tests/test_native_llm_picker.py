@@ -691,3 +691,37 @@ def test_the_wider_shapes_still_refuse_a_subtitle_claim(found, name):
     resolution and the codec is a language tag, and "Hebrew Subs" says
     outright that the audio is not Hebrew."""
     assert outlook.dub_rows(META, [source(name, 1, seeders=5)]) == []
+
+
+# --------------------------------------------------------------------------
+# a release that lists its tracks says which is which
+# --------------------------------------------------------------------------
+
+RUTRACKER = ("Hoppers [2026 WEB-DL 1080p] Dub (MovieDalen) + MVO + "
+             "Dub (Ukr Kaz) + Original (Eng) + Sub (Rus Eng Chi Heb Rom Ukr)")
+
+
+def test_a_russian_dub_with_hebrew_subtitles_is_not_a_hebrew_dub(found):
+    """The false positive the gate caught. Every dub on this upload is
+    Russian, Ukrainian or Kazakh and the Hebrew is a *subtitle* - and these
+    Rutracker releases are large and very well seeded, 207 seeders here, so
+    they went straight to the top of the rung. Ten of them did."""
+    assert outlook.dub_rows(META, [source(RUTRACKER, 1, seeders=207)]) == []
+
+
+def test_a_track_list_naming_hebrew_as_a_dub_is_taken_at_its_word(found):
+    """The same structure read the other way, which is a gain and not only a
+    guard: the groups are the one place a release says which track is which."""
+    rows = outlook.dub_rows(META, [source(
+        "A Film [2026 WEB-DL 1080p] Dub (Heb) + Original (Eng) + Sub (Rus)",
+        1, seeders=9)])
+    assert [row["subs_fit"] for row in rows] == [100]
+
+
+def test_the_track_list_wins_over_the_loose_reading(found):
+    """"names Hebrew and says dubbed" is true of the Rutracker row above and
+    is the rule that got it wrong, so the explicit groups are read first."""
+    rows = outlook.dub_rows(META, [
+        source(RUTRACKER, 1, seeders=207),
+        source("A Film [2026] Dub (Rus Heb) + Sub (Eng)", 2, seeders=4)])
+    assert [row["subs_fit"] for row in rows] == [100]

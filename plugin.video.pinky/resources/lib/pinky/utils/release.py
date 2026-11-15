@@ -200,10 +200,32 @@ HEBREW_DUB_LIKELY = 70
 # is a language tag and stays unread, which is what it was before.
 _HEBREW_ALONE = re.compile(r"(?<![a-z])hebrew(?![a-z])", re.I)
 
+# **A release that lists its tracks says which is which.** A Rutracker upload
+# is written out in full - "Dub (MovieDalen) + MVO + Dub (Ukr Kaz) + Original
+# (Eng) + Sub (Rus Eng Chi Heb Rom Ukr)" - and the Hebrew there is a
+# *subtitle* while every dub is Russian, Ukrainian or Kazakh. The loose rule
+# below ("names Hebrew and says dubbed") read that as a Hebrew dub, which is
+# exactly wrong, and these uploads are large and well seeded so they went
+# straight to the top of the rung.
+#
+# The groups are the only place the file says it. They are read off `raw`
+# rather than the normalised text because `normalise` strips brackets, which
+# is where the whole distinction lives.
+_DUB_GROUP = re.compile(r"\bdub\w*\s*\(([^)]{0,90})\)", re.I)
+_SUB_GROUP = re.compile(r"\bsubs?\w*\s*\(([^)]{0,90})\)", re.I)
+_HEBREW_WORD = re.compile(r"\b(heb|hebr|hebrew)\b", re.I)
 
 
-def _hebrew_dubbed(text, languages, dub):
+def _hebrew_dubbed(text, raw, languages, dub):
     """How strongly this name claims the audio is Hebrew: 100, 70 or 0."""
+    # The track lists first, because they are the file being explicit and
+    # everything below them is inference from a word's neighbours.
+    if any(_HEBREW_WORD.search(group) for group in _DUB_GROUP.findall(raw)):
+        return HEBREW_DUB_STATED
+    if (any(_HEBREW_WORD.search(group) for group in _SUB_GROUP.findall(raw))
+            and not _HEBREW_AUDIO.search(text)):
+        # Hebrew is named, and named as a subtitle. Nothing further to infer.
+        return 0
     if _HEBREW_TEXT_ONLY.search(text) and not _HEBREW_AUDIO.search(text):
         return 0
     if _HEBREW_AUDIO.search(text):
@@ -456,7 +478,7 @@ def _parse(raw, size=0):
         # Hebrew audio, which is a different claim from "has Hebrew in
         # it" and was indistinguishable from it until now.
         "heb_dub": _hebrew_dubbed(
-            text, languages, _first_match(text, DUB_PATTERNS, "")),
+            text, raw, languages, _first_match(text, DUB_PATTERNS, "")),
         "hdr": hdr,
         "editions": [edition for edition, pattern in EDITION_PATTERNS
                      if re.search(pattern, text, re.I)],

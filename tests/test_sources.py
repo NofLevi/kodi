@@ -1438,3 +1438,94 @@ def test_zilean_is_given_the_absolute_episode_number(settings_module, monkeypatc
     names = [source.get("name") or source.get("title", "") for source in found]
     assert len(found) == 1, "only the right episode: %s" % names
     assert "415" in (names[0] or "")
+
+
+# --------------------------------------------------------------------------
+# the only copy that speaks Hebrew is not competing on picture
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def lean(settings_module):
+    """The shipped defaults: a 720p floor, an 8 GB cap, HDR off."""
+    settings_module.set_many({
+        "sources.max_resolution": "1080p",
+        "sources.min_resolution": "720p",
+        "sources.max_size_gb": "8",
+        "sources.allow_hevc": "true",
+        "sources.allow_av1": "false",
+        "sources.allow_hdr": "false",
+        "sources.allow_dv": "false",
+        "sources.allow_cam": "false",
+        "sources.cached_only": "false",
+        "subs.languages": "he,en",
+    })
+    prefs = scoring.Preferences()
+    prefs.original_language = "en"
+    return prefs
+
+
+def test_a_hebrew_dub_is_exempt_from_the_size_ceiling(lean):
+    """Ratatouille's 1080p HEBDUB is 11.9 GB with ten seeders and was thrown
+    away by an 8 GB cap. The cap is there so a bloated release is not taken
+    *instead of* a leaner one, and there is no leaner one that is also in
+    Hebrew. Measured over 347 films: eleven live dubs went this way and
+    seven titles had no playable dub left because of it."""
+    dub = make("Ratatouille 2007 1080p BluRay HEBDUB Also English x264-ZionHD",
+               size=12 * 1024 ** 3)
+    assert dub["heb_dub"] == 100
+    assert scoring.rejection_reason(dub, lean) == ""
+    # The same release without the Hebrew is refused exactly as before.
+    plain = make("Ratatouille 2007 1080p BluRay x264-GRP", size=12 * 1024 ** 3)
+    assert "size limit" in scoring.rejection_reason(plain, lean)
+
+
+def test_a_hebrew_dub_is_exempt_from_the_resolution_floor(lean):
+    """A 2002 dub is natively 480p; demanding 720p asks for an upscale that
+    does not exist. The same reasoning the floor already uses when fewer
+    than a page clear it, applied to the one row that cannot be replaced."""
+    dub = make("Shrek.2001.480p.DVDRip.HebDub.XviD")
+    assert scoring.rejection_reason(dub, lean) == ""
+    plain = make("Shrek.2001.480p.DVDRip.XviD-GRP")
+    assert "below the resolution limit" in scoring.rejection_reason(plain, lean)
+
+
+def test_a_hebrew_dub_is_still_held_to_the_resolution_ceiling(lean):
+    """Asked for in so many words: the maximum stays relative to the setting.
+    A 4K file on a 720p projector with a gigabyte of RAM is a stutter and not
+    a picture, and every capability-refused dub in the corpus - all thirteen
+    of them - was 2160p, so this is the whole of what is left out there."""
+    dub = make("Spider-Man.Across.The.Spider-Verse.2023.2160p.WEB-DL.HebDub.x264")
+    assert dub["heb_dub"] == 100
+    assert "above the resolution limit" in scoring.rejection_reason(dub, lean)
+
+
+def test_a_hebrew_dub_the_box_cannot_decode_is_still_refused(lean):
+    """Capability, not preference. A release that will not play is not a
+    Hebrew dub either - it is a purple and green screen."""
+    hdr = make("A.Film.2024.1080p.BluRay.HDR.HebDub.x265")
+    assert hdr["heb_dub"] == 100
+    assert scoring.rejection_reason(hdr, lean) != ""
+
+
+def test_a_hebrew_dub_is_still_refused_as_a_cam(lean):
+    cam = make("A.Film.2026.HDTC.HebDub.XviD")
+    assert "cam release" in scoring.rejection_reason(cam, lean)
+
+
+def test_hebrew_subtitles_exempt_nothing(lean):
+    """The exemption reads the two fields that are about *audio*. "he" in
+    `languages` is a claim about Hebrew being in the file somewhere, which is
+    usually a subtitle - standing the size cap aside on that would open it
+    for half the catalogue."""
+    subbed = make("A.Film.2024.1080p.BluRay.HebSub.x264", size=12 * 1024 ** 3)
+    assert subbed["heb_dub"] == 0
+    assert "size limit" in scoring.rejection_reason(subbed, lean)
+
+
+def test_a_household_that_does_not_read_hebrew_gets_no_exemption(lean):
+    """The point of the rung is a Hebrew-speaking viewer. For anybody else a
+    Hebrew dub is just a large file in a language they do not read."""
+    lean.languages = ("en",)
+    dub = make("A.Film.2024.1080p.BluRay.HebDub.x264", size=12 * 1024 ** 3)
+    assert "size limit" in scoring.rejection_reason(dub, lean)
