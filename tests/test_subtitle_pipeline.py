@@ -1276,3 +1276,20 @@ class _Recorder(object):
 
     def isPlaying(self):
         return True
+
+
+def test_a_hebrew_dub_searches_for_no_subtitle(monkeypatch, settings_module):
+    """A Hebrew subtitle over Hebrew speech is the dialogue twice, which is
+    the same reasoning that already exempts an Israeli film - except that
+    here it is the viewer's own choice of row saying the audio is Hebrew,
+    which is the stronger claim of the two."""
+    from pinky.subs import auto
+    settings_module.set_many({"subs.auto": "true", "subs.languages": "he,en"})
+    asked = []
+    monkeypatch.setattr(auto, "search_candidates",
+                        lambda *a, **k: asked.append(a) or [])
+    auto.on_playback_started(
+        None, {"title": "Tarzan", "original_language": "en",
+               "ids": {"tmdb": 1}, "type": "movie",
+               "source": {"subs_mode": "hebdub"}})
+    assert asked == []

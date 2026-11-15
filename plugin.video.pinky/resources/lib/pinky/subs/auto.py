@@ -171,6 +171,17 @@ def on_playback_started(player, meta, cancelled=None):
         kodi.log("%s is a broadcaster stream, so no subtitle is searched for"
                  % (meta.get("title") or "this programme"))
         return
+    if _subs_mode(meta) == "hebdub":
+        # Chosen from the picker's Hebrew-dub rows, so the dialogue is
+        # already in Hebrew coming out of the speakers. The same reasoning as
+        # the Israeli film two branches down - a Hebrew subtitle over Hebrew
+        # speech is the dialogue twice - except that here it is the viewer's
+        # own choice of row that says so rather than the metadata, which
+        # makes it the stronger claim of the two. The chooser still lists
+        # subtitles for anybody who wants one.
+        kodi.log("a Hebrew dub was chosen for %s, so no subtitle is searched "
+                 "for" % (meta.get("title") or "this title"))
+        return
     if _subs_mode(meta) == "english":
         # Chosen from the picker's English rows: English, whatever the
         # configured languages say, and whatever language the film is in.

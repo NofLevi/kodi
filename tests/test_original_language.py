@@ -226,3 +226,46 @@ def test_a_multi_release_is_not_pushed_down_like_a_dub(settings_module):
     prefs.original_language = "ja"
     multi = _source("Show.S01E01.MULTi.DUB.1080p.WEB-DL-GRP")
     assert scoring._dubbed(multi, prefs) == 0
+
+
+# The shape the Hebrew-dub rung actually offers: a Disney remux whose Hebrew
+# is one track among many, where the *original* language is English.
+MULTI_AUDIO = [{"index": 0, "language": "eng", "name": "English"},
+               {"index": 1, "language": "ita", "name": "Italian"},
+               {"index": 2, "language": "heb", "name": "Hebrew"}]
+
+
+def test_choosing_the_hebrew_dub_row_selects_the_hebrew_track(monitor):
+    """Without this the row promises Hebrew and plays English. The best rows
+    on the dub rung are multi-audio files - Torrentio names a Hebrew track on
+    a 21-language remux - and the rule for everything else selects the
+    *original* language, which on a Disney film is English."""
+    from pinky.subs import embedded
+    _tracks(MULTI_AUDIO, current=0)
+    monitor.meta = {"original_language": "en",
+                    "source": {"subs_mode": "hebdub"}}
+    monitor._choose_audio_track(embedded)
+    assert monitor.audio_stream == 2
+
+
+def test_the_hebrew_dub_row_beats_the_original_language_rule(monitor):
+    """Not merely a different default: the viewer picked that row, which is a
+    stronger statement than anything the metadata says about the film."""
+    from pinky.subs import embedded
+    _tracks(MULTI_AUDIO, current=1)
+    monitor.meta = {"original_language": "it",
+                    "source": {"subs_mode": "hebdub"}}
+    monitor._choose_audio_track(embedded)
+    assert monitor.audio_stream == 2
+
+
+def test_another_row_on_the_same_file_still_gets_the_original(monitor):
+    """The exemption is the chosen row and not the file, so a release that
+    happens to carry Hebrew is unchanged when Hebrew was not what was asked
+    for."""
+    from pinky.subs import embedded
+    _tracks(MULTI_AUDIO, current=2)
+    monitor.meta = {"original_language": "en",
+                    "source": {"subs_mode": "native"}}
+    monitor._choose_audio_track(embedded)
+    assert monitor.audio_stream == 0

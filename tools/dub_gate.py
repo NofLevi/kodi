@@ -50,7 +50,15 @@ from pinky.meta.tmdb import BUNDLED_KEY as KEY          # noqa: E402
 
 CACHE = os.path.join(ROOT, ".dub-gate", "corpus.jsonl")
 TMDB = "https://api.themoviedb.org/3"
-TORRENTIO = "https://torrentio.strem.fun/sort=qualitysize/stream/movie/%s.json"
+# Both of the providers that ship switched on, because they do not return the
+# same rows: TorrentsDB had the only Hebrew Shrek under a Hebrew title,
+# "שרק - Shrek DVDRip HebDub avi", which Torrentio did not list
+# at all. A corpus from one provider is a corpus of one provider's parser.
+PROVIDERS = [
+    ("torrentio",
+     "https://torrentio.strem.fun/sort=qualitysize/stream/movie/%s.json"),
+    ("torrentsdb", "https://torrentsdb.com/stream/movie/%s.json"),
+]
 
 IL_FLAG = u"\U0001F1EE\U0001F1F1"
 HEBREW_SCRIPT = re.compile(u"[֐-׿]")
@@ -91,8 +99,22 @@ STRATA = [
     ("pixar", {"with_companies": "3"}),
     ("dreamworks", {"with_companies": "521"}),
     ("illumination", {"with_companies": "6704"}),
+    ("sony-animation", {"with_companies": "2251"}),
+    ("ghibli", {"with_companies": "10342"}),
+    # The dubs are old, and "popular" is not. Sorting the animation strata by
+    # popularity returned the last ten years twice over, while every scene
+    # HebDub in the corpus is a 1990s or 2000s Disney film - so one stratum
+    # asks for those directly. It is the single richest one.
+    ("animation-1989-2010",
+     {"with_genres": "16", "primary_release_date.gte": "1989-01-01",
+      "primary_release_date.lte": "2010-12-31"}),
+    # The control. Twenty titles of adult drama and action came out at 0%,
+    # which is what says the whole reading is real rather than noise, so it
+    # stays in the corpus rather than being remembered as a one-off.
+    ("control-adult", {"with_genres": "18,28",
+                       "primary_release_date.gte": "2015-01-01"}),
 ]
-PAGES = 4
+PAGES = 8
 
 
 def get(url, timeout=45):
@@ -157,22 +179,31 @@ def harvest():
                 continue
             if not imdb or imdb in done:
                 continue
-            try:
-                streams = get(TORRENTIO % imdb).get("streams") or []
-            except Exception as exc:
-                print("  %-34s %s" % (name[:34], exc))
+            streams, failed = [], False
+            for provider, template in PROVIDERS:
+                try:
+                    answer = get(template % imdb).get("streams") or []
+                except Exception as exc:
+                    print("  %-34s %s: %s" % (name[:34], provider, exc))
+                    failed = True
+                    continue
+                for stream in answer:
+                    streams.append((provider, stream))
+                time.sleep(0.25)
+            if failed and not streams:
                 continue
             # Only the rows the net flags are kept. The rest can never be a
             # Hebrew dub, and 300 names a title over 300 titles is tens of
             # megabytes to answer a question about a few hundred rows.
             rows = []
-            for stream in streams:
+            for provider, stream in streams:
                 flat = ("%s %s" % (stream.get("title") or "",
                                    stream.get("name") or "")).replace("\n", " ")
                 if (NET.search(flat) or HEBREW_SCRIPT.search(flat)
                         or IL_FLAG in flat):
                     seeders = re.search(u"\U0001F464\\s*(\\d+)", flat)
                     rows.append({
+                        "provider": provider,
                         "release": (stream.get("title") or "").split("\n")[0],
                         # Not truncated. Torrentio puts its flag list last
                         # and Israel last inside it, so a cap cuts exactly
@@ -196,7 +227,6 @@ def harvest():
             done.add(imdb)
             print("  %4d/%d  %-34s %4d streams, %3d flagged"
                   % (index, len(titles), name[:34], len(streams), len(rows)))
-            time.sleep(0.3)
     print("harvested %d new titles into %s" % (kept, CACHE))
     return 0
 
@@ -222,17 +252,28 @@ def score(records):
     from pinky.subs import outlook
     found = collections.defaultdict(list)
     for record in records:
+        # Two providers return the same torrent, and the add-on merges those
+        # by infohash before anything scores them - so counting both here
+        # would inflate every number in the table. Keyed on the release name,
+        # keeping whichever copy says more.
+        best = {}
         for row in record["rows"]:
             source = stremio._parse_stream(
                 {"title": row.get("title") or row["release"],
                  "name": row.get("stream_name") or "",
-                 "infoHash": "0" * 40}, "torrentio")
+                 "infoHash": "0" * 40}, row.get("provider") or "torrentio")
             if source is None:
                 continue
             source["seeders"] = row["seeders"]
             fit = outlook._hebrew_dub_fit(source)
-            if fit:
-                found[record["imdb"]].append((fit, row))
+            if not fit:
+                continue
+            key = (row["release"] or "").strip().lower()
+            if key not in best or (fit, row["seeders"]) > (
+                    best[key][0], best[key][1]["seeders"]):
+                best[key] = (fit, row)
+        if best:
+            found[record["imdb"]] = list(best.values())
     return found
 
 

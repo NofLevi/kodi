@@ -776,10 +776,19 @@ class PinkyPlayer(xbmc.Player):
         none. Kodi's own audio menu still switches it back.
         """
         from . import kids
-        if kids.enabled():
+        from .subs import auto
+        if auto._subs_mode(self.meta) == "hebdub":
+            # **The viewer picked the Hebrew-dub row, so Hebrew is the whole
+            # of what they asked for** - and without this they would not get
+            # it. The rung's own measurement is why: the best of those rows
+            # are multi-audio files where Hebrew is one track of twenty-one,
+            # and the rule below would have selected the *original* language
+            # on them, which is English. The row would have promised Hebrew
+            # and played the film in English.
+            wanted = "he"
+        elif kids.enabled():
             wanted = "he"
         else:
-            from .subs import auto
             wanted = auto.normalise_language(
                 (self.meta or {}).get("original_language"))
         if not wanted:
