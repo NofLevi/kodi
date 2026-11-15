@@ -247,7 +247,7 @@ def _subtitle_badge(source, outlook=None):
     if mode in MODE_COLOURS:
         # Not on an AI row: "EMBEDDED EN" beside "translated from FR" names a
         # track the row is not using, and pushed the fit off the end of it.
-        mark = "" if mode == "llm" else _bundled_mark(source)
+        mark = "" if mode in ("llm", "hebdub") else _bundled_mark(source)
         return mark + _mode_line(source, mode)
 
     kind = source.get("subs_kind")
@@ -268,8 +268,13 @@ def _subtitle_badge(source, outlook=None):
 # Hebrew blue, AI yellow, English red. Chosen for contrast on the picker's own
 # rows, not for looks: each is at least 4.5:1 on a highlighted row and 7:1 on
 # a plain one, and the label carries a black shadow for a bright frame behind.
-MODE_COLOURS = {"native": "FF6CB8FF", "llm": "FFFFD23F", "english": "FFFF7373"}
-MODE_TAGS = {"native": 32539, "llm": 32540, "english": 32543}
+MODE_COLOURS = {"native": "FF6CB8FF", "llm": "FFFFD23F", "english": "FFFF7373",
+                # Green, because it is the one route that needs nothing
+                # further - no subtitle, no engine, no quota. Not the
+                # Hebrew blue, which means "a Hebrew subtitle fits this".
+                "hebdub": "FF5FE3A0"}
+MODE_TAGS = {"native": 32539, "llm": 32540, "english": 32543,
+             "hebdub": 32645}
 
 
 def _bundled_mark(source):
@@ -308,7 +313,13 @@ def _mode_line(source, mode):
     tag = "[COLOR %s][B]%s[/B][/COLOR]" % (
         MODE_COLOURS[mode], kodi.localize(MODE_TAGS[mode]))
     fit = int(source.get("subs_fit") or 0)
-    if mode == "english":
+    if mode == "hebdub":
+        # 32537 is "Hebrew audio" and already exists. The second string is
+        # for the release that names Hebrew and says it is dubbed without
+        # putting the two words together - true far more often than not, and
+        # not something to state as fact.
+        detail = kodi.localize(32537) if fit >= 100 else kodi.localize(32646)
+    elif mode == "english":
         detail = kodi.localize(32544, fit)
     elif mode == "native":
         if "he" in (source.get("languages") or []) or fit >= 100 and \
@@ -537,7 +548,7 @@ def _plain(short, full):
 
 
 def _first_page(meta, short, full):
-    """Ten NATIVE, ten LLM, five ENGLISH. Twenty-five rows, and no more.
+    """Ten NATIVE, ten LLM, five ENGLISH, five HEB DUB. Thirty, and no more.
 
     Asked for in so many words: the first rows should put the two ways of
     getting Hebrew side by side, so which one works is something the viewer
@@ -552,14 +563,27 @@ def _first_page(meta, short, full):
 
     The ordinary short list comes back whenever there is nothing to split - a
     Hebrew title, or a search where no release has a subtitle of either kind.
+
+    HEB DUB is last and is usually empty, which is a measurement rather than
+    a guess: over 128 films, 103 have no Hebrew dub at all and the most any
+    one title has is three. It is last because a dub replaces the dialogue -
+    a subtitle somebody made over the original performance is the better
+    answer when it exists, and this rung is what there is when it does not.
+    For a child who cannot read one, it is the only rung that works.
     """
     try:
         from ..subs import outlook
         native, llm, english = outlook.split_rows(meta, full or short)
+        # Its own call, not a fourth value out of `split_rows`: this list
+        # needs no subtitle candidates and no matcher, so it asks nothing of
+        # the providers and cannot fail the way the other three can. Asked
+        # separately, a search that found no subtitle at all still draws a
+        # Hebrew dub that is sitting right there.
+        hebdub = outlook.dub_rows(meta, full or short)
     except Exception:
         kodi.log_exception("could not split the sources into native and AI")
         return _plain(short, full)
-    if not native and not llm and not english:
+    if not native and not llm and not english and not hebdub:
         return _plain(short, full)
     # A release with no subtitle evidence *yet* is still a release. They used
     # to vanish from this page: Hikaru no Go 3x02 kept six releases and drew
@@ -567,18 +591,18 @@ def _first_page(meta, short, full):
     # other five were a torrent shipping 76 English .srt files and MKVs with
     # English inside, which nothing had looked at yet. They go after the
     # three lists, as plain rows.
-    listed = set(_identity(row) for row in native + llm + english)
+    listed = set(_identity(row) for row in native + llm + english + hebdub)
     rest = [source for source in _plain(short, [])
             if _identity(source) not in listed]
     kodi.log("sources picker: %d native rows, %d AI rows, %d English rows, "
-             "%d with no subtitle known yet"
-             % (len(native), len(llm), len(english), len(rest)))
-    return _in_one_order(native + llm + english) + rest
+             "%d Hebrew-dubbed rows, %d with no subtitle known yet"
+             % (len(native), len(llm), len(english), len(hebdub), len(rest)))
+    return _in_one_order(native + llm + english + hebdub) + rest
 
 
 # Hebrew first where two rows fit equally well, because a subtitle somebody
 # made beats one a model makes, and English last for the same reason reversed.
-_ROUTE_ORDER = {"native": 0, "llm": 1, "english": 2}
+_ROUTE_ORDER = {"native": 0, "llm": 1, "english": 2, "hebdub": 3}
 
 
 def _in_one_order(rows):
@@ -591,7 +615,7 @@ def _in_one_order(rows):
     translation of one, and a translation beats reading English, whatever the
     fits say. The fit orders the rungs, it does not reorder the ladder.
     """
-    return sorted(rows, key=lambda row: (_ROUTE_ORDER.get(row.get("subs_mode"), 3),
+    return sorted(rows, key=lambda row: (_ROUTE_ORDER.get(row.get("subs_mode"), 4),
                                          -(row.get("subs_fit") or 0)))
 
 

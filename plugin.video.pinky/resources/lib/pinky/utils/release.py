@@ -156,6 +156,50 @@ DUB_PATTERNS = [
     ("sub", r"\b(subbed|softsubs?|hardsubs?|japanese|eng(?:lish)?[\s-]?subs?)\b"),
 ]
 
+# **A Hebrew dub is Hebrew audio; a Hebrew sub is Hebrew text over the
+# original.** The release name is the only place that says which, and both
+# read as "he" above, so "HebDub" and "HebSub" - opposite claims about what
+# comes out of the speakers - parsed identically. Worse, `\bdub\b` can never
+# match "HebDub", one glued word: measured over 128 films, 35 Hebrew-dubbed
+# releases exist and six of every nine spell it that way, so most of them
+# were not read as dubs at all.
+#
+# This matters here and nowhere else in the table: for a Hebrew household a
+# Hebrew dub needs no subtitle, no translation and no engine. It is the one
+# route that is finished the moment the file starts.
+_HEBREW_AUDIO = re.compile(
+    r"(hebdub"
+    r"|heb[\s._-]*dubbed?"
+    r"|hebrew[\s._-]*dubbed?"
+    r"|dubbed?[\s._-]*(?:in[\s._-]*)?hebrew"
+    r"|dubbed?[\s._-]*heb\b"
+    r"|מדובב)", re.I)
+# The opposite claim, checked first so it can never be read as the one above.
+# "HebSub" shares five of its six letters with "HebDub".
+_HEBREW_TEXT_ONLY = re.compile(r"(hebsubs?|heb[\s._-]+subs?\b|hebrew[\s._-]+subs?\b"
+                              r"|nohebsub)", re.I)
+
+# How sure the name is, as a percentage, so it sorts and prints like every
+# other fit on the picker. 100 is stated outright. 70 is a release that names
+# Hebrew *and* says it is dubbed without putting the two words together -
+# "[DVD-R.HEB.ENG].Aladdin...DVD.dub.sub.iso" is a real Hebrew dub that no
+# adjacency rule can see. Nothing in between, because there is nothing in
+# between: a name either says it or it does not.
+HEBREW_DUB_STATED = 100
+HEBREW_DUB_LIKELY = 70
+
+
+def _hebrew_dubbed(text, languages, dub):
+    """How strongly this name claims the audio is Hebrew: 100, 70 or 0."""
+    if _HEBREW_TEXT_ONLY.search(text) and not _HEBREW_AUDIO.search(text):
+        return 0
+    if _HEBREW_AUDIO.search(text):
+        return HEBREW_DUB_STATED
+    if "he" in (languages or []) and dub in ("dub", "dual"):
+        return HEBREW_DUB_LIKELY
+    return 0
+
+
 # "+" is deliberately NOT stripped: HDR10+ and DD+ depend on it.
 _JUNK = re.compile(r"[\[\]\(\)\{\}_.]+")
 _GROUP_TAIL = re.compile(r"-([A-Za-z0-9]{2,20})$")
@@ -389,6 +433,10 @@ def _parse(raw, size=0):
         # only anime routinely does. An empty string keeps it out of the
         # picker label for everything else.
         "dub": _first_match(text, DUB_PATTERNS, ""),
+        # Hebrew audio, which is a different claim from "has Hebrew in
+        # it" and was indistinguishable from it until now.
+        "heb_dub": _hebrew_dubbed(
+            text, languages, _first_match(text, DUB_PATTERNS, "")),
         "hdr": hdr,
         "editions": [edition for edition, pattern in EDITION_PATTERNS
                      if re.search(pattern, text, re.I)],

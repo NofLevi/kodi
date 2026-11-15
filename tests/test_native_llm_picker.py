@@ -167,7 +167,10 @@ def test_the_rows_say_which_kind_they_are_in_different_colours():
     assert sources_window.MODE_COLOURS["native"] != sources_window.MODE_COLOURS["llm"]
     english = sources_window._subtitle_badge({"subs_mode": "english", "subs_fit": 77})
     assert kodi.localize(32543) in english and "77" in english
-    assert len(set(sources_window.MODE_COLOURS.values())) == 3
+    # Distinct, not three: the HEB DUB rung added a fourth, and what
+    # this line is for is that no two rungs share a colour.
+    assert (len(set(sources_window.MODE_COLOURS.values()))
+            == len(sources_window.MODE_COLOURS))
 
 
 def test_the_chosen_row_travels_to_playback():
@@ -503,3 +506,114 @@ def test_the_search_says_when_the_deadline_cut_it_short(monkeypatch):
     assert auto.search_candidates(META, ["he"]) == []
     assert auto.cut_short(META, ["he"]) is True
     assert auto.cut_short(META, ["en"]) is False
+
+
+# --------------------------------------------------------------------------
+# HEB DUB: the fourth rung, and the only one that needs no subtitle at all
+# --------------------------------------------------------------------------
+
+# Real names, taken from a live Torrentio survey of 128 films rather than
+# invented, because the whole defect this rung fixes was a reading of names
+# nobody had looked at: six of every nine spell it as one glued word.
+REAL_DUBS = [
+    "Aladdin.1992.1080p.BluRay.HebDub.x264",
+    "The.Lion.King.1994.2160p.UHD.BluRay.HebDub.X265-iSrael",
+    "The Lion King 1994 720p Hebrew Dubbed X264-LOL",
+    "Frozen.2013.HDTV.HebDub.XviD-www.MORIDIM.TV.avi",
+    "Toy Story 1 (1995) BDRip - HebDub XviD",
+    "toy story 720p hebrew dubbed.mkv",
+    "Shrek DVDRip. HebDub avi.",
+]
+
+
+@pytest.mark.parametrize("name", REAL_DUBS)
+def test_a_real_hebrew_dub_reaches_the_dub_rung(found, name):
+    rows = outlook.dub_rows(META, [source(name, 1, seeders=4)])
+    assert [row["subs_mode"] for row in rows] == ["hebdub"]
+    assert rows[0]["subs_fit"] == 100
+
+
+def test_a_hebrew_subtitle_release_is_not_a_dub(found):
+    """"HebSub" shares five of its six letters with "HebDub" and claims the
+    opposite: Hebrew text over the original audio, not Hebrew speech."""
+    assert outlook.dub_rows(
+        META, [source("A.Film.2020.1080p.HebSub.x264", 1, seeders=9)]) == []
+
+
+def test_a_release_naming_hebrew_and_a_dub_apart_is_offered_as_probable(found):
+    """The real case no adjacency rule can see: a Walt Disney DVD image
+    carrying both audio tracks, which says HEB, ENG and "dub" in three
+    different places."""
+    rows = outlook.dub_rows(META, [source(
+        "[DVD-R.HEB.ENG].Aladdin.Walt.Disney-Full.DVD.dub.sub.iso", 1, seeders=2)])
+    assert [row["subs_fit"] for row in rows] == [70]
+
+
+def test_a_stated_dub_outranks_a_probable_one(found):
+    rows = outlook.dub_rows(META, [
+        source("[DVD-R.HEB.ENG].A.Film.DVD.dub.sub.iso", 1, seeders=2),
+        source("A.Film.2020.1080p.HebDub.x264", 2, seeders=2)])
+    assert [row["subs_fit"] for row in rows] == [100, 70]
+
+
+def test_a_dead_torrent_is_not_offered_as_a_dub(found):
+    """Of the 35 Hebrew dubs found over 128 films, 14 had no seeders at all.
+    An uncached torrent nobody is seeding is not a film, it is a wait that
+    never ends, and this rung must not promise Hebrew and deliver a spinner."""
+    assert outlook.dub_rows(META, [
+        source("A.Film.2020.1080p.HebDub.x264", 1, seeders=0, cached=False)]) == []
+
+
+def test_a_cached_dub_needs_no_seeders(found):
+    """The debrid service already holds the file, so the swarm behind it is
+    irrelevant - and every dub found was an old release with a thin one."""
+    rows = outlook.dub_rows(META, [
+        source("A.Film.2020.1080p.HebDub.x264", 1, seeders=0, cached=True)])
+    assert len(rows) == 1
+
+
+def test_the_dub_rung_holds_five_at_most(found):
+    many = [source("A.Film.%d.1080p.HebDub.x264" % i, i, seeders=2)
+            for i in range(9)]
+    assert len(outlook.dub_rows(META, many)) == outlook.DUB_ROWS == 5
+
+
+def test_a_hebrew_film_gets_no_dub_rung(found):
+    """Every release of an Israeli film is Hebrew audio, so listing them as
+    "dubbed" says nothing - the same reason the other three rungs skip it."""
+    hebrew = dict(META, original_language="he")
+    assert outlook.dub_rows(
+        hebrew, [source("Film.2020.1080p.HebDub.x264", 1, seeders=4)]) == []
+
+
+def test_the_dub_rung_costs_no_provider_request(found, monkeypatch):
+    """The point of asking it separately. The other three rungs each pay a
+    subtitle search; this one reads a name already in hand, so it still
+    answers when every provider found nothing."""
+    def refuse(*args, **kwargs):
+        raise AssertionError("the dub rung asked a provider")
+    monkeypatch.setattr(outlook, "candidates", refuse)
+    monkeypatch.setattr(outlook, "translation_candidates", refuse)
+    monkeypatch.setattr(outlook, "english_candidates", refuse)
+    rows = outlook.dub_rows(META, [source(REAL_DUBS[0], 1, seeders=4)])
+    assert len(rows) == 1
+
+
+def test_the_dub_rows_are_drawn_last(found):
+    """A dub replaces the performance, so a subtitle somebody made over the
+    original is the better answer where it exists. Last, not absent."""
+    rows = [{"subs_mode": "hebdub", "subs_fit": 100},
+            {"subs_mode": "native", "subs_fit": 70},
+            {"subs_mode": "english", "subs_fit": 90},
+            {"subs_mode": "llm", "subs_fit": 80}]
+    assert [row["subs_mode"] for row in sources_window._in_one_order(rows)] == [
+        "native", "llm", "english", "hebdub"]
+
+
+def test_an_unscored_row_still_sorts_after_the_dub_rows():
+    """`_ROUTE_ORDER` has a fourth entry now, so the default for a row with
+    no mode had to move with it or the plain rows would interleave."""
+    rows = [{"subs_mode": None, "subs_fit": 0},
+            {"subs_mode": "hebdub", "subs_fit": 100}]
+    assert [row["subs_mode"] for row in sources_window._in_one_order(rows)] == [
+        "hebdub", None]

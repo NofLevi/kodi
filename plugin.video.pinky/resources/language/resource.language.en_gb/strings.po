@@ -2139,3 +2139,11 @@ msgstr ""
 msgctxt "#32644"
 msgid "Queued %d episodes"
 msgstr ""
+
+msgctxt "#32645"
+msgid "HEB DUB"
+msgstr ""
+
+msgctxt "#32646"
+msgid "Hebrew audio, probably"
+msgstr ""

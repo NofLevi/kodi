@@ -2099,3 +2099,11 @@ msgstr "ההורדות נשמרות ב-%s"
 msgctxt "#32644"
 msgid "Queued %d episodes"
 msgstr "%d פרקים נכנסו לתור"
+
+msgctxt "#32645"
+msgid "HEB DUB"
+msgstr "מדובב"
+
+msgctxt "#32646"
+msgid "Hebrew audio, probably"
+msgstr "סביר שהפסקול בעברית"

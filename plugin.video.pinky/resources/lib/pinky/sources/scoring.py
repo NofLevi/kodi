@@ -1011,6 +1011,15 @@ def _dubbed(source, prefs):
     """
     if prefs is None or source.get("dub") != "dub":
         return 0
+    # **A dub in a language the viewer reads is this term's own case run
+    # backwards.** The rule above exists because a Hebrew or AI subtitle is
+    # made from the original dialogue, so it follows the Japanese audio and
+    # not an English rewrite - and for a *Hebrew* dub of an English film
+    # there is no subtitle in the argument at all. The file speaks Hebrew.
+    # Pushing it below the English release was demoting the finished answer
+    # in favour of one that still needs a subtitle, an engine and a quota.
+    if source.get("heb_dub") and "he" in (prefs.languages or []):
+        return 0
     original = prefs.original_language
     if not original or original in prefs.languages:
         return 0
