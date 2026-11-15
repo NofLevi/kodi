@@ -14,25 +14,26 @@ from . import page
 
 BASE = "https://www.kan.org.il"
 
-# **Kan Educational is a second site and a second content tree.** The
-# children's channel lives at kankids.org.il under `/content/kids/`, with the
-# same CMS, the same `p-<id>` programme pages and the same season-in-the-
-# address convention - and this module accepted only `/content/kan/`, so
-# every episode link on it was thrown away. Measured against the bundled
-# catalogue: 102 entries under "כאן חינוכית 23" listed no episodes at all,
-# which is the whole of the kids channel, and is the half of Kan that the
-# household this is built for actually watches.
-_CONTENT_TREES = ("/content/kan/", "/content/kids/")
-
-
+# **Kan has more than one content tree, and naming them was the mistake.**
+# This accepted `/content/kan/` alone. The children's channel is a second
+# site, kankids.org.il under `/content/kids/`, with the same CMS and the same
+# conventions - 102 catalogue entries under "כאן חינוכית 23" listed nothing
+# at all because of it, the whole of the kids channel. Adding that tree then
+# turned up a third, `/content/dig/`, where the digital-only programmes live
+# ("800 בפסיכומטרי"), and there is no reason to think it is the last.
+#
+# So the tree is not checked by name any more. What actually keeps the
+# station's own "frequencies and channels" article out of every programme is
+# `page.is_descendant` below - an episode lives under its programme - and
+# that guard never cared which tree it was in.
 def _in_a_content_tree(href):
-    return any(tree in (href or "") for tree in _CONTENT_TREES)
+    return "/content/" in (href or "")
 
 
 # Episode links live under the same programme path and end in a numeric id.
 _EPISODE_LINK = re.compile(
     r'<a[^>]+href="((?:https?://[^"]*kan(?:kids)?\.org\.il)?'
-    r'/content/(?:kan|kids)/[^"]*?/\d+/?)"[^>]*>',
+    r'/content/[^"]*?/\d+/?)"[^>]*>',
     re.I)
 _TITLE_ATTR = re.compile(r'title="([^"]{2,120})"')
 _IMAGE = re.compile(r'(?:data-src|src)="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"')

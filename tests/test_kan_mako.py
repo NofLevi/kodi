@@ -334,3 +334,35 @@ def test_a_manifest_still_wins_over_an_audio_file():
     _url, _adaptive, strategy = page.extract_stream(
         u'<audio src="https://x/a.mp3"><video src="https://y/b.m3u8">', "")
     assert strategy == "m3u8"
+
+
+DIG_PROGRAMME = "https://kan.org.il/content/dig/digital/p-12933/"
+DIG_PAGE = u"""
+<a href="https://www.kan.org.il/content/kan/radio_articles/364664/">frequencies</a>
+<a href="https://www.kan.org.il/content/dig/digital/p-12933/105600/">
+  <div class="cr-text"><h3 class="cr-title">פרק א</h3></div>
+</a>
+<a href="https://www.kan.org.il/content/dig/digital/p-12933/106563/">
+  <div class="cr-text"><h3 class="cr-title">פרק ב</h3></div>
+</a>
+"""
+
+
+def test_a_third_kan_content_tree_needs_no_new_pattern(monkeypatch):
+    """Naming the trees was the mistake. `/content/kan/` alone hid the whole
+    kids channel; adding `/content/kids/` then turned up `/content/dig/`,
+    where the digital-only programmes live, and there is no reason to think
+    that is the last one. What keeps the station's own article out is
+    `is_descendant`, which never cared which tree it was in."""
+    monkeypatch.setattr(http, "get", lambda url, **kw: Response(DIG_PAGE))
+    found = kan.episodes(DIG_PROGRAMME)
+    assert len(found) == 2
+    assert [item["title"] for item in found] == [u"פרק א",
+                                                 u"פרק ב"]
+
+
+def test_the_station_article_is_still_excluded_from_any_tree(monkeypatch):
+    """The guard that replaced the tree names has to still do their job."""
+    monkeypatch.setattr(http, "get", lambda url, **kw: Response(DIG_PAGE))
+    refs = [item["extra"]["ref"] for item in kan.episodes(DIG_PROGRAMME)]
+    assert not any("radio_articles" in ref for ref in refs)

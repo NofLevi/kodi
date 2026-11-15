@@ -180,7 +180,28 @@ def check_programme(module, entry, kodi):
     target = playable[0]
     episode_ref = ((target.get("extra") or {}).get("ref")
                    or (target.get("ids") or {}).get("vod"))
-    return _check_stream(module, episode_ref, ref, out)
+    # **A season is not an episode.** Mako lists its seasons as pages of their
+    # own - "עונה 1", "עונה 2" at `...book_a_table-s1` - and a viewer descends
+    # into one before reaching a video. Calling `stream` on a season folder
+    # asks the player for a directory and gets nothing, which this reported as
+    # a broken programme when it is how Mako is shaped. So where the first
+    # entry resolves to nothing, descend once and try its first child, which
+    # is what pressing it actually does.
+    result = _check_stream(module, episode_ref, ref, dict(out))
+    if not result["problems"]:
+        return result
+    try:
+        children = extractors.episodes(module, episode_ref)
+    except Exception:
+        children = []
+    child_refs = [((c.get("extra") or {}).get("ref")
+                   or (c.get("ids") or {}).get("vod")) for c in children]
+    child_refs = [c for c in child_refs if c and c != episode_ref]
+    if not child_refs:
+        return result
+    out["descended"] = True
+    out["episodes"] = len(children)
+    return _check_stream(module, child_refs[0], ref, out)
 
 
 def _check_stream(module, episode_ref, referer, out):
