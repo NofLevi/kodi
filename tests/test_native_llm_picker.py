@@ -635,3 +635,59 @@ def test_a_bare_dub_is_read_as_one_not_only_dubbed(found, name):
     release-name shape, because this is a quantifier nobody reads twice."""
     rows = outlook.dub_rows(META, [source(name, 1, seeders=4)])
     assert [row["subs_fit"] for row in rows] == [100]
+
+
+def test_a_provider_stated_hebrew_track_reaches_the_dub_rung(found):
+    """Torrentio naming a Hebrew audio track is the provider stating what is
+    in the file, where every other tier here reads what somebody called it.
+    Measured over 347 films: 21 such rows, 18 with seeders, on 12 titles -
+    and 8 of those had no playable Hebrew dub by name at all."""
+    rows = outlook.dub_rows(META, [source(
+        "Toy.Story.5.2026.2160p.REMUX-FraMeSToR", 1, seeders=27,
+        audio_languages=["en", "it", "he"])])
+    assert [row["subs_fit"] for row in rows] == [outlook.DUB_PROVIDER_STATED]
+
+
+def test_a_dedicated_dub_outranks_a_track_among_twenty(found):
+    """A release built as a Hebrew dub plays Hebrew with nobody touching the
+    audio menu; a Hebrew track inside a multi-audio remux has to be selected
+    first, which is why it sits below."""
+    rows = outlook.dub_rows(META, [
+        source("A.Film.2026.REMUX", 1, seeders=27,
+               audio_languages=["en", "he"]),
+        source("A.Film.2026.1080p.HebDub.x264", 2, seeders=3)])
+    assert [row["subs_fit"] for row in rows] == [100, outlook.DUB_PROVIDER_STATED]
+
+
+@pytest.mark.parametrize("name", [
+    "Madagascar Hebrew",
+    "Inside Out: Hebrew",
+    "Madagascar 3 Europe's Most Wanted Hebrew",
+])
+def test_a_name_whose_only_language_word_is_hebrew_is_probable(found, name):
+    """Nobody titles a file after a language to announce subtitles, and for
+    an animated children's film the Hebrew that is the point is the dub."""
+    rows = outlook.dub_rows(META, [source(name, 1, seeders=3)])
+    assert [row["subs_fit"] for row in rows] == [70]
+
+
+def test_a_bracketed_track_list_naming_hebrew_is_probable(found):
+    """"[Eng.Rus.Heb.Greek.Langs]" on a DVD rip is four dubs in one file, and
+    the word "Langs" is the release saying these are tracks."""
+    rows = outlook.dub_rows(META, [source(
+        "Beauty and the Beast(1991)Dvdrip[Eng.Rus.Heb.Greek.Langs]Omifast",
+        1, seeders=5)])
+    assert [row["subs_fit"] for row in rows] == [70]
+
+
+@pytest.mark.parametrize("name", [
+    "A.Film.2020.1080p.Hebrew.Subs.x264",
+    "A.Film.2020.1080p.WEB.HEB.x264",
+    "A.Film.2020.HebSub.x264",
+])
+def test_the_wider_shapes_still_refuse_a_subtitle_claim(found, name):
+    """The two shapes above are the loosest readings here, so the line they
+    must not cross is the one they sit next to: a bare HEB among the
+    resolution and the codec is a language tag, and "Hebrew Subs" says
+    outright that the audio is not Hebrew."""
+    assert outlook.dub_rows(META, [source(name, 1, seeders=5)]) == []

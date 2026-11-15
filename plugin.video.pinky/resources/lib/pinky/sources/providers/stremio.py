@@ -147,6 +147,7 @@ def _parse_stream(stream, provider_name):
 
     size = _size_bytes(title) or _as_int(behaviour.get("videoSize"))
     seeders = _seeders(title)
+    audio = _audio_languages(title)
     cached_by = _cached_by(stream.get("name", "") + " " + title)
 
     source = model.from_release_name(
@@ -171,12 +172,72 @@ def _parse_stream(stream, provider_name):
         # ("Torrent not found in cache"). The hash goes to that check instead.
         source["cached"] = True
 
+    if audio:
+        source["audio_languages"] = audio
+
     file_index = _as_int(stream.get("fileIdx"), default=None)
     if file_index is not None:
         source["file_index"] = file_index
     if filename:
         source["file_name"] = filename
     return source
+
+
+# Torrentio says what the audio tracks are, and it was being thrown away.
+# Its stream title is three lines - the release name, the stats, then a
+# languages line - and only the first was ever read. On a multi-audio file
+# that third line begins "Multi Audio" and then lists a flag per track:
+#
+#   Multi Audio / FLAG(gb) / FLAG(it) / ... / FLAG(il)
+#
+# which is the provider stating, as data rather than as a guess from the
+# name, that one of the audio tracks is Hebrew. Measured over 347 films:
+# 21 such rows, 18 of them with seeders, on 12 titles - 8 of which had no
+# playable Hebrew dub by name at all. A Disney+ remux carrying a Hebrew
+# track is a better answer than a 700 MB XviD with one seeder, and nothing
+# here could see it.
+#
+# **Only with that prefix.** A flag list on its own says a language is in
+# the file somewhere and not which track: 140 of the 147 such rows carry
+# ten or more flags, which is the whole Disney+ or iTunes language bundle,
+# and claiming a dub off one of those would be inventing an audio track out
+# of a subtitle.
+_AUDIO_LINE = re.compile(r"^\s*multi[\s._-]*audio\b", re.I | re.M)
+# A flag emoji is two regional indicators, and a plain substring search
+# matches across two adjacent flags - Finland then Lithuania is F,I,L,T and
+# the I,L inside it reads as Israel. Runs are split into pairs first.
+_INDICATOR_RUN = re.compile("[🇦-🇿]+")
+# Only the ones this add-on has any use for.
+_FLAG_LANGUAGE = {"IL": "he", "GB": "en", "US": "en", "SA": "ar", "RU": "ru",
+                  "FR": "fr", "DE": "de", "ES": "es", "IT": "it", "TR": "tr",
+                  "JP": "ja", "KR": "ko", "CN": "zh", "PT": "pt", "PL": "pl"}
+
+
+def _flags(text):
+    """The country codes of every flag emoji in `text`, in order."""
+    out = []
+    for run in _INDICATOR_RUN.findall(text or ""):
+        for at in range(0, len(run) - 1, 2):
+            out.append("".join(
+                chr(ord(char) - 0x1F1E6 + ord("A")) for char in run[at:at + 2]))
+    return out
+
+
+def _audio_languages(title):
+    """The audio tracks this stream says it has, where it says so.
+
+    Empty unless the languages line names itself as audio - see above.
+    """
+    for line in (title or "").splitlines():
+        if not _AUDIO_LINE.search(line):
+            continue
+        found = []
+        for code in _flags(line):
+            language = _FLAG_LANGUAGE.get(code)
+            if language and language not in found:
+                found.append(language)
+        return found
+    return []
 
 
 def _as_int(value, default=0):

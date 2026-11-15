@@ -369,13 +369,27 @@ def dub_rows(meta, sources, limit=DUB_ROWS):
     return [row for _key, row in rows[:limit]]
 
 
+# The provider saying so, which sits between the two readings of a name.
+# Below a release built as a Hebrew dub, because that one plays Hebrew with
+# nobody touching the audio menu, where this is one track of twenty and
+# `player` has to select it. Above a guess, because it is not one.
+DUB_PROVIDER_STATED = 90
+
+
 def _hebrew_dub_fit(source):
-    """How strongly this release claims Hebrew *audio*: 100, 70 or 0.
+    """How strongly this release claims Hebrew *audio*: 100, 90, 70 or 0.
 
     Read off the source where `model.from_release_name` put it, and parsed
     from the name for a source built some other way - the VOD rows and the
     tests both make one by hand.
+
+    `audio_languages` is Torrentio's own "Multi Audio" line, which names a
+    language per audio track (`stremio._audio_languages`). It is checked
+    first on purpose: it is the provider stating what is in the file, where
+    everything else here is a reading of what somebody called it.
     """
+    if "he" in (source.get("audio_languages") or []):
+        return DUB_PROVIDER_STATED
     stated = source.get("heb_dub")
     if stated is not None:
         return int(stated or 0)

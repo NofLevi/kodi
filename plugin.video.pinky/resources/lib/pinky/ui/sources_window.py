@@ -318,7 +318,11 @@ def _mode_line(source, mode):
         # for the release that names Hebrew and says it is dubbed without
         # putting the two words together - true far more often than not, and
         # not something to state as fact.
-        detail = kodi.localize(32537) if fit >= 100 else kodi.localize(32646)
+        # 90 is Torrentio naming a Hebrew audio track, which is a fact
+        # about the file and not a reading of its name, so it says so
+        # plainly. Below that is the guess.
+        detail = (kodi.localize(32537) if fit >= 90
+                  else kodi.localize(32646))
     elif mode == "english":
         detail = kodi.localize(32544, fit)
     elif mode == "native":

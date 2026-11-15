@@ -2060,6 +2060,47 @@ and is still outstanding.
                                       and by the working tree, films, series
                                       and anime - run it before committing a
                                       change to any source engine
+    python tools/dub_gate.py          how many Hebrew dubs the picker finds,
+                                      over 347 animation and family films;
+                                      --harvest once, then free to rerun,
+                                      --review and --tokens to mine the rows
+                                      it missed for the next pattern
+
+**The Hebrew dub rung, and why it is measured rather than read.** `heb_dub`
+in `release.parse` is a pile of spellings taken off real release names, which
+is exactly the kind of thing that looks finished and is not. Three defects,
+none of them visible by reading the pattern again and every one of them
+visible the moment the same corpus was scored twice:
+
+* `\bdub\b` cannot match **"HebDub"**, one glued word - six of every nine
+  real dubs spell it that way, so most were not read as dubs at all;
+* `dubbed?` is "dubbe" plus an optional "d" and so never matched a plain
+  **"heb.dub"**, a real release with five seeders;
+* and `zion`, added for the ZionHD group, matches inside **"animazione"** -
+  75 of the 76 rows it found were Italian.
+
+Measured over 347 films, 57,100 streams: **61 titles with a dub, 39 with a
+playable one, 91 rows** - against 52, 31 and 76 before the last pass. The
+most any single title has is **four**, which is why the rung holds five and
+will not fill it. Animation 28%, Disney 22%, Pixar 10%, Illumination 4%, and
+adult drama and action **0%** over twenty titles, which is the control that
+says the reading is real.
+
+Two things the measurement settled that reading could not. **Torrentio states
+its audio tracks and we were discarding the line**: its stream title is three
+lines and only the first was ever read, while the third begins "Multi Audio"
+and then lists a flag per track - the provider saying, as data, that one of
+them is Hebrew. That is 14 rows on 12 titles, 8 of which had no playable dub
+by name, and they are far better releases than the scene dubs: a Disney+
+remux at 27 seeders against a 700 MB XviD at one. **A bare flag list is not
+that claim**: 140 of the 147 such rows carry ten or more flags, which is the
+whole Disney+ or iTunes language bundle, and reading a dub off one would be
+inventing an audio track out of a subtitle.
+
+A flag emoji is also two regional indicators, so a substring search for
+Israel's I+L matches **across two adjacent flags** - Finland then Lithuania
+is F,I,L,T - which flagged most of the Italian remuxes in the corpus until
+runs were split into pairs first.
 
 `survey_sources.py` is the test that finds cases nobody thought of. The sample
 is **stratified rather than random**, which is the whole point: a thousand

@@ -211,3 +211,59 @@ def test_a_resolve_link_with_a_hash_is_not_taken_as_cached():
         "url": "https://torrentio.strem.fun/resolve/torbox/key/%s/null/0/x.mkv" % hash_,
         "title": "[SubsPlease] Chiikawa - 55 (1080p) [230F37D2].mkv"}, "torrentio")
     assert cached.get("cached") and cached.get("cached_by") == "torbox"
+
+
+# --------------------------------------------------------------------------
+# the audio languages Torrentio states, which were being thrown away
+# --------------------------------------------------------------------------
+
+IL = u"\U0001F1EE\U0001F1F1"
+GB = u"\U0001F1EC\U0001F1E7"
+IT = u"\U0001F1EE\U0001F1F9"
+FI = u"\U0001F1EB\U0001F1EE"
+LT = u"\U0001F1F1\U0001F1F9"
+
+
+def _titled(third_line):
+    """A Torrentio stream title: release name, stats, then languages."""
+    return (u"Toy.Story.5.2026.2160p.REMUX-FraMeSToR\n"
+            u"\U0001F464 27 \U0001F4BE 48.9 GB\n" + third_line)
+
+
+def test_a_multi_audio_line_names_the_audio_tracks():
+    """Torrentio's third line says "Multi Audio" and then lists a flag per
+    track. Only the first line was ever read, so a Disney remux carrying a
+    Hebrew audio track looked exactly like one that does not."""
+    source = stremio._parse_stream(
+        {"title": _titled(u"Multi Audio / %s / %s / %s" % (GB, IT, IL)),
+         "infoHash": "0" * 40}, "torrentio")
+    assert source["audio_languages"] == ["en", "it", "he"]
+
+
+def test_a_bare_flag_list_is_not_an_audio_claim():
+    """A languages line with no "Multi Audio" says a language is in the file
+    somewhere and not which track. Measured over 347 films: 140 of the 147
+    such rows list ten or more flags, which is the whole Disney+ or iTunes
+    bundle - reading a dub off one would invent an audio track out of a
+    subtitle."""
+    source = stremio._parse_stream(
+        {"title": _titled(u"%s / %s / %s" % (GB, IT, IL)),
+         "infoHash": "0" * 40}, "torrentio")
+    assert not source.get("audio_languages")
+
+
+def test_two_adjacent_flags_are_not_read_as_a_third():
+    """A flag is two regional indicators, so a substring search for Israel's
+    I+L matches across a pair of them: Finland then Lithuania is F,I,L,T and
+    the I,L in the middle of it is not a country on this release at all."""
+    source = stremio._parse_stream(
+        {"title": _titled(u"Multi Audio / %s / %s" % (FI, LT)),
+         "infoHash": "0" * 40}, "torrentio")
+    assert "he" not in (source.get("audio_languages") or [])
+
+
+def test_a_stream_with_no_languages_line_says_nothing():
+    source = stremio._parse_stream(
+        {"title": u"A.Film.2020.1080p.WEB-DL.x264-GRP\n\U0001F464 4",
+         "infoHash": "0" * 40}, "torrentio")
+    assert not source.get("audio_languages")

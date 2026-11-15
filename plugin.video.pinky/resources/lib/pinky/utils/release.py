@@ -188,6 +188,19 @@ _HEBREW_TEXT_ONLY = re.compile(r"(hebsubs?|heb[\s._-]+subs?\b|hebrew[\s._-]+subs
 HEBREW_DUB_STATED = 100
 HEBREW_DUB_LIKELY = 70
 
+# Two more shapes, both found by scoring 347 films twice rather than by
+# reading the pattern again (`tools/dub_gate.py`).
+#
+# A name whose only language word is "Hebrew", with nothing saying sub or
+# dub: "Madagascar Hebrew", "Inside Out: Hebrew", "Madagascar 3 Europe's
+# Most Wanted Hebrew". Nobody titles a file after a language to announce
+# subtitles, and for an animated children's film the Hebrew that is the
+# point is the dub - a child who cannot read does not want subtitles. The
+# full word only: a bare "HEB" sitting among the resolution and the codec
+# is a language tag and stays unread, which is what it was before.
+_HEBREW_ALONE = re.compile(r"(?<![a-z])hebrew(?![a-z])", re.I)
+
+
 
 def _hebrew_dubbed(text, languages, dub):
     """How strongly this name claims the audio is Hebrew: 100, 70 or 0."""
@@ -196,6 +209,13 @@ def _hebrew_dubbed(text, languages, dub):
     if _HEBREW_AUDIO.search(text):
         return HEBREW_DUB_STATED
     if "he" in (languages or []) and dub in ("dub", "dual"):
+        return HEBREW_DUB_LIKELY
+    # Both of these are "probably", and deliberately not more. Each was
+    # measured as a handful of real rows over 347 films, which is worth
+    # reading and not worth stating as fact.
+    if _HEBREW_ALONE.search(text) and not re.search(r"\bsubs?\b", text, re.I):
+        return HEBREW_DUB_LIKELY
+    if "he" in (languages or []) and re.search(r"\blangs?\b", text, re.I):
         return HEBREW_DUB_LIKELY
     return 0
 
