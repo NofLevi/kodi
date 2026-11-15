@@ -68,13 +68,38 @@ def _season_of(link):
     return int(match.group(1)) if match else 0
 
 
+# **An episode card is a heading and a paragraph, and flattening the whole
+# anchor ran them together.** Kan writes
+#
+#     <h3 class="cr-title">פרק 2 - הג'ל של ראמזי</h3>
+#     <p class="cr-subtitle">יום העצמאות בפתח ואביחי מועמד לתואר יקיר העיר</p>
+#
+# and `plain_text` over the anchor returned both as one string, so every
+# episode of קופה ראשית was titled "פרק 2 - הג'ל של ראמזי יום העצמאות בפתח
+# ואביחי מועמד..." - truncated at 120 characters, with the name and the
+# synopsis indistinguishable - while `plot` stayed empty. Which is what "it
+# did not find the episode names" looks like from the sofa.
+_CARD_TITLE = re.compile(
+    r"<h[1-6][^>]*class=\"[^\"]*title[^\"]*\"[^>]*>(.*?)</h[1-6]>", re.S | re.I)
+_CARD_PLOT = re.compile(
+    r"<p[^>]*class=\"[^\"]*subtitle[^\"]*\"[^>]*>(.*?)</p>", re.S | re.I)
+
+
 def _episode_item(link, inner_html):
-    title = page.plain_text(inner_html) or link.rstrip("/").rsplit("/", 1)[-1]
+    heading = _CARD_TITLE.search(inner_html)
+    subtitle = _CARD_PLOT.search(inner_html)
+    # The flattened anchor stays as the fallback: a card with no heading is
+    # still an episode, and that is what every other Kan layout gave us
+    # before this one was looked at.
+    title = (page.plain_text(heading.group(1)) if heading
+             else page.plain_text(inner_html)
+             or link.rstrip("/").rsplit("/", 1)[-1])
     image = _IMAGE.search(inner_html)
     return items.new_item(
         "vod",
         ids={"vod": link},
         title=title,
+        plot=page.plain_text(subtitle.group(1), limit=600) if subtitle else "",
         season=_season_of(link),
         art={"poster": page.absolute(image.group(1), BASE) if image else "",
              "thumb": page.absolute(image.group(1), BASE) if image else ""},

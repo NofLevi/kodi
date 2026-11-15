@@ -15,6 +15,9 @@ The strategies, most reliable first:
 """
 import json
 import re
+# The function rather than the module: `plain_text`'s own parameter is called
+# `html`, and importing the module would shadow it.
+from html import unescape
 
 from ... import http, kodi
 
@@ -143,7 +146,11 @@ def plain_text(html, limit=120):
     same line.
     """
     text = re.sub(r"<[^>]+>", " ", html or "")
-    return re.sub(r"\s+", " ", text).strip()[:limit]
+    # **Unescaped, because markup is where these titles come from.** Kan
+    # writes an apostrophe as an entity, so "הג'ל של ראמזי" reached the screen
+    # as "הג&#x27;ל של ראמזי" - and every broadcaster here goes through this
+    # one function, so every one of them had it.
+    return re.sub(r"\s+", " ", unescape(text)).strip()[:limit]
 
 
 def is_descendant(link, programme):
@@ -194,9 +201,16 @@ def _path_of(url):
 
 
 def absolute(url, base):
-    """Turn a relative href into a full URL."""
+    """Turn a relative href into a full URL.
+
+    Unescaped first: an href or an img src read out of markup carries its
+    ampersands as `&amp;`, and Kan's poster URLs are query strings - so the
+    width and the cache-busting version arrived as one parameter named
+    `width` with `&amp;height` glued to it, and the image did not load.
+    """
     if not url:
         return ""
+    url = unescape(url)
     if url.startswith("//"):
         return "https:" + url
     if url.startswith("http"):
