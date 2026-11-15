@@ -59,6 +59,16 @@ PROVIDERS = [
      "https://torrentio.strem.fun/sort=qualitysize/stream/movie/%s.json"),
     ("torrentsdb", "https://torrentsdb.com/stream/movie/%s.json"),
 ]
+# A series episode is addressed imdb:season:episode, and season one episode
+# one is the one that always exists. Dubbed children's *series* are far more
+# of what a household actually watches than dubbed films are - a child gets
+# through a hundred episodes of a cartoon and one Aladdin - and nothing here
+# had ever measured one.
+EPISODE_PROVIDERS = [
+    ("torrentio",
+     "https://torrentio.strem.fun/sort=qualitysize/stream/series/%s:1:1.json"),
+    ("torrentsdb", "https://torrentsdb.com/stream/series/%s:1:1.json"),
+]
 
 IL_FLAG = u"\U0001F1EE\U0001F1F1"
 HEBREW_SCRIPT = re.compile(u"[֐-׿]")
@@ -117,6 +127,12 @@ STRATA = [
     ("control-adult", {"with_genres": "18,28",
                        "primary_release_date.gte": "2015-01-01"}),
 ]
+# Television, asked at season one episode one. Separate because `/discover/tv`
+# and `/tv/<id>/external_ids` are different endpoints from the film ones.
+TV_STRATA = [
+    ("tv-animation", {"with_genres": "16"}),
+    ("tv-kids", {"with_genres": "10762"}),
+]
 PAGES = 8
 
 
@@ -132,22 +148,27 @@ def tmdb(path, **params):
 
 
 def wanted_titles():
-    """(tmdb id, name, stratum) for every title in the strata, deduplicated."""
+    """(tmdb id, name, stratum, kind) for every title, deduplicated."""
     seen, out = set(), []
-    for stratum, params in STRATA:
-        for page in range(1, PAGES + 1):
-            try:
-                data = tmdb("/discover/movie", sort_by="popularity.desc",
-                            page=page, **params)
-            except Exception as exc:
-                print("  %s page %d: %s" % (stratum, page, exc))
-                continue
-            for row in data.get("results") or []:
-                if row["id"] in seen:
+    for strata, path, title_key, kind in (
+            (STRATA, "/discover/movie", "title", "movie"),
+            (TV_STRATA, "/discover/tv", "name", "series")):
+        for stratum, params in strata:
+            for page in range(1, PAGES + 1):
+                try:
+                    data = tmdb(path, sort_by="popularity.desc",
+                                page=page, **params)
+                except Exception as exc:
+                    print("  %s page %d: %s" % (stratum, page, exc))
                     continue
-                seen.add(row["id"])
-                out.append((row["id"], row.get("title") or "", stratum))
-            time.sleep(0.12)
+                for row in data.get("results") or []:
+                    key = (kind, row["id"])
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    out.append((row["id"], row.get(title_key) or "",
+                                stratum, kind))
+                time.sleep(0.12)
     return out
 
 
@@ -168,22 +189,24 @@ def harvest():
     done = _already_cached()
     titles = wanted_titles()
     print("%d titles across %d strata, %d already cached"
-          % (len(titles), len(STRATA), len(done)))
+          % (len(titles), len(STRATA) + len(TV_STRATA), len(done)))
     folder = os.path.dirname(CACHE)
     if not os.path.isdir(folder):
         os.makedirs(folder)
     kept = 0
     with io.open(CACHE, "a", encoding="utf-8") as handle:
-        for index, (tmdb_id, name, stratum) in enumerate(titles, 1):
+        for index, (tmdb_id, name, stratum, kind) in enumerate(titles, 1):
+            path = ("/tv/%s/external_ids" if kind == "series"
+                    else "/movie/%s/external_ids")
             try:
-                imdb = (tmdb("/movie/%s/external_ids" % tmdb_id)
-                        or {}).get("imdb_id") or ""
+                imdb = (tmdb(path % tmdb_id) or {}).get("imdb_id") or ""
             except Exception:
                 continue
             if not imdb or imdb in done:
                 continue
             streams, failed = [], False
-            for provider, template in PROVIDERS:
+            for provider, template in (EPISODE_PROVIDERS if kind == "series"
+                                       else PROVIDERS):
                 try:
                     answer = get(template % imdb).get("streams") or []
                 except Exception as exc:
@@ -222,7 +245,7 @@ def harvest():
                         "seeders": int(seeders.group(1)) if seeders else 0,
                     })
             handle.write(json.dumps({
-                "imdb": imdb, "name": name, "stratum": stratum,
+                "imdb": imdb, "name": name, "stratum": stratum, "kind": kind,
                 "streams": len(streams), "rows": rows},
                 ensure_ascii=False) + "\n")
             handle.flush()
@@ -369,7 +392,7 @@ def report(records, found):
     by = collections.Counter(r["stratum"] for r in records if found.get(r["imdb"]))
     seen = collections.Counter(r["stratum"] for r in records)
     print("\nby stratum:")
-    for stratum, _params in STRATA:
+    for stratum, _params in STRATA + TV_STRATA:
         if seen[stratum]:
             print("  %-14s %3d titles  %3d with a dub (%3.0f%%)"
                   % (stratum, seen[stratum], by[stratum],
