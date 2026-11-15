@@ -183,3 +183,154 @@ def test_a_youtube_handoff_is_not_signed(monkeypatch):
                         pytest.fail("a YouTube handoff must not ask for a ticket"))
     url, _adaptive = mako.stream("https://www.mako.co.il/a/VOD-1.htm")
     assert url.startswith("plugin://")
+
+
+# --------------------------------------------------------------------------
+# Kan Educational, the podcasts, and the radio - the three parts of Kan this
+# module could not reach, each found by running tools/check_vod.py
+# --------------------------------------------------------------------------
+
+KIDS_PROGRAMME = "https://www.kankids.org.il/content/kids/hinuchit-main/on_our_own/"
+KIDS_PAGE = u"""
+<a href="/content/kids/hinuchit-main/on_our_own/s5/960776/">
+  <div class="cr-card image-block"><img src="/media/a/one.jpg?width=490&amp;height=272" /></div>
+  <div class="cr-text">
+    <h3 class="cr-title max-lines-3">פרק 1 - הג&#x27;ל</h3>
+    <p class="cr-subtitle max-lines-3">תקציר הפרק</p>
+  </div>
+</a>
+<a href="/content/kids/hinuchit-main/on_our_own/s5/961523/">
+  <div class="cr-text"><h3 class="cr-title">פרק 2</h3></div>
+</a>
+"""
+
+
+@pytest.fixture
+def kids_site(monkeypatch):
+    monkeypatch.setattr(http, "get", lambda url, **kw: Response(KIDS_PAGE))
+
+
+def test_the_kan_kids_content_tree_is_reached(kids_site):
+    """Kan Educational is a second site - kankids.org.il, /content/kids/ -
+    and this module accepted only /content/kan/, so all 102 catalogue
+    entries under "כאן חינוכית 23" listed nothing at all."""
+    found = kan.episodes(KIDS_PROGRAMME)
+    assert len(found) == 2
+    assert all("/content/kids/" in item["extra"]["ref"] for item in found)
+
+
+def test_a_kids_episode_link_stays_on_the_kids_host(kids_site):
+    """A relative href on a kankids page belongs to kankids. Resolved against
+    the module's own BASE it becomes a 404 on kan.org.il."""
+    found = kan.episodes(KIDS_PROGRAMME)
+    assert all(item["extra"]["ref"].startswith("https://www.kankids.org.il")
+               for item in found)
+    assert found[0]["art"]["poster"].startswith("https://www.kankids.org.il")
+
+
+def test_the_card_heading_is_the_title_and_the_paragraph_is_the_plot(kids_site):
+    """Flattening the whole anchor ran them together, so every episode was
+    named "פרק 1 - הג'ל תקציר הפרק" with the synopsis inside the title and
+    `plot` left empty."""
+    first = kan.episodes(KIDS_PROGRAMME)[0]
+    # The apostrophe is written `&#x27;` in the markup, so this also pins the
+    # unescaping: `plain_text` stripped tags and never decoded entities, and
+    # every broadcaster in this folder goes through it.
+    assert first["title"] == u"פרק 1 - הג'ל"
+    assert first["plot"] == u"תקציר הפרק"
+
+
+def test_the_poster_query_string_is_not_left_escaped(kids_site):
+    """`&amp;` in an img src is one parameter named `width` with `&amp;height`
+    glued on, and the image does not load."""
+    assert "&amp;" not in kan.episodes(KIDS_PROGRAMME)[0]["art"]["poster"]
+
+
+PODCAST_PROGRAMME = "https://www.kan.org.il/content/kan/podcasts/p-8582/"
+PODCAST_PAGE = u"""
+<a href="/content/kan/podcasts/p-8582/18408/" class="card-img card-media">
+  <img src="/media/x/cover.jpg" /><span class="icon icon-play"></span>
+</a>
+<a href="/content/kan/podcasts/p-8582/18408/" class="card-text">
+  <h3 class="cr-title">החיים כניגון</h3>
+</a>
+"""
+
+
+def test_an_episode_split_across_two_anchors_keeps_its_name(monkeypatch):
+    """A podcast card is an image anchor with no text beside a text anchor
+    pointing at the same episode. Taking the first and skipping the rest as
+    already seen named every Kan podcast after the number in its own URL."""
+    monkeypatch.setattr(http, "get", lambda url, **kw: Response(PODCAST_PAGE))
+    found = kan.episodes(PODCAST_PROGRAMME)
+    assert len(found) == 1
+    assert found[0]["title"] == u"החיים כניגון"
+
+
+RADIO_PROGRAMME = "https://www.kan.org.il/content/kan/kan-b/p-10333/"
+RADIO_PAGE = u"""
+<div class="radio-item">
+  <h3 class="radio-title">14.11.2026-יומן</h3>
+  <button data-isHls="False" data-player-id="102388"
+          data-player-title="14.11.2026-יומן"
+          data-player-src="https://traffic.omny.fm/d/clips/a/one/audio.mp3?DIST=KAN"></button>
+</div>
+<div class="radio-item">
+  <button data-player-title="7.11.2026-יומן"
+          data-player-src="https://traffic.omny.fm/d/clips/a/two/audio.mp3?DIST=KAN"></button>
+</div>
+"""
+
+
+@pytest.fixture
+def radio_site(monkeypatch):
+    monkeypatch.setattr(http, "get", lambda url, **kw: Response(RADIO_PAGE))
+
+
+def test_a_radio_programme_lists_its_broadcasts(radio_site):
+    """Kan's radio and podcast pages - some 470 catalogue entries - list a
+    `radio-item` per broadcast with the audio in a data attribute and no page
+    of its own. With nothing reading those, every one of them fell through to
+    the single-item fallback and offered the latest broadcast as the whole
+    programme."""
+    found = kan.episodes(RADIO_PROGRAMME)
+    assert len(found) == 2
+    assert found[0]["title"] == u"14.11.2026-יומן"
+    assert found[0]["extra"]["ref"].endswith("one/audio.mp3?DIST=KAN")
+
+
+def test_the_date_kan_puts_in_the_title_becomes_the_date(radio_site):
+    found = kan.episodes(RADIO_PROGRAMME)
+    assert [item["premiered"] for item in found] == ["2026-11-14", "2026-11-07"]
+
+
+def test_a_radio_reference_is_played_without_fetching_a_page(radio_site, monkeypatch):
+    """The reference *is* the audio file, so there is no document to scrape -
+    and fetching one would download the programme instead."""
+    def refuse(*args, **kwargs):
+        raise AssertionError("kan.stream fetched a page for an audio file")
+    monkeypatch.setattr(page, "fetch", refuse)
+    url, adaptive = kan.stream(
+        "https://traffic.omny.fm/d/clips/a/one/audio.mp3?DIST=KAN")
+    assert url.endswith("one/audio.mp3?DIST=KAN")
+    assert adaptive is False
+
+
+def test_an_audio_page_resolves_through_the_ladder():
+    """Not everything a broadcaster publishes is video. The ladder had rungs
+    for ld+json, HLS, Kaltura and YouTube only, so a page carrying a plain
+    MP3 listed its episodes and played nothing."""
+    url, adaptive, strategy = page.extract_stream(
+        u'<audio src="https://traffic.omny.fm/d/clips/a/b/audio.mp3?DIST=KAN&amp;x=1">',
+        "https://www.kan.org.il/content/kan/podcasts/p-1/2/")
+    assert strategy == "audio file"
+    assert url == "https://traffic.omny.fm/d/clips/a/b/audio.mp3?DIST=KAN&x=1"
+    assert adaptive is False
+
+
+def test_a_manifest_still_wins_over_an_audio_file():
+    """A page with both is a video page with a podcast version of itself
+    somewhere on it, and the manifest is the better answer."""
+    _url, _adaptive, strategy = page.extract_stream(
+        u'<audio src="https://x/a.mp3"><video src="https://y/b.m3u8">', "")
+    assert strategy == "m3u8"

@@ -77,6 +77,20 @@ def episodes(ref, mode=""):
     found = [_episode_item(link, anchors[link]) for link in order]
 
     if not found:
+        # **A radio programme lists its episodes as players, not as links.**
+        # Kan's radio and podcast pages - כאן ב, מורשת, Reka, קול המוסיקה,
+        # 88, גימל and תרבות, some 470 catalogue entries between them - carry
+        # a `radio-item` per broadcast with the date in its title and the
+        # audio in a data attribute, and no page of its own to link to. With
+        # nothing here reading those, every one of them fell through to the
+        # single-item fallback below and offered the latest broadcast as the
+        # whole programme.
+        found = _radio_items(html)
+        if found:
+            kodi.log("kan: %d radio episodes on %s"
+                     % (len(found), page._host(url)))
+
+    if not found:
         # Some programmes are a single video rather than a series.
         stream_url, adaptive, strategy = page.extract_stream(html, url)
         if stream_url:
@@ -152,6 +166,43 @@ def _episode_item(link, inner_html):
     )
 
 
+# A reference that is already the media, so there is nothing to scrape.
+_MEDIA_REF = re.compile(r"\.(?:mp3|m4a|aac|mp4|m3u8)(?:\?|$)", re.I)
+# One broadcast on a radio programme page. The source is on the play button
+# and the name is the heading beside it; both are read from the same block so
+# a page of twenty cannot pair the wrong title with the wrong audio.
+_RADIO_ITEM = re.compile(
+    r'data-player-title="([^"]{2,160})"\s*[^>]*?data-player-src="([^"]+)"',
+    re.I | re.S)
+# Kan titles a radio broadcast by date: "14.11.2026-יומן השבוע".
+_RADIO_DATE = re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b")
+
+
+def _radio_items(html):
+    """Every broadcast a radio or podcast page offers, newest first."""
+    found, seen = [], set()
+    for title, source in _RADIO_ITEM.findall(html or ""):
+        src = page.absolute(source, BASE)
+        if not src or src in seen:
+            continue
+        seen.add(src)
+        name = page.plain_text(title)
+        stamp = _RADIO_DATE.search(name)
+        found.append(items.new_item(
+            "vod",
+            ids={"vod": src},
+            title=name or "Kan",
+            # The date Kan puts in the title, so Kodi can sort and show it
+            # rather than leaving the viewer to read it out of the name.
+            premiered=("%s-%s-%s" % (stamp.group(3), stamp.group(2).zfill(2),
+                                     stamp.group(1).zfill(2))
+                       if stamp else ""),
+            extra={"url": router.url_for("play_vod", module="kan", ref=src),
+                   "module": "kan", "ref": src},
+        ))
+    return found
+
+
 def _direct_item(url, html):
     title = ""
     match = re.search(r"<title>(.*?)</title>", html, re.S | re.I)
@@ -169,6 +220,12 @@ def _direct_item(url, html):
 def stream(ref, mode=""):
     """Resolve one Kan episode to something playable."""
     url = page.absolute(ref, BASE)
+
+    # A radio episode's reference *is* the audio file - see `_radio_items` -
+    # so there is no page to fetch, and fetching one would download the
+    # programme instead of a document.
+    if _MEDIA_REF.search(url):
+        return url, False
 
     # A programme URL can carry the YouTube id directly in its path, which
     # saves a page fetch entirely.
