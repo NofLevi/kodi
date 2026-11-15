@@ -617,3 +617,21 @@ def test_an_unscored_row_still_sorts_after_the_dub_rows():
             {"subs_mode": "hebdub", "subs_fit": 100}]
     assert [row["subs_mode"] for row in sources_window._in_one_order(rows)] == [
         "hebdub", None]
+
+
+@pytest.mark.parametrize("name", [
+    # The one that found the bug, live on Torrentio.
+    "Monsters.Inc.DVDRip.heb.dub.HoRaDoT.NeT.avi",
+    "A.Film.2020.heb-dub.x264",
+    "A.Film.2020.Heb Dub.x264",
+    "A.Film.2020.Hebrew.Dub.x264",
+    "A.Film.2020.Dub.Hebrew.x264",
+    "A.Film.2020.dub.heb.x264",
+])
+def test_a_bare_dub_is_read_as_one_not_only_dubbed(found, name):
+    """`dubbed?` is "dubbe" plus an optional "d", so it never matched a plain
+    "dub" - and a release saying "heb.dub" in so many words was read as
+    having no dub at all. Every spelling in the wild, each one of them a real
+    release-name shape, because this is a quantifier nobody reads twice."""
+    rows = outlook.dub_rows(META, [source(name, 1, seeders=4)])
+    assert [row["subs_fit"] for row in rows] == [100]

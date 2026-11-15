@@ -169,10 +169,10 @@ DUB_PATTERNS = [
 # route that is finished the moment the file starts.
 _HEBREW_AUDIO = re.compile(
     r"(hebdub"
-    r"|heb[\s._-]*dubbed?"
-    r"|hebrew[\s._-]*dubbed?"
-    r"|dubbed?[\s._-]*(?:in[\s._-]*)?hebrew"
-    r"|dubbed?[\s._-]*heb\b"
+    r"|heb[\s._-]*dub(?:bed)?"
+    r"|hebrew[\s._-]*dub(?:bed)?"
+    r"|dub(?:bed)?[\s._-]*(?:in[\s._-]*)?hebrew"
+    r"|dub(?:bed)?[\s._-]*heb\b"
     r"|מדובב)", re.I)
 # The opposite claim, checked first so it can never be read as the one above.
 # "HebSub" shares five of its six letters with "HebDub".
