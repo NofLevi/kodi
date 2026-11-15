@@ -250,7 +250,23 @@ def _hebrew_track_kind(raw):
     # and the audio claim is the one this is asked about and is true.
     if "audio" in kinds:
         return "audio"
-    return "text" if "text" in kinds else ""
+    if "text" in kinds:
+        return "text"
+    # Nothing within reach of the token, so ask the whole name. A release
+    # that talks about subtitles and never about dubbing has said what its
+    # Hebrew is, however far away it said it - which is how the Erai-raws
+    # anime releases are read: "[Multiple Subtitle] [ENG][POR-BR][SPA-LA]
+    # ... [HEB]" puts a dozen bracketed codes between the marker and the
+    # Hebrew, further than any window should reach. They came out right
+    # before this by luck, because no other rule happened to fire.
+    #
+    # It needs both halves. "[DVD-R.HEB.ENG].Aladdin...DVD.dub.sub.iso"
+    # names dubbing *and* subtitles, so it is left to the looser readings
+    # below rather than being called text.
+    if words and any(_SUB_MARK.match(word) for word in words) \
+            and not any(_DUB_MARK.match(word) for word in words):
+        return "text"
+    return ""
 
 
 def _marker_for(words, index):

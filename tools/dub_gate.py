@@ -86,9 +86,12 @@ NET = re.compile(
 
 # Only the words that could mean Hebrew, for --review and --tokens. "MULTI"
 # is most of the net and says nothing on its own.
+# "zion" was in here for the ZionHD group and matched inside *animazione* -
+# 118 Italian rows in one corpus, every one of them noise, burying the few
+# that matter. Anchored, and the group spelled out.
 SMELLS_HEBREW = re.compile(
-    r"(\bheb\b|hebrew|israel|isra\b|ivrit|zion|moridim|horadot|hebits"
-    r"|dossinet|toonhebdub)", re.I)
+    r"(\bheb\b|hebrew|israel|\bisra\b|ivrit|\bzion\b|zionhd|moridim|horadot"
+    r"|hebits|dossinet|toonhebdub)", re.I)
 
 # Where the dubs are, which is a measurement rather than a hunch: adult
 # drama and action came out at 0% over twenty titles.
@@ -293,23 +296,33 @@ def _after_the_filters(records, found):
     prefs = scoring.Preferences()
     prefs.original_language = "en"
     refused = collections.Counter()
-    reaching, titles = 0, set()
+    reaching, titles, if_cached = 0, set(), set()
     for record in records:
         for _fit, row in found.get(record["imdb"], []):
             source = stremio._parse_stream(
                 {"title": row.get("title") or row["release"],
                  "name": row.get("stream_name") or "",
-                 "infoHash": "0" * 40}, "torrentio")
+                 "infoHash": "0" * 40}, row.get("provider") or "torrentio")
             if source is None:
                 continue
             source["seeders"] = row["seeders"]
             why = scoring.rejection_reason(source, prefs)
-            if why:
-                refused[why] += 1
+            if not why:
+                reaching += 1
+                titles.add(record["imdb"])
+                if_cached.add(record["imdb"])
                 continue
-            reaching += 1
-            titles.add(record["imdb"])
-    return refused, reaching, titles
+            refused[why] += 1
+            # **This gate has no debrid account, so every row looks
+            # uncached** - and a dead swarm only matters to a torrent
+            # somebody still has to fetch. A dub TorBox already holds plays
+            # from TorBox whatever the swarm is doing, and `dub_rows` exempts
+            # a cached source for exactly that reason. So the number above is
+            # a floor for a real box rather than the answer.
+            source["cached"] = True
+            if not scoring.rejection_reason(source, prefs):
+                if_cached.add(record["imdb"])
+    return refused, reaching, titles, if_cached
 
 
 def report(records, found):
@@ -341,13 +354,17 @@ def report(records, found):
     # have at first: a dub the detector finds and the add-on's own filters
     # then throw away never reaches the picker, so finding it is worth
     # nothing. On the first run 64 of 91 were thrown away here.
-    refused, reaching, reaching_titles = _after_the_filters(records, found)
+    refused, reaching, reaching_titles, if_cached = _after_the_filters(
+        records, found)
     print("\nwhat survives our own filters, on the shipped defaults:")
     print("  reaches the picker    : %d rows across %d titles (%.0f%%)"
           % (reaching, len(reaching_titles),
              100.0 * len(reaching_titles) / titles))
     for reason, count in refused.most_common():
         print("  refused: %-30s %d" % (reason, count))
+    print("  on a box with TorBox  : %d titles (%.0f%%), because a dub TorBox"
+          % (len(if_cached), 100.0 * len(if_cached) / titles))
+    print("                          already holds needs no swarm")
 
     by = collections.Counter(r["stratum"] for r in records if found.get(r["imdb"]))
     seen = collections.Counter(r["stratum"] for r in records)

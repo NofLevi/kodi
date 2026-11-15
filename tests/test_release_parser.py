@@ -476,3 +476,26 @@ def test_hebrew_with_no_marker_either_side_stays_probable(name):
     """Nothing says which track, so neither does this: the looser reading
     takes it, and the picker prints "probably" rather than stating it."""
     assert release.parse(name)["heb_dub"] == release.HEBREW_DUB_LIKELY
+
+
+@pytest.mark.parametrize("name", [
+    # A dozen bracketed codes between the marker and the Hebrew, which is
+    # further than any sensible window reaches. These came out right before
+    # the whole-name rule by luck, because no other reading happened to fire.
+    "[Erai-raws] Black Clover - Movie [1080p][Multiple Subtitle] "
+    "[ENG][POR-BR][SPA-LA][ARA][FRE][GER][ITA][RUS][HEB]",
+    "Monster House (2006)(Retail DD5.1 ENG+NL+HEB Subs) Hornigold TBS",
+])
+def test_a_name_that_only_ever_mentions_subtitles_means_subtitles(name):
+    """However far away it said it. A release that talks about subtitles and
+    never about dubbing has told us what its Hebrew is."""
+    assert release.parse(name)["heb_dub"] == 0
+
+
+def test_a_name_mentioning_both_is_left_to_the_looser_readings():
+    """The rule above needs both halves. This DVD image names dubbing *and*
+    subtitles, so "only ever mentions subtitles" is false and it keeps the
+    probable reading it had - it is a real Hebrew dub."""
+    assert release.parse(
+        "[DVD-R.HEB.ENG].Aladdin.Walt.Disney-Full.DVD.dub.sub.iso"
+    )["heb_dub"] == release.HEBREW_DUB_LIKELY
