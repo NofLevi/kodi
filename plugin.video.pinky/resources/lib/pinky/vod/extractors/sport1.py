@@ -131,15 +131,22 @@ def stream(ref, mode=""):
         return "", False
 
     match = _WALLA_ID.search(html)
-    if not match:
-        kodi.log("sport1: no Walla player embedded at %s" % page._host(url))
+    # **An empty id matches the pattern and is not an id.** Sport 1 publishes
+    # an old clip with the parameter still in the iframe and nothing after
+    # it - `...?player=sport1-desktop&media=&url=...` - and its own related
+    # items carry `data-video-id="0"`, which is the site saying the media is
+    # gone. Without this the empty string was sent to Walla as a media id,
+    # spending a request to be told what the page already said.
+    media = (match.group(1) if match else "").strip()
+    if not media or media == "0":
+        kodi.log("sport1: no Walla media id at %s" % page._host(url))
         return "", False
 
-    payload = http.get_json(WALLA_MEDIA % match.group(1),
+    payload = http.get_json(WALLA_MEDIA % media,
                             headers=page.BROWSER_HEADERS,
                             timeout=(5, 15), default=None)
     if not isinstance(payload, dict) or payload.get("result") != "success":
-        kodi.log("sport1: Walla refused media %s" % match.group(1))
+        kodi.log("sport1: Walla refused media %s" % media)
         return "", False
 
     video = (payload.get("data") or {}).get("video") or {}

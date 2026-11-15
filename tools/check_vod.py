@@ -187,7 +187,13 @@ def check_programme(module, entry, kodi):
     # a broken programme when it is how Mako is shaped. So where the first
     # entry resolves to nothing, descend once and try its first child, which
     # is what pressing it actually does.
-    result = _check_stream(module, episode_ref, ref, dict(out))
+    # `dict(out)` is a *shallow* copy, so the copy's "problems" is the very
+    # same list - the failed first attempt's message leaked into the
+    # successful retry, and two working Mako programmes were reported as
+    # "the first episode resolved to nothing" while the same row said `hls`.
+    # A row that contradicts itself is the tell.
+    result = _check_stream(module, episode_ref, ref,
+                           dict(out, problems=list(out["problems"])))
     if not result["problems"]:
         return result
     try:
