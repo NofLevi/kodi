@@ -161,3 +161,4 @@ android-lab/logs/
 android-lab/driver/
 .dub-gate/
 .vod-check/
+.as-user/

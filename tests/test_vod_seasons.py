@@ -249,3 +249,37 @@ def test_a_page_with_no_seasons_is_untouched():
     entries = [mako_item(base + "/VOD-%d.htm" % n, "e%d" % n) for n in range(4)]
 
     assert len(mako._fold_into_seasons(entries)) == 4
+
+
+# --------------------------------------------------------------------------
+# reading the number out of a title, which is the only place it is written
+# --------------------------------------------------------------------------
+
+
+def test_the_two_shapes_a_broadcaster_writes_a_number_in():
+    from pinky.vod import numbering
+    assert numbering.season_episode(u"עונה 2 פרק 4") == (2, 4)
+    assert numbering.season_episode(u"פרק 12") == (0, 12)
+    assert numbering.season_episode(u"הפרק האחרון - 7") == (0, 7)
+
+
+def test_a_trailing_season_number_is_not_an_episode_number():
+    """"הצצה לעונה 5" is a peek at season five, not episode five.
+
+    Kan lists one on קופה ראשית's page, and reading its 5 as an episode put
+    a second row alongside the real "פרק 5". Two rows claiming episode five
+    is a page `play._episode_numbered` refuses to guess at, so the
+    programme's episode five became unreachable rather than mislabelled.
+    """
+    from pinky.vod import numbering
+    assert numbering.season_episode(
+        u"תרנגול הכפרות של כוכבה: הצצה לעונה 5") == (0, 0)
+    assert numbering.season_episode(u"עונה 3") == (0, 0)
+
+
+def test_a_date_in_the_title_is_still_not_an_episode_number():
+    """Every broadcaster writes the broadcast date into the name, and a year
+    sits exactly where an episode number would."""
+    from pinky.vod import numbering
+    assert numbering.season_episode(u"תמונות גולשים 07.04.08") == (0, 0)
+    assert numbering.season_episode(u"ראיון מיוחד 2026") == (0, 0)

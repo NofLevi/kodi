@@ -25,6 +25,14 @@ EPISODE_ONLY = re.compile(u"פרק\\s*(\\d+)")
 # not become an episode number, so four digits are refused.
 TRAILING_NUMBER = re.compile(r"(?:^|[\s\-–(\[])(\d{1,3})\s*[)\]]?\s*$")
 
+# **A trailing number after the word for "season" is a season.** Kan lists
+# "תרנגול הכפרות של כוכבה: הצצה לעונה 5" - a peek at season five - on קופה
+# ראשית's page, and reading its 5 as an episode number put a second entry
+# alongside the real "פרק 5". Two rows claiming episode five is a page the
+# walk refuses to guess at, so the programme's episode five became
+# unreachable rather than merely mislabelled.
+SEASON_TRAILING = re.compile(u"עונה\\s*\\d+\\s*[)\\]]?\\s*$")
+
 
 def season_episode(text):
     """(season, episode) from a title, or (0, 0) when it says nothing."""
@@ -36,7 +44,7 @@ def season_episode(text):
     if match:
         return 0, int(match.group(1))
     match = TRAILING_NUMBER.search(text)
-    if match:
+    if match and not SEASON_TRAILING.search(text):
         return 0, int(match.group(1))
     return 0, 0
 

@@ -1450,3 +1450,139 @@ def test_an_episode_in_no_season_still_falls_through(kan_flat, no_network):
     """Falling through to the trackers is the honest answer, and it leaves
     the offer at the end of the search to open the folder instead."""
     assert play._walk_to_episode({"season": 9, "episode": 1}, kan_flat) == ""
+
+
+# --------------------------------------------------------------------------
+# a broadcaster that numbers no season at all, which is most of them
+# --------------------------------------------------------------------------
+
+
+def _unnumbered_entries(module, ref, mode=""):
+    """A Kan programme that states an episode and never a season.
+
+    Measured on ערוץ אפס: six episodes, every one of them "פרק N", and
+    nothing anywhere saying which season they belong to. TMDB has no season
+    zero, so the press that reaches `play.py` says season 1.
+    """
+    if not ref.endswith("/p-2/"):
+        return []           # no season has a page of its own here
+    return [{"title": u"פרק %d" % n, "season": 0, "episode": n,
+             "ids": {"vod": "/p-2/%d/" % n},
+             "extra": {"url": "plugin://x/?action=play_vod&ref=/p-2/%d/" % n}}
+            for n in range(1, 7)]
+
+
+@pytest.fixture
+def kan_unnumbered(monkeypatch):
+    from pinky.vod import extractors
+    from pinky.vod.extractors import kan
+    monkeypatch.setattr(extractors, "episodes", _unnumbered_entries)
+    monkeypatch.setattr(extractors, "module_for", lambda name: kan)
+    monkeypatch.setattr(kan, "season_ref", lambda ref, season:
+                        ref.rstrip("/") + "/s%d" % season)
+    return {"title": u"ערוץ אפס", "studio": u"כאן", "module": "kan",
+            "ref": "https://kan.org.il/content/kan/kan-11/p-2/", "mode": "",
+            "url": "plugin://x/?action=vod_show"}
+
+
+def test_a_season_nobody_numbered_does_not_throw_the_programme_away(
+        kan_unnumbered, no_network):
+    """The broadcaster numbers no season, so the season cannot disagree.
+
+    Every entry carries season 0 while the press says season 1, because that
+    is what TMDB answers for a show with one season. Filtering by a number
+    the broadcaster never wrote down threw the whole list away, and the
+    programme fell through to the trackers - where Israeli television is not.
+    """
+    url = play._walk_to_episode({"season": 1, "episode": 3}, kan_unnumbered)
+    assert "/p-2/3/" in urllib.parse.unquote(url)
+
+
+def test_an_unnumbered_season_still_refuses_an_ambiguous_number(
+        kan_unnumbered, no_network, monkeypatch):
+    """Standing aside on the season is not the same as guessing.
+
+    A flat page holding two seasons' worth - two rows both saying "פרק 3" -
+    is a page this code has not understood, and the caller takes an entry
+    only when exactly one carries the number.
+    """
+    doubled = _unnumbered_entries("kan", "https://x/p-2/") * 2
+    from pinky.vod import extractors
+    monkeypatch.setattr(extractors, "episodes",
+                        lambda module, ref, mode="": doubled)
+    assert play._walk_to_episode({"season": 1, "episode": 3},
+                                 kan_unnumbered) == ""
+
+
+def test_a_stated_season_is_still_obeyed(kan_flat, no_network):
+    """The stand-aside applies only where nothing states a season.
+
+    קופה ראשית's entries do state theirs, so season four must still be
+    fetched from season four's own page rather than played off the list.
+    """
+    url = play._walk_to_episode({"season": 4, "episode": 2}, kan_flat)
+    assert "/p-1/s4/2/" in urllib.parse.unquote(url)
+
+
+def test_the_episode_number_is_the_one_the_screen_shows(kan_unnumbered,
+                                                        no_network,
+                                                        monkeypatch):
+    """One reading of the number, not two.
+
+    `vod.numbering` fills the field every list passes through, and the walk
+    used to parse the title again with a narrower pattern - so an episode
+    numbered from a trailing number was on the screen and unreachable.
+    """
+    from pinky.vod import extractors
+    entries = [{"title": u"הפרק האחרון - 4", "season": 0, "episode": 4,
+                "ids": {"vod": "/p-2/last/"},
+                "extra": {"url": "plugin://x/?action=play_vod&ref=/p-2/last/"}}]
+    monkeypatch.setattr(extractors, "episodes",
+                        lambda module, ref, mode="": entries)
+    url = play._walk_to_episode({"season": 1, "episode": 4}, kan_unnumbered)
+    assert "/p-2/last/" in urllib.parse.unquote(url)
+
+
+def test_two_programmes_of_the_same_name_are_both_tried(monkeypatch,
+                                                        no_network):
+    """A Kan podcast and a Kan *kids* podcast are both called סוכן חלל.
+
+    TMDB gives a name and the catalogue carries no id, so taking the first
+    exact match meant a press on one could play an episode of the other -
+    the right number, the wrong programme, and nothing on the screen saying
+    so. Each namesake is walked in turn and the one that has the episode is
+    the one that plays.
+    """
+    from pinky.vod import extractors
+    from pinky.vod.extractors import kan
+
+    def listing(module, ref, mode=""):
+        if "kids" not in ref:
+            return []          # the first namesake has no episode four
+        return [{"title": u"פרק 4", "season": 0, "episode": 4,
+                 "ids": {"vod": "/kids/4/"},
+                 "extra": {"url": "plugin://x/?action=play_vod&ref=/kids/4/"}}]
+
+    monkeypatch.setattr(extractors, "episodes", listing)
+    monkeypatch.setattr(extractors, "module_for", lambda name: kan)
+    monkeypatch.setattr(kan, "season_ref", lambda ref, season: "")
+    monkeypatch.setattr(play, "_vod_alternatives", lambda meta: [
+        {"title": u"סוכן חלל", "studio": u"כאן", "module": "kan",
+         "ref": "https://kan.org.il/content/kan/podcasts/p-1/", "mode": "",
+         "url": "plugin://x/?action=vod_show"},
+        {"title": u"סוכן חלל", "studio": u"כאן", "module": "kan",
+         "ref": "https://kan.org.il/content/kids/podcasts/p-2/", "mode": "",
+         "url": "plugin://x/?action=vod_show"}])
+
+    url = play._broadcaster_stream({"original_title": u"סוכן חלל",
+                                    "original_language": "he",
+                                    "season": 1, "episode": 4})
+    assert "/kids/4/" in urllib.parse.unquote(url)
+
+
+def test_the_catalogue_lookup_still_answers_with_one(no_network):
+    """`_vod_alternative` is what the "no sources, but Kan has it" offer
+    uses, and it wants somewhere to send a viewer rather than a list."""
+    found = play._vod_alternative({"original_title": u"רמזור",
+                                   "original_language": "he"})
+    assert found and found["module"] == "keshet"

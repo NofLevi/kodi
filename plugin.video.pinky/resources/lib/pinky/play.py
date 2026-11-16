@@ -649,7 +649,6 @@ RESOLVE_ATTEMPTS_CACHED = 6
 
 
 _SEASON_WORD = re.compile(r"עונה\s*(\d+)")
-_EPISODE_WORD = re.compile(r"פרק\s*(\d+)")
 
 
 def _only_this_season(module, mode, ref, entries, season, episode=0):
@@ -684,7 +683,7 @@ def _only_this_season(module, mode, ref, entries, season, episode=0):
     #    was never asked for.
     wanted = [entry for entry in entries if int(entry.get("season") or 0) == season]
     if wanted and (not episode
-                   or _numbered(wanted, _EPISODE_WORD, episode) is not None):
+                   or _episode_numbered(wanted, episode) is not None):
         return wanted
 
     # 2. The entries are season *pages*, which is how Mako publishes them -
@@ -703,29 +702,88 @@ def _only_this_season(module, mode, ref, entries, season, episode=0):
     #    its page carries episodes from one, five and six.
     handler = extractors.module_for(module)
     season_ref = getattr(handler, "season_ref", None)
-    if season_ref is None:
-        return []
-    try:
-        address = season_ref(ref, season)
-    except Exception:
-        return []
-    if not address:
-        return []
-    kodi.log("%s season %d is not on the programme page, asking %s"
-             % (module, season, address))
-    fetched = extractors.episodes(module, address, mode) or []
-    # Only what the season's own page says is in that season. A Kan season
-    # page carries a "watch" link and the odd neighbour, the same as the
-    # programme page does.
-    fetched = [entry for entry in fetched
-               if int(entry.get("season") or 0) in (0, season)]
-    # If the season's own page does not have it either, the entries we
-    # already had are the better answer than nothing - a programme whose
-    # seasons are numbered differently upstream still plays from the page
-    # the viewer would have browsed.
-    if episode and _numbered(fetched, _EPISODE_WORD, episode) is None and wanted:
-        return wanted
-    return fetched
+    fetched = []
+    address = ""
+    if season_ref is not None:
+        try:
+            address = season_ref(ref, season)
+        except Exception:
+            address = ""
+    if address:
+        kodi.log("%s season %d is not on the programme page, asking %s"
+                 % (module, season, address))
+        fetched = extractors.episodes(module, address, mode) or []
+        # Only what the season's own page says is in that season. A Kan
+        # season page carries a "watch" link and the odd neighbour, the same
+        # as the programme page does.
+        fetched = [entry for entry in fetched
+                   if int(entry.get("season") or 0) in (0, season)]
+        # If the season's own page does not have it either, the entries we
+        # already had are the better answer than nothing - a programme whose
+        # seasons are numbered differently upstream still plays from the page
+        # the viewer would have browsed.
+        if episode and _episode_numbered(fetched, episode) is None and wanted:
+            return wanted
+    if fetched:
+        return fetched
+
+    # 4. **The broadcaster numbers no season at all, and TMDB has no season
+    #    zero.** Most Israeli programmes state only the episode - "פרק 5",
+    #    with nothing anywhere saying which season it belongs to - so every
+    #    entry carries season 0 while the press that arrives here says season
+    #    1, because that is what TMDB answers for a show with one season.
+    #    Filtering by a number the broadcaster never wrote down threw the
+    #    whole list away and the programme fell through to the trackers,
+    #    where Israeli television is not. Measured on ערוץ אפס: six episodes
+    #    listed, "פרק 1" sitting there, and a press on season 1 episode 1
+    #    finding nothing at all.
+    #
+    #    So where nothing states a season, the season cannot disagree, and
+    #    the episode number decides on its own. That is not a guess: the
+    #    caller takes an entry only when **exactly one** carries the number
+    #    (`_episode_numbered`), so a flat page holding several seasons'
+    #    worth - two rows both saying "פרק 5" - is still refused rather than guessed at.
+    if not any(int(entry.get("season") or 0) for entry in entries):
+        kodi.log("%s numbers no season, so season %d is the only one there is"
+                 % (module, season))
+        return entries
+    return []
+
+
+def _episode_numbered(entries, episode):
+    """The entry the broadcaster numbered as this episode, or None.
+
+    **Numbered the one way the whole add-on numbers**, rather than by a
+    second regex kept here. `vod.numbering` knows three shapes where this
+    knew one - "עונה 2 פרק 4", a bare "פרק 12", and a trailing number on a
+    title that says nothing else - and `extractors.episodes` has already run
+    it, which is the number the screen shows. Reading the title again here
+    made the screen and the press disagree: קופה ראשית listed an episode
+    five that no press could ever reach, and asking for it landed on season
+    six's episode five instead, which is a different programme to anyone
+    watching.
+
+    Exactly one match or nothing, the same as `_numbered`. Two entries
+    claiming the same number is a page this code has not understood, and
+    playing the first of them would be a guess wearing a confident face.
+    """
+    found = [entry for entry in entries
+             if _episode_number(entry) == episode]
+    return found[0] if len(found) == 1 else None
+
+
+def _episode_number(entry):
+    """The episode number this entry carries, by that one shared reading.
+
+    The field where it is filled in, the title where it is not: an entry
+    that never passed through `extractors.episodes` - a test's, or a
+    broadcaster module called directly - is read rather than skipped.
+    """
+    stated = int(entry.get("episode") or 0)
+    if stated:
+        return stated
+    from .vod import numbering
+    return numbering.season_episode(entry.get("title") or "")[1]
 
 
 def _numbered(entries, pattern, wanted):
@@ -769,15 +827,26 @@ def _broadcaster_stream(meta):
     the offer at the end of the search opens the folder for a viewer who
     would rather browse.
     """
-    broadcaster = _vod_alternative(meta)
-    if not broadcaster or not broadcaster.get("module"):
-        return ""
-    try:
-        return _walk_to_episode(meta, broadcaster)
-    except Exception as error:
-        kodi.log("broadcaster walk failed for %s: %s"
-                 % (broadcaster["title"], error), kodi.LOG_WARNING)
-        return ""
+    # **Two programmes can share a name, and only one of them has the
+    # episode.** The catalogue holds a Kan podcast called סוכן חלל and a Kan
+    # *kids* podcast called סוכן חלל, and taking the first exact match meant
+    # a press on one played an episode of the other - the right number, the
+    # wrong programme, and nothing on the screen to say so. There is no
+    # second thing to match on: TMDB gives a name and the catalogue carries
+    # no id. So each namesake is walked in turn and the one that actually
+    # holds the episode wins, which is the only discriminator there is.
+    for broadcaster in _vod_alternatives(meta):
+        if not broadcaster.get("module"):
+            continue
+        try:
+            found = _walk_to_episode(meta, broadcaster)
+        except Exception as error:
+            kodi.log("broadcaster walk failed for %s: %s"
+                     % (broadcaster["title"], error), kodi.LOG_WARNING)
+            continue
+        if found:
+            return found
+    return ""
 
 
 def _walk_to_episode(meta, broadcaster):
@@ -796,7 +865,7 @@ def _walk_to_episode(meta, broadcaster):
 
     episode = int(meta.get("episode") or 0)
     if episode:
-        wanted = _numbered(entries, _EPISODE_WORD, episode)
+        wanted = _episode_numbered(entries, episode)
     elif len(entries) == 1:
         # A film, where the catalogue entry is the film. More than one and
         # there is nothing to choose between them, so the trackers get it.
@@ -840,9 +909,21 @@ def _vod_alternative(meta):
     it had lost its place rather than like it had found something. Asking
     first costs one press and says where it is going.
     """
+    found = _vod_alternatives(meta)
+    return found[0] if found else None
+
+
+def _vod_alternatives(meta):
+    """Every catalogue programme of exactly this name, best guess first.
+
+    Usually one, and the caller that only wants somewhere to send a viewer
+    takes it. `_broadcaster_stream` wants them all, because two programmes
+    sharing a name are told apart only by which of them has the episode.
+    """
     hebrew = (meta.get("original_title") or "").strip()
     if not hebrew or (meta.get("original_language") or "") != "he":
-        return None
+        return []
+    found = []
     try:
         from .vod import library
         for candidate in library.search(hebrew, limit=8):
@@ -851,15 +932,15 @@ def _vod_alternative(meta):
             url = (candidate.get("extra") or {}).get("url") or ""
             if url:
                 extra = candidate.get("extra") or {}
-                return {"title": candidate["title"], "url": url,
-                        "studio": (candidate.get("studio") or [""])[0],
-                        "module": extra.get("module", ""),
-                        "ref": extra.get("ref", ""),
-                        "mode": extra.get("mode", "")}
+                found.append({"title": candidate["title"], "url": url,
+                              "studio": (candidate.get("studio") or [""])[0],
+                              "module": extra.get("module", ""),
+                              "ref": extra.get("ref", ""),
+                              "mode": extra.get("mode", "")})
     except Exception as error:
         kodi.log("vod fallback failed for %s: %s" % (hebrew, error),
                  kodi.LOG_WARNING)
-    return None
+    return found
 
 
 def _offer_uncached(meta):
