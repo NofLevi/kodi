@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.pinky"
        name="Pinky"
-       version="0.0.14"
+       version="0.0.15"
        provider-name="pinky">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -37,16 +37,15 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>
-        v0.0.14
-        - Kan Educational's children's programmes are listed at last
-        - Kan's radio and podcasts list every broadcast, and play
-        - A Kan episode is named after itself, not after its own synopsis
-        - קופה ראשית, and Kan's digital-only programmes, can be found
-        - A Hebrew-dubbed release gets its own row in the source picker
-        - Finishing an episode is remembered, so the next one is the next one
-        - Search suggests as you type, and Up goes back to the field
-        - Leaving the search screen no longer leaves it working behind you
-    </news>
+        <news>v0.0.15
+- Kan works again on the box. Every Kan programme was being turned away on
+  a television while working perfectly on a PC, so all of Kan - including
+  the children's channel - showed nothing at all.
+- Pressing an episode plays that episode. A press on season 4 could start
+  season 6's, and a programme whose broadcaster numbers only the episodes
+  would not start anything.
+- Episode names are read right. A name that was really a note about next
+  season was counting as an episode and hiding the real one.
+- Two programmes with the same name no longer play each other's episodes.</news>
     </extension>
 </addon>
