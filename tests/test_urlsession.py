@@ -187,3 +187,55 @@ def test_a_response_with_no_cookies_has_an_empty_jar():
 
     response = urlsession.Response("https://x/", 200, Message(), None)
     assert response.cookies == {}
+
+
+# --------------------------------------------------------------------------
+# presenting the same TLS client requests presents, which Kan insists on
+# --------------------------------------------------------------------------
+
+
+def test_the_handshake_looks_like_urllib3s():
+    """Kan sits behind Cloudflare and refuses bare urllib with a 403.
+
+    Every Kodi box ships without requests and so takes this file, and the
+    difference between the two backends came down to one `SSLContext`
+    attribute and one option - diffed against the context requests had just
+    used successfully. Without them all 827 Kan programmes are refused on
+    every device, which is invisible from any desktop that has requests
+    installed.
+    """
+    import ssl
+
+    from pinky import urlsession
+
+    context = ssl.create_default_context()
+    assert not context.post_handshake_auth
+    urlsession._present_as_requests_does(context)
+    assert context.post_handshake_auth
+    assert context.options & ssl.OP_NO_TICKET
+
+
+def test_the_shared_context_carries_it():
+    import ssl
+
+    from pinky import urlsession
+
+    context = urlsession.ssl_context()
+    assert context.post_handshake_auth
+    assert context.options & ssl.OP_NO_TICKET
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    assert context.check_hostname
+
+
+def test_a_session_keeps_its_cookies():
+    """A session is a session: what one request sets, the next one sends.
+
+    Cloudflare hands out a `__cf_bm` cookie on the redirect from an apex to
+    its www host, and a client that drops it arrives unidentified.
+    """
+    from http.cookiejar import CookieJar
+
+    from pinky import urlsession
+
+    session = urlsession.Session()
+    assert isinstance(session.cookies, CookieJar)

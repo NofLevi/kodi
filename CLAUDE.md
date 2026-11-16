@@ -1575,6 +1575,57 @@ four-core A53 with little RAM, and every one of them is enforced by a test.
   URLs inside the master manifest with a much longer lived token, so only the
   first request needs signing and playback survives the ticket expiring.
 
+* **Kan is behind Cloudflare, and the add-on was failing its bot check on
+  every device while passing it on every desktop.** This is the most
+  important thing in this section and nothing in the repository could see
+  it. `requests` is optional - `urlsession.py` covers the same ground with
+  the standard library - and **Kodi ships no requests**, so `urlsession.py`
+  is the HTTP client on the projector, the Mi Box and every other box, while
+  the tools in `tools/` run on a desktop where requests happens to be
+  installed. Those are two different clients, and only one of them was ever
+  measured.
+
+  A real Kodi logged `kan.org.il returned HTTP 403` for a programme page and
+  a season page in the same second that `tools/check_vod.py` reported Kan
+  24 of 24 healthy. The answer carries `Server: cloudflare` and
+  `Cf-Mitigated: challenge` - the same signature this file already records
+  for Yify Subtitles - and it was returned to **all 827 Kan catalogue
+  entries**, which is the largest broadcaster in the catalogue and most of
+  the Israeli children's television in it.
+
+  Every obvious cause was wrong, and ruling them out is most of the value
+  here: pointed at a local socket that prints what it was sent, the two
+  backends differ by `Accept: */*` and `Connection: keep-alive` against
+  `Connection: close` - and sending exactly requests' bytes from
+  `http.client` still answered 403. So did a browser user agent, ALPN, the
+  `kan.org.il` to `www.kan.org.il` redirect, and the `__cf_bm` cookie
+  Cloudflare sets on it. Reusing the **context object** requests had just
+  used, with the same standard-library HTTP client, answered 200 three times
+  out of three - which put the difference inside the `SSLContext` and
+  nowhere else. Diffed attribute by attribute against a default one, exactly
+  one differed: `post_handshake_auth`.
+
+  `urlsession._present_as_requests_does` sets that and `OP_NO_TICKET`, which
+  is urllib3's own configuration. One adds an extension to the TLS 1.3
+  ClientHello and the other removes one, and between them the handshake is
+  scored as urllib3's rather than as bare urllib's. Measured interleaved,
+  eight paired requests: **403 every time without, 200 every time with**,
+  then 6 of 6 through the session class a device builds, then in a real Kodi
+  - three presses on three different seasons of קופה ראשית, each landing on
+  that season's own episode.
+
+  It costs nothing. This opener never reuses a connection, so session
+  tickets were never resumed, and post-handshake authentication is a
+  capability a server may ask for and none here does. The session also keeps
+  a cookie jar now, which it never had: a session that drops what the last
+  response set is not the session requests is standing in for.
+
+  The rule that follows, and it is general: **a check that runs with
+  requests installed has not checked the add-on.** `tools/e2e.py` asks Kan
+  through `urlsession.Session` specifically, never through `http.get`, which
+  would pick requests on the machine running it and measure a client no
+  viewer runs.
+
 ## Testing on Windows
 
 The portable Kodi is **not** in the repository: it is 232 MB of downloadable
@@ -1621,7 +1672,7 @@ posters cost roughly 6 MB at w185 and 22 MB at w342.
 
 ## The test suite
 
-2448 tests, all running against Kodi stubs, so no Kodi install is needed:
+2665 tests, all running against Kodi stubs, so no Kodi install is needed:
 
     python -m pytest tests
 
@@ -1663,7 +1714,7 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_ktuvit.py` | 32 | The only subtitle provider with an account: the password hashed on the wire, one login per day rather than per search, a stale session re-established exactly once, and the whole provider staying silent without credentials. |
 | `test_translation.py` | 44 | The translator surviving a model that misbehaves: code fences, prose around the JSON, blank entries, chunks that fail and must be split. Plus no model name containing a version number, which has been retired under us twice, and a 404 striking a model off for the session where a 503 does not. |
 | `test_translation_context.py` | 17 | Cast and gender reaching the prompt, and a gender-marking source language winning a close call without overriding a clearly better match. |
-| `test_vod_seasons.py` | 17 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video. |
+| `test_vod_seasons.py` | 20 | A programme opening on its seasons, and the three rules that decide when it should not: one season stays flat, a broadcaster that numbers nothing is left alone, and an entry belonging to no season is shown after the folders rather than cancelling them. Plus the two discriminators - the season Kan hides in its addresses, and the difference between a Mako season page and a Mako video - and the three shapes a broadcaster writes a number in, with a trailing season number and a broadcast date both refused. |
 | `test_vod.py` | 30 | Israeli live TV and the catalogue: broadcaster ordering, referers carried through, relative paths given their CDN host, broken channels hidden, Hebrew substring search, and updating the bundled data invalidating the cache. |
 | `test_entitlement.py` | 24 | The broadcaster ticket: one Akamai ticket covering every Keshet channel rather than one each, the on-demand CDN getting an AWS ticket instead because the two are not interchangeable, browsing never asking for one, a refusal leaving the URL unsigned rather than empty, and a failure never being cached. |
 | `test_kan_mako.py` | 15 | An episode being a descendant of its programme, which is what stops the site's own navigation menu being listed as episodes, and Mako's on-demand streams being signed. |
@@ -1675,12 +1726,12 @@ plus a `no_network` fixture that fails loudly if a test reaches the internet.
 | `test_windows.py` | 56 | The home and search windows: rows filled lazily, the hero following focus, the on-screen keyboard opening on the script the interface is written in, suggestions never overwriting what was typed, entering the add-on landing in the Pinky window, preloading past rows that come back empty, and typing surviving a Kodi whose Action has no getUnicode. Plus rows that grow as they are scrolled: one page for a row nobody touches, a ceiling for one they do, a page fetched off the GUI thread but never *added* off it, the cursor put back unconditionally rather than only when it looks like it moved, and a resting mouse pointer not paging through the catalogue on its own. |
 | `test_details_window.py` | 24 | Information, seasons, episodes, back stepping out of the episode list before closing, and playing a show picking the next unwatched episode - walking on to the next season when one is finished, and never landing on the specials. Plus the one button acting on the episode its label names, and falling back to the next unwatched one on the season list where the label names none. |
 | `test_sources_window.py` | 54 | The picker, which was crashing on every cached source before it had any tests at all. Plus what a release carries: the file list and the tracks inside the file learned in the background and never on the draw, remembered per file rather than per torrent, an unreadable file not re-asked on every open, and the background pass never taking more than half the shared pool. |
-| `test_play.py` | 78 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. Plus a series carrying its English and translated names, and anime and films not paying for them. |
+| `test_play.py` | 93 | From "the user pressed OK" to "Kodi has a URL": the picker always opening, the newest press cancelling the one still resolving, leaving the video pausing it and a live channel being exempt, an Israeli title reaching the broadcaster's own episode, the service a cached source goes to, whether a download may be started, and - the one that took an evening to find - a resolved link that will not open being treated like any other source that will not play, with the dead CDN node remembered so the next source on it is free. Plus a series carrying its English and translated names, and anime and films not paying for them. And the broadcaster walk asked for a *particular* season and episode: a season nobody numbered standing aside rather than emptying the list, that stand-aside still refusing an ambiguous number, a stated season still obeyed, the episode number being the one the screen shows, and two programmes of the same name both being tried. |
 | `test_qr.py` | 96 | The QR encoder, against the specification rather than against itself, because a QR code that is wrong looks exactly like a QR code and the only symptom is a phone that will not scan it. The block table has to add up to each version's codeword count, all thirty-two format strings have to match the published list, the Reed-Solomon coder has to reproduce the worked example in the standard, and every symbol is taken apart the way a scanner would - undoing the mask, the zigzag and the interleaving - and has to come back as what went in. |
 | `test_signin.py` | 32 | The one sign-in screen: which methods a service offers and in what order, a service with one way in not being asked, and the three answers a poll can give - done, not yet, and never going to work, which is the one that stops a screen waiting out ten minutes. Also that mistyping a replacement key does not sign you out of a working account. |
 | `test_profiles.py` | 26 | Every low-memory setting actually lowering load, all profiles setting the same keys so switching leaves nothing stale, **the shipped defaults being the lean profile key for key**, and the visual-polish switch raising artwork without ever lowering a richer profile. |
 | `test_wizard.py` | 7 | The one setup step that is not an account: light against richer artwork, with what each costs, and a device that is told it has room rather than quietly switched. |
-| `test_urlsession.py` | 13 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. |
+| `test_urlsession.py` | 16 | The standard-library HTTP session that replaces requests: parameters, form and JSON bodies, gzip, charsets, and an HTTP error being a response rather than an exception. Plus the TLS handshake presenting as urllib3 does and the session keeping a cookie jar, without which Cloudflare refuses Kan on every box and on no desktop. |
 | `test_upnext.py` | 8 | The next episode, including across a season boundary, and the signal being well formed. |
 | `test_backup.py` | 11 | Settings and accounts to a file and back: every changed setting and every key returning, buttons and defaults never written, a backup from an older version still restoring, anything else refused, the newer resume point winning, and import asking before it changes anything. |
 | `test_upgrade.py` | 48 | That an update costs the viewer nothing. Twenty-two credentials, and re-entering them on a projector with a remote is the difference between an update people accept and one they refuse. Reads the source for anything writing inside the add-on folder, which an update wipes; installs a real release over a real one and checks the keys, the subtitles and the profile survived; and refuses a truncated download, a file that is not a zip, and one with no `addon.xml`. |
@@ -2046,6 +2097,10 @@ and is still outstanding.
                                       the stream for a few bytes
     python tools/check_channels.py --update
                                       record what worked into channels.json
+    python tools/check_vod.py         every broadcaster's on-demand catalogue,
+                                      sampled by the broadcaster's own category
+    python tools/check_vod.py --walk  ask for a *particular* season and episode
+                                      through play.py, the way a press does
 
     python tools/survey_sources.py --count 1000
                                       ask a thousand titles how many sources
@@ -2101,6 +2156,67 @@ A flag emoji is also two regional indicators, so a substring search for
 Israel's I+L matches **across two adjacent flags** - Finland then Lithuania
 is F,I,L,T - which flagged most of the Italian remuxes in the corpus until
 runs were split into pairs first.
+
+**The VOD checker said 24 of 24 the same week a press played the wrong
+season, and the reason is the shape of the check.** `check_vod.py` samples
+programmes, lists their episodes, checks the names and the numbering, and
+resolves one to bytes - and that passed while קופה ראשית was broken, because
+it only ever resolved the *first* entry of a list. It never asked for season
+four, and it never went through `play.py` at all: it called the extractors
+directly, while a viewer's press goes search -> TMDB -> `play._walk_to_episode`.
+Everything the bug lived in was between those two.
+
+`--walk` asks the way a press asks. It discovers which (season, episode)
+pairs a programme really has - from the entries, and by probing the season
+addresses a programme page does not link to - then calls
+`play._broadcaster_stream` with a season and an episode on the meta, name
+join included, and checks that **the episode which came back is the episode
+that was wanted** rather than merely that something came back. It samples
+from a wider pool than the breadth check does and keeps going until it has
+programmes it can actually walk, because two thirds of a plain sample of Kan
+is radio and a radio broadcast has no "episode three" to ask for.
+
+Four defects in the first three runs, each invisible to every check that
+existed:
+
+* **A season nobody numbered threw the programme away.** Most Israeli
+  programmes state only the episode - "פרק 5", with nothing saying which
+  season - so every entry carries season 0 while the press says season **1**,
+  because that is what TMDB answers for a show with one season. Filtering by
+  a number the broadcaster never wrote down emptied the list, and the title
+  fell through to the trackers, where Israeli television is not. Measured on
+  ערוץ אפס: six episodes listed, "פרק 1" sitting there, and season 1 episode 1
+  finding nothing. Standing aside is safe because the caller takes an entry
+  only when **exactly one** carries the number, so a flat page holding two
+  seasons' worth is still refused rather than guessed at.
+* **The screen and the press were reading different numbers.** `vod.numbering`
+  fills the episode field every list passes through and knows three shapes;
+  `play` parsed the title again with a narrower pattern that knew one. So an
+  episode numbered from a trailing number was on the screen and unreachable,
+  and asking for it landed on another season's episode of that number.
+  There is one reading now, `play._episode_number`, and the field is it.
+* **A trailing season number was read as an episode.** Kan lists
+  "הצצה לעונה 5" - a peek at season five - on קופה ראשית's page, which put a
+  second row beside the real "פרק 5"; two rows claiming episode five is a page
+  the walk refuses to guess at, so episode five became unreachable rather than
+  merely mislabelled.
+* **Two programmes can share a name, and only one has the episode.** The
+  catalogue holds a Kan podcast called סוכן חלל and a Kan *kids* podcast called
+  סוכן חלל. TMDB gives a name and the catalogue carries no id, so taking the
+  first exact match played the right number of the wrong programme.
+  `_vod_alternatives` returns every namesake and the walk takes the first that
+  actually holds the episode - the only discriminator there is. Where **both**
+  hold it nothing can separate them, and the checker says so rather than
+  calling it a failure.
+
+What it does not fix, found on the way and upstream of here: seasons 1 and 2
+of האחוזון העליון are listed by Kan and 404 on Kan's own CDN, under both the
+Redge path its metadata publishes and the Kaltura id on the same page; and
+**Sport 1's on-demand CDN has an expired certificate** - `sport1-video-f.
+wcdn.co.il`, Walla's, which redirects plain HTTP back to the same HTTPS - so
+every Sport 1 programme is unplayable by any client that verifies, Kodi
+included. A refusal now reports the library's own reason rather than "no
+response", because "no response" is where a checker stops being useful.
 
 `survey_sources.py` is the test that finds cases nobody thought of. The sample
 is **stratified rather than random**, which is the whole point: a thousand

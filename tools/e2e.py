@@ -124,6 +124,41 @@ def _manifests():
     return "%d add-ons" % len(build.ADDONS)
 
 
+@check("Kan answers the client every box actually uses", "vod")
+def _kan_answers_the_standard_library():
+    """The one check that had to exist, because nothing else could see it.
+
+    Kodi ships no `requests`, so `urlsession.py` is the HTTP client on every
+    device - and `kan.org.il` sits behind Cloudflare's bot mitigation, which
+    answered bare urllib `403` with `Cf-Mitigated: challenge` while a desktop
+    with requests installed got `200` from the same URL in the same second.
+    All 827 Kan catalogue entries were dead on every box for as long as that
+    was true, and every tool in this repository reported them healthy.
+
+    So this asks Kan through the standard-library session *specifically*,
+    never through `http.get`, which would quietly pick requests here and
+    measure a client no viewer runs.
+    """
+    from pinky import http, urlsession
+
+    session = urlsession.Session()
+    answer = session.request(
+        "GET", "https://kan.org.il/content/kan/kan-11/p-12832/",
+        headers={"User-Agent": http.USER_AGENT,
+                 "Accept-Encoding": "gzip, deflate"},
+        timeout=(8, 25))
+    status = getattr(answer, "status_code", 0)
+    if status != 200:
+        mitigated = (answer.headers or {}).get("Cf-Mitigated") or ""
+        raise AssertionError(
+            "Kan answered %s to the standard-library session%s"
+            % (status, " (%s)" % mitigated if mitigated else ""))
+    if len(answer.content or b"") < 20000:
+        raise AssertionError("Kan answered 200 with only %d bytes"
+                             % len(answer.content or b""))
+    return "%d bytes, no challenge" % len(answer.content)
+
+
 @check("the bundled Israeli catalogue loads", "vod", network=False)
 def _vod_loads():
     from pinky.vod import library
