@@ -5,6 +5,7 @@ The autoplay decision in particular is the difference between a film starting
 by itself and a list of eight releases appearing.
 """
 import io
+import urllib.parse
 
 import pytest
 
@@ -1372,3 +1373,80 @@ def test_the_next_episode_link_names_what_was_playing(monkeypatch):
     p._next = {"ids": {"tmdb": 30982}, "season": 1, "episode": 4}
     url = p._next_url()
     assert "follow=" in url and "route=llm" in url and "episode=4" in url
+
+
+# --------------------------------------------------------------------------
+# a flat episode list, which is what the extractors actually return
+# --------------------------------------------------------------------------
+
+
+def _kan_entries(module, ref, mode=""):
+    """Kan as it really answers: a flat list, the season in the address.
+
+    The programme page carries a mix - קופה ראשית has six seasons and its
+    page gives episodes from one, five and six, every numbered one of them
+    season six - and no season folders at all, because folders are built by
+    `ui.handlers` and not by the extractors.
+    """
+    if ref.endswith("/p-1/"):
+        return ([{"title": u"לצפייה", "season": 1,
+                  "ids": {"vod": "/p-1/s1/old/"},
+                  "extra": {"url": "plugin://x/?action=play_vod&ref=/p-1/s1/old/"}}]
+                + [{"title": u"פרק %d - שם" % n, "season": 6,
+                    "ids": {"vod": "/p-1/s6/%d/" % n},
+                    "extra": {"url": "plugin://x/?action=play_vod&ref=/p-1/s6/%d/" % n}}
+                   for n in range(1, 10)])
+    season = int(ref.rstrip("/").rsplit("/s", 1)[-1])
+    if season > 6:
+        return []           # the programme has six; asking for nine gets a blank
+    return [{"title": u"פרק %d - שם" % n, "season": season,
+             "ids": {"vod": "/p-1/s%d/%d/" % (season, n)},
+             "extra": {"url": "plugin://x/?action=play_vod&ref=/p-1/s%d/%d/"
+                              % (season, n)}}
+            for n in range(1, 21)]
+
+
+@pytest.fixture
+def kan_flat(monkeypatch):
+    from pinky.vod import extractors
+    from pinky.vod.extractors import kan
+    monkeypatch.setattr(extractors, "episodes", _kan_entries)
+    monkeypatch.setattr(extractors, "module_for", lambda name: kan)
+    monkeypatch.setattr(kan, "season_ref", lambda ref, season:
+                        ref.rstrip("/") + "/s%d" % season)
+    return {"title": u"קופה ראשית", "studio": u"כאן", "module": "kan",
+            "ref": "https://kan.org.il/content/kan/kan-11/p-1/", "mode": "",
+            "url": "plugin://x/?action=vod_show"}
+
+
+def test_the_season_is_not_ignored_on_a_flat_list(kan_flat, no_network):
+    """**This played the wrong episode with a confident log line.** The walk
+    looked for season *folders* among the entries, and the extractors never
+    return one - so the season was skipped entirely and the first "פרק 1" in
+    a mixed list won. On קופה ראשית every numbered entry on the programme
+    page is season six, so a press on season four episode one played season
+    six's episode one.
+    """
+    url = play._walk_to_episode({"season": 4, "episode": 1}, kan_flat)
+    assert "/p-1/s4/1/" in urllib.parse.unquote(url)
+
+
+def test_a_season_the_programme_page_does_not_list_is_fetched(kan_flat, no_network):
+    """Kan's programme page does not link every season. Season four is only
+    at `.../p-12832/s4/`, which answers perfectly well when asked."""
+    url = play._walk_to_episode({"season": 2, "episode": 7}, kan_flat)
+    assert "/p-1/s2/7/" in urllib.parse.unquote(url)
+
+
+def test_one_stray_entry_does_not_stand_in_for_a_season(kan_flat, no_network):
+    """The programme page has exactly one season-one entry - the "לצפייה"
+    link - so filtering by season found something, the episode was not in it,
+    and season one's own page was never asked for."""
+    url = play._walk_to_episode({"season": 1, "episode": 2}, kan_flat)
+    assert "/p-1/s1/2/" in urllib.parse.unquote(url)
+
+
+def test_an_episode_in_no_season_still_falls_through(kan_flat, no_network):
+    """Falling through to the trackers is the honest answer, and it leaves
+    the offer at the end of the search to open the folder instead."""
+    assert play._walk_to_episode({"season": 9, "episode": 1}, kan_flat) == ""

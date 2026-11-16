@@ -107,6 +107,23 @@ def episodes(ref, mode=""):
 _SEASON_IN_URL = re.compile(r"/s(\d{1,2})/")
 
 
+def season_ref(ref, season):
+    """Where this programme's season N lives, Kan putting it in the address.
+
+    **A Kan programme page does not list every season.** קופה ראשית has six
+    and its page carries episodes from one, five and six; season four is only
+    at `.../p-12832/s4/`, which answers perfectly well when asked. Used by
+    `play._only_this_season` when the season a viewer pressed is not among
+    the entries the programme page gave.
+    """
+    base = (ref or "").split("?")[0].rstrip("/")
+    if not base or not season:
+        return ""
+    # Already a season address: swap the number rather than nesting another.
+    base = _SEASON_IN_URL.sub("/", base + "/").rstrip("/")
+    return "%s/s%d/" % (base, int(season))
+
+
 def _season_of(link):
     match = _SEASON_IN_URL.search(link or "")
     return int(match.group(1)) if match else 0

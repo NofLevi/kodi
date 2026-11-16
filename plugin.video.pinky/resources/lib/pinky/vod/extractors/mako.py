@@ -22,6 +22,21 @@ _IMAGE = re.compile(r'(?:data-src|src)="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"')
 _EPISODE_DOCUMENT = re.compile(r"VOD-[^/]+\.htm", re.I)
 
 
+def season_ref(ref, season):
+    """Where this programme's season N lives: Mako suffixes the address.
+
+    "...mako-vod-music24/book_a_table" becomes "...book_a_table-s1". Used by
+    `play._only_this_season` for a season the programme page does not list,
+    and harmless where it does - the page it builds is the same one Mako's
+    own season link points at.
+    """
+    base = (ref or "").split("?")[0].rstrip("/")
+    if not base or not season:
+        return ""
+    base = re.sub(r"-s\d{1,2}$", "", base)
+    return "%s-s%d" % (base, int(season))
+
+
 def episodes(ref, mode=""):
     url = page.absolute(ref, BASE)
     html = page.fetch(url)

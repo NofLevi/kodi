@@ -652,6 +652,82 @@ _SEASON_WORD = re.compile(r"עונה\s*(\d+)")
 _EPISODE_WORD = re.compile(r"פרק\s*(\d+)")
 
 
+def _only_this_season(module, mode, ref, entries, season, episode=0):
+    """The wanted season's episodes, fetching its own page if it takes one.
+
+    **The season was being ignored entirely, and the wrong episode played.**
+    This used to look for season *folders* among the entries - and folders
+    are built by `ui.handlers`, not by the extractors, so a flat episode list
+    never contained one and the test never fired. Measured on קופה ראשית: the
+    programme page carries 21 entries from seasons 1, 5 and 6, every "פרק N"
+    on it belongs to season 6, and a press on season 4 episode 1 played
+    season 6's episode 1 with a confident log line. An episode number season
+    6 does not have found nothing at all, fell through to the trackers, and
+    Israeli television is not on the trackers - which is how every option a
+    search offered for that programme came to do nothing.
+
+    The entries already know: `kan._season_of` reads the number out of the
+    address, which is the only place Kan states it. So they are filtered by
+    it, and a season the programme page does not list at all - season 4 is
+    not on that page, only 1, 5 and 6 are - is fetched from its own page
+    where the broadcaster has one.
+    """
+    from .vod import extractors
+
+    # 1. The entries say which season they are in. Kan puts the number in the
+    #    address and `kan._season_of` reads it, so this needs no guessing.
+    #
+    #    **Only if the episode is actually among them.** A programme page
+    #    carries strays: קופה ראשית's has exactly one season-one entry, the
+    #    "לצפייה" link, so filtering by season found something, the episode
+    #    was not in it, and season one's own page - which has the episodes -
+    #    was never asked for.
+    wanted = [entry for entry in entries if int(entry.get("season") or 0) == season]
+    if wanted and (not episode
+                   or _numbered(wanted, _EPISODE_WORD, episode) is not None):
+        return wanted
+
+    # 2. The entries are season *pages*, which is how Mako publishes them -
+    #    "עונה 1" as a thing to open, with the number in the Hebrew title and
+    #    nowhere else. This is the path that worked before and still does.
+    if any("action=vod_show" in ((e.get("extra") or {}).get("url") or "")
+           for e in entries):
+        folder = _numbered(entries, _SEASON_WORD, season)
+        if folder is None:
+            return []
+        return extractors.episodes(
+            module, (folder.get("ids") or {}).get("vod", ""), mode) or []
+
+    # 3. Neither: the season has a page of its own that the programme page
+    #    does not link to. Kan is like this - קופה ראשית has six seasons and
+    #    its page carries episodes from one, five and six.
+    handler = extractors.module_for(module)
+    season_ref = getattr(handler, "season_ref", None)
+    if season_ref is None:
+        return []
+    try:
+        address = season_ref(ref, season)
+    except Exception:
+        return []
+    if not address:
+        return []
+    kodi.log("%s season %d is not on the programme page, asking %s"
+             % (module, season, address))
+    fetched = extractors.episodes(module, address, mode) or []
+    # Only what the season's own page says is in that season. A Kan season
+    # page carries a "watch" link and the odd neighbour, the same as the
+    # programme page does.
+    fetched = [entry for entry in fetched
+               if int(entry.get("season") or 0) in (0, season)]
+    # If the season's own page does not have it either, the entries we
+    # already had are the better answer than nothing - a programme whose
+    # seasons are numbered differently upstream still plays from the page
+    # the viewer would have browsed.
+    if episode and _numbered(fetched, _EPISODE_WORD, episode) is None and wanted:
+        return wanted
+    return fetched
+
+
 def _numbered(entries, pattern, wanted):
     """The entry whose Hebrew title carries this number, or None.
 
@@ -711,13 +787,12 @@ def _walk_to_episode(meta, broadcaster):
     entries = extractors.episodes(module, broadcaster["ref"], mode) or []
 
     season = int(meta.get("season") or 0)
-    if season and any("action=vod_show" in ((e.get("extra") or {}).get("url") or "")
-                      for e in entries):
-        folder = _numbered(entries, _SEASON_WORD, season)
-        if folder is None:
+    if season:
+        entries = _only_this_season(module, mode, broadcaster["ref"],
+                                    entries, season,
+                                    int(meta.get("episode") or 0))
+        if not entries:
             return ""
-        entries = extractors.episodes(
-            module, (folder.get("ids") or {}).get("vod", ""), mode) or []
 
     episode = int(meta.get("episode") or 0)
     if episode:
