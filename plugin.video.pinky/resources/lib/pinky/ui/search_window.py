@@ -68,6 +68,10 @@ MIN_QUERY = 2
 # this is what makes suggestions appear at all on Android, and it is cheap -
 # one `getText` on one control, and a changed value is what costs anything.
 POLL_SECONDS = 0.2
+# How long `close` waits for each worker. Short, because it runs on the GUI
+# thread and a window that takes a second to shut is a window that feels
+# broken; long enough for a worker between two cache reads to notice.
+CLOSE_WAIT_SECONDS = 0.5
 
 
 def _typed_character(action):
@@ -99,6 +103,11 @@ class SearchWindow(xbmcgui.WindowXML):
         self.lock = threading.Lock()
         self.ready = False
         self.stop = threading.Event()
+        # Every thread this window starts, so closing it can wait for them.
+        # Daemon threads alone were not enough: a daemon is killed when the
+        # *process* exits, and a Kodi plugin invocation lives on well past
+        # one window - and the test suite lives on for every remaining test.
+        self.workers = []
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -122,13 +131,40 @@ class SearchWindow(xbmcgui.WindowXML):
         # of them opens the PVR channel list. A remote presses OK on it and
         # gets Kodi's keyboard, which is where the microphone is.
         self.setFocusId(EDIT_QUERY)
-        watcher = threading.Thread(target=self._watch_field,
-                                   name="pinky-search-field")
-        watcher.daemon = True
-        watcher.start()
+        self._start(self._watch_field, "pinky-search-field")
+
+    def _start(self, target, name):
+        """Start a worker and remember it, so `close` can wait for it."""
+        thread = threading.Thread(target=target, name=name)
+        thread.daemon = True
+        with self.lock:
+            # Threads that have already finished are not worth keeping; a
+            # poller that runs for an hour would otherwise collect thousands.
+            self.workers = [t for t in self.workers if t.is_alive()]
+            self.workers.append(thread)
+        thread.start()
+        return thread
 
     def close(self):
+        """Stop, and wait for the workers before letting the window go.
+
+        The waiting is the part that matters. A worker inside `unified.search`
+        is inside the SQLite cache, and the profile that cache lives in is
+        swept away the moment this returns - by Kodi between invocations, and
+        by the test suite between tests. SQLite in WAL mode memory-maps its
+        -shm file, so reading one whose directory has gone is a SIGBUS on
+        Linux, which is how the 0.0.13 suite died in CI while every local run
+        on Windows passed: Windows refuses to delete a file still open.
+
+        Bounded, because this runs on the GUI thread: a search that is still
+        waiting on the network after this is left to its own stop checks.
+        """
         self.stop.set()
+        with self.lock:
+            workers = list(self.workers)
+        for thread in workers:
+            if thread.is_alive():
+                thread.join(CLOSE_WAIT_SECONDS)
         super(SearchWindow, self).close()
 
     def _watch_field(self):
@@ -292,7 +328,19 @@ class SearchWindow(xbmcgui.WindowXML):
         query = self.text
 
         def worker():
-            time.sleep(DEBOUNCE_SECONDS)
+            # **Waiting on the stop event rather than sleeping**, so closing
+            # the window ends the debounce instead of being discovered a
+            # quarter of a second later. These threads used to outlive the
+            # window entirely: the field poller starts one every 200 ms, and
+            # each went on to read the cache long after the screen was gone.
+            # On a device that is a leak; in the test suite, where every test
+            # gets a fresh profile, it was a crash - SQLite in WAL mode
+            # memory-maps its -shm file, and a thread reading one while the
+            # profile it lives in is swept away gets SIGBUS on Linux. That
+            # took the whole suite down in CI at 0.0.13 while every local run
+            # on Windows passed, because Windows refuses the delete instead.
+            if self.stop.wait(DEBOUNCE_SECONDS):
+                return
             with self.lock:
                 if generation != self.generation:
                     return                    # a newer keystroke won
@@ -302,14 +350,14 @@ class SearchWindow(xbmcgui.WindowXML):
             except Exception:
                 kodi.log_exception("suggestions failed")
                 results = []
+            if self.stop.is_set():
+                return
             with self.lock:
                 if generation != self.generation:
                     return
             self._render(results, kodi.localize(32297, len(results)))
 
-        thread = threading.Thread(target=worker)
-        thread.daemon = True
-        thread.start()
+        self._start(worker, "pinky-search-suggest")
 
     def _show_recent(self):
         """With no query, offer the last few searches as one-press repeats."""
@@ -372,12 +420,18 @@ class SearchWindow(xbmcgui.WindowXML):
             generation = self.generation
 
         def worker():
+            if self.stop.is_set():
+                return
             self._set_status(kodi.localize(32296))
             try:
                 results = unified.search(query)
             except Exception:
                 kodi.log_exception("search failed")
                 results = []
+            # Checked after the search as well as before it: a source search
+            # is seconds of network, and the window can close inside it.
+            if self.stop.is_set():
+                return
             with self.lock:
                 if generation != self.generation:
                     return              # something newer was typed meanwhile
@@ -386,9 +440,7 @@ class SearchWindow(xbmcgui.WindowXML):
             else:
                 self._render([], kodi.localize(32258))
 
-        thread = threading.Thread(target=worker, name="pinky-search")
-        thread.daemon = True
-        thread.start()
+        self._start(worker, "pinky-search")
 
     def _open_selected(self):
         try:

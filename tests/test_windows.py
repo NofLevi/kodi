@@ -1182,6 +1182,9 @@ def test_clearing_short_query_invalidates_inflight_suggestions(monkeypatch):
     release.set()
     time.sleep(0.02)
     assert window.entries == [{"type": "query", "title": "recent"}]
+    # Closed, so its suggestion worker does not outlive the test and read a
+    # cache whose profile the next teardown removes.
+    window.close()
 
 
 def test_back_still_leaves_when_the_switch_is_off(monkeypatch, settings_module):
@@ -1913,3 +1916,57 @@ def test_a_layout_already_there_is_not_written_again(monkeypatch,
 
     assert kodi.ensure_hebrew_keyboard() is False
     assert not [c for c in calls if c["method"] == "Settings.SetSettingValue"]
+
+
+# --------------------------------------------------------------------------
+# the workers must not outlive the window
+# --------------------------------------------------------------------------
+
+
+def test_closing_the_search_window_stops_its_workers(search):
+    """**This is what took the 0.0.13 release down.** The window's workers
+    were daemon threads that checked nothing, and the field poller starts one
+    every 200 ms - so they went on reading the SQLite cache long after the
+    screen was gone. A daemon dies when the *process* exits, and a Kodi
+    plugin invocation outlives a window by a long way.
+
+    In the suite it was worse than a leak. Every test gets a fresh profile
+    and the teardown removes it, and the cache is SQLite in WAL mode, which
+    memory-maps its -shm file: reading one whose directory has just gone is a
+    SIGBUS on Linux. The whole suite core-dumped in CI while every local run
+    on Windows passed, because Windows refuses to delete a file still open.
+    """
+    import threading as _threading
+
+    search._set_text("du")
+    search._submit()
+    search.close()
+    assert search.stop.is_set()
+    alive = [t.name for t in _threading.enumerate()
+             if (t.name or "").startswith("pinky-search") and t.is_alive()]
+    assert not alive, "these outlived the window: %s" % alive
+
+
+def test_a_worker_started_before_closing_does_not_render_after(search):
+    """The stop flag is checked after the search as well as before it: a
+    source search is seconds of network and the window can close inside it."""
+    search.stop.set()
+    rendered = []
+    search._render = lambda results, status: rendered.append(status)
+    search._set_text("dune")
+    search._submit()
+    for thread in list(search.workers):
+        thread.join(2.0)
+    assert rendered == []
+
+
+def test_the_field_watcher_ends_when_the_window_closes(search):
+    """It waits on the stop event rather than sleeping, so closing ends the
+    poll immediately instead of up to a tick later."""
+    import threading as _threading
+
+    assert any((t.name or "") == "pinky-search-field"
+               for t in _threading.enumerate())
+    search.close()
+    assert not any((t.name or "") == "pinky-search-field" and t.is_alive()
+                   for t in _threading.enumerate())

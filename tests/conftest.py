@@ -5,6 +5,7 @@ errors, typos in Kodi API calls and settings drift without a Kodi install.
 """
 import os
 import shutil
+import threading
 import sys
 
 import pytest
@@ -100,6 +101,23 @@ def kodi_environment(tmp_path):
     yield
 
     monkeypatch.undo()
+    # **Wait for the add-on's own threads before the profile is swept.**
+    # A window's worker outliving its test is not a tidiness problem: the
+    # cache it reads is SQLite in WAL mode, which memory-maps its -shm file,
+    # and reading one whose directory has just been removed is a SIGBUS on
+    # Linux. That is what killed the whole suite in CI at 0.0.13 - a search
+    # worker still inside `unified.search` while this line ran - and every
+    # local run on Windows passed, because Windows refuses to delete a file
+    # that is still open and the failure is caught.
+    #
+    # Named threads only, and briefly: this is a safety net under the
+    # windows' own `close`, not a substitute for it, and a test that leaks a
+    # thread should be slow here rather than take the next test down.
+    for thread in threading.enumerate():
+        if thread is threading.current_thread():
+            continue
+        if (thread.name or "").startswith("pinky-"):
+            thread.join(2.0)
     cache.close()
     shutil.rmtree(str(profile), ignore_errors=True)
 
