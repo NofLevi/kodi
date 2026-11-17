@@ -122,6 +122,10 @@ class HomeWindow(xbmcgui.WindowXML):
         self.ready = True
         self._continue_seen = _continue_signature()
         self._downloads_seen = _downloads_signature()
+        # Before the first draw, not only on a later one: a resume point
+        # saved while the window was shut is exactly the case where the
+        # cached "nothing here" is wrong and nothing else would notice.
+        self._reconcile_local_rows()
 
         # This used to close on the spot when there was no TMDB key, and offer
         # the wizard instead, because "almost every row is unavailable" and
@@ -458,7 +462,37 @@ class HomeWindow(xbmcgui.WindowXML):
         kodi.log("reloading the %s section" % self.section)
         self._rebuild()
 
+    def _reconcile_local_rows(self):
+        """Forget a cached "nothing here" that the files on disk contradict.
+
+        Continue Watching and Downloaded are built from `bookmarks.json` and
+        `downloads.json`, and `catalog.load` remembers an empty answer for
+        five minutes the way it does for any row - which is right for a row
+        that asks somebody else's API and wrong for one that reads a file
+        this process just wrote. Stop something, go back to the menu, and the
+        row stayed empty until that expired: "I started and stopped it and
+        Continue Watching is not there."
+
+        `_refresh_row` already invalidates, but only `onInit` calls it, so
+        every other way of redrawing - opening the window, switching tab -
+        went on reading the stale nothing. This asks the only question that
+        matters, and asks it of the cache rather than of the network: the
+        file says there is something and the cache says there is not.
+        """
+        for row_id, signature in (("continue", _continue_signature()),
+                                  ("downloaded", _downloads_signature())):
+            if not signature:
+                continue
+            try:
+                if catalog.peek(row_id, section=self.section) == []:
+                    kodi.log("home: %s is cached empty but the file is not, "
+                             "so asking again" % row_id)
+                    catalog.invalidate(row_id)
+            except Exception:
+                kodi.log_exception("could not reconcile the %s row" % row_id)
+
     def _rebuild(self):
+        self._reconcile_local_rows()
         with self.lock:
             self.generation += 1
             self.loading.clear()

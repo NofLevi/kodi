@@ -1970,3 +1970,88 @@ def test_the_field_watcher_ends_when_the_window_closes(search):
     search.close()
     assert not any((t.name or "") == "pinky-search-field" and t.is_alive()
                    for t in _threading.enumerate())
+
+
+# --------------------------------------------------------------------------
+# a cached "nothing here" that the file on disk contradicts
+# --------------------------------------------------------------------------
+
+
+def _bare_window(section="movies"):
+    """The window without its skin: these are data decisions, not drawing."""
+    from pinky.ui import home_window
+
+    window = object.__new__(home_window.HomeWindow)
+    window.section = section
+    return window
+
+
+def test_a_resume_point_is_not_hidden_by_a_cached_empty_row(monkeypatch):
+    """Stop something, go back to the menu, and the row stayed empty.
+
+    `catalog.load` remembers an empty answer for five minutes, which is
+    right for a row that asks somebody else's API and wrong for one that
+    reads a file this process just wrote. Only `onInit` invalidated it, so
+    opening the window or switching tab went on reading the stale nothing.
+    """
+    from pinky import catalog
+    from pinky.ui import home_window
+
+    monkeypatch.setattr(home_window, "_continue_signature",
+                        lambda: ("episode:tmdb:1:1:3",))
+    monkeypatch.setattr(home_window, "_downloads_signature", lambda: ())
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: [])
+    forgotten = []
+    monkeypatch.setattr(catalog, "invalidate", forgotten.append)
+
+    _bare_window()._reconcile_local_rows()
+    assert forgotten == ["continue"]
+
+
+def test_a_row_the_cache_agrees_with_is_left_alone(monkeypatch):
+    """No cost when the two agree, which is almost always."""
+    from pinky import catalog
+    from pinky.ui import home_window
+
+    monkeypatch.setattr(home_window, "_continue_signature",
+                        lambda: ("episode:tmdb:1:1:3",))
+    monkeypatch.setattr(home_window, "_downloads_signature", lambda: ())
+    monkeypatch.setattr(catalog, "peek",
+                        lambda row_id, section=None: [{"title": "x"}])
+    forgotten = []
+    monkeypatch.setattr(catalog, "invalidate", forgotten.append)
+
+    _bare_window()._reconcile_local_rows()
+    assert forgotten == []
+
+
+def test_a_cold_cache_is_not_invalidated(monkeypatch):
+    """None means "never warmed", and the window fetches it live anyway."""
+    from pinky import catalog
+    from pinky.ui import home_window
+
+    monkeypatch.setattr(home_window, "_continue_signature",
+                        lambda: ("episode:tmdb:1:1:3",))
+    monkeypatch.setattr(home_window, "_downloads_signature", lambda: ())
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: None)
+    forgotten = []
+    monkeypatch.setattr(catalog, "invalidate", forgotten.append)
+
+    _bare_window()._reconcile_local_rows()
+    assert forgotten == []
+
+
+def test_nothing_on_disk_asks_nothing(monkeypatch):
+    """An empty file and an empty row agree, and a row nobody has anything
+    for must not be re-fetched on every redraw."""
+    from pinky import catalog
+    from pinky.ui import home_window
+
+    monkeypatch.setattr(home_window, "_continue_signature", lambda: ())
+    monkeypatch.setattr(home_window, "_downloads_signature", lambda: ())
+    monkeypatch.setattr(catalog, "peek", lambda row_id, section=None: [])
+    forgotten = []
+    monkeypatch.setattr(catalog, "invalidate", forgotten.append)
+
+    _bare_window()._reconcile_local_rows()
+    assert forgotten == []
