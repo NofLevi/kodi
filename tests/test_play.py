@@ -973,6 +973,12 @@ def _mako_entries(module, ref, mode=""):
                  "extra": {"url": "plugin://x/?action=vod_show&ref=ramzor-s%d" % n}}
                 for n in (1, 2, 3, 4)]
     season = ref[-1]
+    if season not in "1234":
+        # Mako answers a season it does not have with nothing, and the
+        # fixture used to answer every season address alike - which made a
+        # walk that correctly gave up look like one that had found season
+        # nine.
+        return []
     return [{"title": u"פרק %d 07.04.08 כותרת" % n,
              "ids": {"vod": "vod-%s-%d" % (season, n)},
              "extra": {"url": "plugin://x/?action=play_vod&ref=vod-%s-%d" % (season, n)}}
@@ -1586,3 +1592,95 @@ def test_the_catalogue_lookup_still_answers_with_one(no_network):
     found = play._vod_alternative({"original_title": u"רמזור",
                                    "original_language": "he"})
     assert found and found["module"] == "keshet"
+
+
+def test_a_clip_named_after_a_season_is_not_a_season(no_network, monkeypatch):
+    """"עונה 3 | כולם רוצים להיות..." is a clip, and it sat beside the real
+    season-three folder on לבד בבית.
+
+    Searching every entry for the season word found two things claiming
+    season three, the walk rightly refused to choose between them, and
+    season three became unreachable. Only the folders are seasons.
+    """
+    from pinky.vod import extractors
+    from pinky.vod.extractors import kan
+
+    def listing(module, ref, mode=""):
+        if ref.endswith("/s3/"):
+            return [{"title": u"פרק 1", "season": 3, "episode": 1,
+                     "ids": {"vod": "/p-9/s3/1/"},
+                     "extra": {"url":
+                               "plugin://x/?action=play_vod&ref=/p-9/s3/1/"}}]
+        return [
+            {"title": u"עונה 3", "ids": {"vod": "/p-9/s3/"},
+             "extra": {"url": "plugin://x/?action=vod_show&ref=/p-9/s3/"}},
+            {"title": u"עונה 4", "ids": {"vod": "/p-9/s4/"},
+             "extra": {"url": "plugin://x/?action=vod_show&ref=/p-9/s4/"}},
+            {"title": u"עונה 3 | כולם רוצים להיות", "season": 0,
+             "ids": {"vod": "/p-9/777/"},
+             "extra": {"url": "plugin://x/?action=play_vod&ref=/p-9/777/"}},
+        ]
+
+    monkeypatch.setattr(extractors, "episodes", listing)
+    monkeypatch.setattr(extractors, "module_for", lambda name: kan)
+    monkeypatch.setattr(kan, "season_ref", lambda ref, season:
+                        ref.rstrip("/") + "/s%d/" % season)
+    url = play._walk_to_episode(
+        {"season": 3, "episode": 1},
+        {"title": u"לבד בבית", "studio": u"כאן", "module": "kan",
+         "ref": "https://www.kankids.org.il/content/kids/p-9/", "mode": "",
+         "url": "plugin://x/?action=vod_show"})
+    assert "/p-9/s3/1/" in urllib.parse.unquote(url)
+
+
+def test_a_missing_folder_falls_through_to_the_seasons_own_page(
+        no_network, monkeypatch):
+    """A broadcaster can list some seasons and keep others at their own
+    address, so one missing folder is not a missing season.
+
+    Returning at that point is what made the folder list the end of the
+    search rather than one way of looking.
+    """
+    from pinky.vod import extractors
+    from pinky.vod.extractors import kan
+
+    def listing(module, ref, mode=""):
+        if ref.endswith("/s7/"):
+            return [{"title": u"פרק 2", "season": 7, "episode": 2,
+                     "ids": {"vod": "/p-9/s7/2/"},
+                     "extra": {"url":
+                               "plugin://x/?action=play_vod&ref=/p-9/s7/2/"}}]
+        return [{"title": u"עונה 1", "ids": {"vod": "/p-9/s1/"},
+                 "extra": {"url":
+                           "plugin://x/?action=vod_show&ref=/p-9/s1/"}}]
+
+    monkeypatch.setattr(extractors, "episodes", listing)
+    monkeypatch.setattr(extractors, "module_for", lambda name: kan)
+    monkeypatch.setattr(kan, "season_ref", lambda ref, season:
+                        ref.rstrip("/") + "/s%d/" % season)
+    url = play._walk_to_episode(
+        {"season": 7, "episode": 2},
+        {"title": u"x", "studio": u"כאן", "module": "kan",
+         "ref": "https://www.kankids.org.il/content/kids/p-9/", "mode": "",
+         "url": "plugin://x/?action=vod_show"})
+    assert "/p-9/s7/2/" in urllib.parse.unquote(url)
+
+
+def test_a_page_of_seasons_alone_is_not_an_episode(no_network, monkeypatch):
+    """Where every entry is a folder there is no episode to be the one that
+    was pressed, and handing the folder list back would answer "play episode
+    one" with a list of seasons."""
+    from pinky.vod import extractors
+    from pinky.vod.extractors import kan
+
+    folders = [{"title": u"עונה 1", "ids": {"vod": "/p-9/s1/"},
+                "extra": {"url": "plugin://x/?action=vod_show&ref=/p-9/s1/"}}]
+    monkeypatch.setattr(extractors, "episodes",
+                        lambda module, ref, mode="": folders)
+    monkeypatch.setattr(extractors, "module_for", lambda name: kan)
+    monkeypatch.setattr(kan, "season_ref", lambda ref, season: "")
+    assert play._walk_to_episode(
+        {"season": 9, "episode": 1},
+        {"title": u"x", "studio": u"כאן", "module": "kan",
+         "ref": "https://www.kankids.org.il/content/kids/p-9/", "mode": "",
+         "url": "plugin://x/?action=vod_show"}) == ""

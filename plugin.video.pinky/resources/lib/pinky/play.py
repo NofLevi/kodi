@@ -689,13 +689,27 @@ def _only_this_season(module, mode, ref, entries, season, episode=0):
     # 2. The entries are season *pages*, which is how Mako publishes them -
     #    "עונה 1" as a thing to open, with the number in the Hebrew title and
     #    nowhere else. This is the path that worked before and still does.
-    if any("action=vod_show" in ((e.get("extra") or {}).get("url") or "")
-           for e in entries):
-        folder = _numbered(entries, _SEASON_WORD, season)
-        if folder is None:
-            return []
-        return extractors.episodes(
-            module, (folder.get("ids") or {}).get("vod", ""), mode) or []
+    #
+    #    **Only the folders are asked**, because a clip is not a season. "לבד
+    #    בבית" lists five season folders and, among its extras, one called
+    #    "עונה 3 | כולם רוצים להיות..." - so searching every entry for the
+    #    season word found two things claiming season three, `_numbered`
+    #    rightly refused to choose, and season three became unreachable.
+    folders = [entry for entry in entries
+               if "action=vod_show" in ((entry.get("extra") or {}).get("url")
+                                        or "")]
+    if folders:
+        folder = _numbered(folders, _SEASON_WORD, season)
+        if folder is not None:
+            found = extractors.episodes(
+                module, (folder.get("ids") or {}).get("vod", ""), mode) or []
+            if found:
+                return found
+    # No folder for it, or the folder was empty. That is not the end of the
+    # search: a broadcaster can both list some seasons and keep others at an
+    # address of their own, so this falls through rather than giving up -
+    # returning here is what made one missing folder look like a missing
+    # season.
 
     # 3. Neither: the season has a page of its own that the programme page
     #    does not link to. Kan is like this - קופה ראשית has six seasons and
@@ -742,11 +756,20 @@ def _only_this_season(module, mode, ref, entries, season, episode=0):
     #    the episode number decides on its own. That is not a guess: the
     #    caller takes an entry only when **exactly one** carries the number
     #    (`_episode_numbered`), so a flat page holding several seasons'
-    #    worth - two rows both saying "פרק 5" - is still refused rather than guessed at.
-    if not any(int(entry.get("season") or 0) for entry in entries):
+    #    worth - two rows both saying "פרק 5" - is still refused rather than
+    #    guessed at.
+    #
+    #    The episodes, not the folders: a page that offers only seasons to
+    #    open has no episode on it to be the one that was pressed, and
+    #    handing the folder list back would be answering a press for episode
+    #    one with a list of seasons.
+    playable = [entry for entry in entries
+                if entry not in folders]
+    if playable and not any(int(entry.get("season") or 0)
+                            for entry in playable):
         kodi.log("%s numbers no season, so season %d is the only one there is"
                  % (module, season))
-        return entries
+        return playable
     return []
 
 

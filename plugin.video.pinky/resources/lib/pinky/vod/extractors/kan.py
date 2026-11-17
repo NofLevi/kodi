@@ -98,7 +98,79 @@ def episodes(ref, mode=""):
             kodi.log("kan: single video page, matched via %s" % strategy)
             found.append(_direct_item(url, html))
 
+    # **A Kan programme page shows one season and links to the rest**, and
+    # only the episodes it shows were ever listed. קופה ראשית has six, its
+    # page carries episodes from one, five and six, and the browse screen
+    # offered "עונה 1" holding a single entry - the stray "לצפייה" link -
+    # beside עונה 5 and עונה 6, with seasons two, three and four nowhere at
+    # all. `play._only_this_season` had already been taught to go and fetch
+    # a season the page does not list; the screen somebody browses had not.
+    #
+    # The page says so itself, in a `program-season-tab` anchor per season,
+    # so this needs no probing and no extra request. Published the way Mako
+    # publishes its seasons - as pages to open rather than things to play -
+    # because both the folder builder in `ui.handlers` and the season walk
+    # in `play.py` already know that shape and neither needs telling.
+    if not _SEASON_IN_URL.search(url):
+        seasons = _season_tabs(html, url)
+        if len(seasons) > 1:
+            kodi.log("kan: %d seasons linked from %s"
+                     % (len(seasons), page._host(url)))
+            # What belongs to a season now lives in that season's folder.
+            # What belongs to none - a trailer, a clip show, "the best of
+            # season 5" - is still shown underneath, which is where the
+            # programme page itself puts it.
+            found = (_season_items(seasons, found)
+                     + [item for item in found if not item.get("season")])
+
     return found
+
+
+# A season tab on a Kan programme page: one anchor per season, carrying the
+# season's own address and its Hebrew name.
+_SEASON_TAB = re.compile(
+    r'(<a[^>]*class="[^"]*program-season-tab[^"]*"[^>]*>)(.*?)</a>',
+    re.S | re.I)
+_HREF = re.compile(r'href="([^"]+)"', re.I)
+
+
+def _season_tabs(html, url):
+    """(number, address, name) for every season the page links to."""
+    found, seen = [], set()
+    for tag, label in _SEASON_TAB.findall(html or ""):
+        href = _HREF.search(tag)
+        if not href:
+            continue
+        address = page.absolute(href.group(1), url)
+        number = _season_of(address)
+        if not number or number in seen:
+            continue
+        seen.add(number)
+        found.append((number, address, page.plain_text(label)))
+    return sorted(found)
+
+
+def _season_items(seasons, episodes_found):
+    """One folder per season, to be opened rather than played.
+
+    The season number is deliberately left unset. `ui.handlers._group_folders`
+    groups *episodes* into seasons, and these are already seasons - numbering
+    them would have it build a folder per folder. Mako's season pages are
+    published the same way for the same reason.
+    """
+    art = {}
+    for item in episodes_found:
+        art = item.get("art") or {}
+        if art.get("poster"):
+            break
+    return [items.new_item(
+        "vod",
+        ids={"vod": address},
+        title=label or (u"עונה %d" % number),
+        art={"poster": art.get("poster", ""), "thumb": art.get("thumb", "")},
+        extra={"url": router.url_for("vod_show", module="kan", ref=address),
+               "module": "kan", "ref": address},
+    ) for number, address, label in seasons]
 
 
 # Kan puts the season in the address and nowhere else: an episode of "מהצד

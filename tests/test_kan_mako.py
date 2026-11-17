@@ -366,3 +366,94 @@ def test_the_station_article_is_still_excluded_from_any_tree(monkeypatch):
     monkeypatch.setattr(http, "get", lambda url, **kw: Response(DIG_PAGE))
     refs = [item["extra"]["ref"] for item in kan.episodes(DIG_PROGRAMME)]
     assert not any("radio_articles" in ref for ref in refs)
+
+
+# --------------------------------------------------------------------------
+# the seasons a Kan programme page links to but does not show
+# --------------------------------------------------------------------------
+
+SEASON_TABS = u"""
+<section class="program-seasons">
+  <div class="program-seasons-track">
+    <div class="program-seasons-item">
+      <a class="program-season-tab is-active"
+         href="https://www.kan.org.il/content/kan/kan-11/p-1/s6/"
+         aria-current="page">עונה 6</a>
+    </div>
+    <div class="program-seasons-item">
+      <a class="program-season-tab"
+         href="https://www.kan.org.il/content/kan/kan-11/p-1/s5/">עונה 5</a>
+    </div>
+    <div class="program-seasons-item">
+      <a class="program-season-tab"
+         href="https://www.kan.org.il/content/kan/kan-11/p-1/s1/">עונה 1</a>
+    </div>
+  </div>
+</section>
+<a href="https://www.kan.org.il/content/kan/kan-11/p-1/s6/9001/">
+  <h3 class="cr-title">פרק 1</h3></a>
+<a href="https://www.kan.org.il/content/kan/kan-11/p-1/8001/">
+  <h3 class="cr-title">טריילר</h3></a>
+"""
+
+
+def test_a_programme_opens_on_every_season_it_links_to(monkeypatch):
+    """The page shows one season and links to the rest.
+
+    קופה ראשית has six, its page carries episodes from one, five and six,
+    and the browse screen offered "עונה 1" holding a single stray entry with
+    seasons two, three and four nowhere at all.
+    """
+    monkeypatch.setattr(http, "get",
+                        lambda url, **kw: Response(SEASON_TABS))
+    found = kan.episodes("https://www.kan.org.il/content/kan/kan-11/p-1/")
+    folders = [item for item in found
+               if "action=vod_show" in ((item.get("extra") or {}).get("url")
+                                        or "")]
+    assert [item["title"] for item in folders] == [u"עונה 1", u"עונה 5",
+                                                   u"עונה 6"]
+    assert [(item.get("ids") or {}).get("vod") for item in folders] == [
+        "https://www.kan.org.il/content/kan/kan-11/p-1/s1/",
+        "https://www.kan.org.il/content/kan/kan-11/p-1/s5/",
+        "https://www.kan.org.il/content/kan/kan-11/p-1/s6/"]
+
+
+def test_what_belongs_to_no_season_is_still_shown(monkeypatch):
+    """A trailer or a clip show belongs to no season, and the programme page
+    puts it underneath the seasons rather than throwing it away."""
+    monkeypatch.setattr(http, "get",
+                        lambda url, **kw: Response(SEASON_TABS))
+    found = kan.episodes("https://www.kan.org.il/content/kan/kan-11/p-1/")
+    loose = [item["title"] for item in found
+             if "action=play_vod" in ((item.get("extra") or {}).get("url")
+                                      or "")]
+    # The season-six episode now lives in its folder; the trailer has no
+    # season and stays.
+    assert loose == [u"טריילר"]
+
+
+def test_a_season_page_does_not_fold_into_seasons_again(monkeypatch):
+    """A season page carries the same tabs, and folding there would offer a
+    folder that opens a folder for ever."""
+    monkeypatch.setattr(http, "get",
+                        lambda url, **kw: Response(SEASON_TABS))
+    found = kan.episodes("https://www.kan.org.il/content/kan/kan-11/p-1/s6/")
+    assert all("action=play_vod" in ((item.get("extra") or {}).get("url") or "")
+               for item in found)
+
+
+def test_one_season_is_not_a_folder(monkeypatch):
+    """A programme with a single tab is the flat list it always was."""
+    one = SEASON_TABS.split(u'<div class="program-seasons-item">')[0] + u"""
+      <div class="program-seasons-item">
+        <a class="program-season-tab"
+           href="https://www.kan.org.il/content/kan/kan-11/p-1/s1/">עונה 1</a>
+      </div></div></section>
+    <a href="https://www.kan.org.il/content/kan/kan-11/p-1/8001/">
+      <h3 class="cr-title">פרק 1</h3></a>
+    """
+    monkeypatch.setattr(http, "get", lambda url, **kw: Response(one))
+    found = kan.episodes("https://www.kan.org.il/content/kan/kan-11/p-1/")
+    assert found and not any(
+        "action=vod_show" in ((item.get("extra") or {}).get("url") or "")
+        for item in found)
