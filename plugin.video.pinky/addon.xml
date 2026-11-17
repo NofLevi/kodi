@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.pinky"
        name="Pinky"
-       version="0.0.15"
+       version="0.0.16"
        provider-name="pinky">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -37,15 +37,12 @@
             <icon>resources/media/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>v0.0.15
-- Kan works again on the box. Every Kan programme was being turned away on
-  a television while working perfectly on a PC, so all of Kan - including
-  the children's channel - showed nothing at all.
-- Pressing an episode plays that episode. A press on season 4 could start
-  season 6's, and a programme whose broadcaster numbers only the episodes
-  would not start anything.
-- Episode names are read right. A name that was really a note about next
-  season was counting as an episode and hiding the real one.
-- Two programmes with the same name no longer play each other's episodes.</news>
+        <news>v0.0.16
+- Every season of a Kan programme is there now. A programme page shows one
+  season and links to the rest, and only the one it showed was listed - so
+  a show with six seasons offered three, one of them holding nothing.
+- Continue Watching appears as soon as you stop. It could stay empty for
+  five minutes after a resume point was saved. Note that stopping in the
+  first minute still saves nothing, which is deliberate.</news>
     </extension>
 </addon>
