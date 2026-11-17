@@ -291,8 +291,16 @@ def context_menu(item):
     return entries
 
 
-def add_items(handle, item_list, content=None, sort_methods=None, cache_to_disc=True):
-    """Render a list of media items as a Kodi directory in one batch call."""
+def add_items(handle, item_list, content=None, sort_methods=None,
+              cache_to_disc=True, label_for=None):
+    """Render a list of media items as a Kodi directory in one batch call.
+
+    `label_for` overrides the label per item, for a caller that knows
+    something about the context the item is drawn in - a row mixes shows, so
+    an episode there is labelled with the show it belongs to. A callable
+    rather than a parallel list of labels, because items are skipped here
+    (a watched one, one with no url) and the two would drift apart.
+    """
     if not item_list:
         end(handle, content=content)
         return 0
@@ -305,7 +313,7 @@ def add_items(handle, item_list, content=None, sort_methods=None, cache_to_disc=
         url, is_folder = target_url(item)
         if not url:
             continue
-        li = make_list_item(item)
+        li = make_list_item(item, label_for(item) if label_for else None)
         if not is_folder:
             li.setProperty("IsPlayable", "true")
         menu = context_menu(item)

@@ -2055,3 +2055,79 @@ def test_nothing_on_disk_asks_nothing(monkeypatch):
 
     _bare_window()._reconcile_local_rows()
     assert forgotten == []
+
+
+# --------------------------------------------------------------------------
+# an episode in a row that mixes shows
+# --------------------------------------------------------------------------
+
+
+def _episode(**extra):
+    item = {"type": "episode", "title": u"אמון", "show_title": u"טייסון",
+            "season": 1, "episode": 3}
+    item.update(extra)
+    return item
+
+
+def test_a_row_names_the_show_an_episode_belongs_to():
+    """Continue Watching said "1x03. אמון" for an episode of טייסון.
+
+    That is the episode's own name and nothing to say what it belongs to,
+    which in a row that mixes shows is the part somebody recognises.
+    """
+    from pinky.meta import items
+
+    assert items.row_label(_episode()) == u"טייסון: 1x03 אמון"
+
+
+def test_an_episode_list_is_left_as_it_was():
+    """Inside a season the show is the heading above the list, so repeating
+    it on every line would be noise."""
+    from pinky.meta import items
+
+    assert items.label(_episode()) == u"1x03. אמון"
+
+
+def test_an_episode_with_no_show_name_falls_back():
+    from pinky.meta import items
+
+    assert items.row_label(_episode(show_title="")) == u"1x03. אמון"
+
+
+def test_a_film_in_a_row_is_unchanged():
+    from pinky.meta import items
+
+    film = {"type": "movie", "title": u"האודיסאה", "year": 2026}
+    assert items.row_label(film) == items.label(film)
+
+
+def test_the_hero_puts_the_show_on_the_big_line():
+    """The hero read "אמון" over a description of Mike Tyson."""
+    from pinky.ui import home_window
+
+    assert home_window._hero_title(_episode()) == u"טייסון"
+    meta = home_window._hero_meta(_episode(year=2026))
+    # The name alone: a number beside it is torn to the far end of a Hebrew
+    # line by Kodi's left-to-right layout, and the poster caption carries it.
+    assert meta.startswith(u"אמון")
+    assert "1x03" not in meta
+    assert "2026" in meta
+
+
+def test_the_hero_does_not_print_the_episode_name_twice():
+    """With no show to take the line above, the title stays the episode's
+    own name and the grey line must not repeat it."""
+    from pinky.ui import home_window
+
+    item = _episode(show_title="")
+    assert home_window._hero_title(item) == u"אמון"
+    assert u"אמון" not in home_window._hero_meta(item)
+
+
+def test_a_film_hero_is_unchanged():
+    from pinky.ui import home_window
+
+    film = {"type": "movie", "title": u"האודיסאה", "year": 2026,
+            "rating": 8.0}
+    assert home_window._hero_title(film) == u"האודיסאה"
+    assert home_window._hero_meta(film).startswith("2026")

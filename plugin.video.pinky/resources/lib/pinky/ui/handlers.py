@@ -210,9 +210,12 @@ def row(params):
     entries = catalog.load(row_id, page=page)
     if not entries:
         kodi.notify(kodi.localize(32257))
-    from ..meta import trakt_state
+    from ..meta import items as meta_items, trakt_state
     trakt_state.annotate(entries)
-    listing.add_items(handle, entries)
+    # A row mixes shows, so an episode is labelled with the one it belongs to
+    # - the same reason the custom window does it. Episode *lists* keep the
+    # plain numbering, because there the show is the heading above them.
+    listing.add_items(handle, entries, label_for=meta_items.row_label)
     if entries and catalog.has_more(row_id):
         listing.add_directory(
             handle,

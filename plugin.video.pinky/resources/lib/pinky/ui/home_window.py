@@ -632,7 +632,9 @@ class HomeWindow(xbmcgui.WindowXML):
             self.pages[index] = 1
             control = self.getControl(LIST_BASE + index)
             control.reset()
-            control.addItems([listing.make_list_item(item) for item in entries])
+            control.addItems([
+                listing.make_list_item(item, items.row_label(item))
+                for item in entries])
         except Exception:
             kodi.log_exception("failed to fill home row %d" % index)
             self._set_title(index, "")
@@ -797,7 +799,8 @@ class HomeWindow(xbmcgui.WindowXML):
                 before = control.getSelectedPosition()
                 self.data[index] = self.data.get(index, []) + fresh
                 control.addItems(
-                    [listing.make_list_item(item) for item in fresh])
+                    [listing.make_list_item(item, items.row_label(item))
+                     for item in fresh])
                 # Unconditionally, and this is the whole fix. Both addItems
                 # and selectItem post *thread messages* rather than acting on
                 # the control there and then, so getSelectedPosition() right
@@ -847,7 +850,7 @@ class HomeWindow(xbmcgui.WindowXML):
 
     def _show_hero(self, item):
         art = item.get("art") or {}
-        self.setProperty("pinky.hero.title", item.get("title") or "")
+        self.setProperty("pinky.hero.title", _hero_title(item))
         self.setProperty("pinky.hero.plot", item.get("plot") or "")
         # Only a real backdrop goes behind the hero. Falling back to the poster
         # stretches a portrait image, or a channel logo, across the whole
@@ -1013,9 +1016,33 @@ def _pick_rows(section=catalog.HOME):
     return rows[:ROW_SLOTS]
 
 
+def _hero_title(item):
+    """The big line: the show, where there is one.
+
+    An episode's `title` is the episode's own name, so the hero read "אמון"
+    over a description of Mike Tyson and nothing on the screen said which
+    programme that was. The show is what somebody recognises; the episode
+    moves to the grey line below, which has room for it.
+    """
+    if item.get("type") == "episode" and (item.get("show_title") or "").strip():
+        return item["show_title"].strip()
+    return item.get("title") or ""
+
+
 def _hero_meta(item):
     """The small grey line under the hero title."""
     bits = []
+    # The episode's own name, because the line above it is now the show's.
+    # Only its name: "1x03" beside it was tried and Kodi's left-to-right
+    # layout tore the pair apart, putting the number at the far end of a
+    # Hebrew line with three bullets between it and the title it belonged to.
+    # The number is already under the poster the viewer is looking at, in a
+    # label that is one run and survives, so printing it twice bought a
+    # reordering bug and nothing else.
+    if (item.get("type") == "episode"
+            and (item.get("show_title") or "").strip()
+            and (item.get("title") or "").strip()):
+        bits.append(item["title"].strip())
     if item.get("year"):
         bits.append(str(item["year"]))
     if item.get("rating"):

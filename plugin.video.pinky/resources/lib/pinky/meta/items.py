@@ -130,6 +130,27 @@ def display_title(item):
     return original if language == spoken else title
 
 
+def row_label(item):
+    """The label for an item drawn in a row that mixes shows.
+
+    `label` numbers an episode and names it - "1x03. אמון" - which is right
+    inside a season's own list, where the show is the heading above it. In
+    Continue Watching there is no such heading, and the row said "1x03. אמון"
+    for an episode of טייסון: the episode's own name and nothing to say what
+    it belongs to. The show is the part somebody recognises, so it goes
+    first and the episode follows it.
+    """
+    if item.get("type") != "episode":
+        return label(item)
+    show = (item.get("show_title") or "").strip()
+    if not show:
+        return label(item)
+    head = "%s: %dx%02d" % (show, item.get("season") or 0,
+                            item.get("episode") or 0)
+    title = (item.get("title") or "").strip()
+    return "%s %s" % (head, title) if title else head
+
+
 def label(item):
     """The one-line label shown in a list.
 

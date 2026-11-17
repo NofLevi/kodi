@@ -37,20 +37,28 @@
         <control type="group">
             <left>300</left>
             <top>96</top>
-            <width>770</width>
-            <!-- The tallest thing inside ends at 202 (plot at 118 + 84),
-                 so this is the content height rather than a reserved block.
+            <width>950</width>
+            <!-- The tallest thing inside ends at 214 (plot at 106 + 108), so
+                 this is the content height rather than a reserved block, and
+                 the rows below start at 330 whatever happens here.
+
                  It was 350, then 290 with a 160px plot: a description nobody
                  reads twice was the largest thing on a screen whose job is
-                 choosing something else. -->
+                 choosing something else. That went too far the other way - a
+                 three-line box cut most plots mid-sentence - so the plot got
+                 a fourth line and 180 more pixels of width, and paid for the
+                 line out of the heading above it rather than out of the
+                 posters below. 950 and not wider because the fanart's
+                 subject sits to the right of it and white text over a face
+                 is worse than a shorter line. -->
             <height>214</height>
             <visible>!String.IsEmpty(Window.Property(pinky.hero.title))</visible>
 
             <control type="label">
                 <left>0</left>
                 <top>0</top>
-                <width>770</width>
-                <height>70</height>
+                <width>950</width>
+                <height>62</height>
                 <font>font30_title</font>
                 <textcolor>white</textcolor>
                 <shadowcolor>black</shadowcolor>
@@ -59,21 +67,37 @@
 
             <control type="label">
                 <left>0</left>
-                <top>72</top>
-                <width>770</width>
+                <top>64</top>
+                <width>950</width>
                 <height>34</height>
                 <font>font13</font>
                 <textcolor>grey</textcolor>
+                <shadowcolor>black</shadowcolor>
                 <label>$INFO[Window.Property(pinky.hero.meta)]</label>
             </control>
 
+            <!-- **A whole number of lines.** At font13 a Hebrew line is 34
+                 high, and 108 is three of them plus a fifth of a fourth -
+                 which Kodi draws and then clips through the middle of the
+                 glyphs. The old 84 did the same thing one line earlier, and
+                 a sentence sliced in half horizontally is what "the
+                 description needs more room" looked like on the screen.
+
+                 102 is exactly three. A fourth will not fit: the rows begin
+                 at 330 and taking a line from them to give to a synopsis is
+                 the trade this screen already decided against. What a long
+                 description gets instead is autoscroll, which costs no space
+                 at all - it waits six seconds so a glance is never chasing
+                 moving text, then walks through the rest. -->
             <control type="textbox">
                 <left>0</left>
-                <top>118</top>
-                <width>770</width>
-                <height>84</height>
+                <top>106</top>
+                <width>950</width>
+                <height>102</height>
                 <font>font13</font>
                 <textcolor>white</textcolor>
+                <shadowcolor>black</shadowcolor>
+                <autoscroll time="2600" delay="6000" repeat="9000">true</autoscroll>
                 <label>$INFO[Window.Property(pinky.hero.plot)]</label>
             </control>
         </control>
