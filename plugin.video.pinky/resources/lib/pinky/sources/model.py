@@ -273,6 +273,25 @@ def _collapse(sources, key_of):
         if existing.get("file_index") is None and source.get("file_index") is not None:
             existing["file_index"] = source["file_index"]
             existing["file_name"] = source.get("file_name", "")
+        # **The audio tracks a provider states, which only one of them does.**
+        # Torrentio writes "Multi Audio" and a flag per track; TorrentsDB
+        # says nothing. Merging kept an explicit list of fields and this was
+        # not on it, so whenever the TorrentsDB copy of a torrent arrived
+        # first the Torrentio copy's track list was dropped on the floor -
+        # and that list is the whole reason a Disney+ remux can be offered as
+        # a Hebrew dub instead of a 700 MB XviD. Measured on Tarzan: two of
+        # a hundred and thirty-six streams state their tracks and **none of
+        # the eighty sources that reached the picker did**.
+        #
+        # A union, because the collapse key means the same torrent or the
+        # same file, so both copies are describing one set of tracks and
+        # neither is contradicting the other.
+        if source.get("audio_languages"):
+            languages = list(existing.get("audio_languages") or [])
+            for language in source["audio_languages"]:
+                if language not in languages:
+                    languages.append(language)
+            existing["audio_languages"] = languages
         # Keep whichever title parsed into more detail.
         if _detail(source) > _detail(existing):
             for field in ("title", "quality", "codec", "audio", "dub",

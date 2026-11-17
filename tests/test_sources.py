@@ -1529,3 +1529,57 @@ def test_a_household_that_does_not_read_hebrew_gets_no_exemption(lean):
     lean.languages = ("en",)
     dub = make("A.Film.2024.1080p.BluRay.HebDub.x264", size=12 * 1024 ** 3)
     assert "size limit" in scoring.rejection_reason(dub, lean)
+
+
+# --------------------------------------------------------------------------
+# the audio tracks only one provider states
+# --------------------------------------------------------------------------
+
+
+def _copy(provider, **extra):
+    source = {"hash": "a" * 40, "title": "Toy.Story.5.2026.1080p.WEB-DL.mkv",
+              "size": 2 * 1024 ** 3, "seeders": 10, "provider": provider}
+    source.update(extra)
+    return source
+
+
+def test_the_audio_tracks_survive_a_merge():
+    """Torrentio writes "Multi Audio" and a flag per track; TorrentsDB says
+    nothing, and merging kept an explicit list of fields this was not on.
+
+    So whenever the silent copy of a torrent arrived first, the track list
+    was dropped - and that list is how a Disney+ remux can be offered as a
+    Hebrew dub instead of a 700 MB XviD.
+    """
+    from pinky.sources import model
+
+    merged = model.dedupe([_copy("torrentsdb"),
+                           _copy("torrentio", audio_languages=["en", "he"])])
+    assert len(merged) == 1
+    assert merged[0]["audio_languages"] == ["en", "he"]
+
+
+def test_the_tracks_are_a_union_of_what_each_provider_knew():
+    """Both copies describe one set of tracks, so neither contradicts the
+    other and nothing either knew is thrown away."""
+    from pinky.sources import model
+
+    merged = model.dedupe([_copy("torrentio", audio_languages=["en"]),
+                           _copy("torrentsdb", audio_languages=["he"])])
+    assert merged[0]["audio_languages"] == ["en", "he"]
+
+
+def test_a_track_is_not_listed_twice():
+    from pinky.sources import model
+
+    merged = model.dedupe([_copy("torrentio", audio_languages=["en", "he"]),
+                           _copy("torrentsdb", audio_languages=["he"])])
+    assert merged[0]["audio_languages"] == ["en", "he"]
+
+
+def test_a_source_nobody_described_stays_silent():
+    """An empty list and a missing key must not become a claim."""
+    from pinky.sources import model
+
+    merged = model.dedupe([_copy("torrentsdb"), _copy("torrentio")])
+    assert not merged[0].get("audio_languages")
